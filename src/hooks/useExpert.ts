@@ -87,6 +87,9 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
     riskPreference: row.risk_preference ?? null,
     operationCycle: row.operation_cycle ?? null,
     strategyName: row.strategy_name ?? null,
+    // `get_public_experts_list` 不回傳 asset_class；`get_expert_detail_bundle`
+    // 回傳整列 → 有值才帶，缺值時前台一律退回通用 cadence 句。
+    assetClass: row.asset_class ?? null,
     plans: (row.expert_plans || [])
       .filter((p: any) => p.is_active)
       .map((p: any): Plan => ({

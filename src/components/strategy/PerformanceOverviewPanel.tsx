@@ -1,5 +1,5 @@
 // PerformanceOverviewPanel.tsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -30,9 +30,15 @@ interface PerformanceOverviewPanelProps {
   /** 父層已知的起始資金；若未提供則 fallback 至 RPC 回傳值 */
   startingCapital?: number | null;
   variant?: 'advisor' | 'mentor';
+  /**
+   * Optional state probe for parent layout decisions (e.g. hide the whole
+   * section when there is nothing public to show). Purely additive: when it
+   * is not passed, rendering and queries are byte-identical to before.
+   */
+  onStateChange?: (state: 'loading' | 'error' | 'empty' | 'ready') => void;
 }
 
-export function PerformanceOverviewPanel({ expertId, startingCapital: startingCapitalProp, variant = 'advisor' }: PerformanceOverviewPanelProps) {
+export function PerformanceOverviewPanel({ expertId, startingCapital: startingCapitalProp, variant = 'advisor', onStateChange }: PerformanceOverviewPanelProps) {
   const [period, setPeriod] = useState<ViewPeriod>("monthly");
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -59,7 +65,7 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   const xAnchor = xAngle !== 0 ? 'end' : 'middle';
 
   // Fetch overall performance KPIs (with realtime invalidation, scoped to detail page)
-  const { data: perfData } = useExpertPerformance(expertId);
+  const { data: perfData, isError: perfIsError } = useExpertPerformance(expertId);
   useExpertPerformanceRealtime(expertId);
 
   // R1-P public projection contract: a scope under review never renders numbers.
@@ -74,7 +80,20 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   const totalReturnPct = perfData?.total_return_pct ?? 0;
 
   // Fetch period-bucketed data
-  const { data: performanceData = [], isLoading } = usePeriodPerformance(expertId, period, INITIAL_CAPITAL);
+  const { data: performanceData = [], isLoading, isError: periodIsError } = usePeriodPerformance(expertId, period, INITIAL_CAPITAL);
+
+  // Additive state probe — never changes what this component renders.
+  const panelState: 'loading' | 'error' | 'empty' | 'ready' =
+    perfIsError || periodIsError
+      ? 'error'
+      : isLoading
+        ? 'loading'
+        : performanceData.length === 0
+          ? 'empty'
+          : 'ready';
+  useEffect(() => {
+    onStateChange?.(panelState);
+  }, [panelState, onStateChange]);
 
   const currentAsset = useMemo(() => {
     // Use current_asset from RPC (now: starting + realized + unrealized when starting_capital set)

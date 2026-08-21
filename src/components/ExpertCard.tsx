@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { PersonWithPlans, PlanType } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,18 @@ import { Flame } from 'lucide-react';
 import { avatarUrl } from '@/lib/imageTransform';
 import { intentHandlers } from '@/lib/routePrefetch';
 import { track } from '@/lib/analytics/events';
+import { preserveUtm, utmCampaignOf } from '@/lib/preserveUtm';
+import { cadenceLabel, FUNNEL_ONE_LINER } from '@/lib/complianceCopy';
 interface ExpertCardProps {
   person: PersonWithPlans;
+  /** 漏斗來源標記（例如 'experts_list'）。 */
+  source?: string;
 }
 
-export function ExpertCard({ person }: ExpertCardProps) {
+export function ExpertCard({ person, source }: ExpertCardProps) {
+  const location = useLocation();
+  const search = location.search;
+  const utmCampaign = utmCampaignOf(search);
   const isAdv = person.role === 'advisor';
   const isFeatured = (person as any).isFeatured === true || person.name.includes('趙鵬博');
 
@@ -57,6 +64,9 @@ export function ExpertCard({ person }: ExpertCardProps) {
               <p className="text-sm text-muted-foreground dark:text-white/60 mt-1 line-clamp-2">{person.bio}</p>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+            {cadenceLabel(person.assetClass)}｜{FUNNEL_ONE_LINER}
+          </p>
           <div className="flex flex-wrap gap-1.5 mt-4">
             {person.styleTags.map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
             {person.markets.map(market => <Badge key={market} variant="outline" className="text-xs">{market}</Badge>)}
@@ -70,16 +80,16 @@ export function ExpertCard({ person }: ExpertCardProps) {
         <div className="border-t dark:border-white/10 bg-muted/30 dark:bg-white/[0.03] p-4 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1" asChild>
             <Link
-              to={`/expert/${person.slug}`}
+              to={preserveUtm(`/expert/${person.slug}`, search)}
               {...intentHandlers('expert-profile')}
-              onClick={() => track('expert_card_click', { expert_slug: person.slug })}
+              onClick={() => track('expert_card_click', { expert_slug: person.slug, source, utm_campaign: utmCampaign })}
             >查看介紹</Link>
           </Button>
           <Button variant={isAdv ? 'advisor' : 'mentor'} size="sm" className="flex-1" asChild>
             <Link
-              to={`/expert/${person.slug}#plans`}
+              to={preserveUtm(`/expert/${person.slug}#plans`, search)}
               {...intentHandlers('expert-profile')}
-              onClick={() => track('expert_card_click', { expert_slug: person.slug })}
+              onClick={() => track('expert_card_click', { expert_slug: person.slug, source: source ? `${source}_plans` : 'plans', utm_campaign: utmCampaign })}
             >查看方案</Link>
           </Button>
         </div>

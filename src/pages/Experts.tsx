@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { useExperts } from '@/hooks/useExpert';
 import { ExpertFetchError } from '@/components/ExpertFetchError';
 import { Loader2 } from 'lucide-react';
+import { track } from '@/lib/analytics/events';
+import { FUNNEL_ONE_LINER, DISCLAIMER_TEACHING } from '@/lib/complianceCopy';
 
 const Experts = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,6 +44,7 @@ const Experts = () => {
   }, [allPeople, roleFilter, searchQuery, marketFilter]);
 
   const setRole = (role: 'advisor' | 'coach' | null) => {
+    track('experts_filter_change', { dimension: 'role', value: role ?? 'all' });
     if (role) {
       setSearchParams({ role });
     } else {
@@ -60,12 +63,13 @@ const Experts = () => {
       />
       <div className="container py-8 md:py-12">
         {/* Platform Intro */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-primary/5 to-advisor/5 dark:from-primary/10 dark:to-advisor/10 rounded-2xl border dark:border-white/10">
+        <div className="mb-6 md:mb-8 p-4 md:p-6 bg-gradient-to-r from-primary/5 to-advisor/5 dark:from-primary/10 dark:to-advisor/10 rounded-2xl border dark:border-white/10">
           <div className="max-w-3xl">
-            <h1 className="text-2xl md:text-3xl font-bold mb-3">找到適合你的專家</h1>
-            <p className="text-muted-foreground dark:text-white/60 mb-4">
-              穩健、風險控管、教育為先。我們提供兩種服務路線：
+            <h1 className="text-xl md:text-3xl font-bold mb-2">找到適合你的老師</h1>
+            <p className="text-sm md:text-base text-muted-foreground dark:text-white/60 mb-3 leading-relaxed">
+              {FUNNEL_ONE_LINER}
             </p>
+            <p className="text-xs text-muted-foreground dark:text-white/50 mb-4">{DISCLAIMER_TEACHING}</p>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-advisor/10 dark:bg-advisor/20 dark:ring-1 dark:ring-advisor/30 shrink-0">
@@ -105,9 +109,9 @@ const Experts = () => {
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground mr-2">市場：</span>
-            <Button variant={marketFilter === null ? 'secondary' : 'ghost'} size="sm" onClick={() => setMarketFilter(null)}>全部</Button>
+            <Button variant={marketFilter === null ? 'secondary' : 'ghost'} size="sm" onClick={() => { track('experts_filter_change', { dimension: 'market', value: 'all' }); setMarketFilter(null); }}>全部</Button>
             {markets.map(market => (
-              <Button key={market} variant={marketFilter === market ? 'secondary' : 'ghost'} size="sm" onClick={() => setMarketFilter(market)}>{market}</Button>
+              <Button key={market} variant={marketFilter === market ? 'secondary' : 'ghost'} size="sm" onClick={() => { track('experts_filter_change', { dimension: 'market', value: market }); setMarketFilter(market); }}>{market}</Button>
             ))}
           </div>
         </div>
@@ -127,7 +131,7 @@ const Experts = () => {
         ) : filteredPeople.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPeople.map(person => (
-              <ExpertCard key={person.id} person={person} />
+              <ExpertCard key={person.id} person={person} source="experts_list" />
             ))}
           </div>
         ) : (

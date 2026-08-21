@@ -12,6 +12,15 @@ import { CheckupPlansSection } from './_pricing/CheckupPlansSection';
 import { PricingComparisonSection } from './_pricing/PricingComparisonSection';
 import { trackEvent } from '@/lib/trafficTracker';
 import { track } from '@/lib/analytics/events';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { EvidenceCard } from '@/components/evidence/EvidenceCard';
+import {
+  DELIVERY_STRUCTURE,
+  PUBLISH_MECHANISM_TITLE,
+  PUBLISH_MECHANISM_LINES,
+  FUNNEL_ONE_LINER,
+} from '@/lib/complianceCopy';
 
 
 const Pricing = () => {
@@ -288,6 +297,33 @@ const Pricing = () => {
           onOpenChange={setExampleModalOpen}
           activeExample={activeExample}
         />
+
+        {/* ── 每週交付結構 + 公開機制（中性敘述） ── */}
+        <section className="py-10" aria-label={PUBLISH_MECHANISM_TITLE}>
+          <h2 className="text-h3 mb-2">訂閱之後，每週拿到什麼</h2>
+          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">{FUNNEL_ONE_LINER}</p>
+          <div className="grid gap-4 md:grid-cols-3">
+            {DELIVERY_STRUCTURE.map((d) => (
+              <EvidenceCard key={d.key} title={d.title} description={d.desc} />
+            ))}
+          </div>
+          <details
+            className="mt-5 rounded-lg border p-4"
+            onToggle={(e) => {
+              if ((e.currentTarget as HTMLDetailsElement).open) {
+                track('pricing_mechanism_expand', { section: 'publish_mechanism' });
+              }
+            }}
+          >
+            <summary className="cursor-pointer text-sm font-medium">{PUBLISH_MECHANISM_TITLE}</summary>
+            <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+              {PUBLISH_MECHANISM_LINES.map((line) => <p key={line}>{line}</p>)}
+            </div>
+          </details>
+          <div className="mt-5">
+            <Button size="lg" asChild><Link to="/experts">看看有哪些老師</Link></Button>
+          </div>
+        </section>
 
         <PricingComparisonSection />
 

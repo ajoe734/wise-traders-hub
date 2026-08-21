@@ -15,8 +15,22 @@ import { avatarUrl } from '@/lib/imageTransform';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useExpertDetailBundle } from '@/hooks/useExpert';
 import { ExpertFetchError } from '@/components/ExpertFetchError';
-import { useEffect } from 'react';
-import { trackEvent } from '@/lib/trafficTracker';
+import { useEffect, useState, useCallback } from 'react';
+import { track } from '@/lib/analytics/events';
+import { preserveUtm, utmCampaignOf } from '@/lib/preserveUtm';
+import {
+  FUNNEL_ONE_LINER,
+  CHECKUP_SECONDARY_CTA,
+  NO_PUBLIC_RECORD,
+  DISCLAIMER_SHORT,
+  PUBLISH_MECHANISM_TITLE,
+  PUBLISH_MECHANISM_LINES,
+  cadenceLabel,
+} from '@/lib/complianceCopy';
+import { DeliveryCards } from '@/pages/_expert/DeliveryCards';
+import { SampleStructureCard } from '@/pages/_expert/SampleStructureCard';
+import { FitCard } from '@/pages/_expert/FitCard';
+import { StickyPlanCta } from '@/pages/_expert/StickyPlanCta';
 
 
 const PerformanceOverviewPanel = lazy(() =>
@@ -32,6 +46,14 @@ const ExpertProfile = () => {
   const { user, hasRole } = useAuth();
   const fromAccount = searchParams.get('from') === 'account';
   const fromExplore = searchParams.get('from') === 'explore';
+  const search = searchParams.toString();
+  const utmCampaign = utmCampaignOf(search);
+  const funnelSource = searchParams.get('utm_source') || undefined;
+  const [evidenceState, setEvidenceState] = useState<'loading' | 'error' | 'empty' | 'ready'>('loading');
+  const handleEvidenceState = useCallback(
+    (st: 'loading' | 'error' | 'empty' | 'ready') => setEvidenceState(st),
+    []
+  );
   const isPreview = searchParams.get('preview') === '1' && (
     (user?.expertSlug && user.expertSlug === slug) || hasRole('company_admin')
   );
@@ -55,8 +77,15 @@ const ExpertProfile = () => {
   const loading = bundleLoading && !expert;
 
   useEffect(() => {
-    if (expert?.id) trackEvent('expert_profile_view', { expert_id: expert.id, slug: expert.slug, role: expert.role });
-  }, [expert?.id, expert?.slug, expert?.role]);
+    if (expert?.id) {
+      // 單一 profile view 事件（typed），帶漏斗來源；不再另發 raw 重複事件。
+      track('expert_profile_view', {
+        expert_slug: expert.slug,
+        source: funnelSource,
+        utm_campaign: utmCampaign,
+      });
+    }
+  }, [expert?.id, expert?.slug, funnelSource, utmCampaign]);
 
 
   // Adapt `PersonWithPlans` → the panel/render shape this file used before.
@@ -71,6 +100,7 @@ const ExpertProfile = () => {
         riskPreference: expert.riskPreference || '',
         operationCycle: expert.operationCycle || '',
         avatarUrl: expert.avatarUrl || '/placeholder.svg',
+        assetClass: expert.assetClass ?? null,
         role: expert.role,
         styleTags: expert.styleTags || [],
         markets: expert.markets || [],
@@ -232,6 +262,29 @@ const ExpertProfile = () => {
                     <Badge key={market} variant="outline" className="text-sm px-3 py-1">{market}</Badge>
                   ))}
                 </div>
+                {/* 一句交付 + 主／次 CTA（手機優先） */}
+                <p className="text-base text-foreground/90 leading-relaxed max-w-2xl">{FUNNEL_ONE_LINER}</p>
+                <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                  <Button
+                    size="lg"
+                    variant={isAdvisor ? ('advisor' as any) : ('mentor' as any)}
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      track('expert_subscribe_click', {
+                        expert_slug: slug || '',
+                        source: 'hero',
+                        utm_campaign: utmCampaign,
+                      });
+                      document.getElementById('plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                  >
+                    查看訂閱方案
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
+                    <Link to={preserveUtm('/holding-checkup', search)}>{CHECKUP_SECONDARY_CTA}</Link>
+                  </Button>
+                </div>
                 {/* Social Proof */}
                 {subscriberCount !== null && subscriberCount > 0 && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
@@ -244,6 +297,29 @@ const ExpertProfile = () => {
           </div>
         </section>
 
+
+        {/* ── 每週交付結構（結構樣本，非節錄） ── */}
+        <section aria-label="每週交付">
+          <div className="flex items-center gap-2 mb-6">
+            <Clock className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
+            <h2 className="text-h3">你每週會拿到什麼</h2>
+          </div>
+          <div className="space-y-4">
+            <DeliveryCards
+              expertSlug={slug || ''}
+              cadence={cadenceLabel(expertInfo.assetClass)}
+              utmCampaign={utmCampaign}
+            />
+            <div className="grid gap-4 md:grid-cols-2">
+              <SampleStructureCard expertSlug={slug || ''} utmCampaign={utmCampaign} />
+              <FitCard
+                riskPreference={expertInfo.riskPreference}
+                operationCycle={expertInfo.operationCycle}
+                styleTags={expertInfo.styleTags}
+              />
+            </div>
+          </div>
+        </section>
 
         {/* ── 策略簡介 Section ── */}
         {(expertInfo.styleTags.length > 0 || expertInfo.markets.length > 0 || expertInfo.riskPreference || expertInfo.operationCycle || expertInfo.strategyName || expertInfo.strategySummary) && (
@@ -320,15 +396,24 @@ const ExpertProfile = () => {
             <Target className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
             <h2 className="text-h3">績效總覽</h2>
           </div>
-          <LazyOnVisible minHeight={400} rootMargin="300px">
-            <Suspense fallback={<div className="h-96 rounded-lg bg-muted/30 animate-pulse" />}>
-              <PerformanceOverviewPanel
-                expertId={expertInfo.id}
-                startingCapital={expertInfo.startingCapital}
-                variant={isAdvisor ? 'advisor' : 'mentor'}
-              />
-            </Suspense>
-          </LazyOnVisible>
+          {evidenceState === 'empty' && (
+            <Card><CardContent className="p-6 text-center text-muted-foreground">{NO_PUBLIC_RECORD}</CardContent></Card>
+          )}
+          {evidenceState === 'error' && (
+            <Card><CardContent className="p-6 text-center text-muted-foreground">資料暫時無法取得</CardContent></Card>
+          )}
+          <div className={cn(evidenceState === 'empty' || evidenceState === 'error' ? 'hidden' : '')}>
+            <LazyOnVisible minHeight={400} rootMargin="300px">
+              <Suspense fallback={<div className="h-96 rounded-lg bg-muted/30 animate-pulse" />}>
+                <PerformanceOverviewPanel
+                  expertId={expertInfo.id}
+                  startingCapital={expertInfo.startingCapital}
+                  variant={isAdvisor ? 'advisor' : 'mentor'}
+                  onStateChange={handleEvidenceState}
+                />
+              </Suspense>
+            </LazyOnVisible>
+          </div>
         </section>
 
 
@@ -401,8 +486,8 @@ const ExpertProfile = () => {
                       ) : (
                         <Button variant={isFollowerType ? 'advisor' as any : 'mentor' as any} size="xl" className="w-full" asChild>
                           <Link
-                            to={`/checkout/${slug}/${plan.id}`}
-                            onClick={() => trackEvent('expert_subscribe_click', { expert_id: expert?.id, plan_id: plan.id, plan_type: (plan as any).planType ?? (plan as any).plan_type, price_monthly: (plan as any).priceMonthly ?? (plan as any).price_monthly })}
+                            to={preserveUtm(`/checkout/${slug}/${plan.id}`, search)}
+                            onClick={() => track('expert_subscribe_click', { expert_slug: slug || '', plan_id: plan.id, source: 'plan_card', utm_campaign: utmCampaign })}
                           >立即訂閱<ArrowRight className="h-4 w-4 ml-2" /></Link>
                         </Button>
 
@@ -415,11 +500,35 @@ const ExpertProfile = () => {
           )}
         </section>
 
+        {/* ── 公開機制（中性敘述） ── */}
+        <section aria-label={PUBLISH_MECHANISM_TITLE}>
+          <div className="flex items-center gap-2 mb-4">
+            <Shield className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
+            <h2 className="text-h3">{PUBLISH_MECHANISM_TITLE}</h2>
+          </div>
+          <Card>
+            <CardContent className="p-5 space-y-2 text-sm text-muted-foreground">
+              {PUBLISH_MECHANISM_LINES.map((line) => <p key={line}>{line}</p>)}
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Compliance Disclaimer */}
         <div className="compliance-disclaimer">
-          <p>過去績效不代表未來表現，投資有風險，請謹慎評估。</p>
+          <p>{DISCLAIMER_SHORT}</p>
         </div>
+
+        {/* 手機 sticky CTA 佔位，避免遮住頁尾 */}
+        <div className="h-20 md:hidden" aria-hidden="true" />
       </div>
+      {!isPreview && (
+        <StickyPlanCta
+          to={null}
+          label="查看訂閱方案"
+          variant={isAdvisor ? 'advisor' : 'mentor'}
+          onClick={() => track('expert_subscribe_click', { expert_slug: slug || '', source: 'sticky', utm_campaign: utmCampaign })}
+        />
+      )}
     </PortalLayout>
   );
 };

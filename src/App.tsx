@@ -8,12 +8,15 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "
 // 短連結重導（/s/:slug → /expert/:slug），方便寫在 IG bio。
 const ShortExpertRedirect = () => {
   const { slug } = useParams<{ slug: string }>();
-  return <Navigate to={`/expert/${slug || ''}`} replace />;
+  const location = useLocation();
+  // 保留白名單 utm_*，其餘 query 丟棄。
+  return <Navigate to={preserveUtm(`/expert/${slug || ''}`, location.search)} replace />;
 };
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect } from "react";
 import { prefetchHighTrafficRoutes } from "@/lib/routePrefetch";
 import { resolveLegacyPath } from "@/lib/legacyRoutes";
+import { preserveUtm } from "@/lib/preserveUtm";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DisplayCurrencyProvider } from "@/contexts/DisplayCurrencyContext";

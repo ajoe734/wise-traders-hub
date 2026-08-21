@@ -18,8 +18,13 @@ export type AnalyticsEvent =
   | { name: 'home_section_view'; props: { section: string } }
   | { name: 'home_cta_click'; props: { cta: string; section?: string } }
   | { name: 'experts_list_view'; props?: Record<string, unknown> }
-  | { name: 'expert_card_click'; props: { expert_slug: string } }
-  | { name: 'expert_profile_view'; props: { expert_slug: string } }
+  | { name: 'expert_card_click'; props: { expert_slug: string; source?: string; utm_campaign?: string } }
+  | { name: 'expert_profile_view'; props: { expert_slug: string; source?: string; utm_campaign?: string } }
+  // Funnel (IG → expert → plan) — product-internal behaviour, no GTM mirror
+  | { name: 'view_weekly_sample'; props: { expert_slug: string; utm_campaign?: string } }
+  | { name: 'expert_delivery_section_view'; props: { expert_slug: string; utm_campaign?: string } }
+  | { name: 'experts_filter_change'; props: { dimension: 'role' | 'market' | 'search'; value: string } }
+  | { name: 'pricing_mechanism_expand'; props?: { section?: string } }
   | { name: 'leaderboard_view'; props?: { source?: string } }
   | { name: 'leaderboard_card_click'; props: { instrument: string; expert_slug?: string } }
   | { name: 'pricing_view'; props?: Record<string, unknown> }
@@ -46,8 +51,8 @@ export type AnalyticsEvent =
   | { name: 'subscribed_experts_view'; props?: Record<string, unknown> }
   | { name: 'expert_detail_view'; props: { expert_slug: string } }
   // Checkout funnel
-  | { name: 'expert_subscribe_click'; props: { expert_slug: string; plan_id?: string } }
-  | { name: 'checkout_open'; props: { plan_id?: string; expert_slug?: string } }
+  | { name: 'expert_subscribe_click'; props: { expert_slug: string; plan_id?: string; source?: string; utm_campaign?: string } }
+  | { name: 'checkout_open'; props: { plan_id?: string; expert_slug?: string; source?: string; utm_campaign?: string } }
   | { name: 'checkout_consent_accept'; props?: { plan_id?: string } }
   | { name: 'checkout_payment_method_select'; props: { method: string } }
   | { name: 'checkout_submit'; props: { plan_id?: string; method?: string } }
