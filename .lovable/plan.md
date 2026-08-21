@@ -7,7 +7,7 @@
 | 已刪除 | 原因 |
 |---|---|
 | `useExpertPublicRhythm.ts`：前端 direct SELECT `trade_records` 算最近週次／筆數 | 擴大匿名資料面，且 policy 需再驗。**整條刪除**，不以任何形式保留 |
-| Phase 4 SECURITY DEFINER teaser RPC | 移出本次實作，列 Future / Not approved |
+| Phase 4 公開 teaser 資料介面（原寫死 SECURITY DEFINER RPC） | 移出本次實作；改列 Future 且**不預設實作形式**，須另案 security design |
 | Phase 5 `expert_signals.forward_watchlist` / `forward_conditions` 欄位 | 移出本次實作，列 Future / Not approved |
 | `checkout?plan=…` 假路徑 | 實際路徑為 `/checkout/:slug/:planId`（`src/App.tsx:280`） |
 | 新事件 `select_plan` / `checkout_start` | 與既有 `expert_subscribe_click` / `checkout_open` 重複，改為擴充 props |
@@ -94,7 +94,10 @@ UTM 保留由新增純函式 `src/lib/preserveUtm.ts`（whitelist：utm_source/m
    - loading → skeleton；error → 既有 `ExpertFetchError` inline；
    - empty → **整個「績效總覽」section 不渲染**（連標題一起隱藏），改在 Delivery 區下方一行「尚無可公開紀錄」；
    - ready → 現行畫面。**永不顯示假 0**（沿用 `publicProjection` 遮蔽字串）。
-   狀態由 panel 透過 `onStateChange` callback 上拋（前端 props，不改資料流）。
+   **exact API 查證結果**：`src/components/strategy/PerformanceOverviewPanel.tsx`，現有 props 僅 `{ expertId, startingCapital?, variant? }`（L26-32），**grep 確認無 `onStateChange` / `isError` / `isEmpty` 任何回呼**，內部只有 `usePeriodPerformance` 的 `isLoading` 與 `useProjectionStatus`。故無既有回呼可重用 → 必須改本體：新增 optional prop `onStateChange?: (s: 'loading'|'error'|'empty'|'ready') => void`，以 `useEffect` 上拋，**不改任何現有 props、query 與渲染路徑**（未傳入時行為逐字不變）。
+   - 該 exact 檔 `src/components/strategy/PerformanceOverviewPanel.tsx` **已加入 allowlist**（見下）。
+   - 新增 unit regression `src/test/unit/performanceOverviewPanel.state.test.tsx`：斷言四狀態各觸發一次、未傳 `onStateChange` 時不 throw、既有兩個 caller（`ExpertProfile.tsx`、`src/pages/app/ExpertDetail.tsx`）render baseline 不變。
+   - **不得出現 allowlist 外的隱性改檔**：`usePeriodPerformance` / `useProjectionStatus` / `publicProjection.ts` / `PerformanceReviewNotice.tsx` 全部 no-touch。
 5. **適合／不適合**：只由 `riskPreference` / `operationCycle` / `styleTags` 生成，缺值不渲染該行。
 6. **方案 + sticky CTA** → `/checkout/:slug/:planId` + preserved UTM；`#plans` anchor 保留。
 
@@ -167,9 +170,11 @@ UTM 保留由新增純函式 `src/lib/preserveUtm.ts`（whitelist：utm_source/m
   e2e/funnel-ig.spec.ts
   src/test/unit/complianceCopy.test.ts
   src/test/unit/preserveUtm.test.ts
+  src/test/unit/performanceOverviewPanel.state.test.tsx
 修改：
   src/index.css                       （只新增 .evidence-surface 區塊）
   src/pages/ExpertProfile.tsx
+  src/components/strategy/PerformanceOverviewPanel.tsx   （只加 optional onStateChange prop）
   src/hooks/useExpert.ts              （mapper 補 assetClass；查詢不變）
   src/types/index.ts                  （PersonWithPlans 加 assetClass?）
   src/pages/Experts.tsx
@@ -190,7 +195,7 @@ UTM 保留由新增純函式 `src/lib/preserveUtm.ts`（whitelist：utm_source/m
 
 ```bash
 tsgo --noEmit
-bunx vitest run src/test/unit/complianceCopy.test.ts src/test/unit/preserveUtm.test.ts
+bunx vitest run src/test/unit/complianceCopy.test.ts src/test/unit/preserveUtm.test.ts src/test/unit/performanceOverviewPanel.state.test.tsx
 bun scripts/run-tests.mjs                       # full regression
 bunx playwright test e2e/funnel-ig.spec.ts
 bunx playwright test e2e/freecheckup-card.spec.ts   # holding-checkup 不回歸
@@ -208,7 +213,7 @@ node scripts/check-module-boundaries.mjs
 4. `#plans` anchor 捲動生效。
 5. `/s/:slug?utm_source=ig&utm_campaign=x` → 轉址後 URL 仍含 utm。
 6. plan CTA href 逐字比對 `/checkout/<slug>/<planId>` 且帶 utm。
-7. 登出狀態：頁面不出現任何訂閱內容；network 無 `expert_signals` 請求。
+7. 登出狀態：頁面不出現任何訂閱內容；network **對 `trade_records` 與 `expert_signals` 兩表的請求數皆為 0**（含 `/rest/v1/trade_records*`、`/rest/v1/expert_signals*`、以及任何 embed 帶到這兩表的查詢字串）。
 8. console error = 0、4xx/5xx = 0（ready 場景）。
 9. a11y：CTA accessible name、focus ring 可見、對比 ≥4.5。
 10. master-brian 顯示「尚無可公開紀錄」，畫面無 `0` 假數字、無空白 section。
@@ -230,10 +235,17 @@ node scripts/check-module-boundaries.mjs
 | **1 scoped evidence system** | `.evidence-surface` CSS 區塊 + 三個 evidence 元件 | grep 確認 `:root`/`.dark` 無 `--ev-`；holding-checkup 截圖零 diff | 移除 CSS 區塊與新元件 |
 | **2 ExpertProfile 漏斗核心** | Delivery 三卡、結構樣本、cadence、Evidence 四狀態、適合/不適合、sticky CTA、`assetClass` mapper、`/s/:slug` query 保留 | E2E 1-11 綠（三位老師） | 還原 `ExpertProfile.tsx` / `useExpert.ts` / `App.tsx`，其餘為新增檔 |
 | **3 Experts + Pricing + 最小首頁橋接** | `/experts` 首屏與卡片 variant、`/pricing` 去 carousel + 機制段 + 健檢次級 CTA、首頁兩個 section 語彙統一 | 390x844 acceptance 全數通過；E2E 12 baseline 不變 | per-file revert |
-| **4 full E2E / visual receipts** | 跑完整測試命令表，落盤截圖與 log | 全綠 receipt | 無程式碼變更 |
+| **4 full E2E / visual receipts + guard** | 跑完整測試命令表，落盤截圖與 log，並執行下列 static/network guard | 全綠 receipt + guard 兩項皆 0 | 無程式碼變更 |
+
+#### Phase 4 static / network guard（receipt 必列）
+
+1. **Static**：對本次 allowlist 的**所有新增與修改檔**執行
+   `rg -n "supabase\.from\(\s*['\"](trade_records|expert_signals)['\"]" <allowlist files>`
+   → 命中數必須為 **0**。任一命中即 Phase 4 FAIL，不得以註解或動態字串規避（同時 grep `from(\`` 與變數表名樣式）。
+2. **Network**：logged-out E2E（`e2e/funnel-ig.spec.ts` 全部三位老師、`/experts`、`/pricing`、首頁）攔截所有 request，對 `trade_records`、`expert_signals` 的請求計數必須為 **0**，計數與 URL 清單落盤到 receipt。
 
 ### Future / Not approved（本次不做，需另案核准）
 
-- 公開週記 teaser 的 SECURITY DEFINER RPC（DB 變更）
-- `expert_signals` 前瞻欄位 `forward_watchlist` / `forward_conditions`（schema 變更）
-- 由公開資料導出「最近週次／本週筆數」數字（需新 RPC）
+- 公開週記 teaser / 公開 projection：**不預設任何實作形式**。若日後要做，需另案提出獨立的 privacy-safe security design——預設 `security_invoker`、最小欄位揭露、明確 anon 授權邊界，並完成完整 RLS 驗證與 clone rehearsal；**是否採用 SECURITY DEFINER 屬該案的設計決策，本計畫不預設、不背書**。本次 **Not approved**。
+- `expert_signals` 前瞻欄位 `forward_watchlist` / `forward_conditions`（schema 變更）。本次 Not approved。
+- 由公開資料導出「最近週次／本週筆數」數字（需新資料介面，同上需另案 security design）。本次 Not approved。
