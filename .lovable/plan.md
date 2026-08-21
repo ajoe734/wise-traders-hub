@@ -175,6 +175,13 @@ UTM 保留由新增純函式 `src/lib/preserveUtm.ts`（whitelist：utm_source/m
   src/pages/ExpertProfile.tsx
   src/hooks/useExpert.ts              （mapper 補 assetClass；查詢不變）
   src/types/index.ts                  （PersonWithPlans 加 assetClass?）
+  src/test/unit/performanceOverviewPanel.state.test.tsx
+修改：
+  src/index.css                       （只新增 .evidence-surface 區塊）
+  src/pages/ExpertProfile.tsx
+  src/components/strategy/PerformanceOverviewPanel.tsx   （只加 optional onStateChange prop）
+  src/hooks/useExpert.ts              （mapper 補 assetClass；查詢不變）
+  src/types/index.ts                  （PersonWithPlans 加 assetClass?）
   src/pages/Experts.tsx
   src/components/ExpertCard.tsx       （新增 variant，預設行為不變）
   src/pages/Pricing.tsx
