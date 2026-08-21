@@ -50,7 +50,7 @@ export function PublicSampleDialog({ open, onOpenChange, expertId, expertName }:
     (async () => {
       const { data, error } = await supabase
         .from('expert_signals')
-        .select('id, published_at, symbol, overall_summary, reason_summary, reason_detail, risk_notes, learning_points')
+        .select('id, published_at, instrument, overall_summary, reason_summary, reason_detail, risk_notes, learning_points')
         .eq('expert_id', expertId)
         .eq('status', 'published')
         .not('published_at', 'is', null)
@@ -62,7 +62,7 @@ export function PublicSampleDialog({ open, onOpenChange, expertId, expertName }:
       setRows((data ?? []).map((d) => ({
         id: d.id,
         published_at: d.published_at,
-        symbol: (d as { symbol?: string | null }).symbol ?? null,
+        symbol: (d as { instrument?: string | null }).instrument ?? null,
         values: {
           overall_summary: d.overall_summary, reason_summary: d.reason_summary,
           reason_detail: d.reason_detail, risk_notes: d.risk_notes,
