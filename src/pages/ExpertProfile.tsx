@@ -16,7 +16,6 @@ import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useExpertDetailBundle } from '@/hooks/useExpert';
 import { ExpertFetchError } from '@/components/ExpertFetchError';
 import { useEffect, useState, useCallback } from 'react';
-import { trackEvent } from '@/lib/trafficTracker';
 import { track } from '@/lib/analytics/events';
 import { preserveUtm, utmCampaignOf } from '@/lib/preserveUtm';
 import {
