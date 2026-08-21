@@ -83,6 +83,8 @@ export interface Person {
   riskPreference?: string | null;
   operationCycle?: string | null;
   strategyName?: string | null;
+  /** experts.asset_class；清單 RPC 不回傳 → 可能為 null。 */
+  assetClass?: string | null;
 }
 
 export interface TradingSystem {
