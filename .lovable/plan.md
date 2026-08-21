@@ -235,10 +235,17 @@ node scripts/check-module-boundaries.mjs
 | **1 scoped evidence system** | `.evidence-surface` CSS 區塊 + 三個 evidence 元件 | grep 確認 `:root`/`.dark` 無 `--ev-`；holding-checkup 截圖零 diff | 移除 CSS 區塊與新元件 |
 | **2 ExpertProfile 漏斗核心** | Delivery 三卡、結構樣本、cadence、Evidence 四狀態、適合/不適合、sticky CTA、`assetClass` mapper、`/s/:slug` query 保留 | E2E 1-11 綠（三位老師） | 還原 `ExpertProfile.tsx` / `useExpert.ts` / `App.tsx`，其餘為新增檔 |
 | **3 Experts + Pricing + 最小首頁橋接** | `/experts` 首屏與卡片 variant、`/pricing` 去 carousel + 機制段 + 健檢次級 CTA、首頁兩個 section 語彙統一 | 390x844 acceptance 全數通過；E2E 12 baseline 不變 | per-file revert |
-| **4 full E2E / visual receipts** | 跑完整測試命令表，落盤截圖與 log | 全綠 receipt | 無程式碼變更 |
+| **4 full E2E / visual receipts + guard** | 跑完整測試命令表，落盤截圖與 log，並執行下列 static/network guard | 全綠 receipt + guard 兩項皆 0 | 無程式碼變更 |
+
+#### Phase 4 static / network guard（receipt 必列）
+
+1. **Static**：對本次 allowlist 的**所有新增與修改檔**執行
+   `rg -n "supabase\.from\(\s*['\"](trade_records|expert_signals)['\"]" <allowlist files>`
+   → 命中數必須為 **0**。任一命中即 Phase 4 FAIL，不得以註解或動態字串規避（同時 grep `from(\`` 與變數表名樣式）。
+2. **Network**：logged-out E2E（`e2e/funnel-ig.spec.ts` 全部三位老師、`/experts`、`/pricing`、首頁）攔截所有 request，對 `trade_records`、`expert_signals` 的請求計數必須為 **0**，計數與 URL 清單落盤到 receipt。
 
 ### Future / Not approved（本次不做，需另案核准）
 
-- 公開週記 teaser 的 SECURITY DEFINER RPC（DB 變更）
-- `expert_signals` 前瞻欄位 `forward_watchlist` / `forward_conditions`（schema 變更）
-- 由公開資料導出「最近週次／本週筆數」數字（需新 RPC）
+- 公開週記 teaser / 公開 projection：**不預設任何實作形式**。若日後要做，需另案提出獨立的 privacy-safe security design——預設 `security_invoker`、最小欄位揭露、明確 anon 授權邊界，並完成完整 RLS 驗證與 clone rehearsal；**是否採用 SECURITY DEFINER 屬該案的設計決策，本計畫不預設、不背書**。本次 **Not approved**。
+- `expert_signals` 前瞻欄位 `forward_watchlist` / `forward_conditions`（schema 變更）。本次 Not approved。
+- 由公開資料導出「最近週次／本週筆數」數字（需新資料介面，同上需另案 security design）。本次 Not approved。
