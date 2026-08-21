@@ -7,7 +7,7 @@
 | 已刪除 | 原因 |
 |---|---|
 | `useExpertPublicRhythm.ts`：前端 direct SELECT `trade_records` 算最近週次／筆數 | 擴大匿名資料面，且 policy 需再驗。**整條刪除**，不以任何形式保留 |
-| Phase 4 SECURITY DEFINER teaser RPC | 移出本次實作，列 Future / Not approved |
+| Phase 4 公開 teaser 資料介面（原寫死 SECURITY DEFINER RPC） | 移出本次實作；改列 Future 且**不預設實作形式**，須另案 security design |
 | Phase 5 `expert_signals.forward_watchlist` / `forward_conditions` 欄位 | 移出本次實作，列 Future / Not approved |
 | `checkout?plan=…` 假路徑 | 實際路徑為 `/checkout/:slug/:planId`（`src/App.tsx:280`） |
 | 新事件 `select_plan` / `checkout_start` | 與既有 `expert_subscribe_click` / `checkout_open` 重複，改為擴充 props |
