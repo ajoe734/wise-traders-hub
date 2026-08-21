@@ -16,6 +16,7 @@ import { useAdminSignals } from '@/hooks/useAdminSignals';
 import { SignalsTable } from '@/pages/_adminSignals/SignalsTable';
 import { SignalCreateDialog } from '@/pages/_adminSignals/SignalCreateDialog';
 import { EarlyPublishDialog } from '@/pages/_adminSignals/EarlyPublishDialog';
+import { PublicSampleDialog } from '@/pages/_adminSignals/PublicSampleDialog';
 import {
   computeAddBuySignalIds, computeBatchInfo, computeHoldingSummary, filterSignals,
 } from '@/pages/_adminSignals/derive';
@@ -55,6 +56,7 @@ const AdminSignals = () => {
   const authoringWindowLabel = market === 'US' ? '週一~週六 08:00 前撰寫' : '週一~五撰寫';
 
   const [earlyPublishOpen, setEarlyPublishOpen] = useState(false);
+  const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
   const [earlyPublishing, setEarlyPublishing] = useState(false);
   const promptedPendingRef = useRef(false);
 
@@ -220,6 +222,11 @@ const AdminSignals = () => {
               </p>
             )}
             <div className="flex gap-2">
+              {isMentor && isCompanyAdmin && (
+                <Button variant="outline" onClick={() => setSampleDialogOpen(true)}>
+                  公開週記範例
+                </Button>
+              )}
               {isMentor && pendingCount > 0 && !isReadOnly && (
                 <Button
                   variant="outline"
@@ -252,6 +259,13 @@ const AdminSignals = () => {
             />
           </div>
         </div>
+
+        <PublicSampleDialog
+          open={sampleDialogOpen}
+          onOpenChange={setSampleDialogOpen}
+          expertId={expert?.id}
+          expertName={expert?.name}
+        />
 
         <EarlyPublishDialog
           open={earlyPublishOpen}

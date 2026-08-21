@@ -27,7 +27,7 @@ import {
   cadenceLabel,
 } from '@/lib/complianceCopy';
 import { DeliveryCards } from '@/pages/_expert/DeliveryCards';
-import { SampleStructureCard } from '@/pages/_expert/SampleStructureCard';
+import { RealSampleCard } from '@/pages/_expert/RealSampleCard';
 import { FitCard } from '@/pages/_expert/FitCard';
 import { StickyPlanCta } from '@/pages/_expert/StickyPlanCta';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
@@ -299,7 +299,7 @@ const ExpertProfile = () => {
               utmCampaign={utmCampaign}
             />
             <div className="grid gap-4 md:grid-cols-2">
-              <SampleStructureCard expertSlug={slug || ''} utmCampaign={utmCampaign} />
+              <RealSampleCard expertSlug={slug || ''} utmCampaign={utmCampaign} />
               <FitCard
                 riskPreference={expertInfo.riskPreference}
                 operationCycle={expertInfo.operationCycle}
