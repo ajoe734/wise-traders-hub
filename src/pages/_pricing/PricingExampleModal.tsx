@@ -109,14 +109,14 @@ export function PricingExampleModal({ open, onOpenChange, activeExample }: Prici
         ) : (
           <div className="space-y-6 mt-4">
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">週報教學樣式</h4>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">當週復盤樣式</h4>
               <Card className="border-border hover:border-mentor/30">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">01/06 ~ 01/12</span>
                     <Badge variant="mentor-light" className="text-[10px] ml-auto">
-                      已解鎖（T+7 歷史）
+                      已公開週次
                     </Badge>
                   </div>
                   <h3 className="font-semibold mb-2">本週我怎麼看待漲停追價</h3>
@@ -142,7 +142,7 @@ export function PricingExampleModal({ open, onOpenChange, activeExample }: Prici
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">本週交易紀錄樣式</h4>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">當週操作紀錄樣式</h4>
               <Card className="bg-muted/30">
                 <CardContent className="p-4">
                   <div className="space-y-3">

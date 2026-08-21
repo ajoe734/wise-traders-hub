@@ -13,7 +13,7 @@ const ROWS: Row[] = [
   {
     label: '訊號時效',
     follower: '即時 LINE 通知，分析師下單同步推播',
-    cultivator: 'T+7 週記，週末公開上週完整紀錄',
+    cultivator: '每週固定週次公開，內容為當週操作復盤',
     emphasis: 'follower',
   },
   {
@@ -25,7 +25,7 @@ const ROWS: Row[] = [
   {
     label: '你會拿到的內容',
     follower: '進出場價位、部位比重、即時策略拆解',
-    cultivator: '上週交易紀錄、心法框架、下週判斷依據',
+    cultivator: '當週操作復盤、判斷依據、下週研究清單與觀察條件',
     emphasis: 'both',
   },
   {
@@ -35,9 +35,9 @@ const ROWS: Row[] = [
     emphasis: 'cultivator',
   },
   {
-    label: '出手節奏',
+    label: '使用節奏',
     follower: '跟隨分析師的當日／短線節奏',
-    cultivator: '週末消化、下週再出手，較少盤中干擾',
+    cultivator: '週末消化整週紀錄與觀察框架，較少盤中干擾',
     emphasis: 'cultivator',
   },
   {
@@ -63,7 +63,7 @@ export function PricingComparisonSection() {
           方案差異一次看懂
         </h2>
         <p className="text-sm text-muted-foreground">
-          投顧分析師的「即時訂閱」 vs 實戰導師的「T+7 週記／修煉派」
+          投顧分析師的「即時訂閱」 vs 實戰導師的「每週復盤／修煉派」
         </p>
       </div>
 
@@ -75,7 +75,7 @@ export function PricingComparisonSection() {
           aria-describedby="pricing-comparison-title"
         >
           <caption className="sr-only">
-            跟單派（分析師即時訂閱）與修煉派（實戰導師 T+7 週記）方案差異比較
+            跟單派（分析師即時訂閱）與修煉派（實戰導師每週復盤）方案差異比較
           </caption>
           <thead>
             <tr className="bg-muted/40">
@@ -92,7 +92,7 @@ export function PricingComparisonSection() {
 
                 <div className="flex items-center gap-2 text-mentor">
                   <BookOpen className="h-4 w-4" />
-                  修煉派 · 實戰導師 T+7 週記
+                  修煉派 · 實戰導師每週復盤
                 </div>
               </th>
             </tr>

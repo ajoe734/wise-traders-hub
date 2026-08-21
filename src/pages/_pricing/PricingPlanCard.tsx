@@ -18,7 +18,7 @@ export interface PricingPlan {
   painPoint: string;
   quickChips: string[];
   features: string[];
-  /** 額外的學習重點條列（例如修煉派「心法決定下週出手」拆解） */
+  /** 額外的學習重點條列（例如修煉派「當週復盤／下週觀察框架」拆解） */
   mindsetPoints?: { title: string; points: string[] };
   cta: string;
   ctaText: string;
