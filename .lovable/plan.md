@@ -181,11 +181,12 @@ gate 仍 `legacy_config_missing`（blocked=true），部署即全關，零 ungua
 ## Stage S3B-C1 — CAS 宣告顯式 availability truth（**只有 SQL，不含 edge**）
 **Actions**（單一 migration / 單一交易）
 1. `SELECT config, version INTO … FROM public.tw_bsr_sync_config WHERE key='market_batch' FOR UPDATE;`（列缺 → `RAISE EXCEPTION 'gate_row_missing'`）
-2. **冪等優先判定**：先檢查是否為 canonical v8 —
-   `admission_blocked = true` **且** `admission_reason='provider_plan_rejected'` **且** `admission_terminal_code='finmind_admission_provider_plan_rejected'` **且** `admission_blocked_at`、`admission_run_id`、`admission_nonce`、`admission_evidence` 皆存在且型別正確 → **no-op 成功返回**（不 bump version、不再寫 audit）。
-3. **partial / mismatched**：若含任一 `admission_*` 鍵但不完全符合 canonical → `RAISE EXCEPTION 'admission_state_partial_or_mismatched'`（**不吞掉**）。
-4. **否則要求 exact preimage**：`version = 7` 且 `md5(config::text) = 'dd747a45d3e46b2acc3f0c021bc269f8'`；不符 → `RAISE EXCEPTION 'preimage_mismatch'`。
-5. 原子 merge canonical 六鍵 + `version = version + 1` + `updated_at = now()`；`PERFORM private_bsr.assert_sanitized(<evidence>,0)`。
+2. **冪等優先判定（canonical v8 = row `version`=8 且 7 個 `admission_*` 鍵全齊全且值/型別正確）**：
+   `version = 8` **且** `admission_blocked = true`（JSON boolean）**且** `admission_reason = 'provider_plan_rejected'` **且** `admission_terminal_code = 'finmind_admission_provider_plan_rejected'` **且** `admission_blocked_at`（ISO timestamptz 字串）、`admission_run_id`（uuid 字串）、`admission_nonce`（非空字串）、`admission_evidence`（jsonb object，含 §C1-6 欄位）皆存在且型別正確 → **no-op 成功返回**（不 bump version、不再寫 audit/degrade）。
+   canonical 鍵集合恰為 **7 鍵**：`admission_blocked, admission_reason, admission_terminal_code, admission_blocked_at, admission_run_id, admission_nonce, admission_evidence`。
+3. **partial / mismatched**：只要含任一 `admission_*` 鍵而**未完整符合上述 v8 canonical**（含 `version <> 8`、缺任一鍵、多出未定義 `admission_*` 鍵、型別或值不符）→ `RAISE EXCEPTION 'admission_state_partial_or_mismatched'`（**不吞掉、不自動修補**）。
+4. **否則（完全無 `admission_*` 鍵）要求 exact preimage**：`version = 7` 且 `md5(config::text) = 'dd747a45d3e46b2acc3f0c021bc269f8'`；不符 → `RAISE EXCEPTION 'preimage_mismatch'`。
+5. 原子 merge canonical **7 鍵** + `version = 7 + 1 = 8` + `updated_at = now()`；`PERFORM private_bsr.assert_sanitized(<evidence>,0)`。
 6. **evidence 欄位命名（時間語意分離）**：
    `{stage:'stage2', http_status:400, provider_code:'provider_plan_rejected', dataset:'TaiwanStockTradingDailyReport', probe_symbol:'3017', probe_date:'2026-08-21', recorded_at:<migration txn now()>}`。
    **不寫 `observed_at`**（Stage 2 外呼的精確時戳未逐秒留存）；若日後取得 exact probe 時間才新增 `probe_observed_at`。不放 token / provider 原始 body / URL。
