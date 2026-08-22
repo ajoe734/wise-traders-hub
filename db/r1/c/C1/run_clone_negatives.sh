@@ -2,6 +2,8 @@
 # S3B C1 negative fixtures (N1-N8) against the READ-ONLY gate invariant validator.
 # PASS == the validator correctly REJECTS the fixture (nonzero exit + c1v_* code)
 #         AND the transaction leaves 0 delta / 0 residue after rollback.
+# Each case re-seeds the exact v7 preimage inside the tx, then applies the
+# fixture, so cases are independent of whatever state the suite left behind.
 # Clone only. Never point this at production (it applies fixtures inside a tx).
 # Usage: db/r1/c/C1/run_clone_negatives.sh <clone-url>
 set -uo pipefail
@@ -32,6 +34,7 @@ run_case(){
   OUT=$(psql "$CL" -qX -v ON_ERROR_STOP=1 <<SQL2 2>&1
 BEGIN;
 ALTER TABLE public.tw_bsr_sync_config DISABLE TRIGGER USER;
+\i $D/seed_preimage.sql
 $FIX;
 \i $D/validate_gate_invariant.sql
 ROLLBACK;
