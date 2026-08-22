@@ -5,7 +5,7 @@ PASS T0 preimage md5
 == C1-T1 exact v7+hash CAS success ==
 apply_exit=0
 PASS T1 apply exit 0
-snap_after=8|dce79bc5b5fd832daeac1b031cb28486|1|1|0|-
+snap_after=8|b3c90e453211f28b94354b8eae9129f4|1|1|0|-
 PASS T1 version 7->8
 PASS T1 audit +1
 PASS T1 degrade +1
@@ -16,9 +16,9 @@ PASS T1 queue 0 delta
     "probed_at": "2026-08-17T13:30:58.060Z",
     "supported": false,
     "last_probe_at": "2026-08-17T13:30:58.060Z",
-    "admission_nonce": "85eff8a6-0e1e-4aa3-b4b3-78d2c2551797",
+    "admission_nonce": "b7c4f214-8901-438c-b380-345eafb15c08",
     "admission_reason": "provider_plan_rejected",
-    "admission_run_id": "9c34aa85-0cf7-4acc-996a-1eaee82a12c3",
+    "admission_run_id": "7bd2469f-89e0-4b11-af36-04e06d09c603",
     "last_probe_error": "provider_plan_rejected:http_400",
     "admission_blocked": true,
     "last_probe_format": null,
@@ -32,7 +32,7 @@ PASS T1 queue 0 delta
         "schema_version": 1
     },
     "last_probe_outcome": "unsupported",
-    "admission_blocked_at": "2026-08-22T06:11:24Z",
+    "admission_blocked_at": "2026-08-22T06:12:49Z",
     "min_stocks_in_response": 500,
     "admission_terminal_code": "bsr_provider_unsupported"
 }
