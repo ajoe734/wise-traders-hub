@@ -79,7 +79,9 @@ batch 狀態走**另一把 key**：
 // useChipsBatch.ts（新增 export）
 export const chipsBatchStatusKey = (code: string) => ['tw-chips-batch-status', code] as const;
 export interface ChipsBatchStatus {
-  kind: 'pending' | 'ok' | 'error' | 'unsupported';
+  kind: 'pending' | 'ok' | 'error' | 'not_applicable';
+  // 'not_applicable' = 未通過台股 batch canonical validator（例：美股代號 ABC/ORCL/AMD、空字串、非法字元）。
+  // 語意為「本地不送 batch」，**不等於** payload 的 providerState='ineligible'（ETF／權證／受益憑證）。
   runId: number;              // 見 D
   at: number;
   reason?: 'chunk_failed' | 'per_code_error';
