@@ -67,11 +67,19 @@ END $$;
 ROLLBACK TO SAVEPOINT fx_claim;
 
 -- ─────────────────────────────────────────────
--- Case 3（fixture）：recover_stale_bsr_queue_jobs 目前會把 skipped 撿回 pending
---   這是 S3B-A 必須關掉的回流路徑；本檔釘住「現況如此」，S3B-A 之後由
---   bsr_ingest_suppression_test.sql 反轉為 recovery 也被 gate 擋下。
+-- Case 3（fixture）：recover_stale_bsr_queue_jobs 的回流路徑必須由 gate 決定
+--   S3B-A 之前：recovery 不看 gate，任何情況都把 skipped 撿回 pending。
+--   S3B-A 之後：只有 gate OPEN（canonical admission_blocked=false）才回流；
+--               gate 關閉時 skipped 必須留在 skipped（由
+--               bsr_ingest_suppression_test.sql case3b 覆蓋）。
+--   本 case 只測「不得誤殺」：gate 開時回流行為與原本完全一致。
+--   open 分支一律在 savepoint 內用 fixture 個股，不碰任何 production row。
 -- ─────────────────────────────────────────────
 SAVEPOINT fx_recover;
+
+INSERT INTO public.tw_bsr_sync_config (key, version, config)
+VALUES ('market_batch', 8, jsonb_build_object('admission_blocked', false))
+ON CONFLICT (key) DO UPDATE SET version = 8, config = EXCLUDED.config;
 
 INSERT INTO public.chips_prefetch_targets (code, active)
 VALUES ('1103', true)
@@ -91,10 +99,11 @@ BEGIN
   SELECT status INTO st FROM public.tw_bsr_sync_queue
    WHERE enqueued_by = 's3b0_fixture' AND stock_id = '1103';
   ASSERT st = 'pending',
-    format('case3: 現況應為 recovery 把 skipped 撿回 pending，實得 %s', st);
+    format('case3: gate OPEN 時 recovery 應把 skipped 撿回 pending（不得誤殺），實得 %s', st);
 END $$;
 
 ROLLBACK TO SAVEPOINT fx_recover;
+
 
 -- ─────────────────────────────────────────────
 -- 零殘留驗證：fixture 已全數回滾，前後 count / hash 0 delta
