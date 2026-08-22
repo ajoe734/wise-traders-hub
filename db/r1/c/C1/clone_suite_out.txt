@@ -5,7 +5,7 @@ PASS T0 preimage md5
 == C1-T1 exact v7+hash CAS success ==
 apply_exit=0
 PASS T1 apply exit 0
-snap_after=8|9b2a6906724c9e6eec809daeb5641b05|1|1|0|-
+snap_after=8|30c0455f2fcb8382b791f90dc1b4ad54|1|1|0|-
 PASS T1 version 7->8
 PASS T1 audit +1
 PASS T1 degrade +1
@@ -16,9 +16,9 @@ PASS T1 queue 0 delta
     "probed_at": "2026-08-17T13:30:58.060Z",
     "supported": false,
     "last_probe_at": "2026-08-17T13:30:58.060Z",
-    "admission_nonce": "badc5383-6b1a-4bc0-860e-e7f34a574a75",
+    "admission_nonce": "9900a4a1-d7ba-4439-a84a-2f1f8ab0f9f5",
     "admission_reason": "provider_plan_rejected",
-    "admission_run_id": "cb117416-28c7-4771-9f8a-3f5007884fac",
+    "admission_run_id": "aba6fc6f-1ce5-40bd-9b17-2b255f8465b8",
     "last_probe_error": "provider_plan_rejected:http_400",
     "admission_blocked": true,
     "last_probe_format": null,
@@ -32,7 +32,7 @@ PASS T1 queue 0 delta
         "schema_version": 1
     },
     "last_probe_outcome": "unsupported",
-    "admission_blocked_at": "2026-08-22T05:39:59Z",
+    "admission_blocked_at": "2026-08-22T06:14:02Z",
     "min_stocks_in_response": 500,
     "admission_terminal_code": "bsr_provider_unsupported"
 }
@@ -89,5 +89,11 @@ private_bsr_usage anon=false
 private_bsr_usage authenticated=false
 private_bsr_usage service_role=false
 PASS T12 no public CREATE / private_bsr USAGE
+== C1-T13 read-only gate invariant validator (clean fixtures) ==
+GATE_VALIDATOR RESULT=C1_ALREADY_CANONICAL exit=0
+PASS T13a validator exact_canonical_v8 -> C1_ALREADY_CANONICAL exit 0
+RESULT=C1_NEEDED
+PASS T13b validator exact_v7_preimage -> C1_NEEDED exit 0
+PASS T13 validator is read-only (0 delta)
 
-RESULT pass=39 fail=0
+RESULT pass=42 fail=0

@@ -132,6 +132,30 @@ q "select 'public_create '||r||'='||has_schema_privilege(r,'public','CREATE')::t
 q "select 'private_bsr_usage '||r||'='||has_schema_privilege(r,'private_bsr','USAGE')::text from unnest(array['anon','authenticated','service_role']) r"
 q "select case when bool_or(has_schema_privilege(r,'public','CREATE')) or bool_or(has_schema_privilege(r,'private_bsr','USAGE')) then 'PRIV_BAD' else 'PRIV_OK' end from unnest(array['anon','authenticated','service_role']) r" | grep -q PRIV_OK && ok "T12 no public CREATE / private_bsr USAGE" || no "T12 priv" ""
 
+echo "== C1-T13 read-only gate invariant validator (clean fixtures) =="
+# 13a: current clone state is canonical v8 (T1 applied) -> must be GREEN
+VOUT=$(bash "$D/run_gate_validator.sh" "$CL" 2>&1); VRC=$?
+echo "$VOUT" | grep -o 'GATE_VALIDATOR.*'
+{ [ $VRC -eq 0 ] && echo "$VOUT" | grep -q 'RESULT=C1_ALREADY_CANONICAL'; } \
+  && ok "T13a validator exact_canonical_v8 -> C1_ALREADY_CANONICAL exit 0" \
+  || no "T13a validator v8" "exit=$VRC :: $(echo "$VOUT"|tail -3)"
+
+# 13b: clean exact v7 preimage fixture (rolled back) -> must be GREEN with C1_NEEDED
+V7=$(psql "$CL" -qX <<SQL13 2>&1
+BEGIN;
+\i $D/seed_preimage.sql
+\i $D/validate_gate_invariant.sql
+ROLLBACK;
+SQL13
+); V7RC=$?
+echo "$V7" | grep -o 'RESULT=C1_[A-Z_]*' | head -1
+{ [ $V7RC -eq 0 ] && echo "$V7" | grep -q 'RESULT=C1_NEEDED'; } \
+  && ok "T13b validator exact_v7_preimage -> C1_NEEDED exit 0" \
+  || no "T13b validator v7" "exit=$V7RC :: $(echo "$V7"|tail -3)"
+
+S13=$(snap)
+[ "$S13" = "$(snap)" ] && ok "T13 validator is read-only (0 delta)" || no "T13 delta" "$S13"
+
 echo
 echo "RESULT pass=$P fail=$F"
 [ $F -eq 0 ]

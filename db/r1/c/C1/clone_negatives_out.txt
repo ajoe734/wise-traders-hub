@@ -1,42 +1,62 @@
-negatives_baseline=7|dd747a45d3e46b2acc3f0c021bc269f8|0|0|0|-|1
+negatives_baseline=8|23616c84e6c20a25631937dbf134ba7f|2|2|0|-|0
 == N1 partial v8 (only 3 of 7 admission keys, version bumped) ==
   fixture: update public.tw_bsr_sync_config set version=8, config=config||jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported') where key='market_batch'
-  exact_error: <none>
-FAIL N1_partial_v8 :: no error raised :: psql:db/r1/c/C1/part1_cas.sql:86: NOTICE:  c1_noop: canonical v8 already present (version=8)
+  exit=3 exact_error: c1v_v8_keyset_mismatch
+PASS N1_partial_v8 validator rejected (c1v_v8_keyset_mismatch, exit 3)
 PASS N1_partial_v8 0 delta / 0 residue after rollback
 == N2 extra admission key beyond the 7-key contract ==
-  fixture: update public.tw_bsr_sync_config set version=8, config=config||jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_extra','nope') where key='market_batch'
-  exact_error: <none>
-FAIL N2_extra_key :: no error raised :: psql:db/r1/c/C1/part1_cas.sql:86: NOTICE:  c1_noop: canonical v8 already present (version=8)
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',to_char(now() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SSZ'),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_extra','nope') where key='market_batch'
+  exit=3 exact_error: c1v_v8_keyset_mismatch
+PASS N2_extra_key validator rejected (c1v_v8_keyset_mismatch, exit 3)
 PASS N2_extra_key 0 delta / 0 residue after rollback
 == N3 wrong type (admission_blocked as string) ==
-  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_blocked','true')) where key='market_batch'
-  exact_error: ERROR:  c1_preimage_drift
-PASS N3_wrong_type raised c1_preimage_drift
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',to_char(now() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SSZ'),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_blocked','true')) where key='market_batch'
+  exit=3 exact_error: c1v_v8_type_admission_blocked
+PASS N3_wrong_type validator rejected (c1v_v8_type_admission_blocked, exit 3)
 PASS N3_wrong_type 0 delta / 0 residue after rollback
 == N4 wrong canonical value (UI seg state leaked into terminal_code) ==
-  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_terminal_code','unavailable_unsupported')) where key='market_batch'
-  exact_error: ERROR:  c1_preimage_drift
-PASS N4_wrong_value raised c1_preimage_drift
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',to_char(now() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SSZ'),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_terminal_code','unavailable_unsupported')) where key='market_batch'
+  exit=3 exact_error: c1v_v8_value_admission_terminal_code
+PASS N4_wrong_value validator rejected (c1v_v8_value_admission_terminal_code, exit 3)
 PASS N4_wrong_value 0 delta / 0 residue after rollback
 == N5 non-object: json string scalar ==
   fixture: update public.tw_bsr_sync_config set config='"blocked"'::jsonb where key='market_batch'
-  exact_error: ERROR:  c1_gate_config_not_object
-PASS N5_nonobject_string raised c1_gate_config_not_object
+  exit=3 exact_error: c1v_gate_config_not_object
+PASS N5_nonobject_string validator rejected (c1v_gate_config_not_object, exit 3)
 PASS N5_nonobject_string 0 delta / 0 residue after rollback
 == N6 non-object: json number scalar ==
   fixture: update public.tw_bsr_sync_config set config='42'::jsonb where key='market_batch'
-  exact_error: ERROR:  c1_gate_config_not_object
-PASS N6_nonobject_number raised c1_gate_config_not_object
+  exit=3 exact_error: c1v_gate_config_not_object
+PASS N6_nonobject_number validator rejected (c1v_gate_config_not_object, exit 3)
 PASS N6_nonobject_number 0 delta / 0 residue after rollback
 == N7 non-object: json null ==
   fixture: update public.tw_bsr_sync_config set config='null'::jsonb where key='market_batch'
-  exact_error: ERROR:  c1_gate_config_not_object
-PASS N7_nonobject_null raised c1_gate_config_not_object
+  exit=3 exact_error: c1v_gate_config_not_object
+PASS N7_nonobject_null validator rejected (c1v_gate_config_not_object, exit 3)
 PASS N7_nonobject_null 0 delta / 0 residue after rollback
 == N8 evidence key missing (6-key evidence contract broken) ==
-  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind'))) where key='market_batch'
-  exact_error: <none>
-FAIL N8_evidence_missing_key :: no error raised :: psql:db/r1/c/C1/part1_cas.sql:86: NOTICE:  c1_noop: canonical v8 already present (version=8)
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',to_char(now() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SSZ'),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind'))) where key='market_batch'
+  exit=3 exact_error: c1v_v8_evidence_keyset
+PASS N8_evidence_missing_key validator rejected (c1v_v8_evidence_keyset, exit 3)
 PASS N8_evidence_missing_key 0 delta / 0 residue after rollback
-RESULT_NEG pass=13 fail=3
+== N9 row missing ==
+  fixture: delete from public.tw_bsr_sync_config where key='market_batch'
+  exit=3 exact_error: c1v_gate_row_missing
+PASS N9_row_missing validator rejected (c1v_gate_row_missing, exit 3)
+PASS N9_row_missing 0 delta / 0 residue after rollback
+== N10 unexpected version (9) ==
+  fixture: update public.tw_bsr_sync_config set version=9 where key='market_batch'
+  exit=3 exact_error: c1v_unexpected_version
+PASS N10_wrong_version validator rejected (c1v_unexpected_version, exit 3)
+PASS N10_wrong_version 0 delta / 0 residue after rollback
+== N11 v7 hash drift (legacy key mutated, version stays 7) ==
+  fixture: update public.tw_bsr_sync_config set config=config||'{"threshold_pending": 99}'::jsonb where key='market_batch'
+  exit=3 exact_error: c1v_v7_hash_drift
+PASS N11_v7_hash_drift validator rejected (c1v_v7_hash_drift, exit 3)
+PASS N11_v7_hash_drift 0 delta / 0 residue after rollback
+== N12 v8 unsanitized last_probe_error (raw url leak) ==
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',to_char(now() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SSZ'),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('last_probe_error','https://api.finmindtrade.com/api/v4/data 400')) where key='market_batch'
+  exit=3 exact_error: c1v_v8_last_probe_error_not_sanitized
+PASS N12_unsanitized validator rejected (c1v_v8_last_probe_error_not_sanitized, exit 3)
+PASS N12_unsanitized 0 delta / 0 residue after rollback
+RESULT_NEG pass=24 fail=0

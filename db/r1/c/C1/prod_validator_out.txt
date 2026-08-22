@@ -1,0 +1,11 @@
+Pager usage is off.
+Timing is off.
+psql:/dev-server/db/r1/c/C1/validate_gate_invariant.sql:200: NOTICE:  C1_VALIDATOR assert_sanitized=SKIPPED_NO_EXECUTE_PRIV (role=sandbox_exec); inline sanitize checks applied
+psql:/dev-server/db/r1/c/C1/validate_gate_invariant.sql:200: NOTICE:  C1_VALIDATOR state=exact_canonical_v8 version=8 keys=16 md5=cfe3b7448fa4602ca6828476baebd535
+psql:/dev-server/db/r1/c/C1/validate_gate_invariant.sql:200: NOTICE:  RESULT=C1_ALREADY_CANONICAL
+DO
+                                   verdict                                    
+------------------------------------------------------------------------------
+ C1_VALIDATOR_VERDICT|8|cfe3b7448fa4602ca6828476baebd535|C1_ALREADY_CANONICAL
+(1 row)
+GATE_VALIDATOR RESULT=C1_ALREADY_CANONICAL exit=0
