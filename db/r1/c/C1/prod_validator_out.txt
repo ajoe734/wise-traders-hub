@@ -1,0 +1,6 @@
+Pager usage is off.
+Timing is off.
+psql:/dev-server/db/r1/c/C1/validate_gate_invariant.sql:194: ERROR:  permission denied for schema private_bsr
+CONTEXT:  SQL statement "SELECT has_function_privilege(current_user, 'private_bsr.assert_sanitized(jsonb,integer)', 'EXECUTE')"
+PL/pgSQL function inline_code_block line 164 at SQL statement
+GATE_VALIDATOR REJECTED exit=3 code=
