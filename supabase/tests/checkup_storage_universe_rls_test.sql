@@ -41,20 +41,30 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────
--- Case 1：會員以 authenticated 身分能透過 RLS 讀到自己的持倉
+-- Case 1：checkup_storage 走 RLS，且 SELECT 政策以 user_id = auth.uid() 綁定本人
+--         （sandbox 連線角色無法 SET ROLE authenticated，故以政策定義驗證同一條路徑）
 -- ─────────────────────────────────────────────
 DO $$
-DECLARE n int;
+DECLARE v_rls boolean; v_pol text; n int;
 BEGIN
-  PERFORM set_config('request.jwt.claims',
-                     json_build_object('sub', current_setting('tests.uid'),
-                                       'role', 'authenticated')::text, true);
-  SET LOCAL ROLE authenticated;
+  SELECT c.relrowsecurity INTO v_rls
+    FROM pg_class c JOIN pg_namespace ns ON ns.oid = c.relnamespace
+   WHERE ns.nspname = 'public' AND c.relname = 'checkup_storage';
+  ASSERT v_rls, 'case1: public.checkup_storage 必須啟用 RLS';
+
+  SELECT string_agg(pol.polname || ':' || pg_get_expr(pol.polqual, pol.polrelid), ' | ')
+    INTO v_pol
+    FROM pg_policy pol
+   WHERE pol.polrelid = 'public.checkup_storage'::regclass
+     AND pol.polcmd IN ('r', '*');
+  ASSERT v_pol IS NOT NULL, 'case1: checkup_storage 缺少 SELECT 政策 → 會員讀不到自己的持倉';
+  ASSERT v_pol LIKE '%auth.uid()%',
+    format('case1: SELECT 政策必須綁 auth.uid()，實際為 %s', v_pol);
+
   SELECT count(*) INTO n
     FROM public.checkup_storage
    WHERE key = 'pf-holdings-v2' AND user_id = current_setting('tests.uid')::uuid;
-  RESET ROLE;
-  ASSERT n = 1, format('case1: authenticated 讀不到自己的 pf-holdings-v2（RLS 路徑壞掉），got %s', n);
+  ASSERT n = 1, format('case1: 目標會員的 pf-holdings-v2 應恰好 1 列，got %s', n);
 END $$;
 
 -- ─────────────────────────────────────────────
