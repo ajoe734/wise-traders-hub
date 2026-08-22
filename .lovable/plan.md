@@ -119,10 +119,11 @@ export interface ChipsBatchStatus {
   export function normalizeStockCode(code: unknown): string { return String(code ?? '').trim().toUpperCase(); }
   ```
   `normalizeStockCodes()` 改用它；`useChipsBatch` 刪除自有 `isValidCode`，改 `normalizeStockCode` → `isTaiwanStockCode` → dedupe（Set）。兩端規則自此完全一致。
-- **不新增任何 telemetry**（v2 的 `chips_batch_code_rejected` 移出 scope）。未通過 canonical 的代號只寫本地 observable `{kind:'unsupported'}`，不打 API、不記事件。
+- **不新增任何 telemetry**（v2 的 `chips_batch_code_rejected` 移出 scope）。未通過 canonical 的代號只寫本地 observable `{kind:'not_applicable'}`，不打 API、不記事件。
 - fixture：
-  - valid：`2330`、`0050`、`00878`、`006208`、`9105`、`00637L`、`00637l`（normalize 後等同前者，須被 dedupe 合併）
-  - invalid：`''`、`'   '`、`'ABC'`、`'<script>alert(1)</script>'`、`'2330,2317'`、`"2330' OR '1'='1"`
+  - valid（台股 canonical）：`2330`、`0050`、`00878`、`006208`、`9105`、`00637L`、`00637l`（normalize 後等同前者，須被 dedupe 合併）
+  - not_applicable（合法但非台股 batch universe）：`ABC`、`ORCL`、`AMD` → 不打 batch、卡片顯示「籌碼資料不適用」、**不得**顯示 ETF／權證文案、quantity/value/ROI 完全不受影響。
+  - invalid（非法輸入，同樣落 `not_applicable`）：`''`、`'   '`、`'<script>alert(1)</script>'`、`'2330,2317'`、`"2330' OR '1'='1"`
   - `00878x` 已從 fixture 刪除（不做武斷判定）。
 
 ---
