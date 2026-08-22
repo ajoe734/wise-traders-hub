@@ -33,6 +33,7 @@ import HoldingCardReturn from './_ui/holdingCard/HoldingCardReturn';
 import HoldingCardPriceTrack from './_ui/holdingCard/HoldingCardPriceTrack';
 import HoldingCardFooter from './_ui/holdingCard/HoldingCardFooter';
 import HoldingCardSkeleton from './_ui/holdingCard/HoldingCardSkeleton';
+import HoldingCardBsr from './_ui/holdingCard/HoldingCardBsr';
 
 
 const HOLDING_CARD_PROP_SCHEMA = {
@@ -293,6 +294,8 @@ function HoldingCardImpl(props) {
       {SyncOverlay}
       {SyncErrorStrip}
       {SyncSrStatus}
+      {/* 卡片層籌碼狀態：只訂閱快取，不發請求、不碰任何持倉數字 */}
+      <HoldingCardBsr code={h.code} suppressStrip={!!cardSyncError} />
     </button>
   );
 }

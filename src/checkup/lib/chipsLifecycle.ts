@@ -27,6 +27,7 @@ import {
   type ChipsBackfillPhase,
 } from './chipsBackfillMachine';
 import type { TwChipsPayload } from './chipsRepository';
+import { isTerminalUnavailable } from './bsrCanonicalCodes';
 
 export {
   chipsBackfillReducer,
@@ -67,6 +68,8 @@ export interface ChipsFacts {
   eligible: boolean | null;
   /** 佇列跑動中 → 需要短輪詢 */
   pending: boolean;
+  /** 上游永久拒絕（canonical terminal）：不得自動回補、不得顯示同步中 */
+  terminalUnavailable: boolean;
 }
 
 export const EMPTY_CHIPS_FACTS: ChipsFacts = {
@@ -77,6 +80,7 @@ export const EMPTY_CHIPS_FACTS: ChipsFacts = {
   syncStatus: null,
   eligible: null,
   pending: false,
+  terminalUnavailable: false,
 };
 
 export function deriveChipsFacts(payload: TwChipsPayload | null | undefined): ChipsFacts {
@@ -96,6 +100,10 @@ export function deriveChipsFacts(payload: TwChipsPayload | null | undefined): Ch
     syncStatus,
     eligible: payload.bsr_sync_status?.eligible ?? null,
     pending: syncStatus === 'pending' || syncStatus === 'running',
+    terminalUnavailable: isTerminalUnavailable({
+      providerState: payload.bsr_provider_state ?? payload.bsr_sync_status?.provider_state ?? null,
+      providerCode: (payload as any).bsr_provider_code ?? payload.bsr_sync_status?.provider_code ?? null,
+    }),
   };
 }
 

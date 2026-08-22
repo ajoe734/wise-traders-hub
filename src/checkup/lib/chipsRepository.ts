@@ -443,11 +443,20 @@ export interface ChipsBatchResult {
   servedAt: string;
 }
 
+/**
+ * 代號正規化（單一資料源）：trim + 大寫。
+ * 為什麼要 uppercase：`isTaiwanStockCode` 是 `/^\d{4,6}[A-Z]?$/`（大小寫敏感），
+ * 而 hook 端曾用 `/i` 版本，導致 `00637l` 通過 hook 卻在 repository 被丟掉（靜默漏檔）。
+ */
+export function normalizeStockCode(code: unknown): string {
+  return String(code ?? '').trim().toUpperCase();
+}
+
 function normalizeStockCodes(codes: unknown): string[] {
   if (!Array.isArray(codes)) return [];
   const out: string[] = [];
   for (const c of codes) {
-    const code = String(c ?? '').trim();
+    const code = normalizeStockCode(c);
     if (code && !out.includes(code)) out.push(code);
   }
   return out;

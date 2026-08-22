@@ -106,6 +106,7 @@ export function useChipsLifecycle(stockCode: string, enabled = true): ChipsLifec
     eligible: facts.eligible,
     syncStatus: facts.syncStatus,
     satisfied: facts.satisfied,
+    terminalUnavailable: facts.terminalUnavailable,
     requestBackfill: handleBackfill,
     onTimeout: ({ stockCode: code, elapsedMs }) =>
       trackEvent('chips_auto_backfill_timeout', {

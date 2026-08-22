@@ -46,6 +46,8 @@ export interface ChipsBackfillSnapshot {
   syncStatus?: string | null;
   /** 資料是否已補滿（見 isBackfillSatisfied）。 */
   satisfied: boolean;
+  /** 上游永久拒絕（canonical terminal）：回補永遠不會成功，一律不排。 */
+  terminalUnavailable?: boolean;
   now: number;
 }
 
@@ -88,6 +90,7 @@ export function shouldAutoTrigger(
   state: ChipsBackfillState,
   s: ChipsBackfillSnapshot,
 ): boolean {
+  if (s.terminalUnavailable) return false;
   if (!s.stockCode || !s.hasData || !s.sparse) return false;
   if (s.eligible === false) return false;
   if (s.syncStatus === 'pending' || s.syncStatus === 'running') return false;

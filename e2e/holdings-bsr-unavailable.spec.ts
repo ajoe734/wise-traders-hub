@@ -7,10 +7,7 @@
  *   2. 卡片層（不開抽屜）就要有 holding-card-bsr 節點與 data-bsr-state。
  *   3. 可見持倉 31 檔時，最多 2 個 bounded batch 請求，代號聯集完整。
  *
- * 目前預期 RED：
- *   - chips 區沒有 unavailable_unsupported 這個 seg state（只有 unavailable / sync_failed）。
- *   - 沒有 holding-card-bsr 節點。
- *   - /e2e/chips-batch 31 檔仍只發 1 個請求（slice(0,30)）。
+ * Stage D 後預期 GREEN：canonical seg state / 卡片層 consumer / 每批 30 的 chunking 皆已實作。
  */
 import { test, expect, Route } from '@playwright/test';
 
@@ -38,7 +35,7 @@ function terminalPayload() {
   };
 }
 
-test.describe('S3B RED · BSR 不支援的誠實降級', () => {
+test.describe('Stage D · BSR 不支援的誠實降級', () => {
   test('籌碼分段顯示 unavailable_unsupported 並保留最後可得日期', async ({ page }) => {
     await page.route(CHIPS_ROUTE, (r: Route) =>
       r.fulfill({
@@ -55,7 +52,7 @@ test.describe('S3B RED · BSR 不支援的誠實降級', () => {
     const bsr = page.getByTestId('chips-seg-bsr');
     await expect(bsr, 'RED: 分段狀態未支援 unavailable_unsupported')
       .toHaveAttribute('data-seg-state', 'unavailable_unsupported');
-    await expect(bsr).toContainText('不支援');
+    await expect(bsr).toContainText('籌碼資料暫時無法取得');
     await expect(bsr, 'RED: terminal 時必須仍顯示最後可得日期 2026/08/14').toContainText('2026/08/14');
 
     // 三大法人的新鮮度不得被借用
@@ -79,7 +76,8 @@ test.describe('S3B RED · BSR 不支援的誠實降級', () => {
     await page.goto(`/e2e/holding-card-harness?code=${STOCK}`);
     const node = page.getByTestId('holding-card-bsr');
     await expect(node, 'RED: 卡片層沒有 holding-card-bsr 節點（只有抽屜才是 consumer）').toHaveCount(1);
-    await expect(node).toHaveAttribute('data-bsr-state', 'terminal_provider_rejected');
+    await expect(node).toHaveAttribute('data-bsr-state', 'unavailable_unsupported');
+    await expect(node).toContainText('籌碼資料暫時無法取得');
     await expect(node).toHaveAttribute('data-bsr-as-of', '2026-08-14');
   });
 

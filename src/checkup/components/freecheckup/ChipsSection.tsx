@@ -7,6 +7,7 @@ import { useChipsLifecycle } from '@/checkup/hooks/useChipsLifecycle';
 import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';
 import { buildFreshnessSegments, segmentColor } from './chipsFreshnessSegments';
+import { BSR_TEXT_UNAVAILABLE } from '@/checkup/lib/bsrCanonicalCodes';
 
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
@@ -189,7 +190,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   const syncStatus = data?.bsr_sync_status;
   // Plan v2：上游狀態一律以 server classifier 的 enum 為準，前端不重判。
   const providerState = data?.bsr_provider_state ?? syncStatus?.provider_state ?? null;
-  const isTerminalProvider = providerState === 'terminal_provider_rejected';
+  // canonical terminal 事實一律沿 payload → deriveChipsFacts → facts 這條管線，元件不自判字串。
+  const isTerminalProvider = facts.terminalUnavailable;
   const retryPromised = data?.bsr_retry_promised ?? syncStatus?.retry_promised ?? false;
 
 
@@ -347,7 +349,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
 
       {/* 稀疏資料：手動回補過去 60 日 */}
-      {sparse && !error && (
+      {sparse && !error && !facts.terminalUnavailable && (
         <div
           data-testid="chips-backfill-hint"
           style={{
@@ -607,8 +609,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               letterSpacing: '0.06em',
             }}
           >
-            {providerState === 'terminal_provider_rejected'
-              ? `上游來源中止，顯示 ${data.bsr_as_of.replaceAll('-', '/')} 的前次成功分點`
+            {isTerminalProvider
+              ? `${BSR_TEXT_UNAVAILABLE} · 顯示最後可得資料 ${data.bsr_as_of.replaceAll('-', '/')}`
               : providerState === 'unknown_degraded'
               ? `上游狀態待確認，先顯示 ${data.bsr_as_of.replaceAll('-', '/')} 的關鍵分點`
               : data.bsr_freshness_status === 'syncing'
@@ -638,7 +640,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           >
             <div style={{ fontWeight: 600, letterSpacing: '0.08em', marginBottom: 2 }}>
               {isTerminalProvider
-                ? (data.bsr_as_of ? '分點資料更新已暫停（上游來源中止）' : '上游目前不提供此資料')
+                ? BSR_TEXT_UNAVAILABLE
                 : providerState === 'unknown_degraded'
                 ? '分點資料狀態待確認'
                 : data.bsr_as_of ? '分點資料延遲（顯示前次成功抓取）' : '分點資料首次同步中'}
@@ -669,7 +671,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div>
               失敗原因：
               {isTerminalProvider
-                ? '上游來源不再提供此資料（供應商方案／資格限制），更新已暫停，恢復時間未知'
+                ? '目前無法取得此資料，恢復時間未知'
                 : providerState === 'unknown_degraded'
                 ? '上游回應無法歸類，狀態待確認，暫不承諾更新時間'
                 : data.bsr_last_failure.error_code === 'captcha_retry_exhausted'
