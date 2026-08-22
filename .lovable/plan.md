@@ -193,7 +193,7 @@ gate 仍 `legacy_config_missing`（blocked=true），部署即全關，零 ungua
 7. append `audit_logs('bsr_admission_blocked')` + `tw_bsr_degrade_events`（append-only）。migration 註解寫入 §0.8 恢復 runbook。
 
 **Allowlist**：`supabase/migrations/<ts>_bsr_admission_declare_explicit_cas.sql`
-**Acceptance**：`bsr_availability_cas_test` GREEN（legacy→explicit 成功／canonical 重跑 no-op 冪等／partial 觸發 raise／preimage 不符觸發 raise／未開閘 `blocked=true`／0 queue mutation）；readback config v8 且六鍵齊全；**下一個自然 worker** body 為 §0.6 v8 形式；再跑一次 B2 snapshot：queue/counter 全不變。**此時 payload 已可 terminal（§0.10 舊 mapping 生效）**，先觀察不動 edge。
+**Acceptance**：`bsr_availability_cas_test` GREEN（依 §S3B-0 SQL 測試隔離協定於 fixture savepoint 內驗：legacy→explicit 成功且結果為 `version=8` + 7 鍵齊全／canonical v8 重跑 no-op 冪等（version 仍 8、無新 audit/degrade）／`version<>8` 或缺任一鍵或型別值不符一律 `admission_state_partial_or_mismatched` raise／preimage 不符 raise／未開閘 `blocked=true`／0 queue mutation，測試前後 production hash 不變）；production readback `version=8` 且 **7 鍵**齊全；**下一個自然 worker** body 為 §0.6 v8 形式；再跑一次 B2 snapshot：queue/counter 全不變。**此時 payload 已可 terminal（§0.10 舊 mapping 生效）**，先觀察不動 edge。
 **Stop**：任何 raise、body 未變為 v8、queue/counter 變動。
 **Semantic rollback（非 exact inverse，明示）**：
 ```sql
