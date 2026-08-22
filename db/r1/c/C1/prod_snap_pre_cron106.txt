@@ -1,0 +1,66 @@
+Output format is unaligned.
+Field separator is " | ".
+?column? | now
+ts | 2026-08-22 05:55:38.456463+00
+(1 row)
+?column? | count
+queue_count | 10552
+(1 row)
+?column? | md5
+queue_hash | 9c5eda0c19768fd2ef588335f8ec15a0
+(1 row)
+?column? | max | ?column? | max
+queue_max_updated | 2026-08-21 07:02:00.081277+00 | queue_max_enqueued | 2026-08-21 07:02:00.081277+00
+(1 row)
+?column? | status | count
+status | done | 8432
+status | failed | 1572
+status | pending | 548
+(3 rows)
+?column? | md5
+config_hash | f1f19d208afac73437af370d24c45032
+(1 row)
+?column? | key | version | md5
+config_row | bsr_sync | 2 | 9e9d4e47a767bdec654627cef12db4d7
+config_row | circuit_breaker_config | 1 | eb649bbb72a13f573f7cd4b43485a517
+config_row | cold_start_status | 1789 | 0e0a80f750a9f26a57f79d56862cb89e
+config_row | degrade:finmind | 95 | c36168c4bd9429941d69ee7a29b61766
+config_row | fastlane_enabled | 3 | 2c036b2698ac19be04c2bba3c30ddc64
+config_row | keep_warm_schedule | 2 | 49abfd1de3d3726c48abdda809d587f9
+config_row | market_batch | 8 | cfe3b7448fa4602ca6828476baebd535
+config_row | ui_state_machine_enabled | 1 | 1acf90d6b9d56964d639faacabe5ad12
+config_row | warm_chips_cache_enabled | 1 | 80f378fccee7239d2d141de91e6b61a7
+(9 rows)
+?column? | count
+audit_logs | 10691
+(1 row)
+?column? | count
+degrade_events | 95
+(1 row)
+?column? | count | coalesce
+recovery_stale_candidates | 0 | -
+(1 row)
+?column? | count | coalesce
+recovery_quota_candidates | 1523 | 5df77d3984ef66167f81913ea8c458e9
+(1 row)
+?column? | oid | pg_get_function_result | prosecdef | provolatile | coalesce | coalesce | md5
+fn | enqueue_all_active_tw_holdings_bsr(integer) | jsonb | true | v | {"search_path=pg_catalog, public"} | {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres} | c2fe0ebdffdb4080c2fa622c2d25f1e8
+fn | enqueue_bsr_backfill(text,integer) | integer | true | v | {"search_path=pg_catalog, public"} | {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres} | 71a62116c58a2fb684fb4f7df774696a
+fn | enqueue_bsr_first_fetch_on_trade() | trigger | true | v | {"search_path=pg_catalog, public"} | {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres} | cf1e9cd2ce187c37726c3cad5d328fbf
+fn | enqueue_chips_prefetch_gaps(integer,integer) | jsonb | true | v | {"search_path=pg_catalog, public"} | {postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres} | 12fcb1691bf3e447f0535a4e99570806
+fn | ensure_bsr_queued(text) | jsonb | true | v | {"search_path=pg_catalog, public"} | {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres} | 8ebc27132ed2a690817d682d83633646
+fn | private_bsr.ingest_allowed() | boolean | true | s | {"search_path=pg_catalog, private_bsr"} | {postgres=X/postgres} | ab80b02a140f8844e15c3b73072c7e36
+fn | recover_quota_failed_bsr_jobs(integer) | jsonb | true | v | {"search_path=pg_catalog, public"} | {postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres} | f6399ccfee7c651c83e2bf90121a91ae
+fn | recover_stale_bsr_queue_jobs(integer,integer) | jsonb | true | v | {"search_path=pg_catalog, public"} | {postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres} | 0c7c6d974b8a6d774739ad398664e37b
+(8 rows)
+?column? | r | has_schema_privilege
+public_create | anon | false
+public_create | authenticated | false
+public_create | service_role | false
+(3 rows)
+?column? | r | has_schema_privilege
+private_bsr_usage | anon | false
+private_bsr_usage | authenticated | false
+private_bsr_usage | service_role | false
+(3 rows)
+history_count|1904
