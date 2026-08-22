@@ -140,7 +140,14 @@ S3B-C2 的最小補強：改讀 `admission_blocked/admission_reason` 作為 term
 | `holdings-chips-chunking.test.ts`（31 檔） | 目前只發 1 次且截斷至 30 |
 | `e2e/holdings-bsr-unavailable.spec.ts` | 不開抽屜時無日期、無 BSR 狀態 |
 
-**Allowlist**：僅上述測試檔。**Acceptance**：baseline 四項 GREEN、新功能八項 RED 且失敗原因與上表一致。**Stop**：baseline 任一 RED（代表現況與稽核不符）或新功能意外 GREEN。**Rollback**：刪測試檔。
+**SQL 測試隔離協定（強制，適用所有會呼叫七支 producer/recovery 或讀寫 gate/config 的 SQL test）**
+1. 每個 test 檔以顯式 `BEGIN;` 開場、`ROLLBACK;` 收場；**外層交易保證回滾**——assertion 用 `RAISE EXCEPTION` 觸發，失敗時交易一併回滾，絕不留下 queue/config/audit_logs/tw_bsr_degrade_events 任何 row。
+2. 交易內先 `SAVEPOINT sp_fixture;` 建立**測試專用 fixture**（自建 fixture symbol/日期的 queue 列、以及 `key='market_batch'` 的 config 值改寫），跑斷言後 `ROLLBACK TO SAVEPOINT sp_fixture;`，最後仍 `ROLLBACK;`。
+3. **禁止用 production 真實 row 測 open 分支**：`admission_blocked=false` 的 open 分支只能在 fixture savepoint 內、對測試自建列或暫時改寫後再回滾的 config 上驗證；不得對 production pending/failed 列呼叫 producer。
+4. 每個 test 檔第一步與最後一步各取一次 **before/after snapshot 並比對**：`tw_bsr_sync_queue` 全表 hash + `count(*) by status` + `max(updated_at)` + `max(enqueued_at)`、`tw_bsr_sync_config` 全 key `version + md5(config::text)`、`audit_logs` 與 `tw_bsr_degrade_events` 的 `count(*)`；任一不等即 `RAISE EXCEPTION 'test_left_residue'`。
+5. RED 階段同樣套用此協定：RED 只允許以「函式不存在／回傳不含 `skipped` 鍵／inserted>0」等**在 fixture 上觀察**的方式失敗，不得用 production 資料變動當證據。
+
+**Allowlist**：僅上述測試檔。**Acceptance**：baseline 四項 GREEN、新功能八項 RED 且失敗原因與上表一致；**所有 SQL test 執行前後 production queue/config/audit/degrade 的 hash 與 count 完全一致**。**Stop**：baseline 任一 RED（代表現況與稽核不符）、新功能意外 GREEN、或出現 `test_left_residue`。**Rollback**：刪測試檔（測試本身不留 DB 痕跡）。
 
 ---
 
