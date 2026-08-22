@@ -1,106 +1,161 @@
-# Stage D — 持倉看板 BSR 顯示四項修復（Plan only／唯讀稽核完成）
+# Stage D — 持倉看板 BSR 顯示修復（Plan revision v2，唯讀證據已補；不實作）
 
-只做 DB→UI mapping 與卡片層消費，不碰 provider、不碰 cron/queue/DB 資料。C2 不開。
+禁令沿用：本輪 0 檔改動、0 deploy、0 Publish、0 DB/provider 呼叫。以下所有規則皆為本輪重讀原始碼／唯讀 SQL 取得。
 
-## A. 現況 call graph（exact，全部本輪重讀，不引用舊摘要）
+## 0. 代號合法性 — 補證據（更正上一版把 00878 當 invalid 的錯誤）
 
-```text
-HoldingsWorkbench.tsx
-  L91  sparklineCodes = orderedDisplayed.map(h => h.code)      // 可見卡片全集，可 >30
-  L105 useChipsBatch({ codes: sparklineCodes, enabled: !isDemo })  // 只取回 prefetch
-  L261 <HoldingCard ... onPrefetch={prefetch} />               // 沒有任何 chips prop
+exact 規則（三處，唯讀證實）：
 
-useChipsBatch.ts
-  L57  validCodes = dedupeCodes(codes).slice(0, 30)   ← D2 截斷點①
-  L58  key = validCodes.sort().join(',')
-  L67  useEffect → fetchChipsBatch(validCodes)  （單一請求，無 chunk）
-  L76  qc.setQueryData(chipsQueryKey(code), {payload,...})  ← 只寫，無 render consumer
-  L80  setPrefetched(new Set(...))  // 內部 state，未外流
+| 位置 | 規則 | 用途 |
+|---|---|---|
+| `src/checkup/lib/chipsRepository.ts:275` `isTaiwanStockCode` | `/^\d{4,6}[A-Z]?$/`（trim，**大寫敏感**） | canonical「可送 batch 的台股代號」 |
+| `src/checkup/lib/chipsRepository.ts:286` `isTaiwanChipEligible` | `/^[1-9]\d{3}$/` | 「有券商分點資料」的子集合，非合法性 |
+| `supabase/functions/tw-chips-detail-v2/index.ts:531` `isValidId` | `/^[0-9A-Za-z]{3,10}$/` | edge 入口過濾（比前端寬） |
+| `src/checkup/hooks/useChipsBatch.ts:18` `isValidCode` | `/^\d{4,6}[A-Z]?$/i` ← **重複實作**，且 `i` flag 與 canonical 不一致 | 要刪除 |
 
-chipsRepository.ts
-  L292 CHIPS_BATCH_MAX_STOCKS = 30
-  L466 ids = normalize→isTaiwanStockCode→.slice(0, CHIPS_BATCH_MAX_STOCKS) ← 截斷點②
-  L476 POST /tw-chips-detail-v2  body { stock_ids }
-  回傳 { results, errors, count, failed, servedAt }
+逐一裁定：
 
-tw-chips-detail-v2/index.ts
-  L29  MAX_BATCH = 30；L563 slice(0,30)；L570 duplicate stock_ids → 400
-  L236 marketBatchUnsupported = config.supported===false && last_probe_outcome==='unsupported'
-  L243 marketBatchErrorClass = last_probe_error.startsWith('unsupported_plan:') ? 'provider_plan_rejected' : null
-  L307 classifyBsrProvider({ lastErrorRaw: marketBatchError, persistedErrorClass: marketBatchErrorClass ?? topFail.error_class })
-  L329/L461 → bsr_sync_status.provider_state / bsr_provider_state
+| 代號 | isTaiwanStockCode | isTaiwanChipEligible | edge isValidId | 結論 |
+|---|---|---|---|---|
+| 2330 | ✅ | ✅ | ✅ | 送批次、有 BSR |
+| 0050 | ✅ | ❌（首位 0） | ✅ | **送批次**，BSR 段 `ineligible` |
+| 00878 | ✅ | ❌ | ✅ | **送批次**，BSR 段 `ineligible`（合法 ETF，絕不可丟） |
+| 006208 | ✅ | ❌ | ✅ | 同上 |
+| 9105 | ✅ | ✅ | ✅ | TDR，送批次；BSR 由後端 eligibility 表決定 |
+| 00637L | ✅（尾碼 L） | ❌ | ✅ | 送批次 |
+| `''` / `ABC` / `2330<script>` / `2330,2317` | ❌ | ❌ | `ABC` 在 edge 反而 ✅ | 前端擋掉 |
 
-前端消費者（唯一）：HoldingsDetailPanel → ChipsSection.tsx
-  L167 useChipsLifecycle → useTwChipsDetail(chipsQueryKey) + useChipsBackfill + useChipsAutoBackfill
-  L191 providerState = data.bsr_provider_state ?? sync_status.provider_state
-  L326 buildFreshnessSegments(data) → data-seg-state
+唯讀 universe 佐證（production）：`chips_prefetch_targets` 20 列含 `00637L / 039108 / 053848 / 702157`；`tw_bsr_sync_queue` 內非四碼代號 40+ 例（`020020`、`030135`…）。**持倉 universe 確實含 5/6 位標的**，任何以「四碼」為過濾條件的 batch 都會漏。
+
+**D2 過濾契約（修正）**：`useChipsBatch` 刪掉自有 `isValidCode`，一律 import canonical `isTaiwanStockCode`。通過者全部送批次（含 ETF/TDR）。**不靜默丟棄**：未通過 canonical 的代號進入 `unsupportedCodes`，卡片顯示 `ineligible`（不適用），並發 `chips_batch_code_rejected` telemetry。BSR 有無資料由 server `bsr_provider_state` 決定，前端不預判。
+
+測試 fixture 修正：valid = `2330 / 0050 / 00878 / 006208 / 9105 / 00637L`；invalid = `''`、`'   '`、`ABC`、`2330 OR 1=1`、`<script>`、`2330,2317`、`00878x`。
+
+## 1. UI 文案（鎖定）
+
+canonical 主文案：**「籌碼資料暫時無法取得」**。可附加 `· 顯示最後可得資料 YYYY/MM/DD`（僅在有 `bsr_as_of` 時）。
+**禁止**出現：provider 名稱、方案/level、HTTP 狀態碼、內部 code（`provider_plan_rejected`、`bsr_provider_unsupported`）、「此股票不支援」「上游來源中止」等會被讀成標的永久不支援的字樣。
+機器可讀 state 仍為 `unavailable_unsupported`（放 `data-*`，不顯示給使用者）。
+`ineligible`（ETF／權證）維持既有「不適用（ETF／權證／受益憑證）」，語意不同不可合併。
+
+## 2. 單一 reactive data flow（取代含糊的 failedCodes）
+
+新增獨立 query key，**不把假 payload 塞進 `['tw-chips', code]`**：
+
+```ts
+// src/checkup/hooks/useChipsBatch.ts
+export const chipsBatchStatusKey = (code: string) =>
+  ['tw-chips-batch-status', code] as const;
+
+export type ChipsBatchStatus =
+  | { kind: 'pending';  at: number }                       // 已納入本批、尚未回應
+  | { kind: 'ok';       at: number }                       // 成功，資料在 ['tw-chips', code]
+  | { kind: 'error';    at: number; reason: 'chunk_failed' | 'per_code_error' }
+  | { kind: 'unsupported'; at: number };                   // 未通過 canonical validator
 ```
 
-query key：`chipsQueryKey(code) = ['tw-chips', code]`（useTwChipsDetail.ts L74）。
-batch 寫入與 drawer 讀取共用同一把 key，所以「卡片訂閱同一把 key」是最小改法。
+流程（唯一寫入者為 `useChipsBatch`）：
+1. 送批前：對每個 valid code `qc.setQueryData(chipsBatchStatusKey(c), {kind:'pending'})`；unsupported code 寫 `{kind:'unsupported'}`。
+2. chunk resolve：`res.results` 逐 code 寫 `['tw-chips', code]`（維持現有 `ChipsFetchResult` 形狀）+ status `ok`；`res.errors` 內的 code 寫 status `error/per_code_error`。
+3. chunk reject（整批失敗）：只把**該 chunk** 的 code 寫 `error/chunk_failed`；其他 chunk 的 `ok` 一律保留（`Promise.allSettled`）。
+4. 清除：下一輪 batch（codes key 改變或手動 retry）在步驟 1 重新寫 `pending`，即覆蓋舊 error；drawer 內 `useTwChipsDetail` 成功 refetch 時也會由 batch status 的 `ok`/`pending` 蓋掉——為避免雙寫，drawer 不寫 batch status，卡片以「`['tw-chips',code]` 有 data 就優先視為 available」解讀。
 
-## B. 四個根因（逐點，附行號）
+`HoldingCard` 解讀優先序（純函式 `resolveCardBsrState(chipsData, batchStatus)`，放 canonical mapper）：
 
-- **D1**：`HoldingCard.tsx`（302 行）與 `_ui/holdingCard/*` 完全沒有 `chipsQueryKey` / `useTwChipsDetail` / `holding-card-bsr` 節點。`useChipsBatch` 寫進 cache 後**沒有任何 render 端訂閱**，所以不開抽屜永遠看不到狀態變化。
-- **D2**：兩處硬截斷（`useChipsBatch.ts` L57、`chipsRepository.ts` L466）。31 檔 → 1 request、第 31 檔永遠無資料，且完全靜默（無 telemetry 標示被丟棄）。edge 端 `MAX_BATCH=30` 是正確的每批上限，chunk 責任在前端。
-- **D3（雙層）**：
-  1. **server 端誤分類**：production `market_batch.last_probe_error` 已於 C1 除敏為 `provider_plan_rejected:http_400`，但 v2 L243 只認 `unsupported_plan:` 前綴 → `marketBatchErrorClass=null`；per-stock 佐證也沒有（唯讀查核：`tw_bsr_fetch_failures` 5417 列 `error_class` **全為 NULL**）。`classifyBsrError` 的 TERMINAL_SIGNATURES 也比不到該字串 → 目前回的是 **`unknown_degraded`**，UI 顯示「上游狀態待確認」而非誠實的「不支援」。這是 D3 的主因。
-  2. **前端無此 seg state**：`chipsFreshnessSegments.ts` L77-84 terminal 只產 `terminal_stale` / `terminal_no_data`，沒有 `unavailable_unsupported`；`bsrHeaderLabel.ts` L50 另有一組字面字串。canonical 模組 `@/checkup/lib/bsrCanonicalCodes` **不存在**。
-- **D4**：`chipsBackfillMachine.ts` `shouldAutoTrigger`（L86-98）只看 `sparse / eligible / syncStatus`，**沒有 provider terminal 判斷** → terminal 股票開抽屜仍會 `requestBackfill()`（`useChipsBackfill` 打 `tw-institutional-daily-sync` + `enqueue_bsr_backfill` RPC，每檔每 session 2 次預算）。`ChipsSection.tsx` L350 手動「回補 60 日」按鈕也只由 `sparse` 控制。前端已無 `ensure_bsr_queued` 呼叫（P3 已移除，僅註解殘留）。
+```
+data 存在 → mapProviderState(payload)  → 'available' | 'unavailable_unsupported' | 'ineligible' | 'degraded' | 'syncing'
+data 不存在 + status.kind==='error'    → 'partial_error'
+data 不存在 + status.kind==='unsupported' → 'ineligible'
+其餘（pending / 無 status）            → 'loading'
+```
 
-## C. status/code mapping 現況與 canonical 落點
+## 3. Query observer 方案（版本已驗證）
 
-| 層 | 現況位置 | 值 |
-|---|---|---|
-| DB gate | `tw_bsr_sync_config.market_batch` v8 | `admission_terminal_code=bsr_provider_unsupported`、`admission_reason=provider_plan_rejected` |
-| edge classifier | `_shared/bsrProviderState.ts` | `terminal_provider_rejected` / code `provider_plan_rejected` |
-| payload | v2 L329/L461 | `bsr_provider_state`、`bsr_provider_code` |
-| drawer seg | `chipsFreshnessSegments.ts` | `terminal_stale` / `terminal_no_data`（不合契約） |
-| drawer header | `bsrHeaderLabel.ts` L50 | 另一組字面字串 |
-| 卡片 | 無 | — |
+- `package.json` `@tanstack/react-query: ^5.83.0`，`node_modules` 實裝 **5.83.0**。
+- v5 的 `useQuery` 無論 `enabled` 為何都會建立 observer 並訂閱該 queryKey 的 cache entry；`enabled:false` 只擋自動 fetch，`setQueryData` 仍會觸發 re-render。這與現有 `useTwChipsDetail`（`useQuery({queryKey: chipsQueryKey(code), enabled: valid && online, staleTime: Infinity})`，`useTwChipsDetail.ts:74/112`）行為一致。
+- 卡片**不重用** `useTwChipsDetail`（它帶 stamp 輪詢、auto-refresh、telemetry，會製造 N 個輪詢器）。改用兩個最小 observer：
 
-**canonical 單一落點：新增 `src/checkup/lib/bsrCanonicalCodes.ts`**（純常數 + `mapProviderState()`，零依賴），由 segments / headerLabel / 卡片 / 抽屜共同 import。edge 側維持 `_shared/bsrProviderState.ts` 為權威分類器，只補「認得 DB canonical code 與除敏後字串」。
+```ts
+const { data } = useQuery<ChipsFetchResult>({
+  queryKey: chipsQueryKey(code), enabled: false,
+  staleTime: Infinity, gcTime: 30*60*1000, notifyOnChangeProps: ['data'],
+});
+const { data: batchStatus } = useQuery<ChipsBatchStatus>({
+  queryKey: chipsBatchStatusKey(code), enabled: false,
+  staleTime: Infinity, notifyOnChangeProps: ['data'],
+});
+```
 
-## D. changed-files allowlist
+無 `queryFn` + `enabled:false` 在 v5 合法（不會 fetch、不會報 missing queryFn），型別由泛型給定。單測會直接斷言「setQueryData 後卡片 re-render 且 0 network」。
 
-**產品碼（6 檔）**
-1. `src/checkup/lib/bsrCanonicalCodes.ts`（新增）— 四段常數 + `mapProviderState`。
-2. `src/checkup/hooks/useChipsBatch.ts` — 去重後 `chunk(30)`、`Promise.allSettled` 併發、逐 chunk 寫 cache、移除 `slice(0,30)`；回傳 `{prefetch, prefetched, failedCodes}`。
-3. `src/checkup/lib/chipsRepository.ts` — 移除 L466 的 `.slice()`，改為 >30 直接丟明確 error（呼叫端負責 chunk），常數保留。
-4. `src/checkup/components/freecheckup/chipsFreshnessSegments.ts` — terminal 分支輸出 `unavailable_unsupported`，文案含「不支援」+ 最後可得日期。
-5. `src/checkup/components/freecheckup/HoldingCard.tsx`（或新 `_ui/holdingCard/HoldingCardBsr.tsx`）— 以 `useQuery(chipsQueryKey)` 純訂閱（`enabled:false`，不自行發請求），渲染 `data-testid="holding-card-bsr"` / `data-bsr-state` / `data-bsr-as-of`。
-6. `src/checkup/lib/chipsBackfillMachine.ts` + `src/checkup/components/freecheckup/ChipsSection.tsx` — terminal 時 `shouldAutoTrigger=false`、隱藏手動回補按鈕；其他狀態行為不變。
+## 4. canonical mapper（單一真相）
 
-**edge（1 檔，本階段只寫 code 不 deploy）**
-7. `supabase/functions/tw-chips-detail-v2/index.ts` + `_shared/bsrProviderState.ts` — 讓 `admission_blocked=true && admission_terminal_code='bsr_provider_unsupported'` 直接判 terminal（不再依賴字串前綴比對）。
+新增 `src/checkup/lib/bsrCanonicalCodes.ts`（純函式、零依賴）：
 
-**測試（分開）**：`src/test/unit/{bsr-canonical-code-mapping,holdings-chips-chunking,holdings-nodrawer-chips-consumer}.test.ts(x)` 轉 GREEN；新增 chunk 邊界與 terminal-no-enqueue 單測；`e2e/holdings-bsr-unavailable.spec.ts` 轉 GREEN。
+```ts
+export type BsrUiState =
+  | 'available' | 'syncing' | 'degraded'
+  | 'unavailable_unsupported' | 'ineligible' | 'partial_error' | 'loading';
 
-**Non-goals**：不重構 HoldingCard 四層結構、不動 ChipsSection 版面、不改 queue/cron/RPC/RLS、不改 quantity/value 計算、不動 `/admin/:slug/signals` 與週記路徑、不新增儀表板或告警。
+export const BSR_UNAVAILABLE_TEXT = '籌碼資料暫時無法取得';
+export const BSR_UNAVAILABLE_WITH_ASOF = (asOf: string) =>
+  `${BSR_UNAVAILABLE_TEXT} · 顯示最後可得資料 ${asOf}`;
 
-## E. 測試矩陣
+export function mapProviderState(p: {
+  providerState?: string | null; providerCode?: string | null; bsrAsOf?: string | null;
+}): BsrUiState;
+export function isTerminalUnavailable(p): boolean;   // ← D4 唯一判斷來源
+export function resolveCardBsrState(chipsData, batchStatus): BsrUiState;
+```
 
-1. 不開 drawer：batch 回應到達後卡片自動由 loading → available / `unavailable_unsupported`。
-2. chunking：1／30／31／60／61 檔 → 1/1/2/2/3 requests；含重複與非法 ID（`ABC`、空字串、`00878`）→ 去重後計數正確、union 完整、單批 ≤30、無跨批覆蓋。
-3. 部分失敗：chunk#2 reject → chunk#1 結果保留在 cache，失敗代號標 partial/error，不清空。
-4. `bsr_provider_unsupported` → seg `unavailable_unsupported`；qty/value 維持原持倉數字，**不得**寫 0。
-5. terminal 開 drawer：`enqueue_bsr_backfill` / `tw-institutional-daily-sync` 呼叫次數 = 0；`retryable`/`syncing`/`sparse` 仍照舊觸發。
-6. 回歸：既有 holding 交易資料、美股／ETF／權證等 unsupported symbol 不變。
-7. 波及防護：跑 `journal-authoring-*`、`journal-detail-*`、`signal-*` e2e 與 `bunx vitest run` 全量。
+`isTerminalUnavailable` 由 `chipsBackfillMachine`、`ChipsSection` 手動按鈕、`HoldingCard`、drawer segments **共用**，四處皆不再自行比對字串（現況 `ChipsSection.tsx:193` 自比 `'terminal_provider_rejected'`，將改為呼叫 mapper）。
 
-## F. Preview 驗收腳本（不得以 unit test 代替）
+## 5. changed-files allowlist — exact 10 檔（產品 7 / 測試 3 modify + 2 new）
 
-全新 incognito context、清 cache、**完全不開 drawer**：
-1. 載入含 31+ 檔持倉的 checkup 頁 → 記錄 `POST **/tw-chips-detail-v2` 請求數（期望 2）與各批 `stock_ids` 長度。
-2. 截圖卡片牆，斷言每張卡有 `holding-card-bsr`，terminal 者為 `unavailable_unsupported` 文案。
-3. 收集 console errors（期望 0）與 network HAR。
-4. 證據：`/tmp/browser/stageD/*.png`、HAR、request 表格；另存 terminal 卡片元素截圖。
+**產品碼（7 檔）**
+1. `src/checkup/lib/bsrCanonicalCodes.ts` — **新增**。§4 的常數、`mapProviderState`、`isTerminalUnavailable`、`resolveCardBsrState`、canonical 文案。
+2. `src/checkup/hooks/useChipsBatch.ts` — 刪 `isValidCode`/`.slice(0,30)`；改用 `isTaiwanStockCode`；`chunk(codes,30)` + `Promise.allSettled`；新增並匯出 `chipsBatchStatusKey` / `ChipsBatchStatus` 寫入邏輯；unsupported telemetry。
+3. `src/checkup/lib/chipsRepository.ts` — `fetchChipsBatch` 移除 L468 `.slice(CHIPS_BATCH_MAX_STOCKS)`，改為 `ids.length > 30` 時 `throw new Error('chips_batch_over_limit')`；`normalizeStockCodes` 不變；常數不變。
+4. `src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardBsr.tsx` — **新增**。兩個 observer + mapper，輸出 `data-testid="holding-card-bsr"`、`data-bsr-state`、`data-bsr-as-of`；文案用 §1。
+5. `src/checkup/components/freecheckup/HoldingCard.tsx` — 只在 `HoldingCardFooter` 之後掛 `<HoldingCardBsr code={h.code} />`，不動既有四層與 class hook。
+6. `src/checkup/components/freecheckup/chipsFreshnessSegments.ts` — `buildBsrSegment` terminal 分支改呼叫 mapper，state 一律 `unavailable_unsupported`，文案改 §1（移除「上游來源中止」字樣）；其餘分支不動。
+7. `src/checkup/lib/chipsBackfillMachine.ts` + 呼叫端 `ChipsSection.tsx` 為兩件事，故拆為 7a/7b：
+   - 7a `src/checkup/lib/chipsBackfillMachine.ts` — `ChipsBackfillSnapshot` 加 `terminalUnavailable: boolean`；`shouldAutoTrigger` 首行 `if (s.terminalUnavailable) return false;`。
+   - 7b `src/checkup/components/freecheckup/ChipsSection.tsx` — 以 `isTerminalUnavailable()` 取代 L193 字串比對；把值傳進 `useChipsAutoBackfill`；terminal 時隱藏「回補 60 日」按鈕。
+   （因此產品碼實際為 **8 個檔案路徑**：1,2,3,4,5,6,7a,7b。）
 
-## G. Remaining risk（誠實揭露）
+**edge（2 檔，本輪只寫 source，不 deploy）**
+9. `supabase/functions/_shared/bsrProviderState.ts` — `classifyBsrError` 開頭新增：normalize 後 `/^provider_plan_rejected(:|\b)/` 命中 → `terminal_provider_rejected / provider_plan_rejected`（涵蓋 C1 除敏字串 `provider_plan_rejected:http_400`，現行 TERMINAL_SIGNATURES 比不到，唯讀驗證：normalize 結果為 `provider_plan_rejected http 400`，status=400 非 429/5xx → 落到 `unknown_degraded/unclassified`）。不動其他分支。
+10. `supabase/functions/tw-chips-detail-v2/index.ts` — L233-244 已讀 `tw_bsr_sync_config where key='market_batch'` 的整個 `config` jsonb（**read path 已存在，不需新增查詢**），只把 L241-244 的 `startsWith('unsupported_plan:')` 換成讀 canonical v8 鍵：
+   `marketBatchErrorClass = (marketBatch.admission_blocked === true && marketBatch.admission_terminal_code === 'bsr_provider_unsupported') ? 'provider_plan_rejected' : (舊 unsupported_plan 前綴保留為 fallback)`；同時 `marketBatchUnsupported` 加上 `|| admission_blocked === true`。raw 值仍不外流。
 
-admission gate 目前**關閉**（v8 `admission_blocked=true`），本階段只能讓 UI 誠實顯示「不支援／最後可得日期」，**不會**、也不准回補出新的 BSR 資料。背景新鮮度（BSR 停在 2026-08-17 之前）屬另案 remaining risk，不在 D 範圍，且本階段不打任何 provider。
+**測試（3 檔 modify）**：`src/test/unit/bsr-canonical-code-mapping.test.ts`、`src/test/unit/holdings-chips-chunking.test.ts`、`src/test/unit/holdings-nodrawer-chips-consumer.test.tsx`（fixture 依 §0 更新）；`e2e/holdings-bsr-unavailable.spec.ts` 斷言 `unavailable_unsupported` 與文案。
 
-## H. 未知／衝突
+**0 changed files（硬性）**：`/admin/:slug/signals` 相關、`src/pages/admin/**`、`JournalDetail.tsx`、`journalRepository`、任何 DB migration、cron、RLS。
 
-- D3 修復是否納入 edge（第 7 項）需你裁決：只改前端 → UI 會顯示 `unknown_degraded`（「上游狀態待確認」）而非「不支援」，D3 無法真正達成；改 edge 則需要一次 deploy（本階段不執行，等你另行核准）。
-- `bsr_terminal_code` 欄位存在於 e2e fixture 但 v2 payload 目前不輸出；是否要正式加入 payload 契約，請一併裁決。
+**Non-goals**：不重構 HoldingCard 四層、不改版面、不擴 payload schema、不新增儀表板/告警/PDF。
+
+## 6. `bsr_terminal_code` schema 裁決 → **不擴**
+
+`bsr_provider_state='terminal_provider_rejected'` + `bsr_provider_code='provider_plan_rejected'` 已可無歧義映射到 `unavailable_unsupported`：白名單中 `provider_plan_rejected` 是**唯一**會伴隨 terminal state 的 code（`BSR_PROVIDER_CODES` 其餘值分別綁 retryable/unknown/fresh/ineligible），無 collision。故 payload 不加 `bsr_terminal_code`；e2e fixture 若含該欄位視為多餘欄位，斷言改用 `bsr_provider_state/_code`。
+
+## 7. 驗收拆分與 deployment gate
+
+**A. Source + unit/integration（0 deploy，本階段可做）**
+- `bunx vitest run` 全量綠；新增 chunk 邊界（1/30/31/60/61 + 重複 + `00878`/`006208` 保留 + 真非法值剔除）、partial chunk failure 保留成功 chunk、setQueryData → 卡片 re-render 且 fetch 次數 0、terminal → 0 次 `enqueue_bsr_backfill`。
+- e2e（本機 dev server + `page.route` 攔截 mock response）：`npx playwright test --project=desktop-holdings-bsr-unavailable` 與 `desktop-chips-batch`，證明 31 檔 2 requests、卡片 `unavailable_unsupported`。
+- 週記/訊號回歸：`journal-*`、`signal-*` 專案 smoke。
+- 說明：A 只能證明「給定 D3 payload，UI 正確」；**不能**證明 production edge 真的回 terminal。
+
+**B. Hosted Preview（需 edge deploy，目前為 blocker）**
+- gate：`tw-chips-detail-v2` + `_shared/bsrProviderState.ts` deploy（**未獲授權，不執行**）。
+- 內容：全新無痕、清 cache、完全不開 drawer，觀察真實 `POST /tw-chips-detail-v2` 請求數與回傳 `bsr_provider_state`，截圖 + HAR 留存。
+- 在 B 完成前，D3 的「真實 response」驗收狀態明確標記為 **BLOCKED（待 edge deploy 授權）**，不得以 unit test 冒充。
+
+## 8. Open questions
+
+- 全數歸零，僅剩一個**明確 blocker**：edge deploy 未授權 → 驗收 B 無法執行，D3 只能在 source/unit 層完成。其餘（validator 規則、文案、schema 擴充、mapper 落點、changed-files）皆已裁定。
+
+## 9. Remaining risk
+
+admission gate 仍為 `admission_blocked=true`；本階段只讓 UI 誠實顯示「籌碼資料暫時無法取得 + 最後可得日期」，**不會**產生新的 BSR 資料，也不打任何 provider。背景新鮮度屬另案。
