@@ -1,0 +1,21 @@
+{
+  "$comment": "顯性技術債清單：只有列在這裡的 RPC 可以暫時不在 supabase/migrations/ 有定義。每筆都必須有 caller file:line、原因、發現日期、負責範圍。scanner 仍會 fail 任何未列入的新 missing，且報告一定會顯示 debt 數量，不得靜默忽略。",
+  "forbidden_names": [
+    "bsr_admission_status",
+    "bsr_block_and_terminalize_claims",
+    "bsr_unblock_after_probe"
+  ],
+  "$forbidden_comment": "BSR admission gate 三支永遠不得列為 debt：它們是 deployed edge function 的可達必要路徑，缺席等於背景回補全停。",
+  "debt": [
+    {
+      "rpc": "exec_count",
+      "caller": "supabase/functions/backfill-daily-snapshots/index.ts:203",
+      "deployed": true,
+      "reachable": "cron jobid=20 backfill-daily-snapshots-auto-resume（*/5 * * * *）每次執行都會走到，但回傳值 `summary` 之後未被使用；supabase-js 會把 42883 放進 error 物件，程式碼只解構 data，因此不 throw、不影響 rows_inserted / knowledge_backfill_progress。",
+      "impact": "non-fatal：每 5 分鐘一次無效 POST /rpc/exec_count（PostgREST 404/400），純雜訊。",
+      "reason": "與 Stage 1 BSR gate 無關的獨立漂移；本輪明令不得順手修，避免擴張變更面。",
+      "discovered": "2026-08-22",
+      "scope_owner": "OHLCV / knowledge backfill lane（另立工單處理：移除呼叫或補定義）"
+    }
+  ]
+}

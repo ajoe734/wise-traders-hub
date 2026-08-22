@@ -1,0 +1,46 @@
+== snapshot_at ==2026-08-22T02:42:52Z
+== pg_proc gate ==
+bsr_apply_degrade_transition(_api text, _to_mode text, _reason text, _trigger_metric text, _trigger_value numeric, _threshold numeric, _cooldown_seconds integer, _correlation_id uuid)|secdef=true|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=20a013ff911e26183d204ac440da48c1
+bsr_backlog_metrics()|secdef=true|cfg=search_path=public|owner=postgres|acl={postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=a419d519ff538c4352831cc0bab13cc0
+bsr_check_tier_admission(_api text, _tier smallint, _limit integer)|secdef=true|cfg=search_path=public|owner=postgres|acl={postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=37448751c68dc5c28296013765236b4d
+bsr_force_recycle_reservation(_reservation_id bigint, _reason text)|secdef=false|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=dd3bc69e8594079035aba22299164662
+bsr_get_degrade_state(_api text)|secdef=true|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=9e6282f854489a9fae7edfb35982debb
+bsr_list_stuck_reservations(_api text, _min_age_seconds integer, _limit integer)|secdef=false|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=3af96b8ec6679f76ae14c3349ddce9c6
+bsr_recent_degrade_events(_api text, _limit integer)|secdef=true|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=7de32bf67375aee41ba78090295279c7
+bsr_recovery_budget(p_full_budget integer)|secdef=true|cfg=search_path=public|owner=postgres|acl={postgres=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=eb9ee387fb9cbaf2651eaa3e758b5137
+bsr_reservation_stats(_api text)|secdef=false|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=165a6d6224cd63b5fcb3a73cb5f38f39
+bsr_snapshot_claim(_trade_date date, _correlation_id uuid, _lease_seconds integer)|secdef=true|cfg=search_path=public|owner=postgres|acl={postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=1045c9a0d1786c637057f70b1ee3b195
+bsr_snapshot_fulfill_jobs(_trade_date date, _threshold integer)|secdef=true|cfg=search_path=public|owner=postgres|acl={postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=14e38797bd91102d292c38e1503301fb
+bsr_snapshot_mark(_trade_date date, _status text, _source text, _coverage_stocks integer, _coverage_rows integer, _last_error text)|secdef=true|cfg=search_path=public|owner=postgres|acl={postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=111ec9b5b3730810c0cca089aba3ffa4
+bsr_snapshot_mark(_trade_date date, _status text, _source text, _coverage_stocks integer, _coverage_rows integer, _last_error text, _sealed_by_lane text)|secdef=true|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=4917fb8925013bd751e94c1e7a5b54af
+bsr_snapshot_stats(_days integer)|secdef=true|cfg=search_path=public|owner=postgres|acl={postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=6313fb7614f4d5eec7c225c0e2e32d6a
+bsr_trace_by_correlation(_cid uuid)|secdef=true|cfg=search_path=public|owner=postgres|acl={=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_yqacmrgdjlenbijclngi=X/postgres}|md5=8a76c84859029ebc1115dd9693fcb077
+== private_bsr schema ==
+0
+== queue counts ==
+done=8432
+failed=1572
+pending=548
+== queue md5 ==
+41bb160517c17f0f737d95c269f813b2
+== triggers on queue ==
+trg_tw_bsr_sync_queue_updated
+== sync_config ==
+bsr_sync|v=2|md5=9e9d4e47a767bdec654627cef12db4d7|upd=2026-07-20 09:22:27.448109+00
+circuit_breaker_config|v=1|md5=eb649bbb72a13f573f7cd4b43485a517|upd=2026-07-25 06:51:36.26905+00
+cold_start_status|v=1789|md5=0e0a80f750a9f26a57f79d56862cb89e|upd=2026-08-03 20:27:32.092993+00
+degrade:finmind|v=95|md5=c36168c4bd9429941d69ee7a29b61766|upd=2026-08-12 10:45:41.415496+00
+fastlane_enabled|v=3|md5=2c036b2698ac19be04c2bba3c30ddc64|upd=2026-07-25 20:53:29.872514+00
+keep_warm_schedule|v=2|md5=49abfd1de3d3726c48abdda809d587f9|upd=2026-07-25 08:34:09.455885+00
+market_batch|v=7|md5=dd747a45d3e46b2acc3f0c021bc269f8|upd=2026-08-17 13:30:58.178081+00
+ui_state_machine_enabled|v=1|md5=1acf90d6b9d56964d639faacabe5ad12|upd=2026-07-25 06:51:36.26905+00
+warm_chips_cache_enabled|v=1|md5=80f378fccee7239d2d141de91e6b61a7|upd=2026-07-25 06:51:36.26905+00
+== kill switches ==
+chips_all=true
+chips_backfill=true
+chips_interactive=true
+chips_keepwarm=false
+== cron bsr ==
+ERROR:  permission denied for schema cron
+LINE 1: ...||jobname||'|'||schedule||'|active='||active from cron.job w...
+                                                             ^
