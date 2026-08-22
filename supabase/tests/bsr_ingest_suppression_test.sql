@@ -59,10 +59,40 @@ BEGIN
   ASSERT res->>'skipped' = 'bsr_provider_unsupported',
     format('case3: recover_stale_bsr_queue_jobs 應 early-return skipped，實得 %s', res);
 
+  res := public.recover_quota_failed_bsr_jobs(12);
+  ASSERT res->>'skipped' = 'bsr_provider_unsupported'
+     AND (res->>'tokens_issued')::int = 0 AND (res->>'reconciled')::int = 0,
+    format('case3: recover_quota_failed_bsr_jobs 應 early-return skipped 且 0 token，實得 %s', res);
+
+  n := public.enqueue_bsr_backfill('1104', 60);
+  ASSERT n = 0,
+    format('case3: enqueue_bsr_backfill 應 early-return 0（integer 契約不變），實得 %s', n);
+
   SELECT count(*) INTO after_ct FROM public.tw_bsr_sync_queue;
   ASSERT after_ct = before_ct,
     format('case3: gate 關閉時 queue 不得成長 (%s -> %s)', before_ct, after_ct);
 END $$;
+
+-- Case 3c：trigger 版（enqueue_bsr_first_fetch_on_trade）gate 關閉時 0 insert 且 RETURN NEW
+CREATE TEMP TABLE s3b0_trade_probe (id bigserial primary key, market text, instrument text)
+  ON COMMIT DROP;
+CREATE TRIGGER s3b0_trade_probe_bsr AFTER INSERT ON s3b0_trade_probe
+  FOR EACH ROW EXECUTE FUNCTION public.enqueue_bsr_first_fetch_on_trade();
+
+DO $$
+DECLARE before_ct bigint; after_ct bigint; n int;
+BEGIN
+  SELECT count(*) INTO before_ct FROM public.tw_bsr_sync_queue;
+  INSERT INTO s3b0_trade_probe (market, instrument) VALUES ('TW', '1104 台泥');
+  SELECT count(*) INTO n FROM s3b0_trade_probe;
+  ASSERT n = 1, 'case3c: trigger 必須 RETURN NEW，資料列不得被吞掉';
+  SELECT count(*) INTO after_ct FROM public.tw_bsr_sync_queue;
+  ASSERT after_ct = before_ct,
+    format('case3c: gate 關閉時 trigger 不得入列 (%s -> %s)', before_ct, after_ct);
+END $$;
+
+DROP TRIGGER s3b0_trade_probe_bsr ON s3b0_trade_probe;
+DROP TABLE s3b0_trade_probe;
 
 -- Case 3b：recovery 在 gate 關閉時不得把 skipped 撿回 pending
 DO $$
@@ -97,14 +127,17 @@ BEGIN
     'public.enqueue_bsr_first_fetch_on_trade()',
     'public.ensure_bsr_queued(text)',
     'public.enqueue_bsr_backfill(text,integer)',
-    'public.enqueue_bsr_first_fetch_on_trade()',
-    'public.recover_stale_bsr_queue_jobs(integer,integer)'
+    'public.recover_stale_bsr_queue_jobs(integer,integer)',
+    'public.recover_quota_failed_bsr_jobs(integer)'
   ] LOOP
     src := pg_get_functiondef(f::regprocedure);
     ASSERT src LIKE '%private_bsr.ingest_allowed()%',
       format('case2: %s 未呼叫 private_bsr.ingest_allowed() — S3B-A 未套用', f);
+    ASSERT src LIKE '%SET search_path TO ''pg_catalog'', ''public''%',
+      format('case2: %s 的 search_path 未釘為 pg_catalog, public', f);
   END LOOP;
 END $$;
+
 
 
 -- ─────────────────────────────────────────────
