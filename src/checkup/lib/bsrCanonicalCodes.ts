@@ -58,7 +58,14 @@ export function mapProviderState(input: unknown): string | null {
     return TERMINAL_INPUTS.has(s) ? BSR_TERMINAL_PROVIDER_STATE : s;
   }
   if (typeof input === 'object') {
-    const p = input as Record<string, any>;
+    const p = input as {
+      bsr_provider_state?: unknown;
+      bsr_terminal_code?: unknown;
+      bsr_provider_code?: unknown;
+      bsr_sync_status?: { provider_state?: unknown; provider_code?: unknown } | null;
+      providerState?: unknown;
+      providerCode?: unknown;
+    };
     const candidates = [
       p.bsr_provider_state,
       p.bsr_sync_status?.provider_state,
@@ -117,7 +124,7 @@ interface PayloadLike {
   bsr_provider_state?: string | null;
   bsr_freshness_status?: string | null;
   bsr_sync_status?: { provider_state?: string | null; provider_code?: string | null } | null;
-  [k: string]: any;
+  [k: string]: unknown;
 }
 
 function providerStateToUi(payload: PayloadLike): BsrUiState {
