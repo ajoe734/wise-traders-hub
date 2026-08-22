@@ -217,6 +217,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // Stage 3B：BSR provider terminal（不支援）時的誠實降級 + 卡片層 consumer + 批次分塊
+      name: 'desktop-holdings-bsr-unavailable',
+      testMatch: /holdings-bsr-unavailable\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // ChipsSection 行動端佈局回歸：viewport 由 spec 內 test.use 動態切換
       // 覆蓋 320 / 360 / 375 / 390 / 393 / 430 六個常見手機寬度
       name: 'mobile-chips-section',
