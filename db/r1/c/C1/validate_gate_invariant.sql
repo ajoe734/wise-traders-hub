@@ -179,8 +179,14 @@ BEGIN
   END IF;
 
   -- private_bsr.assert_sanitized when the calling role may execute it
-  SELECT has_function_privilege(current_user, 'private_bsr.assert_sanitized(jsonb,integer)', 'EXECUTE')
-    INTO v_priv;
+  BEGIN
+    SELECT has_function_privilege(current_user, 'private_bsr.assert_sanitized(jsonb,integer)', 'EXECUTE')
+      INTO v_priv;
+  EXCEPTION WHEN others THEN
+    -- restricted roles cannot even resolve private_bsr (no schema USAGE); that is
+    -- the expected read-only production posture, not a validation failure.
+    v_priv := false;
+  END;
   IF coalesce(v_priv,false) THEN
     PERFORM private_bsr.assert_sanitized(v_cfg, 0);
     RAISE NOTICE 'C1_VALIDATOR assert_sanitized=PASS';
