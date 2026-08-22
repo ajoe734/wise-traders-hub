@@ -38,12 +38,13 @@ function BatchHarnessBody({ codes }: { codes: string[] }) {
   const qc = useQueryClient();
   const [active, setActive] = useState<string[]>([]);
   const [tick, setTick] = useState(0);
+  const codesKey = codes.join(',');
 
   // keyRef 初始化為首次 key → 必須從空清單切到目標代號才會觸發批次
   useEffect(() => {
-    const t = setTimeout(() => setActive(codes), 0);
+    const t = setTimeout(() => setActive(codesKey ? codesKey.split(',') : []), 0);
     return () => clearTimeout(t);
-  }, [codes.join(',')]);
+  }, [codesKey]);
 
   useChipsBatch({ codes: active });
 
@@ -66,7 +67,8 @@ function BatchHarnessBody({ codes }: { codes: string[] }) {
     const status =
       active.length === 0 ? 'loading' : settled.length === codes.length ? 'ready' : 'loading';
     return { statuses, returned, failed, notApplicable, status };
-  }, [codes, qc, tick, active.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codesKey, qc, tick, active.length]);
 
   const first = view.returned[0]
     ? (qc.getQueryData(chipsQueryKey(view.returned[0])) as any)?.payload
@@ -117,8 +119,6 @@ function BatchHarnessBody({ codes }: { codes: string[] }) {
 }
 
 export default function ChipsBatchHarnessEntry() {
-  if (!isPreviewEnv()) return null;
-
   const codes = useMemo(() => {
     const params = new URLSearchParams(
       typeof window !== 'undefined' ? window.location.search : '',
@@ -128,6 +128,8 @@ export default function ChipsBatchHarnessEntry() {
       .map((c) => c.trim())
       .filter(Boolean);
   }, []);
+
+  if (!isPreviewEnv()) return null;
 
   return (
     <QueryClientProvider client={harnessQueryClient}>
