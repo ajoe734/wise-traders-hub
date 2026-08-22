@@ -37,5 +37,6 @@ export { HoldingCardFooter } from '../../components/freecheckup/_ui/holdingCard/
 export { HoldingCardReturn } from '../../components/freecheckup/_ui/holdingCard/HoldingCardReturn';
 export { HoldingCardPriceTrack } from '../../components/freecheckup/_ui/holdingCard/HoldingCardPriceTrack';
 export { default as HoldingCardSkeleton } from '../../components/freecheckup/_ui/holdingCard/HoldingCardSkeleton';
+export { HoldingCardBsr } from '../../components/freecheckup/_ui/holdingCard/HoldingCardBsr';
 // 抽屜的狀態組裝 hook 只服務 free surface 的 HoldingsDetailPanel（ADR-0005 §6）
 export { useHoldingDetailViewModel } from '../../hooks/useHoldingDetailViewModel';

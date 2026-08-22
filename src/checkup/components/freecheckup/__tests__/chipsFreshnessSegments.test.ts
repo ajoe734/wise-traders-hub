@@ -32,8 +32,12 @@ describe('chipsFreshnessSegments', () => {
     expect(buildBsrSegment({ ...base, bsr_freshness_status: 'no_data' }).tone).toBe('error');
   });
 
-  it('分點不可用時文案明示上游中止', () => {
-    expect(buildBsrSegment({ ...base, bsr_freshness_status: 'sync_failed' }).text).toContain('目前不可用');
+  it('分點不可用時文案為 canonical 統一文案（不得洩漏 provider／方案／內部 code）', () => {
+    const text = buildBsrSegment({ ...base, bsr_freshness_status: 'sync_failed' }).text;
+    expect(text).toContain('籌碼資料暫時無法取得');
+    for (const forbidden of ['目前不可用', '上游中止', '上游來源中止', 'FinMind', 'sponsor', 'HTTP']) {
+      expect(text).not.toContain(forbidden);
+    }
   });
 
   it('分點 fresh / lagging / syncing / ineligible 映射正確', () => {
