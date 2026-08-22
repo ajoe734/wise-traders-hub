@@ -112,3 +112,100 @@ case1 缺函式 / case2 VOLATILE / case3 授權 authenticated / case4 always-fal
 
 ### production 0 delta（before 03:58:59Z / after 04:00:13Z，皆為 SELECT）
 queue_count 10552→10552、queue_hash ce3293016b7f773fad1fcba7c219f6e7 不變、max(updated_at) 與 max(enqueued_at) 皆 2026-08-21 07:02:00.081277+00 不變、config_hash 1aecb3a8f18e057861a25524a1aa7f17 不變、audit_logs 10690→10690、degrade 94→94、status counts done 8432 / failed 1572 / pending 548 不變、`private_bsr.ingest_allowed` 仍為 0。
+
+---
+
+## S3B-0 Corrected Evidence Bundle — Round 2（2026-08-22 04:03–04:06Z）
+
+### 0. 修正兩個 hard stop
+- **A**：不再以 production catalog SELECT 等價替代。重建 disposable clone 並**實際套用 Stage 1 migration**後跑 B1/B2。
+- **B**：`bsr_gate_ingest_allowed_test.sql` 的 case4/case7 契約寫反（default-allow），已改為 **fail-closed**，並擴為 9 個 case（含 3 種 malformed 分支）。**沒有任何 default-allow 路徑**。
+
+### 1. Clone 重建 + Stage 1 套用
+```
+bash /tmp/clone_up.sh /tmp/s3b0 55931
+→ restore_errors=0
+→ CLONE=postgresql://postgres@localhost:55931/clone?sslmode=disable
+
+psql "$CLONE" -qX -v ON_ERROR_STOP=1 \
+  -f supabase/migrations/20260822024453_c57ec769-6af5-47b8-9b80-daadfcfcf545.sql
+→ stage1_exit=0
+sha256 = f9b5d06aeef9789c68f8db6c78d48baae2d62bab4c18b4211626125d78d89732
+clone private_bsr 物件 = assert_sanitized, gate_classify, gate_state
+```
+
+### 2. Baseline 4/4 GREEN（全部在同一套過 Stage 1 的 clone / 本機）
+| # | 測試 | exact command | 結果 |
+|---|---|---|---|
+| B1 | `supabase/tests/bsr_gate_helper_acl_test.sql` | `psql "$CLONE" -qX -v ON_ERROR_STOP=1 -f supabase/tests/bsr_gate_helper_acl_test.sql` | exit 0 GREEN（**clone 實跑**，非 production SELECT）|
+| B2 | `supabase/tests/bsr_queue_selector_test.sql` | 同上 | exit 0 GREEN |
+| B3 | `src/test/unit/bsr-worker-body-shape.test.ts` | `bunx vitest run src/test/unit/bsr-worker-body-shape.test.ts src/test/unit/holdings-quantity-source.test.ts` | 4 passed |
+| B4 | `src/test/unit/holdings-quantity-source.test.ts` | 同上（合併執行：Test Files 2 passed / Tests 8 passed）| 4 passed |
+
+B1 負向對照：`grant execute on function private_bsr.gate_state() to authenticated` 後重跑 →
+`ERROR: case4: authenticated must NOT have EXECUTE on private_bsr.gate_state`（exit 3）；revoke 後回 exit 0。證明 B1 非空跑。
+
+`bsr_admission_gate_contract_test.sql` = **extra**，不計 acceptance（本輪於 clone 為 RED：`case1: public.bsr_block_and_terminalize_claims(...) missing or wrong signature (got 0)`，因 Stage 1 wrapper 段落在該 clone 之外，屬 S3B-A 範圍）。
+
+### 3. ingest_allowed 新契約 — 9 case exact assertions（fail-closed）
+| case | fixture | 期望 | assertion message |
+|---|---|---|---|
+| 1 | catalog | 函式存在／0 參數／回傳 boolean | `case1: private_bsr.ingest_allowed() 不存在 —— S3B-A 尚未套用（預期 RED）` |
+| 2 | catalog | SECURITY DEFINER + STABLE + 固定 search_path | `case2: ingest_allowed 必須 STABLE，實得 provolatile=%s` 等 |
+| 3 | catalog | anon/authenticated/service_role/PUBLIC 無 EXECUTE | `case3: %s 不得對 private_bsr.ingest_allowed() 有 EXECUTE` |
+| 4 | `DELETE tw_bsr_sync_config WHERE key='market_batch'` | **FALSE**（0 enqueue） | `case4: gate row 缺席（legacy_config_missing）必須 fail-closed=false，實得 %s` |
+| 5 | `{"admission_blocked": false}` | **TRUE**（唯一允許路徑） | `case5: admission_blocked=false（canonical）必須為 true，實得 %s` |
+| 6 | `{"admission_blocked": true, ...}` | **FALSE** | `case6: admission_blocked=true 必須為 false，實得 %s` |
+| 7 | `{"admission_blocked":"yes-please"}` | **FALSE** 且不拋錯 | `case7: admission_blocked 型別不符必須 fail-closed=false，實得 %s` |
+| 8 | `{"note":"no admission_blocked key"}` | **FALSE** 且不拋錯 | `case8: admission_blocked 鍵缺席必須 fail-closed=false，實得 %s` |
+| 9 | `'"blocked?"'::jsonb`（非 object） | **FALSE** 且不拋錯 | `case9: config 非 object 必須 fail-closed=false，實得 %s` |
+
+gate key 改為 `market_batch`，與 Stage 1 `private_bsr.gate_state()` 實際讀取的 key 一致（舊版誤用 `bsr_availability`，fixture 根本沒被 helper 讀到）。
+
+### 4. Harness 證明
+```
+psql "$CLONE" -qX -v ON_ERROR_STOP=1 -v stub=1 -f supabase/tests/bsr_gate_ingest_allowed_test.sql
+→ case1..case9 全部 NOTICE "PASS"，stub teardown PASS，exit 0
+psql "$CLONE" -qX -v ON_ERROR_STOP=1 -f supabase/tests/bsr_gate_ingest_allowed_test.sql
+→ ERROR: case1: private_bsr.ingest_allowed() 不存在 —— S3B-A 尚未套用（預期 RED）  exit 3
+```
+負向對照（stub 改成 gate row 缺席時 `RETURN true`）：
+`ERROR: case4: gate row 缺席（legacy_config_missing）必須 fail-closed=false，實得 t` exit 3 —— 證明 default-allow 會被本測試擋下。
+stub 僅存在於交易內，`DROP FUNCTION` + `ROLLBACK` 雙重拆除，clone 與 production 皆無殘留。
+
+### 5. Targeted RED 8/8（重跑）
+| # | 測試 | RED message |
+|---|---|---|
+| R1 | `bsr_gate_ingest_allowed_test.sql` | `case1: private_bsr.ingest_allowed() 不存在（預期 RED）` exit 3 |
+| R2 | `bsr_ingest_suppression_test.sql` | `case3: ensure_bsr_queued 應 early-return skipped，實得 {"status":"pending","created":true,...}` exit 3 |
+| R3 | `bsr_admission_gate_contract_test.sql`（extra） | `case1: public.bsr_block_and_terminalize_claims(...) missing or wrong signature (got 0)` exit 3 |
+| R4 | `bsr-canonical-code-mapping.test.ts` | `RED: @/checkup/lib/bsrCanonicalCodes 不存在` / `RED: mapProviderState 未導出` / `RED: ChipsSection.tsx 直接寫死 terminal 字面字串` |
+| R5 | `bsr-terminal-no-backfill.test.tsx` | `RED: machine 尚未認得 providerState` / `RED: terminal 狀態仍發出 requestBackfill` / `RED: ChipsSection 未以 terminal 狀態 gate 手動回補按鈕` |
+| R6 | `holdings-nodrawer-chips-consumer.test.tsx` | `RED: HoldingCard 樹沒有任何 chips 訂閱` / `RED: 找不到 data-testid="holding-card-bsr"` / `RED: 卡片沒有 terminal 文案` |
+| R7 | `holdings-chips-chunking.test.ts` | `RED: 31 檔應分成 2 個請求，實得 1 個（sizes=30）` |
+| R8 | `e2e/holdings-bsr-unavailable.spec.ts` | 本輪未重跑（前輪結果不變，不計入本次 GREEN 聲明）|
+vitest 統計（R4–R7）：Test Files 4 failed / Tests 10 failed · 1 passed。
+
+### 6. production 0 delta（唯讀 SELECT；before 04:04:58Z / after 04:05:49Z）
+| 欄位 | before | after |
+|---|---|---|
+| queue_count | 10552 | 10552 |
+| queue_hash（`md5(agg(id:status:updated_at))`）| 9c5eda0c19768fd2ef588335f8ec15a0 | 9c5eda0c19768fd2ef588335f8ec15a0 |
+| queue max(updated_at) | 2026-08-21 07:02:00.081277+00 | 同 |
+| queue max(enqueued_at) | 2026-08-21 07:02:00.081277+00 | 同 |
+| config_hash | 1aecb3a8f18e057861a25524a1aa7f17 | 1aecb3a8f18e057861a25524a1aa7f17 |
+| audit_logs count | 10690 | 10690 |
+| tw_bsr_degrade_events count | 94 | 94 |
+| status pending / failed / done / running / skipped | 548 / 1572 / 8432 / 0 / 0 | 548 / 1572 / 8432 / 0 / 0 |
+
+（queue_hash 與前輪數值不同，是因本輪 hash 公式加入 `updated_at`；同輪 before/after 一致即 0 delta。）
+本輪期間未觸發自然排程，無隱性變化。無 migration apply、無 deploy、無 Publish、無 provider call。
+
+### 7. changed-files allowlist（本輪）
+```
+supabase/tests/bsr_gate_ingest_allowed_test.sql   (modified — 契約由 default-allow 改 fail-closed，7→9 case，加 stub harness)
+docs/bsr/stage3b-s3b0-matrix.md                   (modified — 本節)
+```
+無 migration 新增／套用、無 edge function 變更、無 production source code 變更。
+
+**狀態：S3B-0 兩個 hard stop 已修正，停在 S3B-0 等待核准。**
