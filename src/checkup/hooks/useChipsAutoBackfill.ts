@@ -35,6 +35,8 @@ export interface UseChipsAutoBackfillInput {
   eligible?: boolean | null;
   syncStatus?: string | null;
   satisfied: boolean;
+  /** 上游永久拒絕：一律不自動排入回補。 */
+  terminalUnavailable?: boolean;
   /** 排入回補（來自 useChipsBackfill）。 */
   requestBackfill: () => void | Promise<unknown>;
   /** 逾時回報（analytics）。 */
@@ -49,6 +51,7 @@ export function useChipsAutoBackfill({
   eligible,
   syncStatus,
   satisfied,
+  terminalUnavailable = false,
   requestBackfill,
   onTimeout,
   timeoutMs = AUTO_BACKFILL_TIMEOUT_MS,
@@ -74,9 +77,12 @@ export function useChipsAutoBackfill({
     if (!stockCode) return;
     dispatch({
       type: 'snapshot',
-      snapshot: { stockCode, hasData, sparse, eligible, syncStatus, satisfied, now: Date.now() },
+      snapshot: {
+        stockCode, hasData, sparse, eligible, syncStatus, satisfied,
+        terminalUnavailable, now: Date.now(),
+      },
     });
-  }, [stockCode, hasData, sparse, eligible, syncStatus, satisfied]);
+  }, [stockCode, hasData, sparse, eligible, syncStatus, satisfied, terminalUnavailable]);
 
   // 計時：只有 triggered 才起 30 分鐘計時器
   useEffect(() => {

@@ -1,53 +1,129 @@
 /**
- * Stage 3B / S3B-0 RED test — 不開抽屜也要看得到 BSR 狀態（真有 consumer 訂閱）
+ * Stage D · 不開抽屜也要看得到 BSR 狀態（真有 consumer 訂閱）
  *
- * 契約（v4.1 §S3B-D）：
- *   1. 持倉卡片（HoldingCard）本身必須訂閱 chips 快取（chipsQueryKey / useChipsCard），
- *      不能只有抽屜（HoldingsDetailPanel）才是 consumer。
- *   2. 卡片必須渲染 data-testid="holding-card-bsr" 與 data-bsr-state / data-bsr-as-of，
- *      terminal 時顯示「不支援」與最後可得日期，不得留白。
- *
- * 目前預期 RED，失敗點：HoldingCard 完全沒有 chips 訂閱與 holding-card-bsr 節點，
- * 唯一 consumer 是 HoldingsWorkbench 的 useChipsBatch（只寫入快取，不渲染）。
+ * 契約（Plan v3 §D/§G）：
+ *   1. 持倉卡片樹本身必須訂閱 chips 快取，不能只有抽屜是 consumer。
+ *   2. 卡片渲染 data-testid="holding-card-bsr" 與 data-bsr-state / data-bsr-as-of。
+ *   3. 狀態→文案走 canonical 映射；terminal 顯示「籌碼資料暫時無法取得」＋最後可得日期，
+ *      不得留白、不得出現舊禁止文案，也絕不觸碰 quantity / value / ROI。
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import HoldingCardBsr from '@/checkup/components/freecheckup/_ui/holdingCard/HoldingCardBsr';
+import { chipsBatchStatusKey } from '@/checkup/hooks/useChipsBatch';
+import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
 
 function src(rel: string): string {
   try { return readFileSync(resolve(process.cwd(), rel), 'utf8'); } catch { return ''; }
 }
 
 const CARD = src('src/checkup/components/freecheckup/HoldingCard.tsx');
-const HEADER = src('src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardHeader.tsx');
-const FOOTER = src('src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardFooter.tsx');
-const CARD_TREE = [CARD, HEADER, FOOTER].join('\n');
+const BSR = src('src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardBsr.tsx');
+const CARD_TREE = [CARD, BSR].join('\n');
 
-describe('S3B RED · 卡片層（無抽屜）必須是 chips consumer', () => {
+afterEach(() => cleanup());
+
+function renderState(setup: (qc: QueryClient) => void, code = '2330') {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  setup(qc);
+  render(
+    <QueryClientProvider client={qc}>
+      <HoldingCardBsr code={code} />
+    </QueryClientProvider>,
+  );
+  return screen.getByTestId('holding-card-bsr');
+}
+
+describe('Stage D · 卡片層（無抽屜）是 chips consumer', () => {
   it('卡片樹必須訂閱 chips 快取', () => {
-    const subscribes = /chipsQueryKey|useTwChipsDetail|useChipsCard|useChipsSummary/.test(CARD_TREE);
-    expect(subscribes, 'RED: HoldingCard 樹沒有任何 chips 訂閱，未開抽屜就完全沒有 BSR 資訊').toBe(true);
+    expect(/chipsQueryKey|useTwChipsDetail|chipsBatchStatusKey/.test(CARD_TREE)).toBe(true);
+    expect(CARD.includes('HoldingCardBsr')).toBe(true);
   });
 
   it('卡片必須渲染 holding-card-bsr 契約節點', () => {
-    expect(
-      CARD_TREE.includes('holding-card-bsr'),
-      'RED: 找不到 data-testid="holding-card-bsr"',
-    ).toBe(true);
-    expect(
-      /data-bsr-state/.test(CARD_TREE),
-      'RED: 找不到 data-bsr-state（e2e 無法斷言不可用狀態）',
-    ).toBe(true);
-    expect(
-      /data-bsr-as-of/.test(CARD_TREE),
-      'RED: 找不到 data-bsr-as-of（無法顯示最後可得日期）',
-    ).toBe(true);
+    expect(CARD_TREE.includes('holding-card-bsr')).toBe(true);
+    expect(/data-bsr-state/.test(CARD_TREE)).toBe(true);
+    expect(/data-bsr-as-of/.test(CARD_TREE)).toBe(true);
   });
 
-  it('terminal 文案不得留白', () => {
-    expect(
-      /不支援|目前不可用/.test(CARD_TREE),
-      'RED: 卡片沒有 terminal 文案（不支援／目前不可用）',
-    ).toBe(true);
+  it('terminal payload → unavailable_unsupported 與最後可得日期，文案不留白', () => {
+    const node = renderState((qc) => {
+      qc.setQueryData(chipsQueryKey('2330'), {
+        payload: { stock_id: '2330', bsr_as_of: '2026-08-14', bsr_provider_state: 'terminal_provider_rejected' },
+        stampVer: null, bytes: 0, durationMs: 0,
+      });
+      qc.setQueryData(chipsBatchStatusKey('2330'), { kind: 'ok', runId: 1, at: Date.now() });
+    });
+    expect(node.getAttribute('data-bsr-state')).toBe('unavailable_unsupported');
+    expect(node.getAttribute('data-bsr-as-of')).toBe('2026-08-14');
+    expect(node.textContent).toBe('籌碼資料暫時無法取得 · 顯示最後可得資料 2026/08/14');
+    for (const forbidden of ['上游來源中止', '此股票不支援', 'FinMind', 'HTTP', 'sponsor']) {
+      expect(node.textContent).not.toContain(forbidden);
+    }
+  });
+
+  it('terminal payload + batch error → 仍是 unavailable_unsupported（權威不被蓋掉）', () => {
+    const node = renderState((qc) => {
+      qc.setQueryData(chipsQueryKey('2330'), {
+        payload: { stock_id: '2330', bsr_as_of: null, bsr_provider_state: 'terminal_provider_rejected' },
+        stampVer: null, bytes: 0, durationMs: 0,
+      });
+      qc.setQueryData(chipsBatchStatusKey('2330'), { kind: 'error', runId: 2, at: Date.now(), reason: 'chunk_failed' });
+    });
+    expect(node.getAttribute('data-bsr-state')).toBe('unavailable_unsupported');
+    expect(node.textContent).toBe('籌碼資料暫時無法取得');
+  });
+
+  it('stale payload + batch error → partial_error（不得標 available）', () => {
+    const node = renderState((qc) => {
+      qc.setQueryData(chipsQueryKey('2330'), {
+        payload: { stock_id: '2330', bsr_as_of: '2026-08-14', bsr_freshness_status: 'fresh' },
+        stampVer: null, bytes: 0, durationMs: 0,
+      });
+      qc.setQueryData(chipsBatchStatusKey('2330'), { kind: 'error', runId: 3, at: Date.now() });
+    });
+    expect(node.getAttribute('data-bsr-state')).toBe('partial_error');
+    expect(node.textContent).toContain('2026/08/14');
+  });
+
+  it('stale payload + pending → syncing', () => {
+    const node = renderState((qc) => {
+      qc.setQueryData(chipsQueryKey('2330'), {
+        payload: { stock_id: '2330', bsr_as_of: '2026-08-14', bsr_freshness_status: 'fresh' },
+        stampVer: null, bytes: 0, durationMs: 0,
+      });
+      qc.setQueryData(chipsBatchStatusKey('2330'), { kind: 'pending', runId: 4, at: Date.now() });
+    });
+    expect(node.getAttribute('data-bsr-state')).toBe('syncing');
+    expect(node.textContent).toBe('籌碼資料更新中');
+  });
+
+  it('美股代號 → not_applicable「籌碼資料不適用」，不得出現 ETF／權證文案', () => {
+    for (const code of ['ABC', 'ORCL', 'AMD']) {
+      cleanup();
+      const node = renderState((qc) => {
+        qc.setQueryData(chipsBatchStatusKey(code), { kind: 'not_applicable', runId: 1, at: Date.now() });
+      }, code);
+      expect(node.getAttribute('data-bsr-state')).toBe('not_applicable');
+      expect(node.textContent).toBe('籌碼資料不適用');
+      for (const forbidden of ['ETF', '權證', '受益憑證']) {
+        expect(node.textContent).not.toContain(forbidden);
+      }
+    }
+  });
+
+  it('payload providerState=ineligible → ETF／權證文案（唯一合法出處）', () => {
+    const node = renderState((qc) => {
+      qc.setQueryData(chipsQueryKey('0050'), {
+        payload: { stock_id: '0050', bsr_as_of: null, bsr_provider_state: 'ineligible' },
+        stampVer: null, bytes: 0, durationMs: 0,
+      });
+      qc.setQueryData(chipsBatchStatusKey('0050'), { kind: 'ok', runId: 1, at: Date.now() });
+    }, '0050');
+    expect(node.getAttribute('data-bsr-state')).toBe('ineligible');
+    expect(node.textContent).toBe('不適用（ETF／權證／受益憑證）');
   });
 });

@@ -10,6 +10,7 @@
  *                                        \--(30 分鐘未補滿)--> timeout
  * 換股（stock event）一律回到 idle，但「本股已觸發過」的記憶保留，避免來回切換重複排入。
  */
+import { mapProviderState, BSR_TERMINAL_PROVIDER_STATE } from '@/checkup/lib/bsrCanonicalCodes';
 
 export const AUTO_BACKFILL_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -46,6 +47,10 @@ export interface ChipsBackfillSnapshot {
   syncStatus?: string | null;
   /** 資料是否已補滿（見 isBackfillSatisfied）。 */
   satisfied: boolean;
+  /** 上游永久拒絕（canonical terminal）：回補永遠不會成功，一律不排。 */
+  terminalUnavailable?: boolean;
+  /** 原始 provider state；由 canonical mapper 判定是否 terminal（與上一欄等價入口）。 */
+  providerState?: string | null;
   now: number;
 }
 
@@ -83,11 +88,17 @@ export function isBackfillSatisfied(input: {
   );
 }
 
+/** canonical terminal 判定：字串入口與 boolean 入口共用同一張映射表。 */
+function isTerminalProviderState(v: unknown): boolean {
+  return mapProviderState(v) === BSR_TERMINAL_PROVIDER_STATE;
+}
+
 /** 是否應該自動排入回補（純判斷，供測試與 reducer 共用）。 */
 export function shouldAutoTrigger(
   state: ChipsBackfillState,
   s: ChipsBackfillSnapshot,
 ): boolean {
+  if (s.terminalUnavailable || isTerminalProviderState(s.providerState)) return false;
   if (!s.stockCode || !s.hasData || !s.sparse) return false;
   if (s.eligible === false) return false;
   if (s.syncStatus === 'pending' || s.syncStatus === 'running') return false;

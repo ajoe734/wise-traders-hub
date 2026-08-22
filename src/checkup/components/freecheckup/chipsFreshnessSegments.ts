@@ -8,6 +8,18 @@
  * 不碰 DOM、不打 API、不寫任何狀態，方便單測與 E2E 斷言。
  */
 import type { TwChipsPayload } from '@/checkup/lib/chipsRepository';
+import {
+  BSR_TERMINAL_SEG_STATE,
+  BSR_TEXT_UNAVAILABLE,
+  BSR_TEXT_INELIGIBLE,
+  isTerminalUnavailable,
+  mapProviderState,
+} from '@/checkup/lib/bsrCanonicalCodes';
+
+/** terminal／不可用共用文案：不指名上游、不承諾時間、不露內部 code。 */
+function unavailableText(asOf: string | null): string {
+  return asOf ? `${BSR_TEXT_UNAVAILABLE} · 顯示最後可得資料 ${asOf}` : BSR_TEXT_UNAVAILABLE;
+}
 
 export type SegmentTone = 'ok' | 'warn' | 'error' | 'muted';
 
@@ -59,7 +71,15 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
   const asOf = fmtDate(data?.bsr_as_of);
   const status = data?.bsr_freshness_status ?? (asOf ? 'lagging' : 'no_data');
   const lagWd = data?.bsr_lag_weekdays ?? null;
-  const providerState = data?.bsr_provider_state ?? data?.bsr_sync_status?.provider_state ?? null;
+  const providerState = mapProviderState(
+    data?.bsr_provider_state ?? data?.bsr_sync_status?.provider_state ?? null,
+  );
+  const terminal = isTerminalUnavailable({
+    providerState: data?.bsr_provider_state ?? data?.bsr_sync_status?.provider_state ?? null,
+    providerCode:
+      (data as any)?.bsr_provider_code ?? (data as any)?.bsr_terminal_code ??
+      (data as any)?.bsr_sync_status?.provider_code ?? null,
+  });
   const base = {
     key: 'bsr' as const,
     label: '券商分點',
@@ -70,15 +90,11 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
   // Plan v2：provider_state 優先於 queue 導出的 freshness。
   // queue pending 不等於「正在同步」——上游若是永久拒絕，重試永遠不會成功。
   if (providerState === 'ineligible') {
-    return { ...base, state: 'ineligible', tone: 'muted', text: '不適用（ETF／權證／受益憑證）' };
+    return { ...base, state: 'ineligible', tone: 'muted', text: BSR_TEXT_INELIGIBLE };
   }
-  if (providerState === 'terminal_provider_rejected') {
-    return {
-      ...base,
-      state: asOf ? 'terminal_stale' : 'terminal_no_data',
-      tone: 'error',
-      text: asOf ? `${asOf} · 上游來源中止，顯示前次成功資料` : '上游目前不提供此資料，更新已暫停',
-    };
+  if (terminal) {
+    // canonical terminal：狀態一律 unavailable_unsupported，文案不得指名上游或方案。
+    return { ...base, state: BSR_TERMINAL_SEG_STATE, tone: 'error', text: unavailableText(asOf) };
   }
   if (providerState === 'unknown_degraded') {
     return {
@@ -97,9 +113,14 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
     };
   }
 
+  // 舊／新端點都可能回 'unsupported'（不在 payload 型別列舉內），一律落 canonical terminal。
+  if (String(status) === 'unsupported') {
+    return { ...base, state: BSR_TERMINAL_SEG_STATE, tone: 'error', text: unavailableText(asOf) };
+  }
+
   switch (status) {
     case 'ineligible':
-      return { ...base, state: 'ineligible', tone: 'muted', text: '不適用（ETF／權證／受益憑證）' };
+      return { ...base, state: 'ineligible', tone: 'muted', text: BSR_TEXT_INELIGIBLE };
     case 'fresh':
       return { ...base, state: 'fresh', tone: 'ok', text: asOf ?? '—' };
     case 'syncing':
@@ -119,7 +140,7 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
         ...base,
         state: status === 'sync_failed' ? 'unavailable_failed' : 'unavailable',
         tone: 'error',
-        text: asOf ? `${asOf} · 目前不可用（上游來源中止）` : '目前不可用（上游來源中止）',
+        text: unavailableText(asOf),
       };
   }
 }

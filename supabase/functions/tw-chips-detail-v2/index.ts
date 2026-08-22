@@ -235,12 +235,17 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     .eq("key", "market_batch")
     .maybeSingle();
   const marketBatch = (marketBatchConfig?.config ?? null) as Record<string, unknown> | null;
-  const marketBatchUnsupported = marketBatch?.supported === false &&
+  // Stage C1 canonical admission gate (v8): the persisted gate itself is authoritative.
+  const terminalGate = marketBatch?.admission_blocked === true &&
+    String(marketBatch?.admission_terminal_code ?? "") === "bsr_provider_unsupported" &&
+    String(marketBatch?.admission_reason ?? "") === "provider_plan_rejected";
+  // Legacy probe shape stays supported verbatim (older config rows).
+  const legacyUnsupported = marketBatch?.supported === false &&
     String(marketBatch?.last_probe_outcome ?? "") === "unsupported";
-  const marketBatchError = marketBatchUnsupported
-    ? String(marketBatch?.last_probe_error ?? "")
-    : null;
-  const marketBatchErrorClass = marketBatchError?.startsWith("unsupported_plan:")
+  const legacyPrefixHit = legacyUnsupported &&
+    String(marketBatch?.last_probe_error ?? "").startsWith("unsupported_plan:");
+  const marketBatchUnsupported = terminalGate || legacyUnsupported;
+  const marketBatchErrorClass = (terminalGate || legacyPrefixHit)
     ? "provider_plan_rejected"
     : null;
 
