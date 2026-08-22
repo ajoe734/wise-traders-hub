@@ -24,12 +24,19 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
-CREATE TEMP TABLE _baseline AS
-SELECT
-  (SELECT count(*) FROM public.tw_bsr_sync_queue) AS queue_rows,
-  (SELECT md5(COALESCE(string_agg(key || ':' || version || ':' || config::text, '|'
-                                  ORDER BY key), ''))
-     FROM public.tw_bsr_sync_config)              AS config_hash;
+\i supabase/tests/_s3b0_snapshot.sql
+CALL s3b0_snapshot('before');
+
+-- ─────────────────────────────────────────────
+-- Fixture：重建 production 當前的 v7 gate row（尚未宣告 admission_*）
+--   clone 的資料表為空，若不建 fixture，RED 會以「row 不存在」失敗，
+--   而非我們要釘的「version 必須為 8，實得 7」。fixture 全程 savepoint 隔離。
+-- ─────────────────────────────────────────────
+SAVEPOINT fx_prod_v7;
+
+DELETE FROM public.tw_bsr_sync_config WHERE key = 'market_batch';
+INSERT INTO public.tw_bsr_sync_config (key, version, config, updated_at)
+VALUES ('market_batch', 7, jsonb_build_object('enabled', true), now());
 
 -- ─────────────────────────────────────────────
 -- Case 1：canonical v8 —— version=8 且 admission_* 恰好 7 鍵、型別與值精確相符
@@ -127,20 +134,11 @@ BEGIN
 END $$;
 
 ROLLBACK TO SAVEPOINT fx_cas;
+ROLLBACK TO SAVEPOINT fx_prod_v7;
 
 -- ─────────────────────────────────────────────
 -- 零殘留驗證
 -- ─────────────────────────────────────────────
-DO $$
-DECLARE b record; q bigint; ch text;
-BEGIN
-  SELECT * INTO b FROM _baseline;
-  SELECT count(*) INTO q FROM public.tw_bsr_sync_queue;
-  SELECT md5(COALESCE(string_agg(key || ':' || version || ':' || config::text, '|'
-                                 ORDER BY key), '')) INTO ch
-    FROM public.tw_bsr_sync_config;
-  ASSERT q = b.queue_rows,   format('residue: queue rows %s -> %s', b.queue_rows, q);
-  ASSERT ch = b.config_hash, format('residue: config hash %s -> %s', b.config_hash, ch);
-END $$;
+CALL s3b0_assert_no_residue();
 
 ROLLBACK;

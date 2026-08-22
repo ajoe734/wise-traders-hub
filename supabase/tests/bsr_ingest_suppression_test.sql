@@ -16,60 +16,11 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
-CREATE TEMP TABLE _baseline AS
-SELECT
-  (SELECT count(*) FROM public.tw_bsr_sync_queue)                            AS queue_rows,
-  (SELECT md5(COALESCE(string_agg(id::text || ':' || status, '|' ORDER BY id), ''))
-     FROM public.tw_bsr_sync_queue)                                          AS queue_hash,
-  (SELECT md5(COALESCE(string_agg(key || ':' || version || ':' || config::text, '|'
-                                  ORDER BY key), ''))
-     FROM public.tw_bsr_sync_config)                                         AS config_hash;
+\i supabase/tests/_s3b0_snapshot.sql
+CALL s3b0_snapshot('before');
 
--- ─────────────────────────────────────────────
--- Case 1：private_bsr.ingest_allowed() 必須存在、STABLE、固定 search_path、零前台授權
--- ─────────────────────────────────────────────
-DO $$
-DECLARE r record; g text;
-BEGIN
-  SELECT p.oid, p.proconfig, p.provolatile, p.prosecdef INTO r
-    FROM pg_proc p JOIN pg_namespace ns ON ns.oid = p.pronamespace
-   WHERE ns.nspname = 'private_bsr' AND p.proname = 'ingest_allowed'
-     AND pg_get_function_identity_arguments(p.oid) = '';
-  ASSERT FOUND, 'case1: private_bsr.ingest_allowed() missing (S3B-A 未實作)';
-  ASSERT r.prosecdef, 'case1: ingest_allowed must be SECURITY DEFINER';
-  ASSERT r.provolatile = 's', 'case1: ingest_allowed must be STABLE';
-  ASSERT r.proconfig IS NOT NULL
-         AND EXISTS (SELECT 1 FROM unnest(r.proconfig) c WHERE c LIKE 'search_path=%'),
-    'case1: ingest_allowed must pin search_path';
-
-  FOREACH g IN ARRAY ARRAY['anon','authenticated','service_role','public'] LOOP
-    CONTINUE WHEN g <> 'public' AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = g);
-    ASSERT NOT has_function_privilege(g, r.oid, 'EXECUTE'),
-      format('case1: %s must NOT have EXECUTE on private_bsr.ingest_allowed', g);
-  END LOOP;
-END $$;
-
--- ─────────────────────────────────────────────
--- Case 2：七支 producer/recovery 都必須在函式本體呼叫 gate helper
---   （靜態契約：避免日後有人新增分支繞過 early-return）
--- ─────────────────────────────────────────────
-DO $$
-DECLARE f text; src text;
-BEGIN
-  FOREACH f IN ARRAY ARRAY[
-    'public.enqueue_chips_prefetch_gaps(integer,integer)',
-    'public.enqueue_all_active_tw_holdings_bsr(integer)',
-    'public.enqueue_bsr_first_fetch_on_trade()',
-    'public.ensure_bsr_queued(text)',
-    'public.enqueue_bsr_backfill(text,integer)',
-    'public.enqueue_bsr_first_fetch_on_trade()',
-    'public.recover_stale_bsr_queue_jobs(integer,integer)'
-  ] LOOP
-    src := pg_get_functiondef(f::regprocedure);
-    ASSERT src LIKE '%private_bsr.ingest_allowed()%',
-      format('case2: %s 未呼叫 private_bsr.ingest_allowed() — S3B-A 未套用', f);
-  END LOOP;
-END $$;
+-- 註：helper 本身的存在／SECURITY DEFINER／STABLE／search_path／零授權契約，
+-- 已由 supabase/tests/bsr_gate_ingest_allowed_test.sql 專檔覆蓋；本檔只測 producer 行為。
 
 -- ─────────────────────────────────────────────
 -- Case 3（fixture · gate 關閉）：producer 不得寫入任何 queue row，且回 skipped 語意
@@ -134,6 +85,29 @@ END $$;
 ROLLBACK TO SAVEPOINT fx_closed;
 
 -- ─────────────────────────────────────────────
+-- Case 2：七支 producer/recovery 都必須在函式本體呼叫 gate helper
+--   （靜態契約：避免日後有人新增分支繞過 early-return）
+-- ─────────────────────────────────────────────
+DO $$
+DECLARE f text; src text;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'public.enqueue_chips_prefetch_gaps(integer,integer)',
+    'public.enqueue_all_active_tw_holdings_bsr(integer)',
+    'public.enqueue_bsr_first_fetch_on_trade()',
+    'public.ensure_bsr_queued(text)',
+    'public.enqueue_bsr_backfill(text,integer)',
+    'public.enqueue_bsr_first_fetch_on_trade()',
+    'public.recover_stale_bsr_queue_jobs(integer,integer)'
+  ] LOOP
+    src := pg_get_functiondef(f::regprocedure);
+    ASSERT src LIKE '%private_bsr.ingest_allowed()%',
+      format('case2: %s 未呼叫 private_bsr.ingest_allowed() — S3B-A 未套用', f);
+  END LOOP;
+END $$;
+
+
+-- ─────────────────────────────────────────────
 -- Case 4（fixture · gate 開啟）：不得誤殺 —— gate 開時 producer 仍必須正常入列
 --   注意：open 分支只在 fixture savepoint 內、用 fixture 個股測，
 --   不使用任何 production row。
@@ -160,19 +134,6 @@ ROLLBACK TO SAVEPOINT fx_open;
 -- ─────────────────────────────────────────────
 -- 零殘留驗證
 -- ─────────────────────────────────────────────
-DO $$
-DECLARE b record; q bigint; qh text; ch text;
-BEGIN
-  SELECT * INTO b FROM _baseline;
-  SELECT count(*) INTO q FROM public.tw_bsr_sync_queue;
-  SELECT md5(COALESCE(string_agg(id::text || ':' || status, '|' ORDER BY id), '')) INTO qh
-    FROM public.tw_bsr_sync_queue;
-  SELECT md5(COALESCE(string_agg(key || ':' || version || ':' || config::text, '|'
-                                 ORDER BY key), '')) INTO ch
-    FROM public.tw_bsr_sync_config;
-  ASSERT q = b.queue_rows,   format('residue: queue rows %s -> %s', b.queue_rows, q);
-  ASSERT qh = b.queue_hash,  format('residue: queue hash %s -> %s', b.queue_hash, qh);
-  ASSERT ch = b.config_hash, format('residue: config hash %s -> %s', b.config_hash, ch);
-END $$;
+CALL s3b0_assert_no_residue();
 
 ROLLBACK;
