@@ -28,6 +28,7 @@ vi.mock('@/checkup/contexts/CheckupModeContext', () => ({
 
 import { useChipsBatch, chipsBatchStatusKey } from '@/checkup/hooks/useChipsBatch';
 import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
+import type { BsrBatchStatusLike as BatchStatus } from '@/checkup/lib/bsrCanonicalCodes';
 
 describe('Stage D · chips batch race', () => {
   beforeEach(() => fetchChipsBatch.mockReset());
