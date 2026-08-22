@@ -1,4 +1,4 @@
-negatives_baseline=8|51b2cd55ff0763917efe59ad3a4a919a|2|2|0|-|0
+negatives_baseline=8|23616c84e6c20a25631937dbf134ba7f|2|2|0|-|0
 == N1 partial v8 (only 3 of 7 admission keys, version bumped) ==
   fixture: update public.tw_bsr_sync_config set version=8, config=config||jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported') where key='market_batch'
   exit=3 exact_error: c1v_v8_keyset_mismatch
