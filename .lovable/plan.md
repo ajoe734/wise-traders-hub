@@ -311,7 +311,7 @@ service_role 執行、匿名化（`user_ref=left(sha256(user_id),8)`）：
 拿不到 row-level 證據 → **誠實標 PARTIAL**（亦解 Stage 1 兩角色 RLS 缺口）。
 
 ## Preview 最終 gate
-20 檔 INIT_HOLDINGS + 至少 1 位其他真實使用者、**先不開抽屜**：qty 真值（含真 0 股）、缺價「—」、法人/OHLCV/價格日期可見、BSR 顯示「資料來源目前不支援更新 · 最後可用 <查詢值>」。開抽屜後：queue counts/hash、config version、provider counters 全不變。證據鏈：cron 106 → runid（純 SQL，誠實標無 request_id/edge run_id）；worker → runid → request_id → HTTP → edge run_id → §0.6 body。
+20 檔 INIT_HOLDINGS + 至少 1 位其他真實使用者、**先不開抽屜**：qty 真值（含真 0 股）、缺價「—」、法人/OHLCV/價格日期可見、BSR 顯示「資料來源目前不支援更新 · 最後可用 <查詢值>」。開抽屜後：queue counts/hash、config version、provider counters 全不變。證據鏈：**自然 cron 106 一律只呈現 `runid / status / return_message='1 row'` + queue count/hash/max(updated_at)/max(enqueued_at)/recovery 候選集合 before-after 0 delta**（純 SQL，誠實標無 request_id/edge run_id，且**禁止**在自然 cron 段落寫 `inserted=0` 或任何 JSON 欄位；JSON 只能出自另標的 synthetic service_role RPC）；worker → runid → request_id → HTTP → edge run_id → §0.6 body。
 
 ## Publish 授權
 S3B-0/A/B/C1/C2/E 為後端（C2 含 edge deploy），**不需 Publish**。S3B-D Preview only；**進 production UI 必須另經你明確授權 Publish**。
