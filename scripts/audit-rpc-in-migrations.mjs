@@ -18,6 +18,7 @@ import { join, relative } from 'node:path';
 const ROOT = process.cwd();
 const FN_DIR = join(ROOT, 'supabase/functions');
 const MIG_DIR = join(ROOT, 'supabase/migrations');
+const DEBT_FILE = join(ROOT, 'scripts/rpc-known-debt.json');
 
 /**
  * 這些名稱不是 public schema 的 RPC（或由 Supabase 平台提供），不納入檢查。
@@ -46,7 +47,7 @@ function walk(dir, out = []) {
 
 /** 從 edge function 原始碼抓 `.rpc('name'` / `.rpc("name"` 的字面量。 */
 export function collectRpcCalls(files) {
-  const found = new Map(); // name -> Set(relative file)
+  const found = new Map(); // name -> Set('relative/file.ts:LINE')
   for (const f of files) {
     const src = readFileSync(f, 'utf8');
     const re = /\.rpc\(\s*['"`]([A-Za-z_][A-Za-z0-9_]*)['"`]/g;
@@ -54,11 +55,48 @@ export function collectRpcCalls(files) {
     while ((m = re.exec(src)) !== null) {
       const name = m[1];
       if (EXEMPT.has(name)) continue;
+      const line = src.slice(0, m.index).split('\n').length;
       if (!found.has(name)) found.set(name, new Set());
-      found.get(name).add(relative(ROOT, f));
+      found.get(name).add(`${relative(ROOT, f)}:${line}`);
     }
   }
   return found;
+}
+
+/** 讀顯性 known-debt manifest；gate 三支被硬性禁止列入。 */
+export function loadKnownDebt(file = DEBT_FILE) {
+  let raw;
+  try {
+    raw = JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    return { byName: new Map(), forbidden: new Set() };
+  }
+  const forbidden = new Set(raw.forbidden_names ?? []);
+  const byName = new Map();
+  for (const d of raw.debt ?? []) {
+    if (forbidden.has(d.rpc)) {
+      throw new Error(`[rpc-in-migrations] known-debt manifest 非法：${d.rpc} 屬於禁止清單，不得列為技術債`);
+    }
+    for (const k of ['rpc', 'caller', 'reason', 'discovered', 'scope_owner']) {
+      if (!d[k]) throw new Error(`[rpc-in-migrations] known-debt 項目缺 ${k}: ${JSON.stringify(d)}`);
+    }
+    byName.set(d.rpc, d);
+  }
+  return { byName, forbidden };
+}
+
+/**
+ * gate-specific 契約：bsrAdmissionGate.ts 呼叫的每一支 RPC 都必須有定義，
+ * 且 **zero allowed missing** —— known-debt manifest 對它完全無效。
+ */
+export function auditGate(gateFile = 'supabase/functions/_shared/bsrAdmissionGate.ts') {
+  const calls = collectRpcCalls([join(ROOT, gateFile)]);
+  const defined = collectDefinedFunctions();
+  const missing = [];
+  for (const [name, callers] of [...calls].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (!defined.has(name)) missing.push({ name, callers: [...callers].sort() });
+  }
+  return { names: [...calls.keys()].sort(), missing };
 }
 
 /** 掃 migrations 目錄，收集所有被 CREATE 的 public function 名稱。 */
@@ -82,18 +120,37 @@ export function collectDefinedFunctions(dir = MIG_DIR) {
 export function audit() {
   const calls = collectRpcCalls(walk(FN_DIR));
   const defined = collectDefinedFunctions();
+  const { byName: debtByName } = loadKnownDebt();
   const missing = [];
-  for (const [name, callers] of [...calls].sort((a, b) => a[0].localeCompare(b[0]))) {
-    if (!defined.has(name)) missing.push({ name, callers: [...callers].sort() });
+  const debt = [];
+  for (const [name, callerSet] of [...calls].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (defined.has(name)) continue;
+    const callers = [...callerSet].sort();
+    const entry = debtByName.get(name);
+    // 只有 manifest 的 caller file:line 精確吻合，才算已登記的技術債。
+    if (entry && callers.includes(entry.caller)) debt.push({ ...entry, callers });
+    else missing.push({ name, callers });
   }
-  return { total: calls.size, definedCount: defined.size, missing };
+  return { total: calls.size, definedCount: defined.size, missing, debt };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { total, definedCount, missing } = audit();
-  console.log(`[rpc-in-migrations] edge RPC names=${total}, migration functions=${definedCount}`);
+  const { total, definedCount, missing, debt } = audit();
+  const gate = auditGate();
+  console.log(`[rpc-in-migrations] edge RPC names=${total}, migration functions=${definedCount}, debt=${debt.length}`);
+  for (const d of debt) {
+    console.log(`[rpc-in-migrations] KNOWN DEBT public.${d.rpc}() ← ${d.caller} `
+      + `| 發現 ${d.discovered} | owner=${d.scope_owner} | ${d.reason}`);
+  }
+  console.log(`[rpc-in-migrations] gate contract (bsrAdmissionGate.ts): rpcs=${gate.names.join(',')} `
+    + `missing=${gate.missing.length} (allowed=0)`);
+  if (gate.missing.length > 0) {
+    console.error('[rpc-in-migrations] FAIL — gate RPC 缺定義，known-debt 對 gate 一律無效：');
+    for (const { name, callers } of gate.missing) console.error(`  - public.${name}()  ← ${callers.join(', ')}`);
+    process.exit(1);
+  }
   if (missing.length === 0) {
-    console.log('[rpc-in-migrations] OK — 每一支 RPC 都在 supabase/migrations/ 有定義');
+    console.log(`[rpc-in-migrations] OK — 除 ${debt.length} 筆顯性 known debt 外，每一支 RPC 都在 migrations 有定義`);
     process.exit(0);
   }
   console.error(`[rpc-in-migrations] FAIL — ${missing.length} 支 RPC 在 migrations 找不到定義：`);
