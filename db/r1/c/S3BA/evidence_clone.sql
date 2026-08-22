@@ -196,7 +196,7 @@ SELECT fn,
                  IS NOT DISTINCT FROM
                  (SELECT string_agg(k, ',' ORDER BY k) FROM jsonb_object_keys(p) k)
              AND COALESCE(g->>'skipped','') <> 'bsr_provider_unsupported'
-            THEN 'PASS' ELSE (1/0)::text END AS verdict
+            THEN 'PASS' ELSE 'FAIL' END AS verdict
   FROM (VALUES
     ('ensure_bsr_queued',                  :'g1'::jsonb, :'p1'::jsonb),
     ('enqueue_all_active_tw_holdings_bsr', :'g2'::jsonb, :'p2'::jsonb),
@@ -210,7 +210,7 @@ SELECT fn,
 \echo '--- OPEN trigger insert parity ---'
 SELECT :'g7'::int AS inserted_guarded, :'p7'::int AS inserted_preimg,
        CASE WHEN :'g7'::int = :'p7'::int AND :'g7'::int > 0
-            THEN 'PASS' ELSE (1/0)::text END AS verdict;
+            THEN 'PASS' ELSE 'FAIL' END AS verdict;
 
 
 ROLLBACK TO SAVEPOINT fx_open;
@@ -230,6 +230,6 @@ SELECT (SELECT count(*) FROM public.tw_bsr_sync_queue) AS queue_now,
                     FROM public.tw_bsr_sync_queue) = :'h0'
              AND (SELECT md5(coalesce(string_agg(key||':'||version||':'||config::text, ',' ORDER BY key),''))
                     FROM public.tw_bsr_sync_config) = :'c0'
-            THEN 'RESIDUE_ZERO' ELSE (1/0)::text END AS verdict;
+            THEN 'RESIDUE_ZERO' ELSE 'FAIL' END AS verdict;
 
 ROLLBACK;
