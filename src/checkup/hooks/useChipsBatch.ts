@@ -87,8 +87,9 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   const qc = useQueryClient();
   const { isDemo } = useCheckupMode();
   const { valid, rejected } = partitionCodes(codes);
-  const validCodes = [...valid].sort();
-  const key = validCodes.join(',');
+  // 送出順序保留可見順序（批次契約），只有 dep key 用排序後版本避免順序抖動重打。
+  const validCodes = valid;
+  const key = [...valid].sort().join(',');
   // 被拒代號本身可能含逗號（例：'2330,2317' 這種注入字串），
   // 因此 dep key 必須用 JSON，不能用 join(',') 再 split 還原。
   const rejectedKey = JSON.stringify([...rejected].sort());

@@ -107,8 +107,7 @@ function CardModeHarness({ code }: { code: string }) {
 }
 
 export default function HoldingCardHarnessEntry() {
-  if (!isPreviewEnv()) return null;
-
+  // hooks 必須無條件在早退前呼叫（rules-of-hooks）
   const codeParam = useMemo(() => {
     try {
       return new URLSearchParams(window.location.search).get('code') || '';
@@ -116,10 +115,10 @@ export default function HoldingCardHarnessEntry() {
       return '';
     }
   }, []);
-
-  if (codeParam) return <CardModeHarness code={codeParam} />;
-
   const result = useMemo(() => decodeFixture(), []);
+
+  if (!isPreviewEnv()) return null;
+  if (codeParam) return <CardModeHarness code={codeParam} />;
 
   if (!result.ok) {
     return (
