@@ -6309,6 +6309,7 @@ export type Database = {
           skipped: number
         }[]
       }
+      bsr_admission_status: { Args: never; Returns: Json }
       bsr_apply_degrade_transition: {
         Args: {
           _api: string
@@ -6327,6 +6328,17 @@ export type Database = {
         }[]
       }
       bsr_backlog_metrics: { Args: never; Returns: Json }
+      bsr_block_and_terminalize_claims: {
+        Args: {
+          p_claim_attempts: number[]
+          p_claim_ids: number[]
+          p_claim_started_at: string[]
+          p_run_id: string
+          p_sanitized_evidence: Json
+          p_terminal_code: string
+        }
+        Returns: Json
+      }
       bsr_check_tier_admission: {
         Args: { _api?: string; _limit?: number; _tier?: number }
         Returns: {
@@ -6446,6 +6458,15 @@ export type Database = {
         }[]
       }
       bsr_trace_by_correlation: { Args: { _cid: string }; Returns: Json }
+      bsr_unblock_after_probe: {
+        Args: {
+          p_expected_version: number
+          p_nonce: string
+          p_sanitized_evidence: Json
+          p_verified_actor: string
+        }
+        Returns: Json
+      }
       build_expert_public_sample: {
         Args: { _expert_id: string; _selections: Json; _week_start: string }
         Returns: {
