@@ -79,9 +79,11 @@ BEGIN
       format('case3: anon must NOT EXECUTE %s', r.proname);
     ASSERT NOT has_function_privilege('authenticated', r.oid, 'EXECUTE'),
       format('case3: authenticated must NOT EXECUTE %s', r.proname);
-    ASSERT NOT (coalesce(p.proacl::text, '') LIKE '%=X/%' AND coalesce(p.proacl::text,'') LIKE '% =X/%'),
-      format('case3: %s must not grant EXECUTE to PUBLIC', r.proname)
-      FROM pg_proc p WHERE p.oid = r.oid;
+    ASSERT NOT EXISTS (
+      SELECT 1 FROM pg_proc p
+       WHERE p.oid = r.oid
+         AND coalesce(p.proacl::text, '') ~ '(^|,)\\{?=X/'
+    ), format('case3: %s must not grant EXECUTE to PUBLIC', r.proname);
   END LOOP;
 END $$;
 
