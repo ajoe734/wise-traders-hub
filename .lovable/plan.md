@@ -1,6 +1,6 @@
-# Stage 3B（v4）— Honest Downgrade：先關入口 → 再宣告狀態 → 最後才動 backlog
+# Stage 3B（v4.1）— Honest Downgrade：先關入口 → 再宣告狀態 → 最後才動 backlog
 
-判定沿用 Stage 2（FinMind level=register，單股與 market_batch 皆 HTTP 400，deterministic terminal）。目標：**不開抽屜時持倉看板仍自動取得可取得的最新資料**；BSR 誠實標示不可更新、停止無效排隊；不升級方案、不換來源、不造假資料。本版整份取代 v3。
+判定沿用 Stage 2（FinMind level=register，單股與 market_batch 皆 HTTP 400，deterministic terminal）。目標：**不開抽屜時持倉看板仍自動取得可取得的最新資料**；BSR 誠實標示不可更新、停止無效排隊；不升級方案、不換來源、不造假資料。本版整份取代 v4；v4.1 只修四點：(1) SQL 測試隔離協定（BEGIN/savepoint/ROLLBACK + 前後 hash 比對、禁用 production row 測 open 分支）；(2) C1 canonical 為 **version=8 + 7 鍵**；(3) 自然 cron 106 一律不得聲稱 `inserted=0`；(4) S3B-E capture/update 同集合、表存在即 raise、`captured=updated` 斷言。
 
 保留自 v3：7 支 DB function + 1 個 legacy edge call site；public CREATE hard stop；failed 一列不動；pending 只改 status；未開抽屜用 batch；qty 不假 0；前端 Preview only；最後 row-level 兩位使用者與 cron→runid→request_id→HTTP→run_id 證據。
 
