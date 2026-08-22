@@ -251,28 +251,48 @@ e2e/holdings-bsr-unavailable.spec.ts
 ---
 
 ## Stage S3B-E — backlog 最小處理（只動 pending、只改 status）
-**Actions**
+**Actions**（單一 migration / 單一 transaction；capture 與 update 綁定同一 id 集合）
 ```sql
--- 1) 先持久保存 ids（只存 id，不碰 last_error）
-CREATE TABLE IF NOT EXISTS private_bsr.terminalized_pending_20260822 (
+-- 0) 一次性保證：表必須不存在（存在 = 之前跑過或殘留 partial），不得用 IF NOT EXISTS 吞掉
+DO $$ BEGIN
+  IF to_regclass('private_bsr.terminalized_pending_20260822') IS NOT NULL THEN
+    RAISE EXCEPTION 'terminalize_already_ran_or_partial';
+  END IF;
+END $$;
+
+CREATE TABLE private_bsr.terminalized_pending_20260822 (
   id bigint PRIMARY KEY, captured_at timestamptz NOT NULL DEFAULT now());
-REVOKE ALL ON TABLE private_bsr.terminalized_pending_20260822 FROM PUBLIC;
+REVOKE ALL ON TABLE private_bsr.terminalized_pending_20260822 FROM PUBLIC;  -- 零 GRANT
+
+-- 1) 鎖定並捕捉集合（FOR UPDATE 防併發改變集合）
 INSERT INTO private_bsr.terminalized_pending_20260822(id)
 SELECT id FROM public.tw_bsr_sync_queue
- WHERE status='pending' AND last_error IS DISTINCT FROM 'quota_recovery_token';
+ WHERE status='pending' AND last_error IS DISTINCT FROM 'quota_recovery_token'
+ ORDER BY id
+ FOR UPDATE;
 
--- 2) 只改 status（updated_at 由 trg_tw_bsr_sync_queue_touch_updated 維護）
-UPDATE public.tw_bsr_sync_queue SET status='skipped'
- WHERE status='pending' AND last_error IS DISTINCT FROM 'quota_recovery_token';
+-- 2) 只對「已捕捉的同一集合」改 status（updated_at 由 trigger 維護）
+WITH upd AS (
+  UPDATE public.tw_bsr_sync_queue q SET status='skipped'
+    FROM private_bsr.terminalized_pending_20260822 t
+   WHERE q.id = t.id AND q.status='pending'
+  RETURNING q.id)
+SELECT count(*) INTO v_updated FROM upd;
+
+-- 3) 一致性與規模斷言，任一不符即 RAISE → 整個 transaction 全回滾（含建表）
+SELECT count(*) INTO v_captured FROM private_bsr.terminalized_pending_20260822;
+IF v_updated <> v_captured THEN RAISE EXCEPTION 'capture_update_set_mismatch % <> %', v_updated, v_captured; END IF;
+IF abs(v_captured - 548)::numeric / 548 > 0.05 THEN RAISE EXCEPTION 'affected_rows_deviation %', v_captured; END IF;
 ```
+（實作時整段包在單一 `DO $$ DECLARE v_updated int; v_captured int; BEGIN … END $$;` plpgsql 區塊內，除 `CREATE TABLE`/`REVOKE` 外一律同交易；migration 本身即 transaction，任何 raise 全回滾、不留半成品表。）
 - ids 持久保存在 `private_bsr` 內部表（無 PostgREST 可達、零 GRANT），同時輸出 `count` 與 `md5(string_agg(id::text,',' ORDER BY id))` 到 receipt；**不存、不讀、不輸出 `last_error`**。
 - 排除 `quota_recovery_token` sentinel（現為 0 筆，防禦性）；`failed` / `running` / `done` 完全不動；不設 `finished_at`、不覆寫 `last_error`。
 - **前提**：§0.7 已證明本表為單一 BSR dataset、無 provider/job 型別 discriminator；唯一消費者 selector 是 `claim_bsr_queue_jobs`，其額外條件（priority/next_run_at/post_close_only）只會縮小抓取範圍，不影響 terminal 語意。
-- 預估 affected rows ≈ **548**（執行當下重讀，偏差 >5% 中止）。
+- 預估 affected rows ≈ **548**（執行當下重讀，偏差 >5% 由上述斷言 raise 中止）。
 
 **Allowlist**：`supabase/migrations/<ts>_bsr_queue_terminalize_pending_only.sql`
-**Acceptance**：pending 剩 0（或僅剩 token sentinel）；`failed` 仍 1572、`done` 8432、`running` 不變；`captured_at` 表列數 = affected rows；下一個 106 週期 inserted=0。
-**Stop**：affected rows 偏差 >5%、failed/running/done count 改變。
+**Acceptance**：`v_captured = v_updated`；pending 剩 0（或僅剩 token sentinel）；`failed` 仍 1572、`done` 8432、`running` 不變；capture 表列數 = affected rows；重跑同 migration 觸發 `terminalize_already_ran_or_partial` 且 0 mutation。**下一個自然 cron 106 週期只以 `runid / status / return_message='1 row'` + queue `count(*) by status`／全表 hash／`max(updated_at)`／`max(enqueued_at)`／recovery 候選集合 before-after **0 delta** 呈現；不得聲稱 `inserted=0`（純 SQL cron 無 JSON 可讀）。JSON `inserted=0` 只能來自另標 **synthetic service_role RPC call**。
+**Stop**：`capture_update_set_mismatch`、affected rows 偏差 >5%、failed/running/done count 改變、表已存在。
 **Semantic rollback**：
 ```sql
 UPDATE public.tw_bsr_sync_queue q SET status='pending'
