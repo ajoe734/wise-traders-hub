@@ -79,7 +79,9 @@ batch 狀態走**另一把 key**：
 // useChipsBatch.ts（新增 export）
 export const chipsBatchStatusKey = (code: string) => ['tw-chips-batch-status', code] as const;
 export interface ChipsBatchStatus {
-  kind: 'pending' | 'ok' | 'error' | 'unsupported';
+  kind: 'pending' | 'ok' | 'error' | 'not_applicable';
+  // 'not_applicable' = 未通過台股 batch canonical validator（例：美股代號 ABC/ORCL/AMD、空字串、非法字元）。
+  // 語意為「本地不送 batch」，**不等於** payload 的 providerState='ineligible'（ETF／權證／受益憑證）。
   runId: number;              // 見 D
   at: number;
   reason?: 'chunk_failed' | 'per_code_error';
@@ -94,7 +96,7 @@ export interface ChipsBatchStatus {
 
 1. `payload` 存在且 canonical 判為 `unavailable_unsupported` 或 `ineligible` → **回該權威狀態**（terminal/ineligible 不被 batch error 蓋掉）。
 2. `status.kind === 'error'` → `partial_error`（**即使有 stale payload**；資料保留、顯示最後可得日期，但不得標 available）。
-3. `status.kind === 'unsupported'` → `ineligible`。
+3. `status.kind === 'not_applicable'` → `not_applicable`（**不得**映射成 `ineligible`）。`ineligible` 只能由真實 payload `providerState === 'ineligible'` 產生（第 1 條）。
 4. `status.kind === 'ok'` 且 payload 存在 → `mapProviderState(payload)`（`available` / `syncing` / `degraded` / …）。
 5. `status.kind === 'pending'` 且 payload 存在 → `syncing`（顯示 last-known as-of，不閃回 loading）。
 6. 其餘 → `loading`。
@@ -117,10 +119,11 @@ export interface ChipsBatchStatus {
   export function normalizeStockCode(code: unknown): string { return String(code ?? '').trim().toUpperCase(); }
   ```
   `normalizeStockCodes()` 改用它；`useChipsBatch` 刪除自有 `isValidCode`，改 `normalizeStockCode` → `isTaiwanStockCode` → dedupe（Set）。兩端規則自此完全一致。
-- **不新增任何 telemetry**（v2 的 `chips_batch_code_rejected` 移出 scope）。未通過 canonical 的代號只寫本地 observable `{kind:'unsupported'}`，不打 API、不記事件。
+- **不新增任何 telemetry**（v2 的 `chips_batch_code_rejected` 移出 scope）。未通過 canonical 的代號只寫本地 observable `{kind:'not_applicable'}`，不打 API、不記事件。
 - fixture：
-  - valid：`2330`、`0050`、`00878`、`006208`、`9105`、`00637L`、`00637l`（normalize 後等同前者，須被 dedupe 合併）
-  - invalid：`''`、`'   '`、`'ABC'`、`'<script>alert(1)</script>'`、`'2330,2317'`、`"2330' OR '1'='1"`
+  - valid（台股 canonical）：`2330`、`0050`、`00878`、`006208`、`9105`、`00637L`、`00637l`（normalize 後等同前者，須被 dedupe 合併）
+  - not_applicable（合法但非台股 batch universe）：`ABC`、`ORCL`、`AMD` → 不打 batch、卡片顯示「籌碼資料不適用」、**不得**顯示 ETF／權證文案、quantity/value/ROI 完全不受影響。
+  - invalid（非法輸入，同樣落 `not_applicable`）：`''`、`'   '`、`'<script>alert(1)</script>'`、`'2330,2317'`、`"2330' OR '1'='1"`
   - `00878x` 已從 fixture 刪除（不做武斷判定）。
 
 ---
@@ -164,7 +167,8 @@ canonical 常數（檔 1）：
 | `partial_error`（無 as-of） | `籌碼資料暫時無法取得` |
 | `partial_error`（有 as-of） | `籌碼資料暫時無法取得 · 顯示最後可得資料 2026/08/14` |
 | `syncing` | `籌碼資料更新中` |
-| `ineligible` | `不適用（ETF／權證／受益憑證）` |
+| `ineligible`（**僅** payload providerState=ineligible） | `不適用（ETF／權證／受益憑證）` |
+| `not_applicable`（本地未通過台股 canonical validator，如美股代號） | `籌碼資料不適用` |
 | `available` / `loading` | 不顯示任何文字 |
 
 禁止出現：provider 名稱、方案/level、HTTP 狀態碼、內部 code、「此股票不支援」「上游來源中止」。
@@ -183,7 +187,8 @@ canonical 常數（檔 1）：
 - `tsgo`（TS-only typecheck）、`bunx eslint`（含 `npm run check:module-boundaries`）、`bunx vite build`。
 - `bunx vitest run` 全量；新增／更新案例：
   - chunking：1 / 30 / 31 / 60 / 61 → 1 / 1 / 2 / 2 / 3 requests；union 完整、單批 ≤30、無跨批覆蓋。
-  - normalization：`00637l` 與 `00637L` dedupe 為 1；E 的 invalid 清單全部落 `unsupported`。
+  - normalization：`00637l` 與 `00637L` dedupe 為 1；E 的 not_applicable／invalid 清單全部落 `{kind:'not_applicable'}`。
+  - 語意隔離：`ABC`/`ORCL`/`AMD` → 卡片 `data-bsr-state="not_applicable"`、文字為「籌碼資料不適用」、**斷言不出現**「ETF」「權證」「受益憑證」字串、fetch 呼叫 0、qty/value 節點值不變；反向案例 payload `providerState='ineligible'` → 文字為「不適用（ETF／權證／受益憑證）」。
   - partial failure：chunk#2 reject → chunk#1 的 `['tw-chips',code]` 保留、狀態 `ok`；chunk#2 的 code 為 `error/chunk_failed`。
   - 優先序：terminal payload + `error` 狀態 → 仍 `unavailable_unsupported`；stale payload + `error` → `partial_error`（含 as-of，且非 available）；stale payload + `pending` → `syncing`。
   - race（檔 16）：run1 送出未回 → codes 變更觸發 run2 → run1 晚回覆，斷言 0 次寫入且卡片維持 run2 的 `pending/ok`。
