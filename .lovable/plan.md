@@ -187,7 +187,8 @@ canonical 常數（檔 1）：
 - `tsgo`（TS-only typecheck）、`bunx eslint`（含 `npm run check:module-boundaries`）、`bunx vite build`。
 - `bunx vitest run` 全量；新增／更新案例：
   - chunking：1 / 30 / 31 / 60 / 61 → 1 / 1 / 2 / 2 / 3 requests；union 完整、單批 ≤30、無跨批覆蓋。
-  - normalization：`00637l` 與 `00637L` dedupe 為 1；E 的 invalid 清單全部落 `unsupported`。
+  - normalization：`00637l` 與 `00637L` dedupe 為 1；E 的 not_applicable／invalid 清單全部落 `{kind:'not_applicable'}`。
+  - 語意隔離：`ABC`/`ORCL`/`AMD` → 卡片 `data-bsr-state="not_applicable"`、文字為「籌碼資料不適用」、**斷言不出現**「ETF」「權證」「受益憑證」字串、fetch 呼叫 0、qty/value 節點值不變；反向案例 payload `providerState='ineligible'` → 文字為「不適用（ETF／權證／受益憑證）」。
   - partial failure：chunk#2 reject → chunk#1 的 `['tw-chips',code]` 保留、狀態 `ok`；chunk#2 的 code 為 `error/chunk_failed`。
   - 優先序：terminal payload + `error` 狀態 → 仍 `unavailable_unsupported`；stale payload + `error` → `partial_error`（含 as-of，且非 available）；stale payload + `pending` → `syncing`。
   - race（檔 16）：run1 送出未回 → codes 變更觸發 run2 → run1 晚回覆，斷言 0 次寫入且卡片維持 run2 的 `pending/ok`。
