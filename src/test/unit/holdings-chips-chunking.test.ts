@@ -43,7 +43,12 @@ describe('S3B RED · chips 批次分塊（31 檔）', () => {
   });
 
   it('31 檔必須發出 2 個 bounded 請求且代號聯集完整', async () => {
-    renderHook(() => useChipsBatch({ codes: CODES }), { wrapper });
+    // useChipsBatch 的 keyRef 初始化為首次 key，必須「變更」可見代號才會觸發批次
+    const { rerender } = renderHook(
+      ({ codes }: { codes: string[] }) => useChipsBatch({ codes }),
+      { wrapper, initialProps: { codes: [] as string[] } },
+    );
+    rerender({ codes: CODES });
 
     await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
