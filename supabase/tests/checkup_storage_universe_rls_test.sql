@@ -68,6 +68,17 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────
+-- 前置：Case 2/4 需要 EXECUTE public.checkup_prefetch_universe()
+--       （該函式刻意只授權 service_role；請以 service_role/postgres 連線執行本檔）
+-- ─────────────────────────────────────────────
+DO $$
+BEGIN
+  ASSERT has_function_privilege(current_user, 'public.checkup_prefetch_universe()', 'EXECUTE'),
+    format('setup: current_user=%s 沒有 EXECUTE public.checkup_prefetch_universe() '
+           '— 本檔必須以 service_role/postgres 執行', current_user);
+END $$;
+
+-- ─────────────────────────────────────────────
 -- Case 2：該持股必須出現在 universe，且 sources 標記 checkup_storage
 -- ─────────────────────────────────────────────
 DO $$
