@@ -1,0 +1,93 @@
+== C1-T0 baseline (seeded v7 preimage) ==
+snap_before=7|dd747a45d3e46b2acc3f0c021bc269f8|0|0|0|-
+PASS T0 version=7
+PASS T0 preimage md5
+== C1-T1 exact v7+hash CAS success ==
+apply_exit=0
+PASS T1 apply exit 0
+snap_after=8|9b2a6906724c9e6eec809daeb5641b05|1|1|0|-
+PASS T1 version 7->8
+PASS T1 audit +1
+PASS T1 degrade +1
+PASS T1 queue 0 delta
+-- canonical payload --
+{
+    "enabled": true,
+    "probed_at": "2026-08-17T13:30:58.060Z",
+    "supported": false,
+    "last_probe_at": "2026-08-17T13:30:58.060Z",
+    "admission_nonce": "badc5383-6b1a-4bc0-860e-e7f34a574a75",
+    "admission_reason": "provider_plan_rejected",
+    "admission_run_id": "cb117416-28c7-4771-9f8a-3f5007884fac",
+    "last_probe_error": "provider_plan_rejected:http_400",
+    "admission_blocked": true,
+    "last_probe_format": null,
+    "threshold_pending": 15,
+    "admission_evidence": {
+        "outcome": "unsupported_plan",
+        "provider": "finmind",
+        "decided_by": "s3b_c1_migration",
+        "http_status": 400,
+        "observed_at": "2026-08-17T13:30:58.060Z",
+        "schema_version": 1
+    },
+    "last_probe_outcome": "unsupported",
+    "admission_blocked_at": "2026-08-22T05:39:59Z",
+    "min_stocks_in_response": 500,
+    "admission_terminal_code": "bsr_provider_unsupported"
+}
+keys=admission_blocked,admission_blocked_at,admission_evidence,admission_nonce,admission_reason,admission_run_id,admission_terminal_code,enabled,last_probe_at,last_probe_error,last_probe_format,last_probe_outcome,min_stocks_in_response,probed_at,supported,threshold_pending
+PASS T1 16 keys (9 legacy + 7 admission)
+PASS T1 canonical v8 exact contract
+PASS T1 assert_sanitized
+PASS T1 no raw/url/token leak
+-- audit/degrade rows --
+bsr_admission_blocked|bsr_provider_unsupported|8
+legacy_config_missing|admission_blocked|provider_plan_rejected|bsr_provider_unsupported
+PASS T1 degrade modes
+== C1-T2 rerun true no-op ==
+PASS T2 noop notice
+PASS T2 0 delta (exit 0)
+== C1-T3/T4/T5 negative: wrong version / wrong hash / malformed ==
+PASS T3 wrong_version raises c1_preimage_drift
+PASS T3 wrong_version 0 delta after rollback
+PASS T4 wrong_hash raises c1_preimage_drift
+PASS T4 wrong_hash 0 delta after rollback
+PASS T5 malformed raises c1_gate_config_not_object
+PASS T5 malformed 0 delta after rollback
+PASS T6 row_missing raises c1_gate_row_missing
+PASS T6 row_missing 0 delta after rollback
+== C1-T7 concurrency: only one transition ==
+reseed_md5=dd747a45d3e46b2acc3f0c021bc269f8 v7
+PASS T7 loser = no-op
+PASS T7 exactly one transition (v=8 audit+1 degrade+1)
+== C1-T8..T11 wrapper contract ==
+sig=bsr_block_and_terminalize_claims(uuid,bigint[],timestamp with time zone[],integer[],text,jsonb) ret=jsonb secdef=true vol=v cfg={"search_path=pg_catalog, private_bsr"} owner=postgres acl=db23e67d6fad77fdfa003856d807d6af
+PASS T8 wrapper ACL unchanged
+PASS T8 single OID no overload
+legacy_input={"transition": "blocked", "claim_count": 0, "gate_version": 10, "terminal_code": "bsr_provider_unsupported", "updated_count": 0, "lost_lease_count": 0}
+stored_code=bsr_provider_unsupported stored_reason=provider_plan_rejected
+audit_code=bsr_provider_unsupported src=finmind_admission_provider_plan_rejected
+PASS T9 body terminal_code = DB code
+PASS T9 stored config canonical
+PASS T9 audit canonical + source preserved
+PASS T9 legacy source input still accepted
+PASS T10 DB code as input still rejected (no widening)
+PASS T10 arbitrary code rejected
+{"transition": "already_blocked", "claim_count": 0, "gate_version": 8, "terminal_code": "bsr_provider_unsupported", "updated_count": 0, "lost_lease_count": 0}
+PASS T11 canonical already-blocked no-op, 0 delta
+== C1-T12 S3B-A regression (gate helpers + ingest_allowed) ==
+PASS T12 ingest_allowed false under canonical block
+PASS T12 bsr_gate_helper_acl_test.sql
+PASS T12 bsr_queue_selector_test.sql
+PASS T12 bsr_gate_ingest_allowed_test.sql
+PASS T12 bsr_ingest_suppression_test.sql
+public_create anon=false
+public_create authenticated=false
+public_create service_role=false
+private_bsr_usage anon=false
+private_bsr_usage authenticated=false
+private_bsr_usage service_role=false
+PASS T12 no public CREATE / private_bsr USAGE
+
+RESULT pass=39 fail=0
