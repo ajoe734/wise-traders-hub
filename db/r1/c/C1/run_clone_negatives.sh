@@ -26,8 +26,12 @@ CANON="jsonb_build_object('admission_blocked',true,'admission_reason','provider_
 
 run_case(){
   NAME=$1; FIX=$2
-  OUT=$(psql "$CL" -qX <<SQL2 2>&1
+  # NOTE: clone carries a BEFORE trigger that auto-increments version on write;
+  # it is disabled inside the (rolled back) fixture tx so the fixture pins the
+  # exact version it declares. Production is never touched by this script.
+  OUT=$(psql "$CL" -qX -v ON_ERROR_STOP=1 <<SQL2 2>&1
 BEGIN;
+ALTER TABLE public.tw_bsr_sync_config DISABLE TRIGGER USER;
 $FIX;
 \i $D/validate_gate_invariant.sql
 ROLLBACK;
