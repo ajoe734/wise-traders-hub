@@ -17,14 +17,8 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
-CREATE TEMP TABLE _baseline AS
-SELECT
-  (SELECT count(*) FROM public.tw_bsr_sync_queue)                            AS queue_rows,
-  (SELECT md5(COALESCE(string_agg(id::text || ':' || status, '|' ORDER BY id), ''))
-     FROM public.tw_bsr_sync_queue)                                          AS queue_hash,
-  (SELECT md5(COALESCE(string_agg(key || ':' || version || ':' || config::text, '|'
-                                  ORDER BY key), ''))
-     FROM public.tw_bsr_sync_config)                                         AS config_hash;
+\i supabase/tests/_s3b0_snapshot.sql
+CALL s3b0_snapshot('before');
 
 -- ─────────────────────────────────────────────
 -- Case 1：queue 沒有 provider/dataset 鑑別欄位 → status='pending' 即等於「全部 BSR job」
@@ -105,19 +99,6 @@ ROLLBACK TO SAVEPOINT fx_recover;
 -- ─────────────────────────────────────────────
 -- 零殘留驗證：fixture 已全數回滾，前後 count / hash 0 delta
 -- ─────────────────────────────────────────────
-DO $$
-DECLARE b record; q bigint; qh text; ch text;
-BEGIN
-  SELECT * INTO b FROM _baseline;
-  SELECT count(*) INTO q FROM public.tw_bsr_sync_queue;
-  SELECT md5(COALESCE(string_agg(id::text || ':' || status, '|' ORDER BY id), '')) INTO qh
-    FROM public.tw_bsr_sync_queue;
-  SELECT md5(COALESCE(string_agg(key || ':' || version || ':' || config::text, '|'
-                                 ORDER BY key), '')) INTO ch
-    FROM public.tw_bsr_sync_config;
-  ASSERT q = b.queue_rows,  format('residue: queue rows %s -> %s', b.queue_rows, q);
-  ASSERT qh = b.queue_hash, format('residue: queue hash %s -> %s', b.queue_hash, qh);
-  ASSERT ch = b.config_hash, format('residue: config hash %s -> %s', b.config_hash, ch);
-END $$;
+CALL s3b0_assert_no_residue();
 
 ROLLBACK;
