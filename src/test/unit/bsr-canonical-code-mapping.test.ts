@@ -16,8 +16,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+// 動態 specifier：模組尚未建立時只能在 runtime RED，不可讓 tsc 先炸
+const CANONICAL_MODULE = '@/checkup/lib/bsrCanonicalCodes';
+
 async function loadModule(): Promise<any> {
-  return import('@/checkup/lib/bsrCanonicalCodes').catch(() => null);
+  return import(/* @vite-ignore */ CANONICAL_MODULE).catch(() => null);
 }
 
 describe('S3B RED · BSR canonical terminal code 映射', () => {
