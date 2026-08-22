@@ -28,6 +28,17 @@ BEGIN;
 CALL s3b0_snapshot('before');
 
 -- ─────────────────────────────────────────────
+-- Fixture：重建 production 當前的 v7 gate row（尚未宣告 admission_*）
+--   clone 的資料表為空，若不建 fixture，RED 會以「row 不存在」失敗，
+--   而非我們要釘的「version 必須為 8，實得 7」。fixture 全程 savepoint 隔離。
+-- ─────────────────────────────────────────────
+SAVEPOINT fx_prod_v7;
+
+DELETE FROM public.tw_bsr_sync_config WHERE key = 'market_batch';
+INSERT INTO public.tw_bsr_sync_config (key, version, config, updated_at)
+VALUES ('market_batch', 7, jsonb_build_object('enabled', true), now());
+
+-- ─────────────────────────────────────────────
 -- Case 1：canonical v8 —— version=8 且 admission_* 恰好 7 鍵、型別與值精確相符
 -- ─────────────────────────────────────────────
 DO $$
@@ -123,6 +134,7 @@ BEGIN
 END $$;
 
 ROLLBACK TO SAVEPOINT fx_cas;
+ROLLBACK TO SAVEPOINT fx_prod_v7;
 
 -- ─────────────────────────────────────────────
 -- 零殘留驗證
