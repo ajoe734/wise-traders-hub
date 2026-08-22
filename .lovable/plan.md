@@ -1,6 +1,6 @@
-# Stage 3B（v4）— Honest Downgrade：先關入口 → 再宣告狀態 → 最後才動 backlog
+# Stage 3B（v4.1）— Honest Downgrade：先關入口 → 再宣告狀態 → 最後才動 backlog
 
-判定沿用 Stage 2（FinMind level=register，單股與 market_batch 皆 HTTP 400，deterministic terminal）。目標：**不開抽屜時持倉看板仍自動取得可取得的最新資料**；BSR 誠實標示不可更新、停止無效排隊；不升級方案、不換來源、不造假資料。本版整份取代 v3。
+判定沿用 Stage 2（FinMind level=register，單股與 market_batch 皆 HTTP 400，deterministic terminal）。目標：**不開抽屜時持倉看板仍自動取得可取得的最新資料**；BSR 誠實標示不可更新、停止無效排隊；不升級方案、不換來源、不造假資料。本版整份取代 v4；v4.1 只修四點：(1) SQL 測試隔離協定（BEGIN/savepoint/ROLLBACK + 前後 hash 比對、禁用 production row 測 open 分支）；(2) C1 canonical 為 **version=8 + 7 鍵**；(3) 自然 cron 106 一律不得聲稱 `inserted=0`；(4) S3B-E capture/update 同集合、表存在即 raise、`captured=updated` 斷言。
 
 保留自 v3：7 支 DB function + 1 個 legacy edge call site；public CREATE hard stop；failed 一列不動；pending 只改 status；未開抽屜用 batch；qty 不假 0；前端 Preview only；最後 row-level 兩位使用者與 cron→runid→request_id→HTTP→run_id 證據。
 
@@ -140,7 +140,14 @@ S3B-C2 的最小補強：改讀 `admission_blocked/admission_reason` 作為 term
 | `holdings-chips-chunking.test.ts`（31 檔） | 目前只發 1 次且截斷至 30 |
 | `e2e/holdings-bsr-unavailable.spec.ts` | 不開抽屜時無日期、無 BSR 狀態 |
 
-**Allowlist**：僅上述測試檔。**Acceptance**：baseline 四項 GREEN、新功能八項 RED 且失敗原因與上表一致。**Stop**：baseline 任一 RED（代表現況與稽核不符）或新功能意外 GREEN。**Rollback**：刪測試檔。
+**SQL 測試隔離協定（強制，適用所有會呼叫七支 producer/recovery 或讀寫 gate/config 的 SQL test）**
+1. 每個 test 檔以顯式 `BEGIN;` 開場、`ROLLBACK;` 收場；**外層交易保證回滾**——assertion 用 `RAISE EXCEPTION` 觸發，失敗時交易一併回滾，絕不留下 queue/config/audit_logs/tw_bsr_degrade_events 任何 row。
+2. 交易內先 `SAVEPOINT sp_fixture;` 建立**測試專用 fixture**（自建 fixture symbol/日期的 queue 列、以及 `key='market_batch'` 的 config 值改寫），跑斷言後 `ROLLBACK TO SAVEPOINT sp_fixture;`，最後仍 `ROLLBACK;`。
+3. **禁止用 production 真實 row 測 open 分支**：`admission_blocked=false` 的 open 分支只能在 fixture savepoint 內、對測試自建列或暫時改寫後再回滾的 config 上驗證；不得對 production pending/failed 列呼叫 producer。
+4. 每個 test 檔第一步與最後一步各取一次 **before/after snapshot 並比對**：`tw_bsr_sync_queue` 全表 hash + `count(*) by status` + `max(updated_at)` + `max(enqueued_at)`、`tw_bsr_sync_config` 全 key `version + md5(config::text)`、`audit_logs` 與 `tw_bsr_degrade_events` 的 `count(*)`；任一不等即 `RAISE EXCEPTION 'test_left_residue'`。
+5. RED 階段同樣套用此協定：RED 只允許以「函式不存在／回傳不含 `skipped` 鍵／inserted>0」等**在 fixture 上觀察**的方式失敗，不得用 production 資料變動當證據。
+
+**Allowlist**：僅上述測試檔。**Acceptance**：baseline 四項 GREEN、新功能八項 RED 且失敗原因與上表一致；**所有 SQL test 執行前後 production queue/config/audit/degrade 的 hash 與 count 完全一致**。**Stop**：baseline 任一 RED（代表現況與稽核不符）、新功能意外 GREEN、或出現 `test_left_residue`。**Rollback**：刪測試檔（測試本身不留 DB 痕跡）。
 
 ---
 
@@ -174,18 +181,19 @@ gate 仍 `legacy_config_missing`（blocked=true），部署即全關，零 ungua
 ## Stage S3B-C1 — CAS 宣告顯式 availability truth（**只有 SQL，不含 edge**）
 **Actions**（單一 migration / 單一交易）
 1. `SELECT config, version INTO … FROM public.tw_bsr_sync_config WHERE key='market_batch' FOR UPDATE;`（列缺 → `RAISE EXCEPTION 'gate_row_missing'`）
-2. **冪等優先判定**：先檢查是否為 canonical v8 —
-   `admission_blocked = true` **且** `admission_reason='provider_plan_rejected'` **且** `admission_terminal_code='finmind_admission_provider_plan_rejected'` **且** `admission_blocked_at`、`admission_run_id`、`admission_nonce`、`admission_evidence` 皆存在且型別正確 → **no-op 成功返回**（不 bump version、不再寫 audit）。
-3. **partial / mismatched**：若含任一 `admission_*` 鍵但不完全符合 canonical → `RAISE EXCEPTION 'admission_state_partial_or_mismatched'`（**不吞掉**）。
-4. **否則要求 exact preimage**：`version = 7` 且 `md5(config::text) = 'dd747a45d3e46b2acc3f0c021bc269f8'`；不符 → `RAISE EXCEPTION 'preimage_mismatch'`。
-5. 原子 merge canonical 六鍵 + `version = version + 1` + `updated_at = now()`；`PERFORM private_bsr.assert_sanitized(<evidence>,0)`。
+2. **冪等優先判定（canonical v8 = row `version`=8 且 7 個 `admission_*` 鍵全齊全且值/型別正確）**：
+   `version = 8` **且** `admission_blocked = true`（JSON boolean）**且** `admission_reason = 'provider_plan_rejected'` **且** `admission_terminal_code = 'finmind_admission_provider_plan_rejected'` **且** `admission_blocked_at`（ISO timestamptz 字串）、`admission_run_id`（uuid 字串）、`admission_nonce`（非空字串）、`admission_evidence`（jsonb object，含 §C1-6 欄位）皆存在且型別正確 → **no-op 成功返回**（不 bump version、不再寫 audit/degrade）。
+   canonical 鍵集合恰為 **7 鍵**：`admission_blocked, admission_reason, admission_terminal_code, admission_blocked_at, admission_run_id, admission_nonce, admission_evidence`。
+3. **partial / mismatched**：只要含任一 `admission_*` 鍵而**未完整符合上述 v8 canonical**（含 `version <> 8`、缺任一鍵、多出未定義 `admission_*` 鍵、型別或值不符）→ `RAISE EXCEPTION 'admission_state_partial_or_mismatched'`（**不吞掉、不自動修補**）。
+4. **否則（完全無 `admission_*` 鍵）要求 exact preimage**：`version = 7` 且 `md5(config::text) = 'dd747a45d3e46b2acc3f0c021bc269f8'`；不符 → `RAISE EXCEPTION 'preimage_mismatch'`。
+5. 原子 merge canonical **7 鍵** + `version = 7 + 1 = 8` + `updated_at = now()`；`PERFORM private_bsr.assert_sanitized(<evidence>,0)`。
 6. **evidence 欄位命名（時間語意分離）**：
    `{stage:'stage2', http_status:400, provider_code:'provider_plan_rejected', dataset:'TaiwanStockTradingDailyReport', probe_symbol:'3017', probe_date:'2026-08-21', recorded_at:<migration txn now()>}`。
    **不寫 `observed_at`**（Stage 2 外呼的精確時戳未逐秒留存）；若日後取得 exact probe 時間才新增 `probe_observed_at`。不放 token / provider 原始 body / URL。
 7. append `audit_logs('bsr_admission_blocked')` + `tw_bsr_degrade_events`（append-only）。migration 註解寫入 §0.8 恢復 runbook。
 
 **Allowlist**：`supabase/migrations/<ts>_bsr_admission_declare_explicit_cas.sql`
-**Acceptance**：`bsr_availability_cas_test` GREEN（legacy→explicit 成功／canonical 重跑 no-op 冪等／partial 觸發 raise／preimage 不符觸發 raise／未開閘 `blocked=true`／0 queue mutation）；readback config v8 且六鍵齊全；**下一個自然 worker** body 為 §0.6 v8 形式；再跑一次 B2 snapshot：queue/counter 全不變。**此時 payload 已可 terminal（§0.10 舊 mapping 生效）**，先觀察不動 edge。
+**Acceptance**：`bsr_availability_cas_test` GREEN（依 §S3B-0 SQL 測試隔離協定於 fixture savepoint 內驗：legacy→explicit 成功且結果為 `version=8` + 7 鍵齊全／canonical v8 重跑 no-op 冪等（version 仍 8、無新 audit/degrade）／`version<>8` 或缺任一鍵或型別值不符一律 `admission_state_partial_or_mismatched` raise／preimage 不符 raise／未開閘 `blocked=true`／0 queue mutation，測試前後 production hash 不變）；production readback `version=8` 且 **7 鍵**齊全；**下一個自然 worker** body 為 §0.6 v8 形式；再跑一次 B2 snapshot：queue/counter 全不變。**此時 payload 已可 terminal（§0.10 舊 mapping 生效）**，先觀察不動 edge。
 **Stop**：任何 raise、body 未變為 v8、queue/counter 變動。
 **Semantic rollback（非 exact inverse，明示）**：
 ```sql
@@ -243,28 +251,48 @@ e2e/holdings-bsr-unavailable.spec.ts
 ---
 
 ## Stage S3B-E — backlog 最小處理（只動 pending、只改 status）
-**Actions**
+**Actions**（單一 migration / 單一 transaction；capture 與 update 綁定同一 id 集合）
 ```sql
--- 1) 先持久保存 ids（只存 id，不碰 last_error）
-CREATE TABLE IF NOT EXISTS private_bsr.terminalized_pending_20260822 (
+-- 0) 一次性保證：表必須不存在（存在 = 之前跑過或殘留 partial），不得用 IF NOT EXISTS 吞掉
+DO $$ BEGIN
+  IF to_regclass('private_bsr.terminalized_pending_20260822') IS NOT NULL THEN
+    RAISE EXCEPTION 'terminalize_already_ran_or_partial';
+  END IF;
+END $$;
+
+CREATE TABLE private_bsr.terminalized_pending_20260822 (
   id bigint PRIMARY KEY, captured_at timestamptz NOT NULL DEFAULT now());
-REVOKE ALL ON TABLE private_bsr.terminalized_pending_20260822 FROM PUBLIC;
+REVOKE ALL ON TABLE private_bsr.terminalized_pending_20260822 FROM PUBLIC;  -- 零 GRANT
+
+-- 1) 鎖定並捕捉集合（FOR UPDATE 防併發改變集合）
 INSERT INTO private_bsr.terminalized_pending_20260822(id)
 SELECT id FROM public.tw_bsr_sync_queue
- WHERE status='pending' AND last_error IS DISTINCT FROM 'quota_recovery_token';
+ WHERE status='pending' AND last_error IS DISTINCT FROM 'quota_recovery_token'
+ ORDER BY id
+ FOR UPDATE;
 
--- 2) 只改 status（updated_at 由 trg_tw_bsr_sync_queue_touch_updated 維護）
-UPDATE public.tw_bsr_sync_queue SET status='skipped'
- WHERE status='pending' AND last_error IS DISTINCT FROM 'quota_recovery_token';
+-- 2) 只對「已捕捉的同一集合」改 status（updated_at 由 trigger 維護）
+WITH upd AS (
+  UPDATE public.tw_bsr_sync_queue q SET status='skipped'
+    FROM private_bsr.terminalized_pending_20260822 t
+   WHERE q.id = t.id AND q.status='pending'
+  RETURNING q.id)
+SELECT count(*) INTO v_updated FROM upd;
+
+-- 3) 一致性與規模斷言，任一不符即 RAISE → 整個 transaction 全回滾（含建表）
+SELECT count(*) INTO v_captured FROM private_bsr.terminalized_pending_20260822;
+IF v_updated <> v_captured THEN RAISE EXCEPTION 'capture_update_set_mismatch % <> %', v_updated, v_captured; END IF;
+IF abs(v_captured - 548)::numeric / 548 > 0.05 THEN RAISE EXCEPTION 'affected_rows_deviation %', v_captured; END IF;
 ```
+（實作時整段包在單一 `DO $$ DECLARE v_updated int; v_captured int; BEGIN … END $$;` plpgsql 區塊內，除 `CREATE TABLE`/`REVOKE` 外一律同交易；migration 本身即 transaction，任何 raise 全回滾、不留半成品表。）
 - ids 持久保存在 `private_bsr` 內部表（無 PostgREST 可達、零 GRANT），同時輸出 `count` 與 `md5(string_agg(id::text,',' ORDER BY id))` 到 receipt；**不存、不讀、不輸出 `last_error`**。
 - 排除 `quota_recovery_token` sentinel（現為 0 筆，防禦性）；`failed` / `running` / `done` 完全不動；不設 `finished_at`、不覆寫 `last_error`。
 - **前提**：§0.7 已證明本表為單一 BSR dataset、無 provider/job 型別 discriminator；唯一消費者 selector 是 `claim_bsr_queue_jobs`，其額外條件（priority/next_run_at/post_close_only）只會縮小抓取範圍，不影響 terminal 語意。
-- 預估 affected rows ≈ **548**（執行當下重讀，偏差 >5% 中止）。
+- 預估 affected rows ≈ **548**（執行當下重讀，偏差 >5% 由上述斷言 raise 中止）。
 
 **Allowlist**：`supabase/migrations/<ts>_bsr_queue_terminalize_pending_only.sql`
-**Acceptance**：pending 剩 0（或僅剩 token sentinel）；`failed` 仍 1572、`done` 8432、`running` 不變；`captured_at` 表列數 = affected rows；下一個 106 週期 inserted=0。
-**Stop**：affected rows 偏差 >5%、failed/running/done count 改變。
+**Acceptance**：`v_captured = v_updated`；pending 剩 0（或僅剩 token sentinel）；`failed` 仍 1572、`done` 8432、`running` 不變；capture 表列數 = affected rows；重跑同 migration 觸發 `terminalize_already_ran_or_partial` 且 0 mutation。**下一個自然 cron 106 週期只以 `runid / status / return_message='1 row'` + queue `count(*) by status`／全表 hash／`max(updated_at)`／`max(enqueued_at)`／recovery 候選集合 before-after **0 delta** 呈現；不得聲稱 `inserted=0`（純 SQL cron 無 JSON 可讀）。JSON `inserted=0` 只能來自另標 **synthetic service_role RPC call**。
+**Stop**：`capture_update_set_mismatch`、affected rows 偏差 >5%、failed/running/done count 改變、表已存在。
 **Semantic rollback**：
 ```sql
 UPDATE public.tw_bsr_sync_queue q SET status='pending'
@@ -283,7 +311,7 @@ service_role 執行、匿名化（`user_ref=left(sha256(user_id),8)`）：
 拿不到 row-level 證據 → **誠實標 PARTIAL**（亦解 Stage 1 兩角色 RLS 缺口）。
 
 ## Preview 最終 gate
-20 檔 INIT_HOLDINGS + 至少 1 位其他真實使用者、**先不開抽屜**：qty 真值（含真 0 股）、缺價「—」、法人/OHLCV/價格日期可見、BSR 顯示「資料來源目前不支援更新 · 最後可用 <查詢值>」。開抽屜後：queue counts/hash、config version、provider counters 全不變。證據鏈：cron 106 → runid（純 SQL，誠實標無 request_id/edge run_id）；worker → runid → request_id → HTTP → edge run_id → §0.6 body。
+20 檔 INIT_HOLDINGS + 至少 1 位其他真實使用者、**先不開抽屜**：qty 真值（含真 0 股）、缺價「—」、法人/OHLCV/價格日期可見、BSR 顯示「資料來源目前不支援更新 · 最後可用 <查詢值>」。開抽屜後：queue counts/hash、config version、provider counters 全不變。證據鏈：**自然 cron 106 一律只呈現 `runid / status / return_message='1 row'` + queue count/hash/max(updated_at)/max(enqueued_at)/recovery 候選集合 before-after 0 delta**（純 SQL，誠實標無 request_id/edge run_id，且**禁止**在自然 cron 段落寫 `inserted=0` 或任何 JSON 欄位；JSON 只能出自另標的 synthetic service_role RPC）；worker → runid → request_id → HTTP → edge run_id → §0.6 body。
 
 ## Publish 授權
 S3B-0/A/B/C1/C2/E 為後端（C2 含 edge deploy），**不需 Publish**。S3B-D Preview only；**進 production UI 必須另經你明確授權 Publish**。
