@@ -349,7 +349,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
 
       {/* 稀疏資料：手動回補過去 60 日 */}
-      {sparse && !error && !facts.terminalUnavailable && (
+      {sparse && !error && !isTerminalProvider && (
         <div
           data-testid="chips-backfill-hint"
           style={{
