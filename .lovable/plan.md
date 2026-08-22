@@ -167,7 +167,8 @@ canonical 常數（檔 1）：
 | `partial_error`（無 as-of） | `籌碼資料暫時無法取得` |
 | `partial_error`（有 as-of） | `籌碼資料暫時無法取得 · 顯示最後可得資料 2026/08/14` |
 | `syncing` | `籌碼資料更新中` |
-| `ineligible` | `不適用（ETF／權證／受益憑證）` |
+| `ineligible`（**僅** payload providerState=ineligible） | `不適用（ETF／權證／受益憑證）` |
+| `not_applicable`（本地未通過台股 canonical validator，如美股代號） | `籌碼資料不適用` |
 | `available` / `loading` | 不顯示任何文字 |
 
 禁止出現：provider 名稱、方案/level、HTTP 狀態碼、內部 code、「此股票不支援」「上游來源中止」。
