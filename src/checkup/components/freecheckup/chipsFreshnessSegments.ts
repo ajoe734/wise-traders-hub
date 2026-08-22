@@ -67,6 +67,13 @@ export function buildInstitutionalSegment(data: TwChipsPayload | null): Freshnes
   };
 }
 
+/** payload 上非型別宣告內、但 edge 會回傳的 provider code 欄位。 */
+interface ChipsProviderCodeFields {
+  bsr_provider_code?: string | null;
+  bsr_terminal_code?: string | null;
+  bsr_sync_status?: { provider_code?: string | null } | null;
+}
+
 export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
   const asOf = fmtDate(data?.bsr_as_of);
   const status = data?.bsr_freshness_status ?? (asOf ? 'lagging' : 'no_data');
@@ -74,11 +81,12 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
   const providerState = mapProviderState(
     data?.bsr_provider_state ?? data?.bsr_sync_status?.provider_state ?? null,
   );
+  const ext = (data ?? null) as ChipsProviderCodeFields | null;
   const terminal = isTerminalUnavailable({
     providerState: data?.bsr_provider_state ?? data?.bsr_sync_status?.provider_state ?? null,
     providerCode:
-      (data as any)?.bsr_provider_code ?? (data as any)?.bsr_terminal_code ??
-      (data as any)?.bsr_sync_status?.provider_code ?? null,
+      ext?.bsr_provider_code ?? ext?.bsr_terminal_code ??
+      ext?.bsr_sync_status?.provider_code ?? null,
   });
   const base = {
     key: 'bsr' as const,
