@@ -1,0 +1,11 @@
+market_batch|7|dd747a45d3e46b2acc3f0c021bc269f8|{
+    "enabled": true,
+    "probed_at": "2026-08-17T13:30:58.060Z",
+    "supported": false,
+    "last_probe_at": "2026-08-17T13:30:58.060Z",
+    "last_probe_error": "unsupported_plan:http_400:{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,\"token_tail\":\"***\"}",
+    "last_probe_format": null,
+    "threshold_pending": 15,
+    "last_probe_outcome": "unsupported",
+    "min_stocks_in_response": 500
+}
