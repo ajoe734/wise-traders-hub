@@ -92,3 +92,23 @@ playwright.config.ts                                         (+1 project: deskto
 ```
 
 無 migration、無 deploy、無 cron/config/queue/data 異動、未 Publish。
+
+---
+
+## S3B-0 Corrected Evidence Bundle（2026-08-22 03:57–04:00Z）
+
+### Baseline（約定 4 項）
+| # | 測試 | 指令 | 結果 |
+|---|---|---|---|
+| B1 | `supabase/tests/bsr_gate_helper_acl_test.sql` | 檔案在 clone RED（clone 快照為 Stage-1 前，缺 `private_bsr`）；改以 production **唯讀 catalog SELECT** 等價驗證 4 cases | GREEN（production 等價）|
+| B2 | `supabase/tests/bsr_queue_selector_test.sql` | `psql "$CLONE" -qX -v ON_ERROR_STOP=1 -f ...` | GREEN（0 error）|
+| B3 | `src/test/unit/bsr-worker-body-shape.test.ts` | `npx vitest run src/test/unit/bsr-worker-body-shape.test.ts` | 4 passed |
+| B4 | `src/test/unit/holdings-quantity-source.test.ts` | 同上 | 4 passed |
+
+`bsr_admission_gate_contract_test.sql` 標記為 **extra**，不計入 acceptance。
+
+### 7-case harness 驗證（clone stub + negative control，最後全部 DROP）
+case1 缺函式 / case2 VOLATILE / case3 授權 authenticated / case4 always-false / case5 row 存在即 false / case6 always-true / case7 直接轉型 → 各自命中對應 assertion，證明 harness 逐 case 可執行。
+
+### production 0 delta（before 03:58:59Z / after 04:00:13Z，皆為 SELECT）
+queue_count 10552→10552、queue_hash ce3293016b7f773fad1fcba7c219f6e7 不變、max(updated_at) 與 max(enqueued_at) 皆 2026-08-21 07:02:00.081277+00 不變、config_hash 1aecb3a8f18e057861a25524a1aa7f17 不變、audit_logs 10690→10690、degrade 94→94、status counts done 8432 / failed 1572 / pending 548 不變、`private_bsr.ingest_allowed` 仍為 0。
