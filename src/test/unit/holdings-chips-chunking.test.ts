@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const fetchChipsBatch = vi.fn();
 
 vi.mock('@/checkup/lib/chipsRepository', async (orig) => {
-  const actual = await (orig() as Promise<any>);
+  const actual = (await orig()) as Record<string, unknown>;
   return {
     ...actual,
     fetchChipsBatch: (...args: unknown[]) => fetchChipsBatch(...args),
@@ -30,6 +30,7 @@ vi.mock('@/checkup/contexts/CheckupModeContext', () => ({
 
 import { useChipsBatch, chipsBatchStatusKey, chunkCodes, partitionCodes } from '@/checkup/hooks/useChipsBatch';
 import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
+import type { BsrBatchStatusLike as BatchStatus } from '@/checkup/lib/bsrCanonicalCodes';
 
 function makeQc() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -115,7 +116,7 @@ describe('Stage D · chips 批次分塊', () => {
 
     expect(fetchChipsBatch).not.toHaveBeenCalled();
     for (const raw of ['ABC', 'ORCL', 'AMD', '<SCRIPT>ALERT(1)</SCRIPT>', '2330,2317', "2330' OR '1'='1"]) {
-      const st = qc.getQueryData(chipsBatchStatusKey(raw.toUpperCase())) as any;
+      const st = qc.getQueryData<BatchStatus>(chipsBatchStatusKey(raw.toUpperCase()));
       expect(st?.kind, `${raw} 應為 not_applicable`).toBe('not_applicable');
     }
   });
@@ -139,9 +140,11 @@ describe('Stage D · chips 批次分塊', () => {
     const sorted = [...CODES].sort();
     const okCode = sorted[0];
     const failCode = sorted[30];
-    expect((qc.getQueryData(chipsQueryKey(okCode)) as any)?.payload?.stock_id).toBe(okCode);
-    expect((qc.getQueryData(chipsBatchStatusKey(okCode)) as any)?.kind).toBe('ok');
-    const failStatus = qc.getQueryData(chipsBatchStatusKey(failCode)) as any;
+    expect(
+      qc.getQueryData<{ payload?: { stock_id?: string } }>(chipsQueryKey(okCode))?.payload?.stock_id,
+    ).toBe(okCode);
+    expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey(okCode))?.kind).toBe('ok');
+    const failStatus = qc.getQueryData<BatchStatus>(chipsBatchStatusKey(failCode));
     expect(failStatus?.kind).toBe('error');
     expect(failStatus?.reason).toBe('chunk_failed');
   });

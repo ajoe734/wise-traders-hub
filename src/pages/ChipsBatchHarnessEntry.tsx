@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Preview-only E2E harness · chips 批次
  *
@@ -13,6 +12,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useChipsBatch, chipsBatchStatusKey } from '@/checkup/hooks/useChipsBatch';
+import type { BsrBatchStatusLike } from '@/checkup/lib/bsrCanonicalCodes';
 import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
 
 const harnessQueryClient = new QueryClient({
@@ -23,7 +23,7 @@ function isPreviewEnv() {
   try {
     const h = typeof window !== 'undefined' ? window.location.hostname : '';
     return (
-      (typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV) ||
       h === 'localhost' ||
       h === '127.0.0.1' ||
       h.endsWith('.lovableproject.com') ||
@@ -32,6 +32,13 @@ function isPreviewEnv() {
   } catch {
     return false;
   }
+}
+
+interface ChipsCacheEntry {
+  payload?: {
+    bsr?: Record<string, unknown> | null;
+    institutional?: Record<string, unknown> | null;
+  } | null;
 }
 
 function BatchHarnessBody({ codes }: { codes: string[] }) {
@@ -57,8 +64,8 @@ function BatchHarnessBody({ codes }: { codes: string[] }) {
   const view = useMemo(() => {
     const statuses = codes.map((c) => ({
       code: c,
-      status: qc.getQueryData(chipsBatchStatusKey(c)) as any,
-      payload: (qc.getQueryData(chipsQueryKey(c)) as any)?.payload ?? null,
+      status: qc.getQueryData<BsrBatchStatusLike>(chipsBatchStatusKey(c)),
+      payload: qc.getQueryData<ChipsCacheEntry>(chipsQueryKey(c))?.payload ?? null,
     }));
     const settled = statuses.filter((s) => s.status && s.status.kind !== 'pending');
     const returned = statuses.filter((s) => s.payload).map((s) => s.code);
@@ -71,7 +78,7 @@ function BatchHarnessBody({ codes }: { codes: string[] }) {
   }, [codesKey, qc, tick, active.length]);
 
   const first = view.returned[0]
-    ? (qc.getQueryData(chipsQueryKey(view.returned[0])) as any)?.payload
+    ? (qc.getQueryData<ChipsCacheEntry>(chipsQueryKey(view.returned[0]))?.payload ?? null)
     : null;
   const hasBsr = first && Object.keys(first?.bsr || {}).length > 0;
   const hasInst =

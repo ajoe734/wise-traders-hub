@@ -59,7 +59,9 @@ test.describe('H6 · 分段新鮮度', () => {
     const bsr = page.getByTestId('chips-seg-bsr');
     await expect(bsr).toHaveAttribute('data-seg-state', 'unavailable_failed');
     await expect(bsr).toContainText('券商分點');
-    await expect(bsr).toContainText('目前不可用');
+    await expect(bsr).toContainText('籌碼資料暫時無法取得');
+    await expect(bsr).not.toContainText('目前不可用');
+    await expect(bsr).not.toContainText('上游來源中止');
   });
 
   test('分點完全無資料 → unavailable 且不顯示任何日期', async ({ page }) => {
@@ -69,7 +71,9 @@ test.describe('H6 · 分段新鮮度', () => {
 
     const bsr = page.getByTestId('chips-seg-bsr');
     await expect(bsr).toHaveAttribute('data-seg-state', 'unavailable');
-    await expect(bsr).toContainText('目前不可用（上游來源中止）');
+    await expect(bsr).toContainText('籌碼資料暫時無法取得');
+    await expect(bsr).not.toContainText('目前不可用（上游來源中止）');
+    await expect(bsr).not.toContainText('上游來源中止');
     await expect(bsr).not.toContainText('2026/');
   });
 

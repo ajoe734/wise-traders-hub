@@ -102,7 +102,10 @@ export function deriveChipsFacts(payload: TwChipsPayload | null | undefined): Ch
     pending: syncStatus === 'pending' || syncStatus === 'running',
     terminalUnavailable: isTerminalUnavailable({
       providerState: payload.bsr_provider_state ?? payload.bsr_sync_status?.provider_state ?? null,
-      providerCode: (payload as any).bsr_provider_code ?? payload.bsr_sync_status?.provider_code ?? null,
+      providerCode:
+        (payload as { bsr_provider_code?: string | null }).bsr_provider_code ??
+        payload.bsr_sync_status?.provider_code ??
+        null,
     }),
   };
 }
