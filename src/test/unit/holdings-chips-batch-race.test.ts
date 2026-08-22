@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const fetchChipsBatch = vi.fn();
 
 vi.mock('@/checkup/lib/chipsRepository', async (orig) => {
-  const actual = await (orig() as Promise<any>);
+  const actual = (await orig()) as Record<string, unknown>;
   return {
     ...actual,
     fetchChipsBatch: (...args: unknown[]) => fetchChipsBatch(...args),
@@ -37,8 +37,8 @@ describe('Stage D · chips batch race', () => {
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(QueryClientProvider, { client: qc }, children);
 
-    let releaseRun1: (v: any) => void = () => {};
-    const run1 = new Promise((res) => { releaseRun1 = res; });
+    let releaseRun1: (v: unknown) => void = () => {};
+    const run1 = new Promise<unknown>((res) => { releaseRun1 = res; });
 
     fetchChipsBatch.mockImplementation(async (codes?: string[]) => {
       const ids = Array.isArray(codes) ? codes : [];
@@ -65,7 +65,7 @@ describe('Stage D · chips batch race', () => {
     rerender({ c: ['2330'] });          // run2
     await new Promise((r) => setTimeout(r, 40));
 
-    const run2Status = qc.getQueryData(chipsBatchStatusKey('2330')) as any;
+    const run2Status = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
     expect(run2Status?.kind).toBe('ok');
     const run2Run = run2Status?.runId;
 
@@ -75,10 +75,10 @@ describe('Stage D · chips batch race', () => {
     // run1 的 payload 不得寫入
     expect(qc.getQueryData(chipsQueryKey('1101'))).toBeUndefined();
     // run1 的狀態停留在它自己那輪的 pending，不得變成 ok，也不得覆蓋 run2
-    const staleStatus = qc.getQueryData(chipsBatchStatusKey('1101')) as any;
+    const staleStatus = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('1101'));
     expect(staleStatus?.kind).toBe('pending');
-    expect(staleStatus?.runId).toBeLessThan(run2Run);
-    const after = qc.getQueryData(chipsBatchStatusKey('2330')) as any;
+    expect(staleStatus?.runId as number).toBeLessThan(run2Run as number);
+    const after = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
     expect(after?.kind).toBe('ok');
     expect(after?.runId).toBe(run2Run);
   });
