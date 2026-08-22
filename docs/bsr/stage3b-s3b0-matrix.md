@@ -209,3 +209,35 @@ docs/bsr/stage3b-s3b0-matrix.md                   (modified — 本節)
 無 migration 新增／套用、無 edge function 變更、無 production source code 變更。
 
 **狀態：S3B-0 兩個 hard stop 已修正，停在 S3B-0 等待核准。**
+
+---
+
+## S3B-0 R8 補件（2026-08-22 04:08Z）
+
+環境：本機 dev server `http://localhost:8080`（HTTP 200 確認），**非 Preview、非 Publish、未部署任何新環境**。
+
+```
+npx playwright test --project=desktop-holdings-bsr-unavailable
+→ 3 failed，exit code = 1
+```
+
+三筆 targeted RED exact messages：
+1. `Error: RED: 分段狀態未支援 unavailable_unsupported`（`e2e/holdings-bsr-unavailable.spec.ts:42`）
+2. `Error: RED: 卡片層沒有 holding-card-bsr 節點（只有抽屜才是 consumer）`（`:69`）
+3. `Error: RED: 31 檔應分 2 個請求，實得 1（sizes=30）` — `Expected: 2 / Received: 1`（`:86`，assert 在 `:111`）
+
+`test-results/` 已 `rm -rf` 清除（確認不存在）。**0 additional product changes**：本次僅新增本節文件，未改任何 product code / migration / edge function；無 provider call、無 deploy、無 Publish。
+
+### production 0 delta（E2E 前 04:08:16Z / 後 04:08:59Z，皆唯讀 SELECT）
+| 欄位 | before | after |
+|---|---|---|
+| queue_count | 10552 | 10552 |
+| queue_hash | 9c5eda0c19768fd2ef588335f8ec15a0 | 9c5eda0c19768fd2ef588335f8ec15a0 |
+| queue max(updated_at) | 2026-08-21 07:02:00.081277+00 | 同 |
+| queue max(enqueued_at) | 2026-08-21 07:02:00.081277+00 | 同 |
+| config_hash | 1aecb3a8f18e057861a25524a1aa7f17 | 1aecb3a8f18e057861a25524a1aa7f17 |
+| audit_logs | 10690 | 10690 |
+| tw_bsr_degrade_events | 94 | 94 |
+| status pending/failed/done/running/skipped | 548 / 1572 / 8432 / 0 / 0 | 548 / 1572 / 8432 / 0 / 0 |
+
+**至此 S3B-0：baseline 4 GREEN + targeted RED 8（含 R8）全數到齊，production 零 mutation。停在 S3B-0 等待核准；不進 S3B-A。**
