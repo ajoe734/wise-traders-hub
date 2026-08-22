@@ -1,0 +1,42 @@
+negatives_baseline=7|dd747a45d3e46b2acc3f0c021bc269f8|0|0|0|-|1
+== N1 partial v8 (only 3 of 7 admission keys, version bumped) ==
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported') where key='market_batch'
+  exact_error: <none>
+FAIL N1_partial_v8 :: no error raised :: psql:db/r1/c/C1/part1_cas.sql:86: NOTICE:  c1_noop: canonical v8 already present (version=8)
+PASS N1_partial_v8 0 delta / 0 residue after rollback
+== N2 extra admission key beyond the 7-key contract ==
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_extra','nope') where key='market_batch'
+  exact_error: <none>
+FAIL N2_extra_key :: no error raised :: psql:db/r1/c/C1/part1_cas.sql:86: NOTICE:  c1_noop: canonical v8 already present (version=8)
+PASS N2_extra_key 0 delta / 0 residue after rollback
+== N3 wrong type (admission_blocked as string) ==
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_blocked','true')) where key='market_batch'
+  exact_error: ERROR:  c1_preimage_drift
+PASS N3_wrong_type raised c1_preimage_drift
+PASS N3_wrong_type 0 delta / 0 residue after rollback
+== N4 wrong canonical value (UI seg state leaked into terminal_code) ==
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_terminal_code','unavailable_unsupported')) where key='market_batch'
+  exact_error: ERROR:  c1_preimage_drift
+PASS N4_wrong_value raised c1_preimage_drift
+PASS N4_wrong_value 0 delta / 0 residue after rollback
+== N5 non-object: json string scalar ==
+  fixture: update public.tw_bsr_sync_config set config='"blocked"'::jsonb where key='market_batch'
+  exact_error: ERROR:  c1_gate_config_not_object
+PASS N5_nonobject_string raised c1_gate_config_not_object
+PASS N5_nonobject_string 0 delta / 0 residue after rollback
+== N6 non-object: json number scalar ==
+  fixture: update public.tw_bsr_sync_config set config='42'::jsonb where key='market_batch'
+  exact_error: ERROR:  c1_gate_config_not_object
+PASS N6_nonobject_number raised c1_gate_config_not_object
+PASS N6_nonobject_number 0 delta / 0 residue after rollback
+== N7 non-object: json null ==
+  fixture: update public.tw_bsr_sync_config set config='null'::jsonb where key='market_batch'
+  exact_error: ERROR:  c1_gate_config_not_object
+PASS N7_nonobject_null raised c1_gate_config_not_object
+PASS N7_nonobject_null 0 delta / 0 residue after rollback
+== N8 evidence key missing (6-key evidence contract broken) ==
+  fixture: update public.tw_bsr_sync_config set version=8, config=config||(jsonb_build_object('admission_blocked',true,'admission_reason','provider_plan_rejected','admission_terminal_code','bsr_provider_unsupported','admission_blocked_at',now(),'admission_run_id',gen_random_uuid()::text,'admission_nonce',gen_random_uuid()::text,'admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind','observed_at','2026-08-17T13:30:58.060Z','http_status',400,'outcome','unsupported_plan','decided_by','s3b_c1_migration'))||jsonb_build_object('admission_evidence',jsonb_build_object('schema_version',1,'provider','finmind'))) where key='market_batch'
+  exact_error: <none>
+FAIL N8_evidence_missing_key :: no error raised :: psql:db/r1/c/C1/part1_cas.sql:86: NOTICE:  c1_noop: canonical v8 already present (version=8)
+PASS N8_evidence_missing_key 0 delta / 0 residue after rollback
+RESULT_NEG pass=13 fail=3
