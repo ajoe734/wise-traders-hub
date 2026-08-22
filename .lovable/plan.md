@@ -96,7 +96,7 @@ export interface ChipsBatchStatus {
 
 1. `payload` 存在且 canonical 判為 `unavailable_unsupported` 或 `ineligible` → **回該權威狀態**（terminal/ineligible 不被 batch error 蓋掉）。
 2. `status.kind === 'error'` → `partial_error`（**即使有 stale payload**；資料保留、顯示最後可得日期，但不得標 available）。
-3. `status.kind === 'unsupported'` → `ineligible`。
+3. `status.kind === 'not_applicable'` → `not_applicable`（**不得**映射成 `ineligible`）。`ineligible` 只能由真實 payload `providerState === 'ineligible'` 產生（第 1 條）。
 4. `status.kind === 'ok'` 且 payload 存在 → `mapProviderState(payload)`（`available` / `syncing` / `degraded` / …）。
 5. `status.kind === 'pending'` 且 payload 存在 → `syncing`（顯示 last-known as-of，不閃回 loading）。
 6. 其餘 → `loading`。
