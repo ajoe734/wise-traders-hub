@@ -26,7 +26,7 @@ const CARD_FILES = [
 
 describe('S3B baseline · 持倉 qty/cost 單一資料源', () => {
   it('bootstrap 從 pf-holdings-v2 讀持倉（唯一 storage key）', () => {
-    const hits = ['src/checkup/hooks/useFreeCheckupBootstrap.js', 'src/checkup/hooks/useFreeCheckupBootstrap.ts']
+    const hits = ['src/hooks/useFreeCheckupBootstrap.js']
       .map((f) => {
         try { return src(f); } catch { return ''; }
       })
