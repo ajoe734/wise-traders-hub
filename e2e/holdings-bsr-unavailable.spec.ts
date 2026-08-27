@@ -116,14 +116,14 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     const bodies: string[][] = [];
-    const lateCalls: string[] = [];
-    let watching = false;
+    // v4.4 §S2：兩個「具名 counter」，只認 exact pathname，其他 functions/rest 請求一律不計入。
+    const SYNC_PATH = '/functions/v1/tw-institutional-daily-sync';
+    const RPC_PATH = '/rest/v1/rpc/enqueue_bsr_backfill';
+    const syncInvokeCalls: Array<{ probe: string | undefined; body: string }> = [];
+    const backfillRpcCalls: Array<{ probe: string | undefined; body: string }> = [];
+
     await page.route('**/functions/v1/**', async (route) => {
       const url = route.request().url();
-      // 只計籌碼相關端點；traffic-ingest 是站台流量遙測，與 D4 回補無關。
-      if (watching && /tw-chips|bsr|rest\/v1|rpc\//.test(url)) {
-        lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
-      }
       const ids: string[] = route.request().postDataJSON()?.stock_ids || [];
       if (ids.length) bodies.push(ids);
       if (!/tw-chips-detail/.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -139,10 +139,7 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
       });
     });
 
-    // v4.3 §F1：RPC 走 /rest/v1/rpc/*，不在 functions/v1 pattern 內 —— 必須另外攔。
     await page.route('**/rest/v1/**', async (route) => {
-      const url = route.request().url();
-      if (watching) lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -150,6 +147,37 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
         body: '[]',
       });
     });
+
+    // 後註冊者優先：這兩支只吃 exact pathname，且永不出網（fulfill mock）。
+    await page.route('**/functions/v1/tw-institutional-daily-sync*', async (route) => {
+      const req = route.request();
+      if (new URL(req.url()).pathname === SYNC_PATH) {
+        syncInvokeCalls.push({ probe: (await req.allHeaders())['x-e2e-route-probe'], body: req.postData() ?? '' });
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{}' });
+    });
+    await page.route('**/rest/v1/rpc/enqueue_bsr_backfill*', async (route) => {
+      const req = route.request();
+      if (new URL(req.url()).pathname === RPC_PATH) {
+        backfillRpcCalls.push({ probe: (await req.allHeaders())['x-e2e-route-probe'], body: req.postData() ?? '' });
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '[]' });
+    });
+
+    // (0) 防 vacuous：同一 page/context 先在 benign 頁對兩條 exact pathname 各發一個 probe。
+    //     probe 只證明 route matcher 真的攔得到；行為權威證據仍是 runtime unit（terminal 0/0、transient 1/1）。
+    await page.goto('/e2e/holding-card-harness');
+    await page.evaluate(async ([a, b]) => {
+      const opt = { method: 'POST', headers: { 'x-e2e-route-probe': '1', 'content-type': 'application/json' }, body: '{}' };
+      await fetch(a, opt);
+      await fetch(b, opt);
+    }, [SYNC_PATH, RPC_PATH]);
+    expect(syncInvokeCalls.length, 'RED: **/functions/v1/tw-institutional-daily-sync* route 未攔到 probe（vacuous）').toBe(1);
+    expect(backfillRpcCalls.length, 'RED: **/rest/v1/rpc/enqueue_bsr_backfill* route 未攔到 probe（vacuous）').toBe(1);
+    expect(syncInvokeCalls[0].probe).toBe('1');
+    expect(backfillRpcCalls[0].probe).toBe('1');
+    syncInvokeCalls.length = 0;
+    backfillRpcCalls.length = 0;
 
     // (a) 真實 body：31 檔 → 兩個 body，size 恰為 30 與 1
     const codes = Array.from({ length: 31 }, (_, i) => String(1101 + i));
@@ -167,13 +195,20 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     await expect(bsr).toContainText('籌碼資料暫時無法取得');
     expect(bodies[0], 'RED: 卡片送出的 body 未正規化為 00637L').toEqual(['00637L']);
 
-    // v4.3 §F7：fixture 為 qty 1000 / cost 100 / price 110 → 現價 110、損益 +10,000 (10.00%)
+    // v4.4 §S1：fixture 為 qty 1000 / cost 100 / price 110 → 成本 100、現價 110、損益 +10,000 (10.00%)
     const pnl = page.getByTestId('card-pnl');
     await expect(pnl).toContainText('10.00%');
     await expect(pnl).toContainText('10,000');
     const price = page.getByTestId('card-price');
     await expect(price).toBeVisible();
-    await expect(price).toContainText('110');
+    await expect(price).toContainText('成本 100');
+    await expect(price).toContainText('現價 110');
+    // 卡片根節點 aria-label 必須與視覺數字同值
+    const cardRoot = page.locator('[data-holding-code]').first();
+    const ariaLabel = (await cardRoot.getAttribute('aria-label')) ?? '';
+    expect(ariaLabel, `RED: aria-label 未含報酬率同值：${ariaLabel}`).toContain('報酬率 +10.00%');
+    expect(ariaLabel, `RED: aria-label 未含損益同值：${ariaLabel}`).toContain('損益 +10,000');
+    // card-qty 僅作幾何錨點（標頭列），不視為股數證據
     const qtyAnchor = page.getByTestId('card-qty');
     await expect(qtyAnchor).toBeVisible();
     const row = page.getByTestId('card-bottom-row');
@@ -183,20 +218,24 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     const sb = await bsr.boundingBox();
     const qb = await qtyAnchor.boundingBox();
     const pb = await price.boundingBox();
-    expect(rb && sb && qb && pb).toBeTruthy();
+    const nb = await pnl.boundingBox();
+    expect(rb && sb && qb && pb && nb).toBeTruthy();
     expect(
       sb!.y >= rb!.y + rb!.height - 1,
       `RED: 籌碼列 (y=${sb!.y}) 疊在底部數字列 (bottom=${rb!.y + rb!.height}) 上`,
     ).toBe(true);
-    // 左緣不得被切掉、右緣不得溢出 390px
-    for (const [nm, b] of [['bsr', sb!], ['bottom-row', rb!], ['qty', qb!], ['price', pb!]] as const) {
+    // 390×844 視窗內四個元素皆不得切出畫面
+    for (const [nm, b] of [['qty', qb!], ['price', pb!], ['pnl', nb!], ['bsr', sb!]] as const) {
       expect(b.x, `RED: ${nm} 左緣切出畫面 (x=${b.x})`).toBeGreaterThanOrEqual(0);
+      expect(b.y, `RED: ${nm} 上緣切出畫面 (y=${b.y})`).toBeGreaterThanOrEqual(0);
       expect(b.x + b.width, `RED: ${nm} 溢出 390px 視窗`).toBeLessThanOrEqual(390);
+      expect(b.y + b.height, `RED: ${nm} 溢出 844px 視窗`).toBeLessThanOrEqual(844);
     }
 
-    // (c) terminal control：狀態定案後 5 秒內不得再有任何 edge / RPC 呼叫
-    watching = true;
+    // (c) terminal control：狀態定案後 5 秒內，兩個具名 counter 皆須 exact 0
     await page.waitForTimeout(5000);
-    expect(lateCalls.length, `RED: terminal 後仍有籌碼回補請求：\n${lateCalls.join('\n')}`).toBe(0);
+    expect(syncInvokeCalls.length, `RED: terminal 後仍呼叫 ${SYNC_PATH}`).toBe(0);
+    expect(backfillRpcCalls.length, `RED: terminal 後仍呼叫 ${RPC_PATH}`).toBe(0);
   });
 });
+
