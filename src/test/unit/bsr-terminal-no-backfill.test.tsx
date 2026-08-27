@@ -83,11 +83,8 @@ describe('Stage D · D4 手動回補 fail-closed', () => {
     expect(canRequestBackfill(null)).toBe(true);
   });
 
-  it('useChipsLifecycle 的 handleBackfill 必須以 canonical mapper gate 住', () => {
-    const s = readFileSync(resolve(process.cwd(), 'src/checkup/hooks/useChipsLifecycle.ts'), 'utf8');
-    expect(s.includes('canRequestBackfill'), 'handleBackfill 未使用 canonical gate').toBe(true);
-    expect(/canRequestBackfill\([^)]*facts[^)]*\)/.test(s)).toBe(true);
-  });
+  // v4.3 §F1：原本這裡是 readFileSync + regex 的 source-string 斷言，
+  // 已由本檔最後一節「public requestBackfill 的 endpoint 契約」runtime 測試取代。
 });
 
 /* ── v4.3 §F1/§F2：public useChipsLifecycle.requestBackfill 的 runtime 契約 ───
