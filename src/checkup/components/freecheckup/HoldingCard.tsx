@@ -241,7 +241,8 @@ function HoldingCardImpl(props) {
         <HoldingCardSkeleton variant={variantForChildren} />
       ) : (
         <>
-          {/* Layer 1 · 標頭 */}
+          {/* Layer 1 · 標頭（card-qty：代號/名稱/股數列的版面錨點） */}
+          <div data-testid="card-qty" style={{ display: 'flex', flexDirection: 'column' }}>
           <HoldingCardHeader
             h={h}
             meta={meta}
@@ -253,8 +254,10 @@ function HoldingCardImpl(props) {
             actionLabel={actionLabel}
             pctVal={pctVal}
           />
+          </div>
 
           {/* Layer 2 · 報酬條 */}
+          <div data-testid="card-pnl" style={{ display: 'flex', flexDirection: 'column' }}>
           <HoldingCardReturn
             pctVal={pctVal}
             pnlVal={pnlVal}
@@ -263,9 +266,11 @@ function HoldingCardImpl(props) {
             subColor={subColor}
             variant={variantForChildren}
           />
+          </div>
 
 
           {/* Layer 3 · 價格軌 */}
+          <div data-testid="card-price" style={{ display: 'flex', flexDirection: 'column' }}>
           <HoldingCardPriceTrack
             h={h}
             meta={meta}
@@ -274,8 +279,10 @@ function HoldingCardImpl(props) {
             muteColor={muteColor}
             variant={variantForChildren}
           />
+          </div>
 
           {/* Layer 4 · 頁腳 */}
+          <div data-testid="card-bottom-row" style={{ display: 'flex', flexDirection: 'column', marginTop: 'auto' }}>
           <HoldingCardFooter
             h={h}
             tp={tp}
@@ -289,6 +296,7 @@ function HoldingCardImpl(props) {
             hairColor={hairColor}
             lossColor={lossColor}
           />
+          </div>
         </>
       )}
       {SyncOverlay}
