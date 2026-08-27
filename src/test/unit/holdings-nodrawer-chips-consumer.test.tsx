@@ -7,7 +7,7 @@
  *   3. 狀態→文案走 canonical 映射；terminal 顯示「籌碼資料暫時無法取得」＋最後可得日期，
  *      不得留白、不得出現舊禁止文案，也絕不觸碰 quantity / value / ROI。
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { readFileSync } from 'node:fs';
@@ -125,5 +125,38 @@ describe('Stage D · 卡片層（無抽屜）是 chips consumer', () => {
     }, '0050');
     expect(node.getAttribute('data-bsr-state')).toBe('ineligible');
     expect(node.textContent).toBe('不適用（ETF／權證／受益憑證）');
+  });
+});
+
+/* ── v4.2：normalization boundary、零請求、卡片 testid 契約 ───────────── */
+describe('Stage D · 卡片層 normalization 與零請求', () => {
+  it('raw lowercase / 空白代號在元件邊界正規化後仍讀得到快取', () => {
+    const node = renderState((qc) => {
+      qc.setQueryData(chipsQueryKey('00637L'), {
+        payload: { stock_id: '00637L', bsr_as_of: '2026-08-14', bsr_provider_state: 'terminal_provider_rejected' },
+        stampVer: null, bytes: 0, durationMs: 0,
+      });
+      qc.setQueryData(chipsBatchStatusKey('00637L'), { kind: 'ok', runId: 1, at: Date.now() });
+    }, ' 00637l ');
+    expect(node.getAttribute('data-bsr-state')).toBe('unavailable_unsupported');
+    expect(node.getAttribute('data-bsr-as-of')).toBe('2026-08-14');
+  });
+
+  it('卡片層 consumer 不得發出任何 fetch（RPC / edge 皆 0）', () => {
+    const spy = vi.spyOn(globalThis, 'fetch');
+    renderState((qc) => {
+      qc.setQueryData(chipsQueryKey('2330'), {
+        payload: { stock_id: '2330', bsr_as_of: '2026-08-14', bsr_provider_state: 'terminal_provider_rejected' },
+        stampVer: null, bytes: 0, durationMs: 0,
+      });
+    });
+    expect(spy).toHaveBeenCalledTimes(0);
+    spy.mockRestore();
+  });
+
+  it('HoldingCard 必須提供 390px 版面斷言用的 testid 錨點', () => {
+    for (const id of ['card-qty', 'card-price', 'card-pnl', 'card-bottom-row']) {
+      expect(CARD.includes(id), `HoldingCard 缺少 ${id}`).toBe(true);
+    }
   });
 });
