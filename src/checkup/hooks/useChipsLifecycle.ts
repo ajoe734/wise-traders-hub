@@ -23,6 +23,7 @@ import {
   type ChipsBackfillPhase,
   type AutoRefreshState,
 } from '@/checkup/lib/chipsLifecycle';
+import { canRequestBackfill } from '@/checkup/lib/bsrCanonicalCodes';
 import type { TwChipsPayload, ChipsError } from '@/checkup/lib/chipsRepository';
 
 export interface ChipsLifecycle {
@@ -83,6 +84,8 @@ export function useChipsLifecycle(stockCode: string, enabled = true): ChipsLifec
   // ── 手動回補 ──
   const { backfilling, requestBackfill } = useChipsBackfill(stockCode);
   const handleBackfill = useCallback(async () => {
+    // D4 fail-closed：provider terminal 時一律不得 enqueue／backfill。
+    if (!canRequestBackfill(facts)) return;
     const result = await requestBackfill();
     if (!result) return;
     // 被 module-level 去重／預算擋下：背景 cron 才是主要供給者，這裡靜默即可。
@@ -95,7 +98,7 @@ export function useChipsLifecycle(stockCode: string, enabled = true): ChipsLifec
     } else {
       toast.error(`回補失敗：${String(result.error || '未知錯誤').slice(0, 80)}`);
     }
-  }, [requestBackfill, refetch]);
+  }, [requestBackfill, refetch, facts]);
 
 
   // ── 自動回補（sparse → triggered → ready / timeout）──

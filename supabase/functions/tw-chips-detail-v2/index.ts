@@ -248,6 +248,15 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
   const marketBatchErrorClass = (terminalGate || legacyPrefixHit)
     ? "provider_plan_rejected"
     : null;
+  // Sanitised classifier input. Raw provider/plan text from config never leaves the server;
+  // precedence: canonical admission gate > legacy prefixed probe > legacy unsupported probe.
+  const marketBatchError: string | null = terminalGate
+    ? "provider_plan_rejected"
+    : legacyPrefixHit
+    ? "unsupported_plan:redacted"
+    : legacyUnsupported
+    ? "unsupported"
+    : null;
 
   let bsrLastFailure: any = null;
   if (failRows && failRows[0]) {

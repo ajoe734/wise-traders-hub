@@ -72,3 +72,20 @@ describe('S3B RED · terminal provider 不得觸發回補', () => {
     expect(gated, 'RED: ChipsSection 未以 terminal 狀態 gate 手動回補按鈕').toBe(true);
   });
 });
+
+/* ── v4.2 §B4：抽屜手動回補在 terminal 時必須 fail-closed ─────────────── */
+import { canRequestBackfill } from '@/checkup/lib/bsrCanonicalCodes';
+
+describe('Stage D · D4 手動回補 fail-closed', () => {
+  it('canRequestBackfill(terminal) === false，非 terminal === true', () => {
+    expect(canRequestBackfill({ terminalUnavailable: true })).toBe(false);
+    expect(canRequestBackfill({ terminalUnavailable: false })).toBe(true);
+    expect(canRequestBackfill(null)).toBe(true);
+  });
+
+  it('useChipsLifecycle 的 handleBackfill 必須以 canonical mapper gate 住', () => {
+    const s = readFileSync(resolve(process.cwd(), 'src/checkup/hooks/useChipsLifecycle.ts'), 'utf8');
+    expect(s.includes('canRequestBackfill'), 'handleBackfill 未使用 canonical gate').toBe(true);
+    expect(/canRequestBackfill\([^)]*facts[^)]*\)/.test(s)).toBe(true);
+  });
+});

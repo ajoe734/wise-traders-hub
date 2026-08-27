@@ -95,7 +95,47 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   const rejectedKey = JSON.stringify([...rejected].sort());
   const keyRef = useRef(key);
   const runIdRef = useRef(0);
+  const mountedRef = useRef(true);
+  /**
+   * per-code ownership token（v4.2 §B5）。batch 與 manual prefetch 共用同一條
+   * token 線：誰最後領號誰擁有寫入權。任何非同步結果寫入前都必須確認
+   * `seqRef.current.get(code) === myTok`，否則整筆丟棄（payload、status、prefetched 皆是）。
+   */
+  const seqRef = useRef<Map<string, number>>(new Map());
+  const seqCounterRef = useRef(0);
   const [prefetched, setPrefetched] = useState<Set<string>>(new Set());
+
+  const claim = useCallback((code: string) => {
+    seqCounterRef.current += 1;
+    const tok = seqCounterRef.current;
+    seqRef.current.set(code, tok);
+    return tok;
+  }, []);
+  const owns = useCallback((code: string, tok: number) => seqRef.current.get(code) === tok, []);
+
+  // StrictMode 會重播 effect；mountedRef 必須在 effect 內重新設 true。
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  /** ownership-aware merge：只加入自己仍擁有的成功 code，永不刪除他人 entry。 */
+  const addPrefetched = useCallback((codes: string[]) => {
+    if (!codes.length || !mountedRef.current) return;
+    setPrefetched((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const c of codes) {
+        if (!next.has(c)) {
+          next.add(c);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
 
   // 本地被拒代號：不打 API、不記事件，只寫本地可觀測狀態供卡片誠實顯示。
   useEffect(() => {
@@ -125,8 +165,10 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
     const ac = new AbortController();
     const now0 = Date.now();
 
-    // 新 run 先把所有代號寫成 pending，覆蓋上一輪殘留的 error。
+    // 新 run 先領 token 並把所有代號寫成 pending，覆蓋上一輪殘留的 error。
+    const tokens = new Map<string, number>();
     for (const code of validCodes) {
+      tokens.set(code, claim(code));
       qc.setQueryData<ChipsBatchStatus>(
         chipsBatchStatusKey(code),
         { kind: 'pending', runId: myRun, at: now0 },
@@ -134,9 +176,14 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
       );
     }
 
+    const mine = (code: string) => {
+      const tok = tokens.get(code);
+      return tok != null && owns(code, tok);
+    };
+
     const chunks = chunkCodes(validCodes, CHIPS_BATCH_MAX_STOCKS);
     (async () => {
-      const done = new Set<string>();
+      const done: string[] = [];
       await Promise.all(
         chunks.map(async (chunk) => {
           try {
@@ -148,15 +195,18 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
             if (myRun !== runIdRef.current) return;
             const now = Date.now();
             for (const [code, payload] of Object.entries(res.results)) {
+              // ownership 閘：token 已被 newer manual 接管 → 整筆丟棄。
+              if (!mine(code)) continue;
               const stampVer = payload?._cache_meta?.stamp_ver ?? null;
               qc.setQueryData<ChipsFetchResult>(
                 chipsQueryKey(code),
                 { payload, stampVer, bytes: 0, durationMs: 0 },
                 { updatedAt: now },
               );
-              done.add(code);
+              done.push(code);
             }
             for (const code of chunk) {
+              if (!mine(code)) continue;
               const ok = Object.prototype.hasOwnProperty.call(res.results, code);
               qc.setQueryData<ChipsBatchStatus>(
                 chipsBatchStatusKey(code),
@@ -171,6 +221,7 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
             if (myRun !== runIdRef.current) return;
             const now = Date.now();
             for (const code of chunk) {
+              if (!mine(code)) continue;
               qc.setQueryData<ChipsBatchStatus>(
                 chipsBatchStatusKey(code),
                 { kind: 'error', runId: myRun, at: now, reason: 'chunk_failed' },
@@ -181,13 +232,17 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
         }),
       );
       if (myRun !== runIdRef.current) return;
-      setPrefetched(new Set(done));
+      // 只做 per-code merge；絕不用 new Set(done) 全量覆蓋，
+      // 否則 token 已被 manual 接管時舊 batch 會抹掉 manual 的成功結果。
+      addPrefetched(done.filter(mine));
     })();
 
     return () => {
+      // 先讓 runId 前進，abort 觸發的 catch 分支才不會寫入 error 狀態。
+      runIdRef.current += 1;
       ac.abort();
     };
-  }, [enabled, isDemo, key, qc, isViewAs]);
+  }, [enabled, isDemo, key, qc, isViewAs, claim, owns, addPrefetched]);
 
   const prefetch = useCallback(
     async (rawCode: string) => {
@@ -197,20 +252,24 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
       const cached = qc.getQueryData<ChipsFetchResult>(chipsQueryKey(code));
       if (cached) return;
 
+      // manual 領新 token：之後任何較舊的 batch／manual 結果都不得寫入此 code。
+      const myTok = claim(code);
+
       // 籌碼 + 走勢並行預載
       await Promise.all([
         (async () => {
           const result = await prefetchChipsPayload(code, {
             telemetry: { source: 'hover_prefetch', isViewAs },
           });
-          if (result) {
-            qc.setQueryData<ChipsFetchResult>(chipsQueryKey(code), result, { updatedAt: Date.now() });
-          }
+          if (!result) return;
+          if (!owns(code, myTok)) return;
+          qc.setQueryData<ChipsFetchResult>(chipsQueryKey(code), result, { updatedAt: Date.now() });
+          addPrefetched([code]);
         })(),
         prefetchSparkline(code),
       ]);
     },
-    [isDemo, qc, isViewAs],
+    [qc, isViewAs, claim, owns, addPrefetched],
   );
 
   return { prefetch, prefetched };

@@ -111,4 +111,69 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     expect(union.size, `RED: 代號聯集應為 31，實得 ${union.size}`).toBe(31);
     for (const b of batches) expect(b.length).toBeLessThanOrEqual(30);
   });
+
+  test('390px：body 分塊 30+1、數字原值不被籌碼列覆蓋、terminal 不再發任何請求', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const bodies: string[][] = [];
+    const lateCalls: string[] = [];
+    let watching = false;
+    await page.route('**/functions/v1/**', async (route) => {
+      const url = route.request().url();
+      // 只計籌碼相關端點；traffic-ingest 是站台流量遙測，與 D4 回補無關。
+      if (watching && /tw-chips|bsr|rest\/v1|rpc\//.test(url)) {
+        lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
+      }
+      const ids: string[] = route.request().postDataJSON()?.stock_ids || [];
+      if (ids.length) bodies.push(ids);
+      if (!/tw-chips-detail/.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify({
+          results: Object.fromEntries((ids.length ? ids : [STOCK]).map((id) => [id, { ...terminalPayload(), stock_id: id }])),
+          errors: {},
+          served_at: new Date().toISOString(),
+        }),
+      });
+    });
+
+    // (a) 真實 body：31 檔 → 兩個 body，size 恰為 30 與 1
+    const codes = Array.from({ length: 31 }, (_, i) => String(1101 + i));
+    await page.goto(`/e2e/chips-batch?codes=${codes.join(',')}`);
+    await expect(page.getByTestId('batch-status')).toHaveAttribute('data-status', 'ready', { timeout: 15000 });
+    const sizes = bodies.map((b) => b.length).sort((a, b) => b - a);
+    expect(sizes, `RED: 實際 body sizes=${sizes.join(',')}`).toEqual([30, 1]);
+    expect(new Set(bodies.flat()).size).toBe(31);
+
+    // (b) 卡片：raw lowercase 代號仍讀得到快取，數字原值不被籌碼列覆蓋
+    bodies.length = 0;
+    await page.goto(`/e2e/holding-card-harness?code=%2000637l%20`);
+    const bsr = page.getByTestId('holding-card-bsr');
+    await expect(bsr).toHaveAttribute('data-bsr-state', 'unavailable_unsupported', { timeout: 15000 });
+    await expect(bsr).toContainText('籌碼資料暫時無法取得');
+    expect(bodies[0], 'RED: 卡片送出的 body 未正規化為 00637L').toEqual(['00637L']);
+
+    const pnl = page.getByTestId('card-pnl');
+    await expect(pnl).toContainText('10.00%');
+    await expect(pnl).toContainText('10,000');
+    await expect(page.getByTestId('card-price')).toBeVisible();
+    const row = page.getByTestId('card-bottom-row');
+    await expect(row).toBeVisible();
+
+    const rb = await row.boundingBox();
+    const sb = await bsr.boundingBox();
+    expect(rb && sb).toBeTruthy();
+    expect(
+      sb!.y >= rb!.y + rb!.height - 1,
+      `RED: 籌碼列 (y=${sb!.y}) 疊在底部數字列 (bottom=${rb!.y + rb!.height}) 上`,
+    ).toBe(true);
+    expect(sb!.x + sb!.width, 'RED: 籌碼列溢出 390px 視窗').toBeLessThanOrEqual(390);
+
+    // (c) terminal control：狀態定案後 5 秒內不得再有任何 edge / RPC 呼叫
+    watching = true;
+    await page.waitForTimeout(5000);
+    expect(lateCalls.length, `RED: terminal 後仍有籌碼回補請求：\n${lateCalls.join('\n')}`).toBe(0);
+  });
 });
