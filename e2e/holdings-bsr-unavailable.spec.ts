@@ -116,10 +116,13 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     const bodies: string[][] = [];
+    const lateCalls: string[] = [];
     let edgeCalls = 0;
+    let watching = false;
     await page.route('**/functions/v1/**', async (route) => {
       const url = route.request().url();
       edgeCalls += 1;
+      if (watching) lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
       const ids: string[] = route.request().postDataJSON()?.stock_ids || [];
       if (ids.length) bodies.push(ids);
       if (!/tw-chips-detail/.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -169,7 +172,8 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
 
     // (c) terminal control：狀態定案後 5 秒內不得再有任何 edge / RPC 呼叫
     const before = edgeCalls;
+    watching = true;
     await page.waitForTimeout(5000);
-    expect(edgeCalls - before, 'RED: terminal 後仍有背景回補請求').toBe(0);
+    expect(edgeCalls - before, `RED: terminal 後仍有背景請求：\n${lateCalls.join('\n')}`).toBe(0);
   });
 });
