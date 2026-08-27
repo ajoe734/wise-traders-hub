@@ -111,6 +111,15 @@ import { latestCompletedTradeDate } from "@/checkup/lib/marketCalendar";
 import { Logomark } from "@/components/brand";
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
+/* i18n-test-injection */
+const _i18nFakeFixture = (
+  <div>
+    <button aria-describedby="Open the holdings drawer">x</button>
+    <span aria-roledescription="Interactive widget">y</span>
+    {/* aria-describedby 為 ID 引用（kebab）→ 應放行 */}
+    <div aria-describedby="holdings-drawer-tip">z</div>
+  </div>
+);
 export default function App() {
   const navigate = useNavigate();
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser, needsAddFriend } = useCheckupMode();
