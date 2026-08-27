@@ -89,3 +89,138 @@ describe('Stage D · D4 手動回補 fail-closed', () => {
     expect(/canRequestBackfill\([^)]*facts[^)]*\)/.test(s)).toBe(true);
   });
 });
+
+/* ── v4.3 §F1/§F2：public useChipsLifecycle.requestBackfill 的 runtime 契約 ───
+ * 只 mock 最低層 gateway（createFakeGateway + setCheckupGateway）與 repository 取數；
+ * 禁止 mock useChipsBackfill / requestBackfill / useChipsAutoBackfill / canRequestBackfill，
+ * 真實碼必須跑到 Promise.allSettled([invoke(...), rpc(...)])。
+ */
+import { vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const fetchChipsPayloadMock = vi.fn();
+const fetchChipsStampMock = vi.fn();
+
+vi.mock('@/checkup/lib/chipsRepository', async (orig) => {
+  const actual = (await orig()) as Record<string, unknown>;
+  return {
+    ...actual,
+    fetchChipsPayload: (...a: unknown[]) => fetchChipsPayloadMock(...a),
+    fetchChipsStamp: (...a: unknown[]) => fetchChipsStampMock(...a),
+  };
+});
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@/lib/trafficTracker', () => ({ trackEvent: vi.fn(), trackRaw: vi.fn() }));
+
+import { createFakeGateway, setCheckupGateway, resetCheckupGateway } from '@/checkup/lib/gateway';
+import { useChipsLifecycle } from '@/checkup/hooks/useChipsLifecycle';
+import { __resetChipsBackfillBudget } from '@/checkup/hooks/useChipsBackfill';
+
+function series(n: number) {
+  return Array.from({ length: n }, (_, i) => ({ date: `2026-07-${String((i % 28) + 1).padStart(2, '0')}` }));
+}
+
+/** terminal：provider 永久拒絕（sparse 且 eligible → 若沒有 gate 必定回補）。 */
+const TERMINAL_PAYLOAD = {
+  stock_id: '2330',
+  bsr_provider_state: 'terminal_provider_rejected',
+  bsr_provider_code: 'bsr_provider_unsupported',
+  bsr_sync_status: { status: null, eligible: true, provider_state: 'terminal_provider_rejected' },
+  series: { institutional_daily: series(3), bsr_concentration: [] },
+};
+
+/** transient control：非 terminal 且 **non-sparse**（instDays 30 / bsrDays 10）→ auto machine 恆不觸發。 */
+const TRANSIENT_PAYLOAD = {
+  stock_id: '2330',
+  bsr_provider_state: 'available',
+  bsr_sync_status: { status: null, eligible: true, provider_state: 'available' },
+  series: { institutional_daily: series(30), bsr_concentration: series(10) },
+  readiness: { institutional: { '60': { state: 'ready' }, '20': { state: 'ready' } } },
+};
+
+function renderLifecycle() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: qc }, children);
+  return renderHook(() => useChipsLifecycle('2330', true), { wrapper });
+}
+
+describe('Stage D · v4.3 F1/F2 · public requestBackfill 的 endpoint 契約', () => {
+  let gw: ReturnType<typeof createFakeGateway>;
+  let invokeSpy: ReturnType<typeof vi.spyOn>;
+  let rpcSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    __resetChipsBackfillBudget();
+    fetchChipsStampMock.mockResolvedValue({ stamp_ver: 'v1' });
+    gw = createFakeGateway({
+      functions: { 'tw-institutional-daily-sync': { ok: true } },
+      rpcs: { enqueue_bsr_backfill: 3 },
+    });
+    invokeSpy = vi.spyOn(gw, 'invoke');
+    rpcSpy = vi.spyOn(gw, 'rpc');
+    setCheckupGateway(gw);
+  });
+
+  afterEach(() => {
+    resetCheckupGateway();
+    vi.clearAllMocks();
+  });
+
+  it('F1 terminal：public requestBackfill 後 enqueue_bsr_backfill 與 tw-institutional-daily-sync 皆 exact 0', async () => {
+    fetchChipsPayloadMock.mockResolvedValue({
+      payload: TERMINAL_PAYLOAD, stampVer: 'v1', bytes: 0, durationMs: 0,
+    });
+    const { result } = renderLifecycle();
+
+    await waitFor(() => expect(result.current.facts.terminalUnavailable).toBe(true));
+    await act(async () => { await result.current.requestBackfill(); });
+    await new Promise((r) => setTimeout(r, 500));
+
+    const invokeNames = invokeSpy.mock.calls.map((c) => c[0]);
+    const rpcNames = rpcSpy.mock.calls.map((c) => c[0]);
+    expect(
+      invokeNames.filter((n) => n === 'tw-institutional-daily-sync').length,
+      'RED: terminal 仍呼叫 tw-institutional-daily-sync',
+    ).toBe(0);
+    expect(
+      rpcNames.filter((n) => n === 'enqueue_bsr_backfill').length,
+      'RED: terminal 仍呼叫 enqueue_bsr_backfill',
+    ).toBe(0);
+  });
+
+  it('F2 transient control（non-terminal + non-sparse）：auto 0 次，manual 一次 → 兩端點 exact 1/1 且參數精確', async () => {
+    fetchChipsPayloadMock.mockResolvedValue({
+      payload: TRANSIENT_PAYLOAD, stampVer: 'v1', bytes: 0, durationMs: 0,
+    });
+    const { result } = renderLifecycle();
+
+    await waitFor(() => {
+      expect(result.current.facts.sparse).toBe(false);
+      expect(result.current.facts.terminalUnavailable).toBe(false);
+    });
+    await new Promise((r) => setTimeout(r, 300));
+
+    // auto machine 必須 0 次（non-sparse），manual 之前先證明。
+    const autoInvokes = invokeSpy.mock.calls.filter((c) => c[0] === 'tw-institutional-daily-sync').length;
+    const autoRpcs = rpcSpy.mock.calls.filter((c) => c[0] === 'enqueue_bsr_backfill').length;
+    expect(autoInvokes, 'auto backfill 不得先行觸發 invoke').toBe(0);
+    expect(autoRpcs, 'auto backfill 不得先行觸發 rpc').toBe(0);
+
+    await act(async () => { await result.current.requestBackfill(); });
+
+    expect(invokeSpy.mock.calls.filter((c) => c[0] === 'tw-institutional-daily-sync').length).toBe(1);
+    expect(rpcSpy.mock.calls.filter((c) => c[0] === 'enqueue_bsr_backfill').length).toBe(1);
+    expect(invokeSpy).toHaveBeenCalledWith('tw-institutional-daily-sync', {
+      mode: 'backfill_stock', stock_id: '2330', days: 60,
+    });
+    expect(rpcSpy).toHaveBeenCalledWith('enqueue_bsr_backfill', { p_stock_id: '2330', p_days: 60 });
+
+    // 尾隨 500ms 不得有 auto 疊加。
+    await new Promise((r) => setTimeout(r, 500));
+    expect(invokeSpy.mock.calls.filter((c) => c[0] === 'tw-institutional-daily-sync').length).toBe(1);
+    expect(rpcSpy.mock.calls.filter((c) => c[0] === 'enqueue_bsr_backfill').length).toBe(1);
+  });
+});
