@@ -139,6 +139,18 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
       });
     });
 
+    // v4.3 §F1：RPC 走 /rest/v1/rpc/*，不在 functions/v1 pattern 內 —— 必須另外攔。
+    await page.route('**/rest/v1/**', async (route) => {
+      const url = route.request().url();
+      if (watching) lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: '[]',
+      });
+    });
+
     // (a) 真實 body：31 檔 → 兩個 body，size 恰為 30 與 1
     const codes = Array.from({ length: 31 }, (_, i) => String(1101 + i));
     await page.goto(`/e2e/chips-batch?codes=${codes.join(',')}`);
