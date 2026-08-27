@@ -139,6 +139,18 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
       });
     });
 
+    // v4.3 §F1：RPC 走 /rest/v1/rpc/*，不在 functions/v1 pattern 內 —— 必須另外攔。
+    await page.route('**/rest/v1/**', async (route) => {
+      const url = route.request().url();
+      if (watching) lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: '[]',
+      });
+    });
+
     // (a) 真實 body：31 檔 → 兩個 body，size 恰為 30 與 1
     const codes = Array.from({ length: 31 }, (_, i) => String(1101 + i));
     await page.goto(`/e2e/chips-batch?codes=${codes.join(',')}`);
@@ -155,21 +167,32 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     await expect(bsr).toContainText('籌碼資料暫時無法取得');
     expect(bodies[0], 'RED: 卡片送出的 body 未正規化為 00637L').toEqual(['00637L']);
 
+    // v4.3 §F7：fixture 為 qty 1000 / cost 100 / price 110 → 現價 110、損益 +10,000 (10.00%)
     const pnl = page.getByTestId('card-pnl');
     await expect(pnl).toContainText('10.00%');
     await expect(pnl).toContainText('10,000');
-    await expect(page.getByTestId('card-price')).toBeVisible();
+    const price = page.getByTestId('card-price');
+    await expect(price).toBeVisible();
+    await expect(price).toContainText('110');
+    const qtyAnchor = page.getByTestId('card-qty');
+    await expect(qtyAnchor).toBeVisible();
     const row = page.getByTestId('card-bottom-row');
     await expect(row).toBeVisible();
 
     const rb = await row.boundingBox();
     const sb = await bsr.boundingBox();
-    expect(rb && sb).toBeTruthy();
+    const qb = await qtyAnchor.boundingBox();
+    const pb = await price.boundingBox();
+    expect(rb && sb && qb && pb).toBeTruthy();
     expect(
       sb!.y >= rb!.y + rb!.height - 1,
       `RED: 籌碼列 (y=${sb!.y}) 疊在底部數字列 (bottom=${rb!.y + rb!.height}) 上`,
     ).toBe(true);
-    expect(sb!.x + sb!.width, 'RED: 籌碼列溢出 390px 視窗').toBeLessThanOrEqual(390);
+    // 左緣不得被切掉、右緣不得溢出 390px
+    for (const [nm, b] of [['bsr', sb!], ['bottom-row', rb!], ['qty', qb!], ['price', pb!]] as const) {
+      expect(b.x, `RED: ${nm} 左緣切出畫面 (x=${b.x})`).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, `RED: ${nm} 溢出 390px 視窗`).toBeLessThanOrEqual(390);
+    }
 
     // (c) terminal control：狀態定案後 5 秒內不得再有任何 edge / RPC 呼叫
     watching = true;

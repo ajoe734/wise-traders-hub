@@ -97,6 +97,14 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   const runIdRef = useRef(0);
   const mountedRef = useRef(true);
   /**
+   * v4.3 §F3：`enabled` 的 render-time mirror。
+   * 刻意不放在 useEffect —— effect 版會晚一個 commit，`rerender({enabled:false})`
+   * 之後、effect 尚未執行的空窗期內若有 in-flight 結果回來或使用者 hover，
+   * 閘就會漏。render-time 寫入純量對 StrictMode double-render 冪等。
+   */
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  /**
    * per-code ownership token（v4.2 §B5）。batch 與 manual prefetch 共用同一條
    * token 線：誰最後領號誰擁有寫入權。任何非同步結果寫入前都必須確認
    * `seqRef.current.get(code) === myTok`，否則整筆丟棄（payload、status、prefetched 皆是）。
@@ -249,11 +257,15 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
       const code = normalizeStockCode(rawCode);
       if (!isTaiwanStockCode(code)) return;
 
+      // v4.3 §F3 pre-gate：disabled／已卸載時連 network 都不得發出。
+      if (!enabledRef.current || !mountedRef.current) return;
+
       const cached = qc.getQueryData<ChipsFetchResult>(chipsQueryKey(code));
       if (cached) return;
 
       // manual 領新 token：之後任何較舊的 batch／manual 結果都不得寫入此 code。
       const myTok = claim(code);
+      const myRun = runIdRef.current;
 
       // 籌碼 + 走勢並行預載
       await Promise.all([
@@ -262,6 +274,9 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
             telemetry: { source: 'hover_prefetch', isViewAs },
           });
           if (!result) return;
+          // v4.3 §F3 post-gate：mounted / enabled / run / token 四重都成立才寫入。
+          if (!mountedRef.current || !enabledRef.current) return;
+          if (myRun !== runIdRef.current) return;
           if (!owns(code, myTok)) return;
           qc.setQueryData<ChipsFetchResult>(chipsQueryKey(code), result, { updatedAt: Date.now() });
           addPrefetched([code]);
