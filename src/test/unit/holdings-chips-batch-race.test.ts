@@ -168,3 +168,235 @@ describe('Stage D · cross-race ownership token', () => {
     expect(result.current.prefetched.has('2330')).toBe(true);
   });
 });
+
+/* ── v4.3 §F3/§F4：manual prefetch 的 enabled / mounted / runId 閘 ────────────
+ * 契約（PLAN_V4.3 §1）：
+ *   - enabled=false 時 public prefetch 不得發出任何 network（payload + sparkline 皆 0），
+ *     也不得寫入 payload / status / prefetched。
+ *   - in-flight manual 在 unmount 或 enabled true→false 之後才 settle（resolve 或 reject），
+ *     一律 0 寫入，且不得產生 kind:'error' status。
+ *   - prefetch 對外的 resolve/reject 契約不變（現行無 try/catch，reject 會外傳），
+ *     測試自行吸收 rejection，不得為了測試改契約。
+ */
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+type ManualResult = { payload: Record<string, unknown>; stampVer: null; bytes: number; durationMs: number };
+
+function mountBatch(initial: { c: string[]; enabled?: boolean } = { c: [], enabled: true }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: qc }, children);
+  const hook = renderHook(
+    ({ c, enabled }: { c: string[]; enabled?: boolean }) => useChipsBatch({ codes: c, enabled }),
+    { wrapper, initialProps: initial },
+  );
+  return { qc, ...hook };
+}
+
+const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+
+describe('Stage D · v4.3 F3 · manual prefetch enabled/mounted/run 閘', () => {
+  beforeEach(() => {
+    fetchChipsBatch.mockReset();
+    prefetchChipsPayload.mockReset();
+    sparkSpy.mockReset();
+  });
+
+  it('R1 enabled=false：public prefetch 必須 network=0、0 寫入', async () => {
+    prefetchChipsPayload.mockResolvedValue({
+      payload: { stock_id: '2330', _from: 'manual' }, stampVer: null, bytes: 0, durationMs: 0,
+    });
+    const { qc, result } = mountBatch({ c: ['2330'], enabled: false });
+
+    await act(async () => { await result.current.prefetch('2330'); });
+
+    expect(prefetchChipsPayload, 'RED: enabled=false 仍發出 chips network').toHaveBeenCalledTimes(0);
+    expect(sparkSpy, 'RED: enabled=false 仍發出 sparkline network').toHaveBeenCalledTimes(0);
+    expect(qc.getQueryData(chipsQueryKey('2330'))).toBeUndefined();
+    expect(qc.getQueryData(chipsBatchStatusKey('2330'))).toBeUndefined();
+    expect(result.current.prefetched.size).toBe(0);
+  });
+
+  it('R2 in-flight manual → unmount 後 resolve：0 寫入', async () => {
+    const d = deferred<ManualResult>();
+    prefetchChipsPayload.mockImplementation(() => d.promise);
+    const { qc, result, unmount } = mountBatch({ c: [], enabled: true });
+
+    let p: Promise<unknown> = Promise.resolve();
+    await act(async () => { p = result.current.prefetch('2330'); await Promise.resolve(); });
+    const beforeSize = result.current.prefetched.size;
+
+    unmount();
+    d.resolve({ payload: { stock_id: '2330', _from: 'manual' }, stampVer: null, bytes: 0, durationMs: 0 });
+    await p;
+    await tick();
+
+    expect(qc.getQueryData(chipsQueryKey('2330')), 'RED: unmount 後仍寫入 payload').toBeUndefined();
+    expect(qc.getQueryData(chipsBatchStatusKey('2330'))).toBeUndefined();
+    expect(beforeSize).toBe(0);
+  });
+
+  it('R3 in-flight manual → 同一 act 內 enabled true→false 後 resolve：0 寫入且後續 prefetch network=0', async () => {
+    const d = deferred<ManualResult>();
+    prefetchChipsPayload.mockImplementation(() => d.promise);
+    const { qc, result, rerender } = mountBatch({ c: [], enabled: true });
+
+    let p: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      p = result.current.prefetch('2330');
+      await Promise.resolve();
+      rerender({ c: [], enabled: false });
+    });
+
+    d.resolve({ payload: { stock_id: '2330', _from: 'manual' }, stampVer: null, bytes: 0, durationMs: 0 });
+    await p;
+    await tick();
+
+    expect(qc.getQueryData(chipsQueryKey('2330')), 'RED: enabled 切 false 後仍寫入 payload').toBeUndefined();
+    expect(result.current.prefetched.has('2330')).toBe(false);
+
+    const chipsCalls = prefetchChipsPayload.mock.calls.length;
+    const sparkCalls = sparkSpy.mock.calls.length;
+    await act(async () => { await result.current.prefetch('2317'); });
+    expect(prefetchChipsPayload.mock.calls.length - chipsCalls, 'RED: disabled 後仍發 chips network').toBe(0);
+    expect(sparkSpy.mock.calls.length - sparkCalls, 'RED: disabled 後仍發 sparkline network').toBe(0);
+    expect(qc.getQueryData(chipsQueryKey('2317'))).toBeUndefined();
+  });
+
+  it('R4 unmount / disabled 後 reject：0 寫入且不得出現 kind:error', async () => {
+    const d1 = deferred<ManualResult>();
+    prefetchChipsPayload.mockImplementation(() => d1.promise);
+    const u = mountBatch({ c: [], enabled: true });
+
+    let p1: Promise<unknown> = Promise.resolve();
+    await act(async () => { p1 = u.result.current.prefetch('2330'); await Promise.resolve(); });
+    u.unmount();
+    d1.reject(new Error('boom-unmount'));
+    await expect(p1).rejects.toThrow('boom-unmount');
+    await tick();
+    expect(u.qc.getQueryData(chipsQueryKey('2330'))).toBeUndefined();
+    expect(u.qc.getQueryData(chipsBatchStatusKey('2330'))).toBeUndefined();
+
+    const d2 = deferred<ManualResult>();
+    prefetchChipsPayload.mockImplementation(() => d2.promise);
+    const e = mountBatch({ c: [], enabled: true });
+    let p2: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      p2 = e.result.current.prefetch('2330');
+      await Promise.resolve();
+      e.rerender({ c: [], enabled: false });
+    });
+    d2.reject(new Error('boom-disabled'));
+    await expect(p2).rejects.toThrow('boom-disabled');
+    await tick();
+    expect(e.qc.getQueryData(chipsQueryKey('2330'))).toBeUndefined();
+    const st = e.qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(st?.kind).not.toBe('error');
+    expect(e.result.current.prefetched.size).toBe(0);
+  });
+});
+
+describe('Stage D · v4.3 F4 · 補齊 cross-race 三案', () => {
+  beforeEach(() => {
+    fetchChipsBatch.mockReset();
+    prefetchChipsPayload.mockReset();
+    sparkSpy.mockReset();
+  });
+
+  it('R5 manual → newer batch：newer batch 勝出，較舊 manual 不得覆蓋', async () => {
+    const d = deferred<ManualResult>();
+    prefetchChipsPayload.mockImplementation(() => d.promise);
+    fetchChipsBatch.mockImplementation(async (codes?: string[]) => ({
+      results: Object.fromEntries((codes ?? []).map((c) => [c, { stock_id: c, _from: 'batch2' }])),
+      errors: {}, count: (codes ?? []).length, failed: 0, servedAt: '',
+    }));
+
+    const { qc, result, rerender } = mountBatch({ c: [], enabled: true });
+    let p: Promise<unknown> = Promise.resolve();
+    await act(async () => { p = result.current.prefetch('2330'); await Promise.resolve(); });
+
+    await act(async () => { rerender({ c: ['2330'], enabled: true }); await tick(); });
+
+    const mid = qc.getQueryData<{ payload?: { _from?: string } }>(chipsQueryKey('2330'));
+    expect(mid?.payload?._from).toBe('batch2');
+    const midStatus = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(midStatus?.kind).toBe('ok');
+
+    d.resolve({ payload: { stock_id: '2330', _from: 'manual' }, stampVer: null, bytes: 0, durationMs: 0 });
+    await p;
+    await tick();
+
+    const final = qc.getQueryData<{ payload?: { _from?: string } }>(chipsQueryKey('2330'));
+    expect(final?.payload?._from, 'RED: 較舊 manual 覆蓋了 newer batch').toBe('batch2');
+    const finalStatus = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(finalStatus?.kind).toBe('ok');
+    expect(finalStatus?.runId).toBe(midStatus?.runId);
+    expect(result.current.prefetched.has('2330')).toBe(true);
+  });
+
+  it('R6 unmount：batch + manual 同時 in-flight，收尾一律 0 寫入且 status 停在 pending', async () => {
+    const batchGate = deferred<{ results: Record<string, unknown>; errors: Record<string, unknown>; count: number; failed: number; servedAt: string }>();
+    fetchChipsBatch.mockImplementation(() => batchGate.promise);
+    const manualGate = deferred<ManualResult>();
+    prefetchChipsPayload.mockImplementation(() => manualGate.promise);
+
+    const { qc, result, rerender, unmount } = mountBatch({ c: [], enabled: true });
+    await act(async () => { rerender({ c: ['2330'], enabled: true }); await Promise.resolve(); });
+    let p: Promise<unknown> = Promise.resolve();
+    await act(async () => { p = result.current.prefetch('2317'); await Promise.resolve(); });
+
+    const statusBefore = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(statusBefore?.kind).toBe('pending');
+    const prefetchedBefore = new Set(result.current.prefetched);
+
+    unmount();
+    batchGate.resolve({
+      results: { '2330': { stock_id: '2330', _from: 'batch' } }, errors: {}, count: 1, failed: 0, servedAt: '',
+    });
+    manualGate.resolve({ payload: { stock_id: '2317', _from: 'manual' }, stampVer: null, bytes: 0, durationMs: 0 });
+    await p;
+    await tick();
+
+    expect(qc.getQueryData(chipsQueryKey('2330')), 'RED: unmount 後 batch 仍寫 payload').toBeUndefined();
+    expect(qc.getQueryData(chipsQueryKey('2317')), 'RED: unmount 後 manual 仍寫 payload').toBeUndefined();
+    const statusAfter = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(statusAfter?.kind).toBe('pending');
+    expect(statusAfter?.runId).toBe(statusBefore?.runId);
+    expect(prefetchedBefore.size).toBe(0);
+  });
+
+  it('R7 enabled true→false：in-flight run1 收尾 0 寫入，後續 manual 亦 0 寫入', async () => {
+    const batchGate = deferred<{ results: Record<string, unknown>; errors: Record<string, unknown>; count: number; failed: number; servedAt: string }>();
+    fetchChipsBatch.mockImplementation(() => batchGate.promise);
+    prefetchChipsPayload.mockResolvedValue({
+      payload: { stock_id: '2330', _from: 'manual' }, stampVer: null, bytes: 0, durationMs: 0,
+    });
+
+    const { qc, result, rerender } = mountBatch({ c: [], enabled: true });
+    await act(async () => { rerender({ c: ['2330'], enabled: true }); await Promise.resolve(); });
+    const before = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(before?.kind).toBe('pending');
+    const sizeBefore = result.current.prefetched.size;
+
+    await act(async () => { rerender({ c: ['2330'], enabled: false }); await Promise.resolve(); });
+    batchGate.resolve({
+      results: { '2330': { stock_id: '2330', _from: 'batch' } }, errors: {}, count: 1, failed: 0, servedAt: '',
+    });
+    await tick();
+
+    expect(qc.getQueryData(chipsQueryKey('2330'))).toBeUndefined();
+    const after = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(after?.kind).toBe('pending');
+    expect(result.current.prefetched.size).toBe(sizeBefore);
+
+    const chipsCalls = prefetchChipsPayload.mock.calls.length;
+    await act(async () => { await result.current.prefetch('2330'); });
+    expect(prefetchChipsPayload.mock.calls.length - chipsCalls, 'RED: disabled 後 manual 仍發 network').toBe(0);
+    expect(qc.getQueryData(chipsQueryKey('2330'))).toBeUndefined();
+  });
+});
