@@ -20,15 +20,18 @@
 
 ### 先紅測（寫在 `holdings-chips-batch-race.test.ts`）
 - **R1 enabled=false**：`renderHook(useChipsBatch({ codes, enabled:false }))` → `act(prefetch('2330'))`；斷言 `prefetchChipsPayload` 呼叫次數 `toBe(0)`、`prefetchSparkline` `toBe(0)`、`qc.getQueryData(chipsQueryKey('2330'))` `toBeUndefined()`、`chipsBatchStatusKey('2330')` `toBeUndefined()`、`result.current.prefetched.size` `toBe(0)`。
-- **R2 in-flight manual → unmount**：deferred promise，`prefetch()` 起飛後 `unmount()`，再 resolve 成功 payload；斷言 payload key `toBeUndefined()`、status key `toBeUndefined()`、無 unhandled rejection、`prefetch()` 的 promise 不 reject。
-- **R3 in-flight manual → enabled true→false**：`rerender({ enabled:false })` 後才 resolve；斷言同 R2 的 0 寫入，且既有 `'2330'` batch 結果（若已存在）不被改寫。
-- **R4 reject 路徑**：R2 / R3 的 promise 改 reject，斷言不寫入任何 `kind:'error'` status，且 `prefetch()` 不向外拋。
+- **R2 in-flight manual → unmount**：deferred promise，`prefetch()` 起飛後 `unmount()`，再 resolve 成功 payload；斷言 payload key `toBeUndefined()`、status key `toBeUndefined()`、`prefetched` 快照不變。
+- **R3 in-flight manual → enabled true→false**：在**同一個 `act()` 內** `rerender({ enabled:false })`，之後才 resolve；斷言同 R2 的 0 寫入，且既有 `'2330'` batch 結果（若已存在）不被改寫。同案再追加「切 false 後呼叫 `prefetch()`」→ `prefetchChipsPayload` 增量 0、`prefetchSparkline` 增量 0（network=0）。
+- **R4 reject 路徑**：R2 / R3 的 deferred 改為 reject。斷言：不寫 payload、不寫任何 status（尤其不得出現 `kind:'error'`）、`prefetched` 不變。
 
-修前預期失敗：R1（fetch 1≠0、payload 被寫入）、R2/R3（payload 被寫入）。R4 目前不會寫 error（manual 無 catch 寫入），預期 GREEN — 保留為 guard。
+**R4 的對外 contract 處理**：現行 `prefetch` 是 `await Promise.all([...])` 且**沒有 try/catch**，因此 upstream reject 會原樣往外傳（現行 contract 不 swallow）。本輪**不改變**此 resolve/reject 對外契約；測試端以 `await expect(p).rejects.toThrow()`（或 `p.catch(() => {})` 並在 assert 前 await）自行吸收，避免 unhandled rejection。修補只加 early-return gate，不新增 catch。
+
+修前預期失敗：R1（fetch 1≠0、payload 被寫入）、R2/R3（payload 被寫入）、R3 追加案（network≠0）。R4 目前不會寫 error status，預期 GREEN — 保留為 regression guard，並在報告中標明「非紅測」。
 
 ### 產品修補
 `useChipsBatch.ts` 內：
-- 新增 `enabledRef`，於 `useEffect` 同步 `enabledRef.current = enabled`。
+- 新增 `enabledRef`，採 **render-time assignment**：在 hook 函式本體（任何 `useEffect` 之前）直接 `enabledRef.current = enabled;`。
+  理由：`enabled` 由 props 傳入，effect 內同步會晚一個 commit —— `rerender({enabled:false})` 之後、effect 尚未跑完的空窗期內若觸發 `prefetch` 或有 in-flight 結果回來，effect 版 ref 仍是 `true`，閘會漏。render-time 寫入在 rerender 回傳當下即為最新值，能覆蓋「同一個 act 內切 false」這條 race。此處只寫入純量、不讀取跨 render 狀態，對 StrictMode double-render 冪等（兩次都寫同一值），不觸發 tearing。R3 是此決策的驗收證據。
 - `prefetch` 開頭 request **之前**：`if (!enabledRef.current || !mountedRef.current) return;`，並捕捉 `const myRun = runIdRef.current;`。
 - `await` **之後**（payload 分支與 `addPrefetched` 之前）加上四重閘：`if (!mountedRef.current || !enabledRef.current || myRun !== runIdRef.current || !owns(code, myTok)) return;`。
 - `prefetchSparkline` 一併移到同一個 pre-gate 之後。
