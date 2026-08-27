@@ -99,6 +99,16 @@ export function isTerminalUnavailable(input: {
   );
 }
 
+/**
+ * D4 fail-closed 閘：terminal（永久拒絕）時**絕不**允許任何回補請求。
+ * 唯一判斷來源就是 canonical mapper 攤平後的 `terminalUnavailable`。
+ */
+export function canRequestBackfill(
+  facts: { terminalUnavailable?: boolean | null } | null | undefined,
+): boolean {
+  return !facts?.terminalUnavailable;
+}
+
 /* ── 卡片層 UI 狀態 ─────────────────────────────────────────── */
 
 export type BsrUiState =
@@ -124,7 +134,8 @@ interface PayloadLike {
   bsr_provider_state?: string | null;
   bsr_freshness_status?: string | null;
   bsr_sync_status?: { provider_state?: string | null; provider_code?: string | null } | null;
-  [k: string]: unknown;
+  bsr_terminal_code?: string | null;
+  bsr_provider_code?: string | null;
 }
 
 function providerStateToUi(payload: PayloadLike): BsrUiState {
