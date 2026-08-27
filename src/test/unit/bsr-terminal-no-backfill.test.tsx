@@ -17,11 +17,12 @@ import {
   chipsBackfillReducer,
   shouldAutoTrigger,
   initialChipsBackfillState,
+  type ChipsBackfillSnapshot,
 } from '@/checkup/lib/chipsBackfillMachine';
 
 const TERMINAL = 'terminal_provider_rejected';
 
-function snapshot(extra: Record<string, unknown> = {}) {
+function snapshot(extra: Record<string, unknown> = {}): ChipsBackfillSnapshot {
   return {
     stockCode: '2330',
     hasData: true,
@@ -31,7 +32,7 @@ function snapshot(extra: Record<string, unknown> = {}) {
     satisfied: false,
     now: 1_700_000_000_000,
     ...extra,
-  } as any;
+  } as unknown as ChipsBackfillSnapshot;
 }
 
 describe('S3B RED · terminal provider 不得觸發回補', () => {
@@ -46,7 +47,7 @@ describe('S3B RED · terminal provider 不得觸發回補', () => {
     const { effects, state } = chipsBackfillReducer(initialChipsBackfillState, {
       type: 'snapshot',
       snapshot: snapshot({ providerState: TERMINAL }),
-    } as any);
+    });
     expect(
       effects.some((e) => e.type === 'requestBackfill'),
       'RED: terminal 狀態仍發出 requestBackfill',
@@ -58,7 +59,7 @@ describe('S3B RED · terminal provider 不得觸發回補', () => {
     const { effects } = chipsBackfillReducer(initialChipsBackfillState, {
       type: 'snapshot',
       snapshot: snapshot({ providerState: 'available' }),
-    } as any);
+    });
     expect(effects.some((e) => e.type === 'requestBackfill')).toBe(true);
   });
 
