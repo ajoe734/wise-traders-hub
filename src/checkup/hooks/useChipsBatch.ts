@@ -97,6 +97,14 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   const runIdRef = useRef(0);
   const mountedRef = useRef(true);
   /**
+   * v4.3 §F3：`enabled` 的 render-time mirror。
+   * 刻意不放在 useEffect —— effect 版會晚一個 commit，`rerender({enabled:false})`
+   * 之後、effect 尚未執行的空窗期內若有 in-flight 結果回來或使用者 hover，
+   * 閘就會漏。render-time 寫入純量對 StrictMode double-render 冪等。
+   */
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  /**
    * per-code ownership token（v4.2 §B5）。batch 與 manual prefetch 共用同一條
    * token 線：誰最後領號誰擁有寫入權。任何非同步結果寫入前都必須確認
    * `seqRef.current.get(code) === myTok`，否則整筆丟棄（payload、status、prefetched 皆是）。
