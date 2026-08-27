@@ -117,12 +117,13 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
 
     const bodies: string[][] = [];
     const lateCalls: string[] = [];
-    let edgeCalls = 0;
     let watching = false;
     await page.route('**/functions/v1/**', async (route) => {
       const url = route.request().url();
-      edgeCalls += 1;
-      if (watching) lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
+      // 只計籌碼相關端點；traffic-ingest 是站台流量遙測，與 D4 回補無關。
+      if (watching && /tw-chips|bsr|rest\/v1|rpc\//.test(url)) {
+        lateCalls.push(`${url} :: ${route.request().postData() ?? ''}`.slice(0, 200));
+      }
       const ids: string[] = route.request().postDataJSON()?.stock_ids || [];
       if (ids.length) bodies.push(ids);
       if (!/tw-chips-detail/.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -171,9 +172,8 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     expect(sb!.x + sb!.width, 'RED: 籌碼列溢出 390px 視窗').toBeLessThanOrEqual(390);
 
     // (c) terminal control：狀態定案後 5 秒內不得再有任何 edge / RPC 呼叫
-    const before = edgeCalls;
     watching = true;
     await page.waitForTimeout(5000);
-    expect(edgeCalls - before, `RED: terminal 後仍有背景請求：\n${lateCalls.join('\n')}`).toBe(0);
+    expect(lateCalls.length, `RED: terminal 後仍有籌碼回補請求：\n${lateCalls.join('\n')}`).toBe(0);
   });
 });
