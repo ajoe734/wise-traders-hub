@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
 import { chipsBatchStatusKey, type ChipsBatchStatus } from '@/checkup/hooks/useChipsBatch';
 import type { ChipsFetchResult } from '@/checkup/lib/chipsRepository';
+import { normalizeStockCode } from '@/checkup/lib/chipsRepository';
 import { resolveCardBsrState, bsrStateText, type BsrUiState } from '@/checkup/lib/bsrCanonicalCodes';
 
 const SR_ONLY: React.CSSProperties = {
@@ -35,7 +36,9 @@ export interface HoldingCardBsrProps {
   suppressStrip?: boolean;
 }
 
-export function HoldingCardBsr({ code, suppressStrip = false }: HoldingCardBsrProps) {
+export function HoldingCardBsr({ code: rawCode, suppressStrip = false }: HoldingCardBsrProps) {
+  // canonical boundary：元件邊界正規化一次，之後只用 `code`（與 useChipsBatch 同一把鑰匙）。
+  const code = normalizeStockCode(rawCode);
   const chips = useQuery<ChipsFetchResult, unknown>({
     queryKey: chipsQueryKey(code),
     // 純訂閱：enabled:false 永不執行，queryFn 只為消除 TanStack 的缺 queryFn 警告。
@@ -70,7 +73,10 @@ export function HoldingCardBsr({ code, suppressStrip = false }: HoldingCardBsrPr
   }
 
   return (
-    <div
+    <>
+      {/* in-flow spacer：替 absolute strip 保留高度，避免壓到底部數字列 */}
+      <div aria-hidden data-testid="holding-card-bsr-spacer" style={{ height: 18, flex: '0 0 auto' }} />
+      <div
       {...common}
       style={{
         position: 'absolute',
@@ -89,7 +95,8 @@ export function HoldingCardBsr({ code, suppressStrip = false }: HoldingCardBsrPr
       }}
     >
       {text}
-    </div>
+      </div>
+    </>
   );
 }
 
