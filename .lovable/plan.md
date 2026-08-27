@@ -118,8 +118,17 @@ requestBackfill()
 5. 列 actual changed paths + A/M + 完整 64-char SHA256 + 對 `03b26f4f7` 的 `--name-status`。
 6. 任何紅燈 → REJECTED，不宣稱完成。
 
-## 7. Open questions
+## 7. Rev2 修訂摘要（對應本輪六點裁示）
 
-無。唯一與原指令不同之處已於 §5 說明並自行決議：`1,000 股` literal 在現行卡片 DOM 不存在，改以 `aria-label` 損益/報酬率 literal ＋ `成本 100`/`現價 110` 取代，不為此新增第 5 個 path、不修改產品碼。
+1. F2 改用 **non-terminal + non-sparse** fixture（instDays 30 / bsrDays 10 / satisfied）關閉 auto machine；manual 前先斷言 0/0，manual 後 exact 1/1 + 精確 arguments；auto 非 0 即紅燈，禁止寫死 2/2。
+2. R4 只斷言「disabled/unmount 後 resolve 或 reject 皆 0 寫入、無 `kind:'error'`」；已核對現行 `prefetch` 無 try/catch、reject 會外傳，故**不改對外契約**，改由測試 `rejects`/`catch` 吸收。
+3. `enabledRef` 採 **render-time assignment**（理由與 StrictMode 冪等說明見 §1）；R3 以同一 `act()` 內切 false 後 `prefetch` network=0 作為證據。
+4. F1/F2 只 mock 最低層 `getCheckupGateway`，明令不得 mock `useChipsBackfill` / `requestBackfill` / auto hook / canonical gate。
+5. E2E endpoint=0 降為補充證據，權威證據為 public-hook runtime test。
+6. 390px 明確承認 `card-qty` 非數量值、不列為數量證據；驗收改為成本 100 / 現價 110 / 損益 10,000 / 報酬 10.00% / aria-label 同值 / 四邊界 + non-overlap；不新增產品 path。
 
-**PLAN_V4.3_READY**
+## 8. Open questions
+
+無。
+
+**PLAN_V4.3_READY_REV2**
