@@ -63,7 +63,7 @@ requestBackfill()
 `useChipsLifecycle.handleBackfill` = 對外 `requestBackfill`，L86-89 已有 `if (!canRequestBackfill(facts)) return;`。
 
 ### 測試（`bsr-terminal-no-backfill.test.tsx`，改為含 renderHook 的真實 runtime 測試）
-- Mock `@/checkup/lib/gateway` 的 `getCheckupGateway`，回傳兩個**具名 spy**：`rpcSpy` / `invokeSpy`。
+- **只 mock 最低層 gateway**：`vi.mock('@/checkup/lib/gateway')` 讓 `getCheckupGateway()` 回傳 `{ invoke: invokeSpy, rpc: rpcSpy }`。**明令不得** mock `useChipsBackfill`、`requestBackfill`、`useChipsAutoBackfill` 或 `canRequestBackfill` —— 真實碼必須跑到 `Promise.allSettled([invoke(...), rpc(...)])` 這一行，否則測試無效。
 - Mock `@/checkup/lib/chipsRepository` 的 `fetchChipsPayload` / `fetchChipsStamp`，讓 `useTwChipsDetail` 拿到真實形狀的 payload；`deriveChipsFacts` 走真碼（不 stub facts）。
   - terminal fixture：`bsr_provider_state:'terminal_provider_rejected'`、`bsr_provider_code:'bsr_provider_unsupported'`、`series.institutional_daily` 長度 3、`bsr_concentration` 長度 0（sparse 且 eligible，確保若無 gate 一定會回補）。
 - Mock `sonner` toast、`@/lib/trafficTracker`。`beforeEach` 呼叫 `__resetChipsBackfillBudget()`。
@@ -72,28 +72,39 @@ requestBackfill()
 
 既有 `canRequestBackfill` 單元斷言保留；**移除**目前那兩條以 `readFileSync` + regex 檢查 source 字串的斷言（`useChipsLifecycle` 那條），改由本 runtime 測試取代（`ChipsSection.tsx` 那條 regex 保留，因該檔不在 allowlist 內、無法改為 runtime 測）。
 
-## 4. F2 — transient control（同檔、同一 public contract）
+## 4. F2 — transient control（同檔、同一 public contract，auto 必須為 0）
 
-同樣 fixture 但 `bsr_provider_state:'available'`、`bsr_sync_status.status:null`、`eligible:true`、instDays 3 / bsrDays 0（sparse）。
+### auto 關閉方式（用既有公開 input，不新增旗標）
+`shouldAutoTrigger`（`chipsBackfillMachine.ts` L101-107）在 `!s.sparse` 時回 false；`sparse` 由 `deriveChipsFacts` 算出 `instDays < 20 || bsrDays < 5`。
 
-- 呼叫 `result.current.requestBackfill()` 一次。
-- 斷言 **exact counts**：`invokeSpy` `toHaveBeenCalledTimes(1)`、`rpcSpy` `toHaveBeenCalledTimes(1)`（不得用 `<=`）。
+因此 transient fixture 設計為 **non-terminal 且 non-sparse**：
+`bsr_provider_state:'available'`、`bsr_sync_status:{ status:null, eligible:true }`、`series.institutional_daily` 長度 **30**、`series.bsr_concentration` 長度 **10**、`readiness.institutional['60'].state`/`['20'].state` 設為 ready（`satisfied:true`）。
+→ `facts.sparse === false`、`terminalUnavailable === false` → auto machine 永不 `requestBackfill`，manual contract 被完全隔離。
+
+### 斷言
+- 前置守門：`waitFor(facts.sparse === false && facts.terminalUnavailable === false)`，並在呼叫 manual **之前**先斷言 `invokeSpy`/`rpcSpy` 皆 `toHaveBeenCalledTimes(0)`（證明 auto 真的 0 次，不是被 manual 蓋掉）。
+- 呼叫 `await act(() => result.current.requestBackfill())` **恰一次**。
+- 斷言 **exact counts**（禁止 `<=`）：`invokeSpy` `toHaveBeenCalledTimes(1)`、`rpcSpy` `toHaveBeenCalledTimes(1)`。
 - 斷言 arguments：
   - `invokeSpy` `toHaveBeenCalledWith('tw-institutional-daily-sync', { mode:'backfill_stock', stock_id:'2330', days:60 })`
   - `rpcSpy` `toHaveBeenCalledWith('enqueue_bsr_backfill', { p_stock_id:'2330', p_days:60 })`
-- 為避免 auto-backfill 疊加造成計數漂移：測試中把 `hasData` 之後的自動觸發納入計算 —— 若 runtime 觀察到自動回補也各打 1 次（總數 2/2），以**修前實測數字**為準寫死 exact 值，並在測試註解記錄來源；不接受區間斷言。
+- 收尾：再等 500ms（fake timer）後重新斷言仍是 1/1，證明無 auto 尾隨疊加。
+- 若實測 auto 仍非 0（例如 poll 路徑意外觸發），視為**紅燈**回報，不得改寫成 2/2 寫死。
 
 ## 5. F7 — 390px E2E 補強（`e2e/holdings-bsr-unavailable.spec.ts`）
 
 已 read-only 核對 harness fixture 與實際 DOM：
 - fixture：`qty:1000, cost:100, price:110`。
-- **`1,000 股` 在卡片 DOM 內不存在** —— `HoldingCardHeader` 註記「Sparkline / 股數 / 策略散文全部移到抽屜（§4）」，`card-qty` 內只有名稱＋代號。因此 qty literal 改為以下兩條等價證據（不新增檔案、不改產品碼）：
-  - `card-qty` `toContainText('2330')`（或 fixture 實際代號）
-  - 卡片根節點 `aria-label` `toContain('損益 +10,000')` 與 `toContain('報酬率 +10.00%')`
-- 價格 literal 依 `PriceTrack.tsx` 實際輸出：`card-price` `toContainText('成本 100')` 與 `toContainText('現價 110')`。
-- 新增 `expect(sb!.x).toBeGreaterThanOrEqual(0)`。
-- 保留既有：`card-pnl` 含 `10.00%` 與 `10,000`、`sb.y >= rb.y + rb.height - 1`（non-overlap）、`sb.x + sb.width <= 390`、30+1 body 分塊、terminal 0 請求。
+- **明確承認**：`card-qty` 這個 testid 只是「代號/名稱列的版面錨點」，**不含任何數量值**（`HoldingCardHeader` 註記「股數移到抽屜 §4」）。本輪**不把它當作數量不變的證據**，也不新增產品 path 去補渲染股數。
+- 因此本輪 390px 精確驗收改為：
+  - `card-price` `toContainText('成本 100')`、`toContainText('現價 110')`（依 `PriceTrack.tsx` 實際輸出格式）
+  - `card-pnl` `toContainText('10.00%')`、`toContainText('10,000')`
+  - 卡片根節點 `aria-label` `toContain('報酬率 +10.00%')`、`toContain('損益 +10,000')`（與上列同值交叉驗證）
+  - 四邊界：`sb.x >= 0`、`sb.y >= 0`、`sb.x + sb.width <= 390`、`sb.y + sb.height <= 844`
+  - non-overlap：`sb.y >= rb.y + rb.height - 1`
+  - 既有 30+1 body 分塊斷言原樣保留
 - 同時修 F1 在 E2E 面的觀測缺口：terminal control 的 `page.route` 由 `**/functions/v1/**` 擴為同時攔 `**/rest/v1/rpc/**`，並以兩個具名 counter 分別斷言 `tw-institutional-daily-sync` invoke=0、`enqueue_bsr_backfill` rpc=0。
+- **證據位階**：此 E2E endpoint=0 僅為**補充證據**；F1/F2 的權威證據是 §3/§4 的 public-hook runtime test。E2E 綠但 runtime test 未綠，一律視為未通過。
 
 ## 6. 執行順序（TDD，紅燈收據）
 
