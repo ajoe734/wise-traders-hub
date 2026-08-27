@@ -1,217 +1,111 @@
-# Stage D — 持倉看板 BSR 顯示修復（Plan v3，convergence；本輪 0 mutation）
+# PLAN_V4.3 — 修補 F1 / F2 / F3 / F4 / F7
 
-沿用禁令：不改檔、不 deploy、不 Publish、不動 DB/cron/provider。以下規則全部來自本輪唯讀重讀。
+只修 SOURCE_REVIEW_REJECTED 的五項。不 deploy / Publish / DB / cron / provider；不碰 B10 平台證據，不按 Fix build。完成後停在 SOURCE_REVIEW_READY。
 
----
+## 0. Changed paths（4 actual，全在原核准 11-path allowlist 內）
 
-## A. changed-files allowlist — exact 17 paths（每行一個）
+| # | path | 類型 |
+|---|---|---|
+|1|`src/checkup/hooks/useChipsBatch.ts`|產品（F3）|
+|2|`src/test/unit/holdings-chips-batch-race.test.ts`|測試（F3 + F4）|
+|3|`src/test/unit/bsr-terminal-no-backfill.test.tsx`|測試（F1 + F2）|
+|4|`e2e/holdings-bsr-unavailable.spec.ts`|測試（F7）|
 
-**Frontend product（11）**
-1. `new` `src/checkup/lib/bsrCanonicalCodes.ts`
-2. `modify` `src/checkup/lib/chipsRepository.ts`
-3. `modify` `src/checkup/hooks/useChipsBatch.ts`
-4. `new` `src/checkup/components/freecheckup/_ui/holdingCard/HoldingCardBsr.tsx`
-5. `modify` `src/checkup/components/freecheckup/HoldingCard.tsx`
-6. `modify` `src/checkup/components/freecheckup/chipsFreshnessSegments.ts`
-7. `modify` `src/checkup/lib/chipsBackfillMachine.ts`
-8. `modify` `src/checkup/lib/chipsLifecycle.ts`
-9. `modify` `src/checkup/hooks/useChipsAutoBackfill.ts`
-10. `modify` `src/checkup/hooks/useChipsLifecycle.ts`
-11. `modify` `src/checkup/components/freecheckup/ChipsSection.tsx`
+**不需要第 5 個 path。** 其餘 7 個 allowlist 檔案（HoldingCard.tsx、HoldingCardBsr.tsx、bsrCanonicalCodes.ts、useChipsLifecycle.ts、tw-chips-detail-v2/index.ts、holdings-chips-chunking.test.ts、holdings-nodrawer-chips-consumer.test.tsx）本輪 0 修改。`src/integrations/supabase/*` 與 `db/r1/p/acl-25.*` OUT_OF_SCOPE_PRESERVE。
 
-**Edge（1）**
-12. `modify` `supabase/functions/tw-chips-detail-v2/index.ts`
+## 1. F3 — manual prefetch 缺 enabled / mounted / runId gate
 
-**Tests（5）**
-13. `modify` `src/test/unit/bsr-canonical-code-mapping.test.ts`
-14. `modify` `src/test/unit/holdings-chips-chunking.test.ts`
-15. `modify` `src/test/unit/holdings-nodrawer-chips-consumer.test.tsx`
-16. `new` `src/test/unit/holdings-chips-batch-race.test.ts`
-17. `modify` `e2e/holdings-bsr-unavailable.spec.ts`
+### 現況（已讀 `useChipsBatch.ts` L247-273）
+`prefetch` 只有 `claim/owns` per-code token；request 前不看 `enabled`、`mountedRef`，await 後也只看 token。`enabled=false` 時 hover 仍實際呼叫 `prefetchChipsPayload` 並 `setQueryData`；unmount 後仍寫 payload（`addPrefetched` 內部才擋 mounted，payload 不擋）。
 
-**明確排除**：`supabase/functions/_shared/bsrProviderState.ts`（理由見 F）、所有 migration/cron/RLS、`src/pages/admin/**`、`JournalDetail.tsx`、`journalRepository`。週記／`/admin/:slug/signals` 路徑 **0 changed files**。
+### 先紅測（寫在 `holdings-chips-batch-race.test.ts`）
+- **R1 enabled=false**：`renderHook(useChipsBatch({ codes, enabled:false }))` → `act(prefetch('2330'))`；斷言 `prefetchChipsPayload` 呼叫次數 `toBe(0)`、`prefetchSparkline` `toBe(0)`、`qc.getQueryData(chipsQueryKey('2330'))` `toBeUndefined()`、`chipsBatchStatusKey('2330')` `toBeUndefined()`、`result.current.prefetched.size` `toBe(0)`。
+- **R2 in-flight manual → unmount**：deferred promise，`prefetch()` 起飛後 `unmount()`，再 resolve 成功 payload；斷言 payload key `toBeUndefined()`、status key `toBeUndefined()`、無 unhandled rejection、`prefetch()` 的 promise 不 reject。
+- **R3 in-flight manual → enabled true→false**：`rerender({ enabled:false })` 後才 resolve；斷言同 R2 的 0 寫入，且既有 `'2330'` batch 結果（若已存在）不被改寫。
+- **R4 reject 路徑**：R2 / R3 的 promise 改 reject，斷言不寫入任何 `kind:'error'` status，且 `prefetch()` 不向外拋。
 
----
+修前預期失敗：R1（fetch 1≠0、payload 被寫入）、R2/R3（payload 被寫入）。R4 目前不會寫 error（manual 無 catch 寫入），預期 GREEN — 保留為 guard。
 
-## B. auto-backfill call chain（exact signatures，決定改哪一檔）
+### 產品修補
+`useChipsBatch.ts` 內：
+- 新增 `enabledRef`，於 `useEffect` 同步 `enabledRef.current = enabled`。
+- `prefetch` 開頭 request **之前**：`if (!enabledRef.current || !mountedRef.current) return;`，並捕捉 `const myRun = runIdRef.current;`。
+- `await` **之後**（payload 分支與 `addPrefetched` 之前）加上四重閘：`if (!mountedRef.current || !enabledRef.current || myRun !== runIdRef.current || !owns(code, myTok)) return;`。
+- `prefetchSparkline` 一併移到同一個 pre-gate 之後。
 
-```text
-ChipsSection.tsx:161-168
-  const { ..., backfilling, backfillPhase, requestBackfill } = useChipsLifecycle(stockCode, true)
+**winner 語意不變**：token 仍是唯一 ownership 來源，`myRun` 只在 manual 自身路徑檢查，不改變 batch↔manual 的先後判定；batch 端 L195/L199/L209/L221/L234 一行未動。既有三案（run1→run2、batch→newer manual、manual1→manual2）必須續綠。
 
-useChipsLifecycle.ts:55  export function useChipsLifecycle(stockCode: string, enabled = true): ChipsLifecycle
-  L56  const detail = useTwChipsDetail(stockCode, enabled)
-  L59  const facts = useMemo(() => deriveChipsFacts(data), [data])     // chipsLifecycle.ts:82
-  L84  const { backfilling, requestBackfill } = useChipsBackfill(stockCode)
-  L101 useChipsAutoBackfill({ stockCode, hasData, sparse: facts.sparse, eligible: facts.eligible,
-                              syncStatus: facts.syncStatus, satisfied: facts.satisfied,
-                              requestBackfill: handleBackfill, onTimeout })
+風險註記：`myRun !== runIdRef.current` 會讓「manual 進行中，可見卡片變動觸發新 batch run」的 manual 結果被丟棄。這符合 v4.2「較新者勝」語意（新 batch 已 `claim` 新 token，manual 本來就會被 token gate 擋掉），因此不改變任何既有斷言；R5（F4）會明確固定此行為。
 
-useChipsAutoBackfill.ts:30  ({...}: UseChipsAutoBackfillInput) => { phase }
-  L76  dispatch({type:'snapshot', snapshot:{stockCode,hasData,sparse,eligible,syncStatus,satisfied,now}})
+## 2. F4 — 補三組真 deferred cross-race（同檔）
 
-chipsBackfillMachine.ts:86  shouldAutoTrigger(state, s: ChipsBackfillSnapshot): boolean
+保留既有三案原樣，不弱化。新增：
+
+- **R5 manual → newer batch**：manual deferred 起飛（未 resolve）→ 觸發新 run（codes 變更）→ batch 先 resolve `_from:'batch2'` → 再 resolve 舊 manual `_from:'manual'`。
+  斷言：`chipsQueryKey('2330').payload._from === 'batch2'`；status `kind==='ok'` 且 `runId === 目前 runIdRef`（以 status.runId 遞增比對）；`prefetched.has('2330') === true`。
+- **R6 unmount**：batch in-flight + manual in-flight → `unmount()` → 兩者皆 resolve。
+  斷言：payload key `toBeUndefined()`；status 停在 unmount 前的 `kind:'pending'`（不得變成 `'error'`/`'chunk_failed'`）；`prefetched` 不再新增（以 unmount 前快照比較）。
+- **R7 enabled true→false**：run1 in-flight → `rerender({ enabled:false })` → run1 resolve。
+  斷言：payload `toBeUndefined()`、status 仍 `pending`、`prefetched.size` 與切換前相同；接著 `prefetch()` 亦 0 寫入（與 R1 一致）。
+
+## 3. F1 — terminal 必須經 public `useChipsLifecycle.requestBackfill` 驗證
+
+### 已確認的 exact flow（`useChipsBackfill.ts` L?-?，read-only 已核對）
 ```
-
-更正 v2 的錯誤敘述：**ChipsSection 不會、也不能直接餵值給 `useChipsAutoBackfill`**；它只拿 `useChipsLifecycle` 的回傳。terminal 事實必須沿 `payload → deriveChipsFacts → ChipsFacts → useChipsLifecycle → useChipsAutoBackfill → snapshot → shouldAutoTrigger` 這條既有管線穿透，因此 8/9/10 三個 hook/lib 檔**必須**在 allowlist（v2 漏列 `chipsLifecycle.ts` 與 `useChipsAutoBackfill.ts`，已補）。
-
-逐檔最小變更：
-- 8 `chipsLifecycle.ts`：`ChipsFacts` 加 `terminalUnavailable: boolean`；`deriveChipsFacts` 以 `isTerminalUnavailable({providerState: payload.bsr_provider_state ?? payload.bsr_sync_status?.provider_state, providerCode: payload.bsr_sync_status?.provider_code})` 計算；`EMPTY_CHIPS_FACTS` 補 `false`。
-- 9 `useChipsAutoBackfill.ts`：`UseChipsAutoBackfillInput` 加 `terminalUnavailable: boolean`；帶進 snapshot 與 effect deps。
-- 10 `useChipsLifecycle.ts`：`useChipsAutoBackfill({ ..., terminalUnavailable: facts.terminalUnavailable })`。介面 `ChipsLifecycle` 不變（`facts` 已對外，ChipsSection 直接讀 `facts.terminalUnavailable`）。
-- 7 `chipsBackfillMachine.ts`：`ChipsBackfillSnapshot` 加同名欄位；`shouldAutoTrigger` 第一行 `if (s.terminalUnavailable) return false;`。
-- 11 `ChipsSection.tsx`：L193 `providerState === 'terminal_provider_rejected'` 改為 `facts.terminalUnavailable`；L350 `sparse && !error` 的手動回補按鈕加 `&& !facts.terminalUnavailable`。
-
----
-
-## C. cache type — 三處 exact 相同
-
-- 寫入端 `useChipsBatch.ts:76`：`qc.setQueryData<ChipsFetchResult>(chipsQueryKey(code), { payload, stampVer, bytes: 0, durationMs: 0 }, { updatedAt: now })`
-- 型別權威 `chipsRepository.ts:356`：
-  ```ts
-  export interface ChipsFetchResult { payload: TwChipsPayload; stampVer: string | null; bytes: number; durationMs: number; }
-  ```
-- 讀取端 `useTwChipsDetail.ts:112`：`useQuery<ChipsFetchResult, unknown>({ queryKey: chipsQueryKey(code), ... })`
-- 卡片 observer 泛型：**同一個 `ChipsFetchResult`**，`data?.payload` 為 `TwChipsPayload`。卡片不建立、也不寫入任何假 payload；`['tw-chips', code]` 只由 batch 成功回應與 `useTwChipsDetail` 寫入。
-
-batch 狀態走**另一把 key**：
-```ts
-// useChipsBatch.ts（新增 export）
-export const chipsBatchStatusKey = (code: string) => ['tw-chips-batch-status', code] as const;
-export interface ChipsBatchStatus {
-  kind: 'pending' | 'ok' | 'error' | 'not_applicable';
-  // 'not_applicable' = 未通過台股 batch canonical validator（例：美股代號 ABC/ORCL/AMD、空字串、非法字元）。
-  // 語意為「本地不送 batch」，**不等於** payload 的 providerState='ineligible'（ETF／權證／受益憑證）。
-  runId: number;              // 見 D
-  at: number;
-  reason?: 'chunk_failed' | 'per_code_error';
-}
+requestBackfill()
+  → gateway.invoke('tw-institutional-daily-sync', { mode:'backfill_stock', stock_id, days:60 })
+  → gateway.rpc<number>('enqueue_bsr_backfill', { p_stock_id, p_days:60 })
+  （Promise.allSettled 並行，各 1 次；module-level inFlight + MAX_ATTEMPTS_PER_STOCK=2 去重）
 ```
+`useChipsLifecycle.handleBackfill` = 對外 `requestBackfill`，L86-89 已有 `if (!canRequestBackfill(facts)) return;`。
 
----
+### 測試（`bsr-terminal-no-backfill.test.tsx`，改為含 renderHook 的真實 runtime 測試）
+- Mock `@/checkup/lib/gateway` 的 `getCheckupGateway`，回傳兩個**具名 spy**：`rpcSpy` / `invokeSpy`。
+- Mock `@/checkup/lib/chipsRepository` 的 `fetchChipsPayload` / `fetchChipsStamp`，讓 `useTwChipsDetail` 拿到真實形狀的 payload；`deriveChipsFacts` 走真碼（不 stub facts）。
+  - terminal fixture：`bsr_provider_state:'terminal_provider_rejected'`、`bsr_provider_code:'bsr_provider_unsupported'`、`series.institutional_daily` 長度 3、`bsr_concentration` 長度 0（sparse 且 eligible，確保若無 gate 一定會回補）。
+- Mock `sonner` toast、`@/lib/trafficTracker`。`beforeEach` 呼叫 `__resetChipsBackfillBudget()`。
+- 步驟：`renderHook(() => useChipsLifecycle('2330', true))` → `waitFor(facts.terminalUnavailable === true)` → `act(() => result.current.requestBackfill())` → 再等 500ms fake timer 讓 auto-backfill 有機會觸發。
+- 斷言：`invokeSpy` **exact** `toHaveBeenCalledTimes(0)`、`rpcSpy` **exact** `toHaveBeenCalledTimes(0)`。
 
-## D. 優先序契約與 race 防護
+既有 `canRequestBackfill` 單元斷言保留；**移除**目前那兩條以 `readFileSync` + regex 檢查 source 字串的斷言（`useChipsLifecycle` 那條），改由本 runtime 測試取代（`ChipsSection.tsx` 那條 regex 保留，因該檔不在 allowlist 內、無法改為 runtime 測）。
 
-`resolveCardBsrState(chipsData?: ChipsFetchResult, status?: ChipsBatchStatus): BsrUiState`，判斷序（由上而下，先命中先返回）：
+## 4. F2 — transient control（同檔、同一 public contract）
 
-1. `payload` 存在且 canonical 判為 `unavailable_unsupported` 或 `ineligible` → **回該權威狀態**（terminal/ineligible 不被 batch error 蓋掉）。
-2. `status.kind === 'error'` → `partial_error`（**即使有 stale payload**；資料保留、顯示最後可得日期，但不得標 available）。
-3. `status.kind === 'not_applicable'` → `not_applicable`（**不得**映射成 `ineligible`）。`ineligible` 只能由真實 payload `providerState === 'ineligible'` 產生（第 1 條）。
-4. `status.kind === 'ok'` 且 payload 存在 → `mapProviderState(payload)`（`available` / `syncing` / `degraded` / …）。
-5. `status.kind === 'pending'` 且 payload 存在 → `syncing`（顯示 last-known as-of，不閃回 loading）。
-6. 其餘 → `loading`。
+同樣 fixture 但 `bsr_provider_state:'available'`、`bsr_sync_status.status:null`、`eligible:true`、instDays 3 / bsrDays 0（sparse）。
 
-**Race（current-run identity）**
-- `useChipsBatch` 內 `const runIdRef = useRef(0)`；每次 codes key 變更或手動 retry `runIdRef.current += 1`，該值即 `runId`。
-- **不做併發 retry**：既有 effect cleanup 已 `ac.abort()` + `cancelled = true`；v3 再加硬閘 —— 每個 chunk 的 `.then/.catch` 進入寫入前先檢查 `myRun === runIdRef.current`，不符即整批丟棄（不 setQueryData）。
-- 寫入的 `ChipsBatchStatus.runId` 亦帶 `myRun`；`resolveCardBsrState` 只信任 store 內最新一筆（TanStack 單筆覆寫，天然最新），舊 run 因上一條硬閘根本不會寫入。
-- 結論：舊 chunk 晚回覆 **不可能** 覆蓋新 run 的 `pending/ok/error`，且不需要並行 run 管理器。
+- 呼叫 `result.current.requestBackfill()` 一次。
+- 斷言 **exact counts**：`invokeSpy` `toHaveBeenCalledTimes(1)`、`rpcSpy` `toHaveBeenCalledTimes(1)`（不得用 `<=`）。
+- 斷言 arguments：
+  - `invokeSpy` `toHaveBeenCalledWith('tw-institutional-daily-sync', { mode:'backfill_stock', stock_id:'2330', days:60 })`
+  - `rpcSpy` `toHaveBeenCalledWith('enqueue_bsr_backfill', { p_stock_id:'2330', p_days:60 })`
+- 為避免 auto-backfill 疊加造成計數漂移：測試中把 `hasData` 之後的自動觸發納入計算 —— 若 runtime 觀察到自動回補也各打 1 次（總數 2/2），以**修前實測數字**為準寫死 exact 值，並在測試註解記錄來源；不接受區間斷言。
 
-**清除 error**：新 run 步驟 1 對所有本輪 valid code 寫 `{kind:'pending', runId}`，即覆蓋前一輪 error。
+## 5. F7 — 390px E2E 補強（`e2e/holdings-bsr-unavailable.spec.ts`）
 
----
+已 read-only 核對 harness fixture 與實際 DOM：
+- fixture：`qty:1000, cost:100, price:110`。
+- **`1,000 股` 在卡片 DOM 內不存在** —— `HoldingCardHeader` 註記「Sparkline / 股數 / 策略散文全部移到抽屜（§4）」，`card-qty` 內只有名稱＋代號。因此 qty literal 改為以下兩條等價證據（不新增檔案、不改產品碼）：
+  - `card-qty` `toContainText('2330')`（或 fixture 實際代號）
+  - 卡片根節點 `aria-label` `toContain('損益 +10,000')` 與 `toContain('報酬率 +10.00%')`
+- 價格 literal 依 `PriceTrack.tsx` 實際輸出：`card-price` `toContainText('成本 100')` 與 `toContainText('現價 110')`。
+- 新增 `expect(sb!.x).toBeGreaterThanOrEqual(0)`。
+- 保留既有：`card-pnl` 含 `10.00%` 與 `10,000`、`sb.y >= rb.y + rb.height - 1`（non-overlap）、`sb.x + sb.width <= 390`、30+1 body 分塊、terminal 0 請求。
+- 同時修 F1 在 E2E 面的觀測缺口：terminal control 的 `page.route` 由 `**/functions/v1/**` 擴為同時攔 `**/rest/v1/rpc/**`，並以兩個具名 counter 分別斷言 `tw-institutional-daily-sync` invoke=0、`enqueue_bsr_backfill` rpc=0。
 
-## E. 代號 normalization 與 fixture
+## 6. 執行順序（TDD，紅燈收據）
 
-- 現況：`chipsRepository.ts:446` `function normalizeStockCodes()`（**未 export**，只 `trim`，無 uppercase）；`isTaiwanStockCode` 為 `/^\d{4,6}[A-Z]?$/`（大寫敏感）；`useChipsBatch.ts:18` 另有 `/^\d{4,6}[A-Z]?$/i`。→ `00637l` 現在會通過 hook 但被 repository 的 filter 丟掉，屬**靜默漏檔**。
-- v3 修法（檔 2 的最小變更）：新增並 export
-  ```ts
-  export function normalizeStockCode(code: unknown): string { return String(code ?? '').trim().toUpperCase(); }
-  ```
-  `normalizeStockCodes()` 改用它；`useChipsBatch` 刪除自有 `isValidCode`，改 `normalizeStockCode` → `isTaiwanStockCode` → dedupe（Set）。兩端規則自此完全一致。
-- **不新增任何 telemetry**（v2 的 `chips_batch_code_rejected` 移出 scope）。未通過 canonical 的代號只寫本地 observable `{kind:'not_applicable'}`，不打 API、不記事件。
-- fixture：
-  - valid（台股 canonical）：`2330`、`0050`、`00878`、`006208`、`9105`、`00637L`、`00637l`（normalize 後等同前者，須被 dedupe 合併）
-  - not_applicable（合法但非台股 batch universe）：`ABC`、`ORCL`、`AMD` → 不打 batch、卡片顯示「籌碼資料不適用」、**不得**顯示 ETF／權證文案、quantity/value/ROI 完全不受影響。
-  - invalid（非法輸入，同樣落 `not_applicable`）：`''`、`'   '`、`'<script>alert(1)</script>'`、`'2330,2317'`、`"2330' OR '1'='1"`
-  - `00878x` 已從 fixture 刪除（不做武斷判定）。
+1. 先只加測試（3 個測試檔），跑 targeted：
+   `npx vitest run src/test/unit/holdings-chips-batch-race.test.ts src/test/unit/bsr-terminal-no-backfill.test.tsx`
+   `npx playwright test --project=desktop-holdings-bsr-unavailable`
+   逐項貼 exact failure 訊息（測試名 + expected/received）。任何「應紅卻綠」的案子視為測試無效，必須改成真的能抓修前 bug 才往下走（禁止以 source-string regex 取代 runtime 行為）。
+2. 只改 `useChipsBatch.ts` 一支產品碼。
+3. targeted 全綠。
+4. 全套 gates（逐項貼 exact command + exit code）：兩次 sequential `npx vitest run` 皆 exit 0、`npm run check:module-boundaries`、`npx tsgo -p tsconfig.app.json --noEmit`、edge undefined-symbol audit（僅允許 `Deno`）、`npx vite build`、4-path lint delta（new errors 必須 0）、holdings/chips 7 projects、journal/signal 7 projects。
+5. 列 actual changed paths + A/M + 完整 64-char SHA256 + 對 `03b26f4f7` 的 `--name-status`。
+6. 任何紅燈 → REJECTED，不宣稱完成。
 
----
+## 7. Open questions
 
-## F. edge gate — 只改 1 檔（檔 12），`_shared/bsrProviderState.ts` 不改
+無。唯一與原指令不同之處已於 §5 說明並自行決議：`1,000 股` literal 在現行卡片 DOM 不存在，改以 `aria-label` 損益/報酬率 literal ＋ `成本 100`/`現價 110` 取代，不為此新增第 5 個 path、不修改產品碼。
 
-`tw-chips-detail-v2/index.ts:232-244` 已 `select config from tw_bsr_sync_config where key='market_batch'`，**整個 jsonb 都在手上，read path 無需新增**。改法：
-
-```ts
-const terminalGate =
-  marketBatch?.admission_blocked === true &&
-  String(marketBatch?.admission_terminal_code ?? '') === 'bsr_provider_unsupported' &&
-  String(marketBatch?.admission_reason ?? '') === 'provider_plan_rejected';
-
-// legacy fallback 原樣保留
-const legacyUnsupported = marketBatch?.supported === false &&
-  String(marketBatch?.last_probe_outcome ?? '') === 'unsupported';
-const legacyPrefixHit = legacyUnsupported &&
-  String(marketBatch?.last_probe_error ?? '').startsWith('unsupported_plan:');
-
-const marketBatchUnsupported = terminalGate || legacyUnsupported;   // 不是 ||= admission_blocked
-const marketBatchErrorClass = (terminalGate || legacyPrefixHit) ? 'provider_plan_rejected' : null;
-```
-
-**為何 `_shared/bsrProviderState.ts` 不必改**：`classifyBsrError` 的第一分支即
-`if (persistedErrorClass && TERMINAL_ERROR_CLASSES.has(persistedErrorClass)) → terminal_provider_rejected / provider_plan_rejected`（`bsrProviderState.ts:104-106`）。只要 index 傳入 `persistedErrorClass='provider_plan_rejected'` 就必定走 terminal，**不需要**再新增字串前綴規則；新增反而會製造第二套分類分叉。故從 allowlist 移除。
-（唯讀佐證：C1 除敏字串 `provider_plan_rejected:http_400` normalize 後為 `provider_plan_rejected http 400`，不命中 TERMINAL_SIGNATURES、status=400 → 現況落 `unknown_degraded/unclassified`；terminalGate 修好後這條路徑不再被依賴。）
-
-payload schema **不擴**：`bsr_provider_state='terminal_provider_rejected'` + `bsr_provider_code='provider_plan_rejected'` 已無歧義（`BSR_PROVIDER_CODES` 其餘值皆不與 terminal state 併存），不加 `bsr_terminal_code`。
-
----
-
-## G. 文案與 UI 落點
-
-canonical 常數（檔 1）：
-
-| state | exact visible text |
-|---|---|
-| `unavailable_unsupported`（無 as-of） | `籌碼資料暫時無法取得` |
-| `unavailable_unsupported`（有 as-of） | `籌碼資料暫時無法取得 · 顯示最後可得資料 2026/08/14` |
-| `partial_error`（無 as-of） | `籌碼資料暫時無法取得` |
-| `partial_error`（有 as-of） | `籌碼資料暫時無法取得 · 顯示最後可得資料 2026/08/14` |
-| `syncing` | `籌碼資料更新中` |
-| `ineligible`（**僅** payload providerState=ineligible） | `不適用（ETF／權證／受益憑證）` |
-| `not_applicable`（本地未通過台股 canonical validator，如美股代號） | `籌碼資料不適用` |
-| `available` / `loading` | 不顯示任何文字 |
-
-禁止出現：provider 名稱、方案/level、HTTP 狀態碼、內部 code、「此股票不支援」「上游來源中止」。
-
-**卡片落點（不新增版面列）**：`HoldingCard.tsx` 是 `display:flex; flex-direction:column` 的固定 `minHeight` 卡殼，四層之後接 `{SyncOverlay}{SyncErrorStrip}{SyncSrStatus}` 三個 **absolute / sr-only** 節點（L285-287）。`HoldingCardBsr` 沿用**同一個既有狀態槽模式**：
-- `available` / `loading`：只輸出 1×1 sr-only span（帶 `data-testid="holding-card-bsr"`、`data-bsr-state`、`data-bsr-as-of`），**零版面影響**。
-- 其他狀態：`position:absolute; left:0; right:0; bottom:0`、`fontSize:10`、muted 底色的一行 strip（與 `SyncErrorStrip` 同機制、`zIndex:3` 低一級）；`cardSyncError` 存在時只保留 sr-only 節點，避免兩條 strip 疊字。
-- 不改 `wb-card` / `wb-bottom` 等 class hook、不改 `MIN_H`、不進 grid 流 → 320/375/390/560 各斷點與既有視覺快照不受影響。
-- **絕不觸碰** quantity / value / status / ROI 欄位：`HoldingCardBsr` 不接收 `h.qty`、不 render 數字、不提供任何 0 fallback；BSR 狀態與持倉數字完全解耦。
-
----
-
-## H. 驗收
-
-**A 階段（0 deploy，可立即執行）**
-- `tsgo`（TS-only typecheck）、`bunx eslint`（含 `npm run check:module-boundaries`）、`bunx vite build`。
-- `bunx vitest run` 全量；新增／更新案例：
-  - chunking：1 / 30 / 31 / 60 / 61 → 1 / 1 / 2 / 2 / 3 requests；union 完整、單批 ≤30、無跨批覆蓋。
-  - normalization：`00637l` 與 `00637L` dedupe 為 1；E 的 not_applicable／invalid 清單全部落 `{kind:'not_applicable'}`。
-  - 語意隔離：`ABC`/`ORCL`/`AMD` → 卡片 `data-bsr-state="not_applicable"`、文字為「籌碼資料不適用」、**斷言不出現**「ETF」「權證」「受益憑證」字串、fetch 呼叫 0、qty/value 節點值不變；反向案例 payload `providerState='ineligible'` → 文字為「不適用（ETF／權證／受益憑證）」。
-  - partial failure：chunk#2 reject → chunk#1 的 `['tw-chips',code]` 保留、狀態 `ok`；chunk#2 的 code 為 `error/chunk_failed`。
-  - 優先序：terminal payload + `error` 狀態 → 仍 `unavailable_unsupported`；stale payload + `error` → `partial_error`（含 as-of，且非 available）；stale payload + `pending` → `syncing`。
-  - race（檔 16）：run1 送出未回 → codes 變更觸發 run2 → run1 晚回覆，斷言 0 次寫入且卡片維持 run2 的 `pending/ok`。
-  - 不開 drawer：`setQueryData` 後卡片 re-render，且 `fetch` 呼叫數 0。
-  - terminal → `enqueue_bsr_backfill` / `tw-institutional-daily-sync` 呼叫數 0；`retryable`/`sparse` 仍照舊觸發。
-- Playwright（**exact 既有 project 名稱**，dev server + `page.route` mock）：
-  - `npx playwright test --project=desktop-holdings-bsr-unavailable`
-  - `npx playwright test --project=desktop-chips-batch`
-  - `npx playwright test --project=desktop-chips-section --project=mobile-chips-section --project=desktop-chips-freshness-segments --project=visual-chips-section`
-  - 週記／訊號回歸（唯讀自 `playwright.config.ts` 取得，非杜撰 glob）：`desktop-journal-detail-title-collapse`、`desktop-journal-detail-owner-preview`、`desktop-journal-detail-owner-preview-brcto`、`desktop-journal-detail-admin-preview`、`desktop-signal-detail-preview-currency-schema`、`desktop-signal-detail-incomplete-teaching-fields`。
-  - **誠實前提**：上述 journal/signal project 若在本環境需要登入 fixture 而無法取得 session，我會照實回報「無法執行」，改以 (a) `git diff --name-only` 對 allowlist 的 static changed-path guard（證明週記路徑 0 檔異動）＋ (b) 可跑的 holdings/chips smoke 代替，**不會宣稱通過**。
-
-**B 階段（hosted Preview，deployment gate）**
-- gate：`supabase/functions/tw-chips-detail-v2` deploy 授權（**目前未授權**）。
-- 內容：全新無痕 + 清 cache + 完全不開 drawer，記錄真實 `POST /tw-chips-detail-v2` 請求數與 `bsr_provider_state`，留存截圖 / HAR。
-- 在 B 完成前，D3 的「真實 response」標記為 **BLOCKED**，不以 unit test 冒充。
-
----
-
-## Open questions
-
-只剩一項，且是 deploy gate：**`tw-chips-detail-v2` 的 edge deploy 未授權**，故驗收 B 無法執行。其餘全部已裁定（allowlist、call chain、cache type、優先序與 race、normalization、edge gate、文案與版面、測試命令）。
-
-## Remaining risk
-
-`admission_blocked=true` 仍成立；本階段只讓 UI 誠實顯示「籌碼資料暫時無法取得（＋最後可得日期）」，不會產生新 BSR 資料，也不打任何 provider。背景新鮮度屬另案。
+**PLAN_V4.3_READY**
