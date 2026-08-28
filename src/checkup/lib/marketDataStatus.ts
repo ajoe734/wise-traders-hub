@@ -11,7 +11,7 @@
  */
 
 import { latestCompletedTradeDate } from './marketCalendar';
-import { datasetCacheKey } from './confirmedClose';
+import { datasetCacheKey, identityOf } from './confirmedClose';
 
 export type MarketCode = 'TW';
 
@@ -144,5 +144,18 @@ export function sparklineCacheKey(
   market: MarketCode = 'TW',
 ): string {
   return datasetCacheKey(code, 'daily_ohlc', now, market);
+}
+
+/**
+ * 走勢快取鍵（明確 trade date 版）：由 expected snapshot 直接導出，
+ * 不在 effect 內再問「現在幾點」，確保 cache key / attempt key / reservation key 同源。
+ * 輸出格式與 `sparklineCacheKey` 完全一致（同一支 `identityOf`）。
+ */
+export function sparklineCacheKeyForTradeDate(
+  code: string,
+  tradeDate: string,
+  market: MarketCode = 'TW',
+): string {
+  return identityOf({ market, symbol: code, dataset: 'daily_ohlc', tradeDate: tradeDate || null });
 }
 

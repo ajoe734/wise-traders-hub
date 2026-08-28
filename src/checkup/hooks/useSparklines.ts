@@ -14,7 +14,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { createCacheNamespace } from '@/checkup/lib/checkupCacheStore';
-import { sparklineCacheKey } from '@/checkup/lib/marketDataStatus';
+import { sparklineCacheKey, sparklineCacheKeyForTradeDate } from '@/checkup/lib/marketDataStatus';
+import { isTaiwanStockCode, normalizeStockCode } from '@/checkup/lib/chipsRepository';
+import { runSparklineTask, type SparklineTaskEntry } from '@/checkup/lib/sparklineFetchTask';
+import { useExpectedTradeDate } from '@/checkup/hooks/useExpectedTradeDate';
 
 export interface SparklineEntry {
   ohlc?: Array<{
@@ -140,6 +143,61 @@ export function planSparklineFetch(codes: string[], pricesByCode: Record<string,
     .slice(0, SPARKLINE_BATCH_SIZE);
 }
 
+/** 走勢回應寫入快取（good / partial / fail）。module-owned，與 React 生命週期無關。 */
+export function commitSparklineResult(
+  entries: SparklineTaskEntry[],
+  data: { result?: SparklineMap } | null,
+): void {
+  const result = data?.result;
+  if (!result) {
+    // 整批失敗 → 全數進負快取，避免下次立刻又重試
+    sparklineFailCache.setMany(
+      Object.fromEntries(entries.map((e) => [e.key, true as const])),
+    );
+    return;
+  }
+  const good: SparklineMap = {};
+  const partial: SparklineMap = {};
+  const bad: Record<string, true> = {};
+  for (const { code, key } of entries) {
+    const entry = result[code];
+    if (!entry) { bad[key] = true; continue; }
+    if (isCompleteSparkline(entry)) good[key] = entry;
+    else partial[key] = entry;
+  }
+  if (Object.keys(good).length) {
+    sparklineCache.setMany(good);
+    Object.keys(good).forEach((key) => {
+      sparklinePartialCache.delete(key);
+      sparklineFailCache.delete(key);
+    });
+  }
+  if (Object.keys(partial).length) {
+    Object.entries(partial).forEach(([key, entry]) => {
+      if (!sparklineCache.get(key)) sparklinePartialCache.set(key, entry);
+    });
+  }
+  if (Object.keys(bad).length) sparklineFailCache.setMany(bad);
+}
+
+function invokeSparkline(codes: string[]) {
+  return getCheckupGateway()
+    .invoke<{ result?: SparklineMap }>('checkup-sparkline', { codes })
+    .catch(() => null);
+}
+
+const sparklineTaskDeps = { invoke: invokeSparkline, commit: commitSparklineResult };
+
+/** TW subset（明確台股代號）；US / unknown 一律不進 TW boundary 路徑。 */
+export function twSubsetOf(codes: string[]): string[] {
+  const out: string[] = [];
+  for (const c of codes) {
+    const norm = normalizeStockCode(c);
+    if (norm && isTaiwanStockCode(norm) && !out.includes(norm)) out.push(norm);
+  }
+  return out.sort();
+}
+
 export function useSparklines(codes: string[] | null | undefined, opts?: {
   enabled?: boolean;
   pricesByCode?: Record<string, unknown>;
@@ -150,6 +208,11 @@ export function useSparklines(codes: string[] | null | undefined, opts?: {
   const codesKey = normalizeCodes(codes).sort().join(',');
   const pricesByCode = opts?.pricesByCode ?? {};
   const pricesKey = normalizeCodes(codes).sort().map((c) => `${c}:${Number(pricesByCode[c]) || ''}`).join(',');
+  const pricesRef = useRef(pricesByCode);
+  pricesRef.current = pricesByCode;
+
+  const expected = useExpectedTradeDate();
+  const twCodesKey = twSubsetOf(normalizeCodes(codes)).join(',');
 
   const bumpVersion = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -164,60 +227,41 @@ export function useSparklines(codes: string[] | null | undefined, opts?: {
     };
   }, [bumpVersion]);
 
+  // ── legacy effect：維持既有 deps / candidate / attempt key / 單一 mixed body ──
   useEffect(() => {
     if (!enabled) return;
     const wanted = codesKey ? codesKey.split(',') : [];
     if (!wanted.length) return;
-    const missing = planSparklineFetch(wanted, pricesByCode)
+    const missing = planSparklineFetch(wanted, pricesRef.current)
       .filter((code) => !attemptedRef.current.has(`${code}:${sparklineCacheKey(code)}`));
     if (!missing.length) return;
-    missing.forEach((code) => attemptedRef.current.add(`${code}:${sparklineCacheKey(code)}`));
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await getCheckupGateway()
-          .invoke<{ result?: SparklineMap }>('checkup-sparkline', { codes: missing })
-          .catch(() => null);
-        if (cancelled) return;
-        const result = data?.result;
-        if (!result) {
-          // 整批失敗 → 全數進負快取，避免下次立刻又重試
-          sparklineFailCache.setMany(
-            Object.fromEntries(missing.map((c) => [sparklineCacheKey(c), true as const])),
-          );
-          return;
-        }
-        const good: SparklineMap = {};
-        const partial: SparklineMap = {};
-        const bad: Record<string, true> = {};
-        for (const code of missing) {
-          const entry = result[code];
-          if (!entry) { bad[sparklineCacheKey(code)] = true; continue; }
-          if (isCompleteSparkline(entry)) good[sparklineCacheKey(code)] = entry;
-          else partial[sparklineCacheKey(code)] = entry;
-        }
-        if (Object.keys(good).length) {
-          sparklineCache.setMany(good);
-          Object.keys(good).forEach((key) => {
-            sparklinePartialCache.delete(key);
-            sparklineFailCache.delete(key);
-          });
-        }
-        if (Object.keys(partial).length) {
-          Object.entries(partial).forEach(([key, entry]) => {
-            if (!sparklineCache.get(key)) sparklinePartialCache.set(key, entry);
-          });
-        }
-        if (Object.keys(bad).length) sparklineFailCache.setMany(bad);
-      } catch {
-        /* silent — sparkline 為非關鍵裝飾 */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    const entries = missing.map((code) => ({ code, key: sparklineCacheKey(code) }));
+    entries.forEach((e) => attemptedRef.current.add(`${e.code}:${e.key}`));
+    void runSparklineTask(entries, sparklineTaskDeps);
   }, [codesKey, enabled, pricesKey]);
+
+  // ── TW boundary effect：只在 expected trade date（或 TW code set）改變時重開 attempt ──
+  useEffect(() => {
+    if (!enabled) return;
+    if (!expected.calendarReady || !expected.expectedTradeDate) return; // fail-closed
+    const wanted = twCodesKey ? twCodesKey.split(',') : [];
+    if (!wanted.length) return;
+    const entries: SparklineTaskEntry[] = [];
+    for (const code of wanted) {
+      const key = sparklineCacheKeyForTradeDate(code, expected.expectedTradeDate);
+      if (attemptedRef.current.has(`${code}:${key}`)) continue;
+      const cached = sparklineCache.get(key);
+      if (isCompleteSparkline(cached) && !hasSparklineDrift(cached, pricesRef.current[code])) continue;
+      if (sparklineFailCache.get(key)) continue;
+      entries.push({ code, key });
+      if (entries.length >= SPARKLINE_BATCH_SIZE) break;
+    }
+    if (!entries.length) return;
+    entries.forEach((e) => attemptedRef.current.add(`${e.code}:${e.key}`));
+    void runSparklineTask(entries, sparklineTaskDeps);
+    // 只依賴 expected 與 TW code set：qty / current price 變動不得重打
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, expected.calendarReady, expected.expectedTradeDate, twCodesKey]);
 
   const wanted = codesKey ? codesKey.split(',') : [];
   const sparklines: SparklineMap = {};
@@ -234,33 +278,13 @@ export function useSparklines(codes: string[] | null | undefined, opts?: {
   return { sparklines, sparklineErrors };
 }
 
-const sparklineInFlight = new Set<string>();
-
 /** 候選 D/F：hover 時預載單股 30D 走勢。已存在或快取中則不發請求。 */
 export async function prefetchSparkline(code: string): Promise<void> {
   if (!code || !/^\d{4,6}[A-Z]?$/i.test(code)) return;
   const key = sparklineCacheKey(code);
-  if (sparklineCache.get(key) || sparklinePartialCache.get(key) || sparklineFailCache.get(key) || sparklineInFlight.has(code)) return;
-  sparklineInFlight.add(code);
-  try {
-    const data = await getCheckupGateway()
-      .invoke<{ result?: SparklineMap }>('checkup-sparkline', { codes: [code] })
-      .catch(() => null);
-    const result = data?.result;
-    const entry = result?.[code];
-    if (entry) {
-      if (isCompleteSparkline(entry)) {
-        sparklineCache.set(key, entry);
-        sparklinePartialCache.delete(key);
-        sparklineFailCache.delete(key);
-      }
-      else sparklinePartialCache.set(key, entry);
-    } else if (result) sparklineFailCache.set(key, true);
-  } catch {
-    /* silent */
-  } finally {
-    sparklineInFlight.delete(code);
-  }
+  if (sparklineCache.get(key) || sparklinePartialCache.get(key) || sparklineFailCache.get(key)) return;
+  // 與 batch 共用同一組 reservation：命中即 await 同一顆 task，不會有第二次 invoke
+  await runSparklineTask([{ code, key }], sparklineTaskDeps);
 }
 
 export default useSparklines;
