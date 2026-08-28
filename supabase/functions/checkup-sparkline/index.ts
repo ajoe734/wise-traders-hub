@@ -3,6 +3,14 @@
 //
 // F1：本函式不再自行實作上游抓取。日 K 一律走 `_shared/twPriceWaterfall.ts`
 // （TWSE STOCK_DAY → TPEx → FinMind），該模組內含重試、退避與熔斷記錄。
+//
+// V2（收盤對齊 + retry cooldown）：
+//   - 日鍵改用 Asia/Taipei（`taipeiTodayIso`），不再用 Edge 本機 UTC 日期。
+//   - cache hit 必須同時滿足原有效性 **且** last_bar >= canonical
+//     latestCompletedTradeDate（`expectedLatestBsrDate`，對齊前端 14:05 settle）。
+//   - stale（last_bar < expected）時誠實回傳舊 tradeDate，前端維持 pending；
+//     provider retry 由 `last_attempted_at`（cache JSON internal-only 欄位）
+//     以既有 PARTIAL_TTL_MS 做全域 cooldown，避免 request storm。
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { applyCoercion } from "../_shared/inputCoerce.ts";
@@ -10,15 +18,130 @@ import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { fetchTwDailyOhlc, type TwBar } from "../_shared/twPriceWaterfall.ts";
+import { expectedLatestBsrDate } from "../_shared/tradingDate.ts";
+import { getTwHolidaysCached, taipeiTodayIso } from "../_shared/twTradingCalendar.ts";
+import { coalesce } from "../_shared/requestCoalescer.ts";
 
-/** partial（歷史不完整）結果只快取 30 分鐘，讓下一次請求可以再回補。 */
+// __SLICE_START:constants
+/** partial（歷史不完整）結果只快取 30 分鐘，讓下一次請求可以再回補。
+ *  同一常數也作為 stale 重抓的全域 cooldown（不另設 TTL）。 */
 const PARTIAL_TTL_MS = 30 * 60 * 1000;
 /** 低於這個根數視為 partial。與 waterfall 的 MIN_COMPLETE_BARS 對齊。 */
 const MIN_COMPLETE_BARS = 20;
+/** Edge `isAfterCloseAt` 門檻為台北 14:00；前端 closeAuthority 為 13:30+35=14:05。
+ *  往前平移 5 分鐘讓兩者精確對齊，避免 14:00–14:05 之間無謂 miss。 */
+const SETTLE_ALIGN_MS = 5 * 60 * 1000;
+// __SLICE_END:constants
 
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+// __SLICE_START:classifyCacheEntry
+/**
+ * 快取分類（純函式）。
+ *   miss               → 無可用資料，必須抓
+ *   hit_fresh          → 直接使用
+ *   hit_stale_cooldown → last_bar 落後，但在 retry cooldown 內：serve stale、0 fetch
+ *   refetch            → last_bar 落後且 cooldown 到期：只重抓該 code
+ */
+function classifyCacheEntry(d, expected, nowMs) {
+  const ohlc = Array.isArray(d?.ohlc) ? d.ohlc : [];
+  if (ohlc.length < 2) return 'miss';
+  const complete = d.complete === true || ohlc.length >= MIN_COMPLETE_BARS;
+  if (!complete) {
+    const age = nowMs - Date.parse(String(d.fetched_at ?? ''));
+    if (!(age >= 0 && age < PARTIAL_TTL_MS)) return 'miss';
+  }
+  const lastBar = String(ohlc[ohlc.length - 1]?.date ?? '');
+  if (lastBar && expected && lastBar >= expected) return 'hit_fresh';
+  const attemptedAt = Date.parse(String(d.last_attempted_at ?? d.fetched_at ?? ''));
+  const sinceAttempt = nowMs - attemptedAt;
+  if (Number.isFinite(attemptedAt) && sinceAttempt >= 0 && sinceAttempt < PARTIAL_TTL_MS) {
+    return 'hit_stale_cooldown';
+  }
+  return 'refetch';
+}
+// __SLICE_END:classifyCacheEntry
+
+// __SLICE_START:buildUpsertRow
+/**
+ * 決定要寫回 `checkup_storage.data` 的內容（純函式）。
+ *   - 抓到 >=2 根：更新全部 factual 欄位 + last_attempted_at。
+ *   - 抓取失敗但有舊資料：**只**更新 last_attempted_at 當 retry marker，
+ *     factual 欄位（ohlc/closes/source/fetched_at/complete/bar_count）逐欄保留。
+ *   - 兩者皆無：回 null（不寫）。
+ */
+function buildUpsertRow(prev, next, nowIso) {
+  const nextBars = Array.isArray(next?.ohlc) ? next.ohlc : [];
+  if (nextBars.length >= 2) {
+    return {
+      ohlc: nextBars,
+      closes: nextBars.map((b) => b.close),
+      source: next.source ?? null,
+      fetched_at: nowIso,
+      complete: next.complete === true || nextBars.length >= MIN_COMPLETE_BARS,
+      bar_count: nextBars.length,
+      last_attempted_at: nowIso,
+    };
+  }
+  const prevBars = Array.isArray(prev?.ohlc) ? prev.ohlc : [];
+  if (prevBars.length >= 2) {
+    return {
+      ohlc: prevBars,
+      closes: Array.isArray(prev.closes) ? prev.closes : prevBars.map((b) => b.close),
+      source: prev.source ?? null,
+      fetched_at: prev.fetched_at ?? null,
+      complete: prev.complete === true || prevBars.length >= MIN_COMPLETE_BARS,
+      bar_count: Number.isFinite(prev.bar_count) ? prev.bar_count : prevBars.length,
+      last_attempted_at: nowIso,
+    };
+  }
+  return null;
+}
+// __SLICE_END:buildUpsertRow
+
+// __SLICE_START:entryFromData
+/** 由 cache JSON 造出 response entry（internal-only 欄位不外流）。 */
+function entryFromData(d) {
+  const ohlc = Array.isArray(d?.ohlc) ? d.ohlc : [];
+  const closes = Array.isArray(d?.closes) ? d.closes : ohlc.map((b) => b.close);
+  return {
+    ohlc,
+    closes,
+    source: d?.source ?? null,
+    fetchedAt: d?.fetched_at ?? null,
+    tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
+    complete: d?.complete === true || ohlc.length >= MIN_COMPLETE_BARS,
+    barCount: ohlc.length,
+  };
+}
+// __SLICE_END:entryFromData
+
+// __SLICE_START:planCacheDecisions
+/**
+ * 依快取分類決定「直接供應」與「要抓」的分流（純函式）。
+ * rows: Map<code, cacheData>；回傳 serve（code → cacheData）、toFetch、prev（refetch 者的舊資料）。
+ */
+function planCacheDecisions(codes, rows, expected, nowMs) {
+  const serve = new Map();
+  const prev = new Map();
+  const toFetch = [];
+  let cooldownServed = 0;
+  for (const c of codes) {
+    const d = rows.get(c);
+    if (!d) { toFetch.push(c); continue; }
+    const cls = classifyCacheEntry(d, expected, nowMs);
+    if (cls === 'hit_fresh') { serve.set(c, d); continue; }
+    if (cls === 'hit_stale_cooldown') { serve.set(c, d); cooldownServed += 1; continue; }
+    if (cls === 'refetch') prev.set(c, d);
+    toFetch.push(c);
+  }
+  return { serve, prev, toFetch, cooldownServed };
+}
+// __SLICE_END:planCacheDecisions
+
+
+
+/** canonical「最後完整交易日」。禁止自寫 Mon-Fri，一律走 market calendar。 */
+function expectedTradeDateFor(nowMs: number, holidays?: string[]): string {
+  return expectedLatestBsrDate(nowMs - SETTLE_ALIGN_MS, holidays);
 }
 
 const handler = withLogging('checkup-sparkline', async (req, log) => {
@@ -41,14 +164,19 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
     if (issues.length) return validationResponse(issues, corsHeaders);
 
     const codesRaw: unknown = body?.codes;
-    const codes = (codesRaw as unknown[])
-      .map((v) => String(v).trim())
-      .filter((v) => /^\d{4,6}[A-Z]?$/i.test(v))
-      .slice(0, 30);
+    // 同一 request 內去重：同一代號只可能抓一次。
+    const codes = Array.from(new Set(
+      (codesRaw as unknown[])
+        .map((v) => String(v).trim())
+        .filter((v) => /^\d{4,6}[A-Z]?$/i.test(v)),
+    )).slice(0, 30);
 
     const sb = serviceClient();
 
-    const day = todayKey();
+    const nowMs = Date.now();
+    const holidays = await getTwHolidaysCached(sb as any, nowMs).catch(() => [] as string[]);
+    const day = taipeiTodayIso(nowMs).replace(/-/g, '');
+    const expected = expectedTradeDateFor(nowMs, holidays);
     type Entry = {
       ohlc: TwBar[]; closes: number[]; source?: string | null;
       fetchedAt?: string | null; tradeDate?: string | null;
@@ -56,7 +184,10 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
       complete?: boolean; barCount?: number;
     };
     const result: Record<string, Entry> = {};
-    const toFetch: string[] = [];
+    let toFetch: string[] = [];
+    /** stale 但仍要重抓者的舊資料：抓失敗時回退用，且用來保留 factual 欄位。 */
+    let prevData = new Map<string, any>();
+    let cooldownServed = 0;
 
     const cacheKeys = codes.map((c) => `sparkline_v3_${c}_${day}`);
     if (cacheKeys.length > 0) {
@@ -65,71 +196,73 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
         .select("key,data")
         .eq("user_id", "00000000-0000-0000-0000-000000000000")
         .in("key", cacheKeys);
-      const map = new Map<string, Entry>();
-      const nowMs = Date.now();
+      const rows = new Map<string, any>();
       (cached || []).forEach((row: any) => {
-        const d = row?.data || {};
-        // 只認「有 OHLC」的新快取；舊的 closes-only 快取視為 miss，強制重抓成 K 棒資料
-        const ohlc = Array.isArray(d.ohlc) ? d.ohlc : [];
-        const closes = Array.isArray(d.closes) ? d.closes : (Array.isArray(d) ? d : []);
-        if (ohlc.length < 2) return;
-        const complete = d.complete === true || ohlc.length >= MIN_COMPLETE_BARS;
-        // partial 不得長效：超過 30 分鐘一律視為 miss，讓回補有機會補齊。
-        if (!complete) {
-          const age = nowMs - Date.parse(String(d.fetched_at ?? '')) ;
-          if (!(age >= 0 && age < PARTIAL_TTL_MS)) return;
-        }
-        map.set(row.key, {
-          ohlc, closes,
-          source: d.source ?? null,
-          fetchedAt: d.fetched_at ?? null,
-          tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
-          complete, barCount: ohlc.length,
-        });
+        const code = String(row.key).replace('sparkline_v3_', '').replace(`_${day}`, '');
+        rows.set(code, row?.data || {});
       });
 
-      for (const c of codes) {
-        const k = `sparkline_v3_${c}_${day}`;
-        if (map.has(k)) result[c] = map.get(k)!;
-        else toFetch.push(c);
-      }
+      const plan = planCacheDecisions(codes, rows, expected, nowMs);
+      for (const [c, d] of plan.serve) result[c] = entryFromData(d) as Entry;
+      toFetch = plan.toFetch;
+      prevData = plan.prev;
+      cooldownServed = plan.cooldownServed;
     }
-    log.info('cache_lookup', { total: codes.length, hits: codes.length - toFetch.length, toFetch: toFetch.length });
+
+    log.info('cache_lookup', {
+      total: codes.length,
+      hits: codes.length - toFetch.length,
+      toFetch: toFetch.length,
+      expected,
+      cooldown_served: cooldownServed,
+    });
 
     const batchSize = 6;
     for (let i = 0; i < toFetch.length; i += batchSize) {
       const batch = toFetch.slice(i, i + batchSize);
-      const results = await Promise.all(batch.map((c) => fetchTwDailyOhlc(c, { supa: sb as any })));
+      const results = await Promise.all(batch.map((c) => coalesce(
+        `sparkline:${c}:${expected}`,
+        () => fetchTwDailyOhlc(c, { supa: sb as any }),
+      )));
       const upserts: any[] = [];
       batch.forEach((c, idx) => {
         const r = results[idx];
         const ohlc = r?.bars || [];
-        const closes = ohlc.map((b) => b.close);
-        const fetchedAt = new Date().toISOString();
-        const complete = r?.complete === true || ohlc.length >= MIN_COMPLETE_BARS;
-        result[c] = {
-          ohlc, closes,
-          source: r?.source ?? null,
-          fetchedAt,
-          tradeDate: ohlc[ohlc.length - 1]?.date ?? null,
-          complete, barCount: ohlc.length,
-        };
+        const nowIso = new Date().toISOString();
+        const prev = prevData.get(c) ?? null;
+        const row = buildUpsertRow(
+          prev,
+          { ohlc, source: r?.source ?? null, complete: r?.complete === true },
+          nowIso,
+        );
+
         if (ohlc.length >= 2) {
-          if (!complete) {
+          result[c] = entryFromData(row) as Entry;
+          if (row && row.complete !== true) {
             log.warn('sparkline_partial_history', {
               code: c, bars: ohlc.length, source: r?.source ?? null, attempts: r?.attempts,
             });
           }
+        } else if (prev) {
+          // provider 失敗：誠實保留舊 tradeDate / fetched_at，只寫 retry marker。
+          result[c] = entryFromData(prev) as Entry;
+          log.warn('sparkline_refetch_failed_serving_stale', {
+            code: c, attempts: r?.attempts, stale_trade_date: result[c]?.tradeDate ?? null,
+          });
+        } else {
+          result[c] = {
+            ohlc: [], closes: [], source: r?.source ?? null,
+            fetchedAt: nowIso, tradeDate: null, complete: false, barCount: 0,
+          };
+          log.warn('sparkline_all_sources_failed', { code: c, attempts: r?.attempts });
+        }
+
+        if (row) {
           upserts.push({
             user_id: "00000000-0000-0000-0000-000000000000",
             key: `sparkline_v3_${c}_${day}`,
-            data: {
-              ohlc, closes, source: r?.source ?? null, fetched_at: fetchedAt,
-              complete, bar_count: ohlc.length,
-            },
+            data: row,
           });
-        } else {
-          log.warn('sparkline_all_sources_failed', { code: c, attempts: r?.attempts });
         }
       });
       if (upserts.length > 0) {
