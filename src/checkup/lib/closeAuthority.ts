@@ -21,16 +21,30 @@ import { loadMarketHolidays } from './marketHolidaysLoader';
 
 export type ConfirmedCloseMap = Record<string, ConfirmedClose>;
 
-/** 取一批代號的官方日 K，並轉成收盤身分卡（含 pending 者，供 UI 說明原因）。 */
-export async function fetchDailyCloseCards(
+/**
+ * gateway attempt 的可觀測結果：
+ *   'ok'     invoke resolved 且 `data.result` 是 object（缺席的 code → factual pending）
+ *   'absent' invoke resolved 但 `data.result` 不是 object（回應形狀不合契約）
+ *   'throw'  invoke throw（transport failure）
+ * 只有 'ok' 代表「這次 attempt 真的完成」，caller 才可據此關掉重試。
+ */
+export type CloseFetchTransport = 'ok' | 'throw' | 'absent';
+
+export interface DailyCloseCardsResult {
+  cards: ConfirmedCloseMap;
+  transport: CloseFetchTransport;
+}
+
+/** 取一批代號的官方日 K，並回報 transport（供 caller 判斷 attempt 是否完成）。 */
+export async function fetchDailyCloseCardsDetailed(
   codes: string[],
   now: Date = new Date(),
-): Promise<ConfirmedCloseMap> {
+): Promise<DailyCloseCardsResult> {
   const symbols = Array.from(
     new Set((codes || []).map((c) => String(c || '').trim()).filter(Boolean)),
   );
-  const out: ConfirmedCloseMap = {};
-  if (!symbols.length) return out;
+  const cards: ConfirmedCloseMap = {};
+  if (!symbols.length) return { cards, transport: 'ok' };
 
   // 休市日表未載入時 buildConfirmedClose 會標 pending（不謊報已確認）
   await loadMarketHolidays().catch(() => false);
@@ -38,14 +52,25 @@ export async function fetchDailyCloseCards(
   try {
     const data = await getCheckupGateway()
       .invoke<{ result?: Record<string, SparklineLike> }>('checkup-sparkline', { codes: symbols });
-    const result = data?.result || {};
+    const raw = (data as { result?: unknown } | null | undefined)?.result;
+    const ok = !!raw && typeof raw === 'object' && !Array.isArray(raw);
+    const result = (ok ? raw : {}) as Record<string, SparklineLike>;
     for (const symbol of symbols) {
-      out[symbol] = buildConfirmedClose(symbol, result[symbol], { now });
+      cards[symbol] = buildConfirmedClose(symbol, result[symbol], { now });
     }
+    return { cards, transport: ok ? 'ok' : 'absent' };
   } catch {
-    for (const symbol of symbols) out[symbol] = buildConfirmedClose(symbol, null, { now });
+    for (const symbol of symbols) cards[symbol] = buildConfirmedClose(symbol, null, { now });
+    return { cards, transport: 'throw' };
   }
-  return out;
+}
+
+/** 取一批代號的官方日 K，並轉成收盤身分卡（含 pending 者，供 UI 說明原因）。 */
+export async function fetchDailyCloseCards(
+  codes: string[],
+  now: Date = new Date(),
+): Promise<ConfirmedCloseMap> {
+  return (await fetchDailyCloseCardsDetailed(codes, now)).cards;
 }
 
 /** 只留下已確認的收盤（symbol → close）。 */

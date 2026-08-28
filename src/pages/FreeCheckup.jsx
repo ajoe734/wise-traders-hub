@@ -100,10 +100,11 @@ import {
   useFreeCheckupBootstrap,
   useFetchCalendarEventsRef,
 } from "@/hooks/useFreeCheckupBootstrap";
-import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
+import { fetchAuthoritativeQuotesDetailed } from "@/checkup/lib/authoritativeQuotes";
 import { fetchDailyCloseCards } from "@/checkup/lib/closeAuthority";
 import { confirmedCloseLabel } from "@/checkup/lib/confirmedClose";
-import { latestCompletedTradeDate } from "@/checkup/lib/marketCalendar";
+import { latestCompletedTradeDate, closeAuthorityLane } from "@/checkup/lib/marketCalendar";
+import { closeAuthorityFingerprint, needsCloseAuthorityRefresh } from "@/checkup/lib/closeAlignment";
 
 import { Logomark } from "@/components/brand";
 
@@ -1424,8 +1425,11 @@ export default function App() {
   // 深模組 deps 綁定：每次 render 更新，讓 useHoldingsSync 的 callback 讀到最新值
   syncDepsRef.current = { isDemo, holdings, setHoldings, setSaved, enriched: H, refreshPrices: (...a) => refreshPrices(...a) };
 
-  const refreshPrices = async () => {
-    if (refreshing) return;
+  // opts: { allowAuthority?: boolean, forceAuthority?: boolean }
+  // 回傳 typed outcome，讓 auto effect 能依「可證實的 attempt」決定 one-shot。
+  const refreshPrices = async (opts = {}) => {
+    const allowAuthority = opts.allowAuthority !== false;
+    if (refreshing) return { kind: 'skipped', why: 'refreshing' };
     // ── DEMO 模式 ────────────────────────────────────────────────
     // 以前這裡用 ±1.5% 亂數合成「模擬報價」，於是 8/4 午夜看到的 3443 是
     // 4,239.25，而 8/3 官方收盤是 4,185 —— 假價被當成今日收盤。
@@ -1479,21 +1483,26 @@ export default function App() {
       } finally {
         setRefreshing(false);
       }
-      return;
+      return { kind: 'skipped', why: 'demo' };
     }
 
-    // 30 秒冷卻（避免按鈕連點打 cron / DB）
+    // 30 秒冷卻（避免按鈕連點打 cron / DB）；手動 force 也一樣受此節流
     if (lastUpdate && (Date.now() - lastUpdate.getTime()) < 30 * 1000) {
       const remaining = Math.ceil((30 * 1000 - (Date.now() - lastUpdate.getTime())) / 1000);
       setSaved(`⏳ 請等待 ${remaining} 秒後再刷新`);
       setTimeout(() => setSaved(""), 2500);
-      return;
+      return { kind: 'skipped', why: 'cooldown' };
     }
     setRefreshing(true);
     const codes = H.map(h => h.code);
-    if (codes.length === 0) { setRefreshing(false); return; }
+    if (codes.length === 0) { setRefreshing(false); return { kind: 'skipped', why: 'no-holdings' }; }
     setRefreshStatus({ phase: 'fetching', total: codes.length, ok: 0, fail: codes.length, missingNames: [] });
     appendLog({ task: 'refresh-prices', status: 'start', detail: `${codes.length} 檔（讀 DB + 觸發 sync）` });
+
+    const laneNow = new Date();
+    const expectedTd = latestCompletedTradeDate(laneNow);
+    const fingerprint = closeAuthorityFingerprint(expectedTd, holdings);
+    let outcome = { kind: 'attempted', lane: closeAuthorityLane(laneNow, 'TW') };
 
     try {
       // Step 1: 觸發後端 stock-price-sync（force=1 繞過交易時段守門，給用戶手動觸發機會）
@@ -1504,22 +1513,30 @@ export default function App() {
         }).catch(() => {});
       } catch {}
 
-      // Step 2: 立即走 price-authority seam 取價（收盤後 snapshot 優先，盤中才 current_prices）
-      const quotes = await fetchAuthoritativeQuotes(codes);
+      // Step 2: 走 close-authority lane 取價
+      //   settled + allowAuthority → 官方日 K（唯一 confirmed）
+      //   其他 lane 或 allowAuthority=false → 0 次 checkup-sparkline
+      const { quotes, meta } = await fetchAuthoritativeQuotesDetailed(codes, laneNow, { allowAuthority });
+      outcome = meta.attempted
+        ? { kind: 'attempted', lane: meta.lane, fingerprint, transport: meta.transport }
+        : (meta.lane === 'settled'
+          ? { kind: 'attempted', lane: 'settled', fingerprint, authoritySkipped: true }
+          : { kind: 'attempted', lane: meta.lane });
 
       const priceMap = {};
       Object.entries(quotes || {}).forEach(([symbol, q]) => {
         if (Number(q?.price) > 0) {
           priceMap[symbol] = {
             price: Number(q.price),
-            source: q.source === 'snapshot' ? 'close' : 'db',
+            // confirmed 才是官方收盤；snapshot 鏡像標 pending_close，其餘 db
+            source: q.state === 'confirmed' ? 'close' : (q.source === 'snapshot' ? 'pending_close' : 'db'),
             updatedAt: q.updatedAt,
-            // snapshot 路徑的 updatedAt 就是交易日；quote 路徑沒有收盤身分
-            tradeDate: q.source === 'snapshot' ? (q.updatedAt || null) : null,
+            tradeDate: q.tradeDate || null,   // pending 時為上游 factual 日期或 null，永不填 expected
+            state: q.state,
+            reason: q.reason || null,
           };
         }
       });
-
 
       const nowIso = new Date().toISOString();
       setHoldings(prev => (prev || []).map(h => {
@@ -1527,6 +1544,8 @@ export default function App() {
         if (!hit) {
           return { ...h, priceError: '尚無報價（可能停牌、興櫃，或 sync 尚未完成）' };
         }
+        // authority 被跳過時，不得把已確認的收盤身分洗回 pending
+        if (!allowAuthority && h.priceState === 'confirmed') return h;
         const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
         return {
           ...h,
@@ -1534,8 +1553,8 @@ export default function App() {
           value, pnl, pct,
           priceSource: hit.source,
           priceTradeDate: hit.tradeDate,
-          priceState: hit.tradeDate === latestCompletedTradeDate() ? 'confirmed' : 'pending',
-          priceReason: hit.tradeDate === latestCompletedTradeDate() ? null : 'stale_trade_date',
+          priceState: hit.state,
+          priceReason: hit.state === 'confirmed' ? null : (hit.reason || 'stale_trade_date'),
           priceUpdatedAt: hit.updatedAt || nowIso,
           priceError: null,
         };
@@ -1570,26 +1589,49 @@ export default function App() {
     } finally {
       setRefreshing(false);
     }
+    return outcome;
   };
 
-  // ── 進入「持倉」分頁時自動刷新一次，避免看板顯示舊資料 ──
-  // 只在資料明顯過期（>3 分鐘）且非刷新中時觸發；DEMO 模式亦允許（走模擬路徑）
+  // ── 自動刷新（進頁面 immediate + 週期 timer 共用同一條 gate）──
+  // close-authority one-shot：同一 fingerprint（expected 交易日 + TW 代號集合）
+  // 只要有一次 transport ok 的 attempt 完成，本次 mount 內就不再打 checkup-sparkline，
+  // stale=true 也不得繞過；transport throw/absent 不記完成，60 秒後可重試。
   const holdingsAutoRefreshRef = useRef({ lastTab: null, lastRunAt: 0 });
-  useEffect(() => {
-    const prev = holdingsAutoRefreshRef.current.lastTab;
-    holdingsAutoRefreshRef.current.lastTab = tab;
-    if (tab !== 'holdings') return;
-    if (!holdings || holdings.length === 0) return;
+  const authorityDoneRef = useRef(new Set());
+  const autoDisposedRef = useRef(false);
+  useEffect(() => () => { autoDisposedRef.current = true; }, []);
+
+  const runAutoRefresh = async () => {
     if (refreshing) return;
+    if (!holdings || holdings.length === 0) return;
     const minutes = getAutoRefreshMinutes();
     if (minutes <= 0) return; // 使用者關閉自動刷新
+    const now = new Date();
+    const lane = closeAuthorityLane(now, 'TW');
+    const expected = latestCompletedTradeDate(now);
+    const fp = closeAuthorityFingerprint(expected, holdings);
+    const authorityDone = lane === 'settled' && authorityDoneRef.current.has(fp);
     const intervalMs = minutes * 60 * 1000;
     const stale = !lastUpdate || (Date.now() - lastUpdate.getTime()) > intervalMs;
-    if (prev === 'holdings' && !stale) return;
-    if (!stale) return;
+    const due = stale || needsCloseAuthorityRefresh(holdings, now);
+    if (!due) return;
+    // 收盤已定版且本 fingerprint 已完成 → 整次 price refresh 跳過（0 Edge）
+    if (authorityDone) return;
     if (Date.now() - (holdingsAutoRefreshRef.current.lastRunAt || 0) < 60 * 1000) return;
     holdingsAutoRefreshRef.current.lastRunAt = Date.now();
-    const t = setTimeout(() => { refreshPrices().catch(() => {}); }, 300);
+    const out = await refreshPrices({ allowAuthority: true }).catch(() => null);
+    if (autoDisposedRef.current) return;
+    if (out && out.kind === 'attempted' && out.lane === 'settled' && out.transport === 'ok' && out.fingerprint) {
+      authorityDoneRef.current.add(out.fingerprint);
+    }
+  };
+  const runAutoRefreshRef = useRef(runAutoRefresh);
+  runAutoRefreshRef.current = runAutoRefresh;
+
+  useEffect(() => {
+    holdingsAutoRefreshRef.current.lastTab = tab;
+    if (tab !== 'holdings') return;
+    const t = setTimeout(() => { runAutoRefreshRef.current().catch(() => {}); }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, holdings]);
@@ -1607,10 +1649,7 @@ export default function App() {
       timerId = setTimeout(async () => {
         if (disposed) return;
         try {
-          if (!refreshing && document.visibilityState !== 'hidden' && holdings && holdings.length > 0) {
-            holdingsAutoRefreshRef.current.lastRunAt = Date.now();
-            await refreshPrices();
-          }
+          if (document.visibilityState !== 'hidden') await runAutoRefreshRef.current();
         } catch {}
         schedule();
       }, intervalMs);
