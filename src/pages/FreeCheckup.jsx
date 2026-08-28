@@ -1599,7 +1599,12 @@ export default function App() {
   const holdingsAutoRefreshRef = useRef({ lastTab: null, lastRunAt: 0 });
   const authorityDoneRef = useRef(new Set());
   const autoDisposedRef = useRef(false);
-  useEffect(() => () => { autoDisposedRef.current = true; }, []);
+  // StrictMode effect probe：setup→cleanup(true)→setup，setup 必須重設為 false，
+  // 否則 ref 永久 true，authorityDoneRef 永遠不記 fingerprint，週期刷新會重打 Edge。
+  useEffect(() => {
+    autoDisposedRef.current = false;
+    return () => { autoDisposedRef.current = true; };
+  }, []);
 
   const runAutoRefresh = async () => {
     if (refreshing) return;
