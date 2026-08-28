@@ -145,3 +145,46 @@ describe('holdingsValueKeyFull (useRouteHoldingsPage D-Perf-R6)', () => {
     expect(holdingsValueKeyFull(a)).not.toBe(holdingsValueKeyFull(b));   // full 變
   });
 });
+
+// ── Stage 1 (2026-08-28)：close identity 必須進 short key ────────────────
+// RC-A：refreshPrices 在 price 未變時只改 priceTradeDate/priceState，
+// 舊 key 不變 → FreeCheckup.jsx:1229 的 H memo 命中舊 array → banner 永遠待確認。
+describe('holdingsValueKeyShort — close identity', () => {
+  const base = { code: '2330', qty: 10, price: 1000, cost: 950 };
+
+  it('priceTradeDate / priceState 由 pending 舊日 → confirmed 當日：key 必須改變', () => {
+    const a = [{ ...base, priceTradeDate: '2026-08-27', priceState: 'pending' }];
+    const b = [{ ...base, priceTradeDate: '2026-08-28', priceState: 'confirmed' }];
+    expect(holdingsValueKeyShort(a)).not.toBe(holdingsValueKeyShort(b));
+  });
+
+  it('priceState 單獨變動（同交易日）→ key 改變', () => {
+    const a = [{ ...base, priceTradeDate: '2026-08-28', priceState: 'pending' }];
+    const b = [{ ...base, priceTradeDate: '2026-08-28', priceState: 'confirmed' }];
+    expect(holdingsValueKeyShort(a)).not.toBe(holdingsValueKeyShort(b));
+  });
+
+  it('priceSource current → close：key 改變', () => {
+    const a = [{ ...base, priceSource: 'current' }];
+    const b = [{ ...base, priceSource: 'close' }];
+    expect(holdingsValueKeyShort(a)).not.toBe(holdingsValueKeyShort(b));
+  });
+
+  it('priceError 字串 → null：key 改變', () => {
+    const a = [{ ...base, priceError: '尚無報價' }];
+    const b = [{ ...base, priceError: null }];
+    expect(holdingsValueKeyShort(a)).not.toBe(holdingsValueKeyShort(b));
+  });
+
+  it('priceUpdatedAt 刻意不納入：只有它變動時 key 不變（維持穩定 reference 效能契約）', () => {
+    const a = [{ ...base, priceUpdatedAt: '2026-08-28T06:00:00Z' }];
+    const b = [{ ...base, priceUpdatedAt: '2026-08-28T07:00:00Z' }];
+    expect(holdingsValueKeyShort(a)).toBe(holdingsValueKeyShort(b));
+  });
+
+  it('欄位缺值正規化成空字串，且 price 變動仍改 key、空陣列仍回空字串', () => {
+    expect(holdingsValueKeyShort([base])).toBe('n=1:2330|10|1000|950||||');
+    expect(holdingsValueKeyShort([{ ...base, price: 1001 }])).not.toBe(holdingsValueKeyShort([base]));
+    expect(holdingsValueKeyShort([])).toBe('');
+  });
+});
