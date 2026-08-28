@@ -833,10 +833,9 @@ export const runBatchPhases: (
     );
 
     // ---- payload phase：只跑 stamp 成功的 code，且此階段不得再算 stamp ----
-    const pending = [];
-    for (let i = 0; i < ids.length; i++) {
-      if (errors[i] === null) pending.push({ id: ids[i], i });
-    }
+    const pending = ids
+      .map((id, i) => ({ id, i }))
+      .filter(({ i }) => errors[i] === null);
     let pi = 0;
     const payloadWorker = async () => {
       while (pi < pending.length) {
