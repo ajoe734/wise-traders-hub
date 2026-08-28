@@ -10,27 +10,30 @@
  * bundle and the only thing standing between an anonymous visitor and a
  * component that renders economic numbers was a string comparison.
  *
- * A runtime environment check is a configuration boundary, not a security
- * boundary. These routes are therefore excluded at BUILD time: the caller
- * guards on `import.meta.env.DEV`, Vite replaces that with the literal
- * `false` for `vite build`, and Rollup drops this whole module plus every
- * `import()` below — the harness chunks are never emitted, so a production
- * bundle scan finds no route, no component and no chunk.
+ * Gate model (changed): the previous build-time-only gate (`import.meta.env.DEV`
+ * as a literal) meant Rollup stripped this module from every non-dev build —
+ * including Lovable's **unpublished Hosted Preview**, which is a production-like
+ * build. `preview--<slug>.lovable.app/e2e/...` therefore 404'd and the harness
+ * seam could not be verified by hand on Hosted.
  *
- * Consequence for tests: harness specs only run against the dev server
- * (which is what `playwright.config.ts` targets). Anything that must hold on
- * a production build has to be asserted through the product routes with
- * network interception.
+ * The gate is now a RUNTIME check with a closed allow-list
+ * (`src/routes/harnessHostGate.ts`): local dev/localhost, or a hostname that
+ * exactly matches `preview--<slug>.lovable.app`. Custom domains
+ * (legendflow.tw / www.legendflow.tw), published production and any lookalike
+ * host stay 404. The query string never grants access, and every harness page
+ * renders fake-gateway fixtures only — no real user data, no live DB/Edge call.
+ *
+ * Because the gate is not a build-time literal, the harness chunks are emitted
+ * but remain unreachable code behind the host check; they are only ever
+ * `import()`-ed after `harnessRoutesEnabled()` returns true.
  */
 import { lazy } from "react";
 import { Route } from "react-router-dom";
+import { harnessRoutesEnabled } from "./harnessHostGate";
 
-// Literal at build time: `vite build` substitutes `false`, so every `lazy()`
-// below collapses to `null` and Rollup never emits the harness chunks. A
-// module-level const (rather than a check inside the route factory) is what
-// makes the dynamic imports statically unreachable — with the check further
-// down, the chunks were still emitted and listed in the preload manifest.
-const DEV = import.meta.env.DEV;
+// Runtime (NOT a build-time literal) — deliberately keeps Rollup from
+// tree-shaking the preview-host path away.
+const DEV = harnessRoutesEnabled();
 
 const HoldingCardHarnessEntry = DEV ? lazy(() => import("../pages/HoldingCardHarnessEntry")) : (() => null);
 const RangeBandHarnessEntry = DEV ? lazy(() => import("../pages/RangeBandHarnessEntry")) : (() => null);
