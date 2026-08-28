@@ -7,7 +7,6 @@ import { ArrowUp } from 'lucide-react';
 import { getSparkCloses } from '@/checkup/lib/holdingDetailViewModel';
 import { useSparklines } from '@/checkup/hooks/useSparklines';
 import { useChipsBatch } from '@/checkup/hooks/useChipsBatch';
-import { useCheckupMode } from '@/checkup/contexts/CheckupModeContext';
 import { EMPTY_SPARK } from '@/pages/_freeCheckup/constants.jsx';
 import HoldingCard from '@/checkup/components/freecheckup/HoldingCard';
 
@@ -85,8 +84,6 @@ function HoldingsWorkbench(props) {
 
   const showPanel = !!selected;
 
-  const { isDemo } = useCheckupMode();
-
   // 候選 D/F：走勢與籌碼資料在 workbench 層統一取得，不再由 FreeCheckup 父層 prop 透傳。
   const sparklineCodes = useMemo(
     () => orderedDisplayed.map((h) => String(h.code).trim()).filter(Boolean),
@@ -102,7 +99,7 @@ function HoldingsWorkbench(props) {
     enabled: true,
     pricesByCode: sparklinePrices,
   });
-  const { prefetch } = useChipsBatch({ codes: sparklineCodes, enabled: !isDemo });
+  const { prefetch } = useChipsBatch({ codes: sparklineCodes, enabled: true });
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const onScrollRef = useRef<(() => void) | null>(null);
