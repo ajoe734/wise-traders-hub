@@ -51,7 +51,7 @@ const JournalAuthoringHarnessEntry = lazy(() => import("../pages/JournalAuthorin
 const ShellEventBusHarnessEntry = lazy(() => import("../pages/ShellEventBusHarnessEntry"));
 
 interface HarnessRouteGuardProps {
-  children: ReactNode;
+  children?: ReactNode;
   /** Explicit only for executable contracts; production routes omit this. */
   hostname?: string;
 }

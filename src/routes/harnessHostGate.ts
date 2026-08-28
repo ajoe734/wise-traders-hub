@@ -22,12 +22,12 @@
 /** unpublished Hosted Preview：`preview--<slug>.lovable.app`，完全錨定。 */
 export const PREVIEW_HOST_RE = /^preview--[a-z0-9-]+\.lovable\.app$/;
 
-/** 本機開發主機（含 IPv6 loopback 的方括號形式）。 */
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]', '::1']);
+/** Harness runtime allow-list 僅接受明確的本機 hostname。 */
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
 
 export function isLocalHost(hostname: string): boolean {
   const h = String(hostname || '').toLowerCase();
-  return LOCAL_HOSTS.has(h) || h.endsWith('.localhost');
+  return LOCAL_HOSTS.has(h);
 }
 
 export function isPreviewHost(hostname: string): boolean {

@@ -26,8 +26,6 @@ import { HarnessRouteGuard } from '@/routes/harnessRoutes';
 const ALLOW = [
   'localhost',
   '127.0.0.1',
-  '0.0.0.0',
-  '[::1]',
   'preview--wise-traders-hub.lovable.app',
   'preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
 ];
@@ -38,6 +36,9 @@ const DENY = [
   'www.legendflow.tw',
   // published production
   'wise-traders-hub.lovable.app',
+  '0.0.0.0',
+  '[::1]',
+  'dev.localhost',
   'id-preview--0f5bdae6.lovable.app', // 非 preview-- 開頭
   // lookalike / suffix 注入
   'preview--x.lovable.app.evil.com',
