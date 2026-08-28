@@ -1,116 +1,126 @@
-# HOLDINGS_CLOSE_AUTHORITY_RUNTIME_ROOT_READY
+# HOLDINGS_CLOSE_AUTHORITY_DESIGN_V2_READY
 
-只讀稽核完成。未改任何檔、未 deploy、未 Publish、未寫 DB／cron／secret，未呼叫 provider。Stage 1 memo fix 保留（下方證據顯示它必要且無 regression）。
+依 PLAN_REVIEW_1 修訂。仍為 Plan mode：未改檔、未 deploy、未 Publish、未寫 DB／cron／secret、未呼叫 provider。Stage 1 memo fix 保留，Stage 2 凍結。
 
-## A. Hosted profile 實際走哪個 branch
+## 0. 修正：exact 20 codes 與 factual 計數
 
-- `useCheckupMode().isDemo` 只控制 Demo 模式；畫面「DEMO 1」是 `HoldingsHero.tsx:56` 依 `h.priceSource` 統計的來源分佈，**與 isDemo 無關**。
-- `FreeCheckup.jsx:1434 if (isDemo)` → 走 `fetchDailyCloseCards`（收盤權威）。本 profile 有 19 筆 db 來源＋雲端持倉，`isDemo=false`。
-- 因此 **reload auto refresh（`FreeCheckup.jsx:1578-1595` → 1592 `refreshPrices()`）與手動「立即更新持倉報價」走的是同一條 `refreshPrices()` 非 Demo 分支：`FreeCheckup.jsx:1508 fetchAuthoritativeQuotes(codes)`**。`fetchDailyCloseCards` 在此 profile **從未被呼叫**。
+採用你提供的 Hosted profile 清單（**排除 2330**）：
 
-## B. 這 21 個 code 的 live 交叉表（不是全表總數）
+`3443, 3017, 6274, 2308, 039108, 3491, 702157, 053848, 2313, 8227, 1717, 3006, 00637L, 3013, 6862, 4583, 3231, 1503, 6770, 2543`
 
-代號來源：`checkup_storage` 今日 key `sparkline_v3_<code>_20260829`（server 端全域市場快取）。
+| 分類 | 檔數 | codes | 預期 source |
+| --- | --- | --- | --- |
+| sparkline last_bar = 2026-08-28（expected） | 16 | 3443, 3017, 6274, 2308, 3491, 2313, 8227, 1717, 3006, 3013, 6862, 4583, 3231, 1503, 6770, 2543 | confirmed close（`checkup-sparkline`），`priceTradeDate=2026-08-28`, `priceState=confirmed` |
+| sparkline last_bar = 2026-08-28、無 daily snapshot | 1 | 00637L | 同上，由 close lane 解決（不需 snapshot） |
+| factual lag | 3 | 039108(07-02), 053848(08-25), 702157(07-28) | **pending**；價格 fallback，`priceTradeDate` 維持 factual 舊日期 |
 
-| code | sparkline last_bar | daily_price_snapshots 2026-08-28 | close | snapshot created_at | current_prices updated_at |
-| --- | --- | --- | --- | --- | --- |
-| 00637L | 2026-08-28 | 無列 | — | — | 無列 |
-| 039108 | 2026-07-02 | 有 | 52.5 | 08-28 06:00Z | 2026-06-09 |
-| 053848 | 2026-08-25 | 有 | 3.1 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 1503 | 2026-08-28 | 有 | 233 | 08-28 06:00Z | 2026-06-09 |
-| 1717 | 2026-08-28 | 有 | 77.7 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 2308 | 2026-08-28 | 有 | 1830 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 2313 | 2026-08-28 | 有 | 241 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 2330 | 2026-08-28 | 有 | 2420 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 2543 | 2026-08-28 | 有 | 38.3 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 3006 | 2026-08-28 | 有 | 214.5 | 08-28 06:00Z | 2026-06-09 |
-| 3013 | 2026-08-28 | 有 | 117.5 | 08-28 06:00Z | 2026-06-09 |
-| 3017 | 2026-08-28 | 有 | 3360 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 3231 | 2026-08-28 | 有 | 178 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 3443 | 2026-08-28 | 有 | 6015 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 3491 | 2026-08-28 | 有 | 1510 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 4583 | 2026-08-28 | 有 | 467 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 6274 | 2026-08-28 | 有 | 1620 | 08-28 06:00Z | 2026-06-09 |
-| 6770 | 2026-08-28 | 有 | 70 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 6862 | 2026-08-28 | 有 | 143.5 | 08-28 06:00Z | 2026-08-28 06:05Z |
-| 702157 | 2026-07-28 | 有 | 8 | 08-28 06:00Z | 2026-06-09 |
-| 8227 | 2026-08-28 | 有 | 193 | 08-28 06:00Z | 2026-06-09 |
+→ **17 aligned / 3 pending**（不是先前寫的 18+3）。3 檔雖有 `daily_price_snapshots` 2026-08-28 列，仍**不得**升格為 confirmed（理由見 §3）。
 
-`fetchConfirmedCloses` 最終 state（以上表 last_bar + `confirmedClose.ts:130-140` 規則推導，未實際 invoke provider）：18 檔 `confirmed / 2026-08-28`；`039108`、`053848`、`702157` 為 `pending / stale_trade_date`；`00637L` 無 snapshot／無 current_prices，UNKNOWN（sparkline 已對齊 08-28，可望 confirmed）。
+## 1. Close-authority lane（phase-aware，重用 canonical calendar）
 
-**結論：伺服器側資料是夠的。畫面 20/20 pending 純屬 client 取數路徑問題。**
-
-## C. `authoritativeQuotes.ts` 逐行判定（exact last writer）
-
-- `authoritativeQuotes.ts:52 const phase = marketPhase(market, now)`，`:54 if (phase.hasSettledSnapshot)` 是**唯一**進入收盤權威的閘門。
-- `marketClock.ts:54-56`：TW 週末直接 early-return `hasSettledSnapshot:false`；`:63-64` 平日也只有「今天 13:30+35min 之後」才 true。
-- Asia/Taipei 2026-08-29（週六）00:05 → `hasSettledSnapshot=false` → **`fetchConfirmedCloses`（:57）與 `daily_price_snapshots`（:75）兩段全部跳過**，直接落到 `:100 current_prices`，回傳 `source:'current'`。
-- `FreeCheckup.jsx:1515-1518`：`source==='current'` → `source:'db'`、**`tradeDate: null`** → `:1537` `priceState='pending'`、`:1538` reason `stale_trade_date`。這就是 exact last writer，20/20 pending 由它產生，與 memo 無關。
-- 第二個獨立缺陷：`:78 .eq('trade_date', phase.marketDate)` 用的是「今天」而非 `latestCompletedTradeDate()`。就算閘門放行，週六查的是 `2026-08-29`，DB 只有 `2026-08-28`，仍 0 列。
-- code normalization／market classification 沒問題：`detectHoldingMarket` 對 4-6 位數字回 TW，`039108/053848/702157` 亦符合；miss 不是 shape 問題。
-- 其他 `setHoldings` path 檢查：`:758-775` Realtime 只 `...h` 展開並改 `price/priceSource:'realtime'/priceUpdatedAt`，**不覆寫** `priceTradeDate/priceState`；`:2057-2061` 日報路徑只改 `price/value/pnl/pct`；`:2651` 為匯入路徑。**沒有任何 path 會抹掉收盤身分——問題是它從來沒被寫進去過。**
-
-## D. Auto refresh gate 稽核
-
-`FreeCheckup.jsx:1587 const stale = !lastUpdate || (Date.now()-lastUpdate) > intervalMs`。`lastUpdate` 由 `:1548`（quote 抓取時間）與 `:1643`（`priceUpdatedAt` 種入）決定，**等同「報價剛更新」，完全不看收盤身分**。00:01 更新 + 5 分鐘設定 → reload 時 `stale=false` → 不刷新。這是第二個必要條件。
-
-最小 cooldown-safe predicate（純函式，不新增 provider polling）：
+新增純函式（放 `src/checkup/lib/marketCalendar.ts`，與 `sessionPhase`/`settleMinute` 同檔，不新增第二套時鐘）：
 
 ```
-needsCloseAuthorityRefresh(holdings, now) =
-  總數>0 且 存在 h 使 (h.priceState !== 'confirmed' || h.priceTradeDate?.slice(0,10) !== latestCompletedTradeDate(now))
+closeAuthorityLane(now, market='TW'):
+  if (!holidaysLoaded(market)) return 'unknown'          // fail-closed
+  const { localDate, localMinutes } = sessionPhase(now, market)
+  if (!isTradingDay(localDate)) return 'settled'          // 週末 + tw_market_holidays 休市日
+  if (localMinutes < RULES.openMin)            return 'settled'   // 平日盤前
+  if (localMinutes <= RULES.closeMin)          return 'intraday'  // 09:00–13:30
+  if (localMinutes <  settleMinute(market))    return 'settling'  // 13:30–14:05
+  return 'settled'                                                // 14:05 後
 ```
 
-併入 `:1587`：`const due = stale || needsCloseAuthorityRefresh(holdings)`，其餘 guard 完全沿用（`refreshing`、`minutes<=0`、既有 60 秒 `lastRunAt`、`refreshPrices` 內 30 秒冷卻）。收斂後 predicate 自動回 false，不會 storm。
+- `intraday` / `settling`：**維持 current/realtime**，不打 `checkup-sparkline`、不查 snapshot；`priceTradeDate=null`、`priceState='pending'` 是刻意語意。
+- `settled`：優先 canonical `latestCompletedTradeDate(now)` 的 confirmed close / snapshot。
+- `unknown`（`tw_market_holidays` 未載入或載入失敗）：**fail-closed** — 不進 close lane、不打 Edge、一律 current + pending，且 §4 predicate 回 false（不能判定 expected 就不許 storm）。`loadMarketHolidays()` 既有「同一台北日只打一次」快取沿用，不新增輪詢。
 
-## E. Preview build identity
+不使用 Mon-Fri 猜測：週末與休市日一律由 `isTradingDay`（吃注入的 `tw_market_holidays`）判定。
 
-平台未對 sandbox 暴露 hosted preview 的 build hash／revision endpoint（先前 canary 亦因 Lovable auth-bridge cookie 而無法取得）。**標 UNKNOWN**，不以 repo hash 冒充。本輪不以「Stage 1 是否載入」作為結案依據——因為即使已載入，C 的 coverage miss 仍會使 banner 停在 20/20，兩者無法互相證偽。
+## 2. `authoritativeQuotes.ts` merge contract（exact）
 
-## 1. 唯一 root chain
+現況 merge（`authoritativeQuotes.ts:54/75/100`）：`hasSettledSnapshot` → confirmed close → 只補 `!out[s]` 的 snapshot → 再只補 `!out[s]` 的 current。改為：
 
-```text
-週末／未過 14:05 → marketClock.hasSettledSnapshot=false
-  → authoritativeQuotes 跳過 confirmed-close 與 snapshot 兩段（coverage miss，必要條件 1）
-  → 只回 current_prices，tradeDate=null
-  → FreeCheckup:1537 priceState='pending' → banner 20/20
-且 auto gate 以 quote 新鮮度判 stale（必要條件 2）→ reload 不觸發刷新
-（次要）snapshot 查詢用 phase.marketDate 而非 latestCompletedTradeDate → 閘門修好仍會 0 列
-Stage 1 memo fix：必要但不充分（identity 從未變化，memo 無從失效）
+```
+TW:
+  lane = closeAuthorityLane(now)
+  if lane === 'settled':
+      expected = latestCompletedTradeDate(now, {market:'TW'})
+      1) cards = fetchConfirmedCloses(list, now)       // 唯一一次 Edge call
+         → state==='confirmed' → { price: cc.close, tradeDate: cc.tradeDate, state:'confirmed', source:'close' }
+      2) daily_price_snapshots .eq('trade_date', expected) 只補 unresolved
+         → { price, tradeDate: expected, state:'confirmed', source:'snapshot' }   // 見 §3 適用範圍
+      3) current_prices 只補 unresolved
+         → { price, tradeDate: null, state:'pending', source:'current' }
+  else (intraday / settling / unknown):
+      current_prices only → { tradeDate: null, state:'pending', source:'current' }   // 0 Edge call
+非 TW（US / US_OPTION / CRYPTO）：行為完全不變，沿用 marketPhase.hasSettledSnapshot 既有路徑。
 ```
 
-## 2. Exact minimal allowlist（4 檔）
+型別擴充（唯一 shape 變更）：`AuthoritativeQuote` 增 `tradeDate: string | null` 與 `state: 'confirmed' | 'pending'`。`FreeCheckup.jsx:1515-1518` 改為直接讀 `q.tradeDate` / `q.state`，不再用 `source==='snapshot'` 反推（那正是把 snapshot 誤當收盤身分的來源）。`:1537-1538` 改為 `priceState: q.state`，並保留與 `latestCompletedTradeDate()` 的一致性斷言（不一致 → pending）。
+
+## 3. 單一 authority 規則（解決「Edge 說 stale 但 snapshot 有 08-28」）
+
+**規則：TW 的收盤身分（confirmed）只由官方日 K（`checkup-sparkline` → `buildConfirmedClose`）授予；`daily_price_snapshots` 不得授予收盤身分。**
+
+既有 product contract 證據：
+- `src/checkup/lib/closeAuthority.ts:5-12` 明文：「`daily_price_snapshots` 是每日 14:00 從 `current_prices` 複寫的鏡像，冷門股（例 6274 連三日都寫 1620）會把上一次成功的盤中 quote 偽裝成當日收盤，且欄位缺 OHLC。官方日 K 才是收盤事實。」
+- `src/checkup/lib/confirmedClose.ts:96-101 isCompleteBar()`：confirmed 需要 OHLCV 齊全且 volume>0，snapshot 表無此欄位，結構上無法滿足。
+- 本輪 live 佐證：`039108` snapshot close 52.5 = `current_prices` 52.5（updated_at 2026-06-09），正是上述「舊 quote 被鏡像成收盤」情境。
+
+因此：
+- **confirmed close 絕對優先**；`00637L` 由 close lane 解決（無 snapshot 也沒關係）。
+- **lagging 3 檔（039108/053848/702157）不得被 08-28 snapshot 覆蓋成 confirmed**。它們走 §2 步驟 3：`state='pending'`、`tradeDate` 保留 sparkline 的 factual 日期（由 `fetchDailyCloseCards` 的 pending card 提供，不是 null），`priceReason='stale_trade_date'`。
+- §2 步驟 2 的 snapshot 只服務「**close lane 完全沒回應該 code**」（Edge 失敗／逾時／該 code 不在回應中）的情況，且此時 `state` 標 **pending**、`tradeDate=expected` 僅作 price fallback 顯示，不宣稱 confirmed。→ 實務上 20 檔都不會走到，contract 上不留矛盾。
+
+## 4. `needsCloseAuthorityRefresh` 也 phase-aware
+
+```
+needsCloseAuthorityRefresh(holdings, now):
+  if (closeAuthorityLane(now) !== 'settled') return false     // 盤中/settling/unknown 的 pending 是刻意
+  const expected = latestCompletedTradeDate(now, {market:'TW'})
+  return holdings.some(h => h.priceState !== 'confirmed'
+                         || String(h.priceTradeDate||'').slice(0,10) !== expected)
+```
+
+併入 `FreeCheckup.jsx:1587`：`const due = stale || needsCloseAuthorityRefresh(holdings)`。**`refreshing` guard、60 秒 `lastRunAt`、`refreshPrices` 內 30 秒 lastUpdate 冷卻全部保留**。收斂後（17 confirmed、3 檔 factual pending）predicate 仍會為 true → 因此 60s `lastRunAt` 之外**再加一道 per-expected-date one-shot**：`authorityAttemptRef.current[expected]` 已嘗試過就不再觸發，直到跨到新的 expected 交易日。這是防 storm 的關鍵，測試要覆蓋。
+
+## 5. Exact minimal allowlist（5 檔）
 
 | 檔案 | 變更 |
 | --- | --- |
-| `src/checkup/lib/authoritativeQuotes.ts` | TW 一律先試 `fetchConfirmedCloses`（不受 `hasSettledSnapshot` 限制）；`daily_price_snapshots` 改用 `latestCompletedTradeDate(now,{market:'TW'})` 當 `trade_date`；`current_prices` 維持最後 fallback（`source:'current'`，tradeDate 仍為 null，不偽造）。回傳型別不變。 |
-| `src/checkup/lib/closeAlignment.ts` | 新增純函式 `needsCloseAuthorityRefresh(holdings, now)`（D 段定義）。 |
-| `src/pages/FreeCheckup.jsx` | 僅 `:1587-1589` 併入 `needsCloseAuthorityRefresh`；其餘 guard 一字不動。 |
-| `src/test/unit/authoritative-quotes.test.ts` + `src/test/unit/close-alignment.test.ts` | 下述 red→green 案例。 |
+| `src/checkup/lib/marketCalendar.ts` | 新增純函式 `closeAuthorityLane(now, market)`（§1）。不改既有 export 行為。 |
+| `src/checkup/lib/authoritativeQuotes.ts` | TW 改走 lane + `latestCompletedTradeDate` 的 snapshot 查詢；`AuthoritativeQuote` 加 `tradeDate`/`state`；非 TW 不變。 |
+| `src/checkup/lib/closeAlignment.ts` | 新增 `needsCloseAuthorityRefresh(holdings, now)`（§4 前半，phase-aware）。 |
+| `src/pages/FreeCheckup.jsx` | 只改 `:1510-1521` merge 讀 `q.tradeDate/q.state`、`:1537-1538`、`:1587-1591` 併入 predicate + per-expected one-shot ref。其餘 guard 一字不動。 |
+| `src/test/unit/authoritative-quotes.test.ts`（擴充）+ `src/test/unit/close-authority-lane.test.ts`（新增） | §6 測試。 |
 
-不動 `marketClock.ts`（`hasSettledSnapshot` 另有 `useAuthoritativePrices` 消費者，改它會擴散）、不動 `useSparklines.ts`、Edge、DB、cron。
+不動 `marketClock.ts`（`useAuthoritativePrices` 仍消費 `hasSettledSnapshot`）、不動 `useSparklines.ts`、`holdingsSort.ts`、Edge、DB、cron。
 
-## 3. Fixed-time red→green tests
+## 6. Fixed-time red→green tests（全部 assert invocation count）
 
-固定時鐘，皆先紅：
+mock `getCheckupGateway().invoke` 與 supabase `from()`，每案同時斷言 **source / state / tradeDate** 與 **`checkup-sparkline` invoke 次數**：
 
-1. `2026-08-29T00:05+08`（週六）：20 檔 → 目前全部 `source:'current'`；修後 18 檔 `source:'snapshot'` 且 `updatedAt='2026-08-28'`，3 檔落後者維持 `current`（誠實 pending）。
-2. `2026-08-28T02:00+08`（平日開盤前）：expected 仍是 `2026-08-27`，不得誤判為 08-28。
-3. `2026-08-28T14:40+08`（已定版）：維持既有行為，snapshot 查 `2026-08-28`。
-4. `2026-08-28T13:40+08`（settling）：不得宣稱當日 confirmed。
-5. `needsCloseAuthorityRefresh`：全 confirmed+expected → false；任一 pending 或日期不符 → true；空陣列 → false。
-6. 回歸：`authoritative-quotes.test.ts` 既有 4 案、`holdings-close-memo.test.tsx`、`holdings-sort.test.ts` 全綠；再跑一次完整 suite 確認 0 regress。
+| # | 固定時間（Asia/Taipei） | 預期 |
+| --- | --- | --- |
+| 1 | Fri 2026-08-28 10:00 | current wins、`state=pending`、`tradeDate=null`、**sparkline invoke = 0**、snapshot query = 0 |
+| 2 | Fri 2026-08-28 13:40（settling） | 同上，**invoke = 0**，不得宣稱當日收盤 |
+| 3 | Fri 2026-08-28 14:06 | confirmed wins、`tradeDate=2026-08-28`、invoke = 1 |
+| 4 | Sat 2026-08-29 00:05 | expected = 2026-08-28、invoke = 1 |
+| 5 | 平日盤前 Fri 2026-08-28 02:00 | expected = 2026-08-27（前一交易日），不得誤判 08-28 |
+| 6 | 休市日（注入 `tw_market_holidays` 含當日） | 使用前一交易日 close、invoke = 1 |
+| 7 | calendar unavailable（`holidaysLoaded=false`） | 全部 current/pending、**invoke = 0**、不偽稱 confirmed |
+| 8 | predicate | lane≠settled → false；settled + 任一 pending/date mismatch → true；同一 expected 第二次呼叫（one-shot ref 已標記）→ 不再觸發 refresh |
+| 9 | exact 20 codes fixture（用本輪 live 值：16+00637L 對齊 08-28、039108/053848/702157 factual lag） | `summarizeCloseAlignment` → **confirmed 17 / pending 3**、`otherDates = ['2026-07-02','2026-07-28','2026-08-25']`、`aligned=false`；且 3 檔即使 snapshot 有 08-28 也不得變 confirmed |
+| 10 | 回歸 | `authoritative-quotes.test.ts` 既有 4 案、`holdings-close-memo.test.tsx`、`holdings-sort.test.ts`、完整 suite 全綠 |
 
-## 4. No-Publish Hosted gate
+## 7. No-Publish Hosted gate
 
-不 Publish，只用既有 Preview URL：
+1. **收盤時段**：舊 profile、不開抽屜、不按「立即更新持倉報價」，reload 一次並靜置至多一個 auto interval → banner 自動收斂為 **17/20 aligned、3 待確認**（若屆時上游資料改變，以當下 factual 為準，不得湊全綠）。
+2. 第二次 reload：無 console error；`checkup-sparkline` invoke 次數與第一次同量級（one-shot + 60s guard 生效）。
+3. **盤中回歸**（下一個交易日 09:00–13:30 任一時點）：價格語意不變（來源仍為即時/db、banner 顯示 pending），且該時段 **0 次** `checkup-sparkline` invoke。
+4. 390×844 檢查 hero 與卡片無溢出。
 
-1. 舊 profile、**不開任何抽屜、不按「立即更新持倉報價」**，reload 一次，靜置至多一個 auto interval：banner 必須自動由「20/20 待確認」收斂為 factual（依 B 表預期 3 檔誠實 pending，不得偽造成全綠）。
-2. 第二次 reload：無 console error、`checkup-sparkline` invoke 次數與第一次同量級（cooldown 生效、無 storm）。
-3. 390×844 檢查 hero 與卡片無溢出。
-
-## 5. Stage 1 處置
-
-保留 `holdingsSort.ts` 的 close identity memo key，不回滾；本輪證據顯示它是收斂的必要條件，且無 regression 證據。Stage 2（`useSparklines` same-mount 14:05 邊界）維持凍結。
+Stage 1 memo fix 保留不回滾；Stage 2（`useSparklines` same-mount 14:05 邊界）維持凍結。
 
 停住等 review。
