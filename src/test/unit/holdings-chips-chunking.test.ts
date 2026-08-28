@@ -9,6 +9,7 @@
  *   4. 單批失敗只影響該批代號：其他批的 payload 保留、狀態 ok。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { renderHook, waitFor } from '@testing-library/react';
 import { StrictMode, createElement, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -236,5 +237,193 @@ describe('v4.5 · initial non-empty mount 必須啟動批次', () => {
     expect(
       qc.getQueryData<{ payload?: { stock_id?: string } }>(chipsQueryKey('2330'))?.payload?.stock_id,
     ).toBe('2330');
+  });
+});
+
+/**
+ * Stage 1 §E · chunks 由 Promise.all 改為 visible-order sequential await
+ *
+ * 目的：31 檔時不再同時開兩個 Edge invocation（兩組 semaphore(6) → 整頁 DB 併發 12）。
+ * 契約不得退化：exact [30,1]、union/order 相同、每 chunk failure 隔離、
+ * cleanup／新 run 後第二批 network exact 0。
+ */
+describe('Stage 1 §E · sequential chunks', () => {
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+  const okRes = (codes: string[]) => ({
+    results: Object.fromEntries(codes.map((c) => [c, { stock_id: c }])),
+    errors: {},
+    count: codes.length,
+    failed: 0,
+    servedAt: new Date().toISOString(),
+  });
+
+  beforeEach(() => {
+    fetchChipsBatch.mockReset();
+  });
+
+  it('31 檔：第一 POST body=30；第一 promise 未 settle 前第二 POST count=0；settle 後第二 body=1，union/order exact 31', async () => {
+    const qc = makeQc();
+    const CODES = codesOf(31);
+    const d1 = deferred<ReturnType<typeof okRes>>();
+    fetchChipsBatch.mockImplementationOnce(() => d1.promise);
+    fetchChipsBatch.mockImplementation(async (codes: string[]) => okRes(codes));
+
+    renderHook(() => useChipsBatch({ codes: CODES }), { wrapper: wrapperFor(qc) });
+
+    await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalledTimes(1));
+    expect((fetchChipsBatch.mock.calls[0][0] as string[]).length).toBe(30);
+    // 第一批仍 pending 期間，第二批不得發出。
+    await new Promise((r) => setTimeout(r, 60));
+    expect(fetchChipsBatch).toHaveBeenCalledTimes(1);
+
+    d1.resolve(okRes(fetchChipsBatch.mock.calls[0][0] as string[]));
+    await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalledTimes(2));
+
+    const bodies = fetchChipsBatch.mock.calls.map((c) => c[0] as string[]);
+    expect(bodies.map((b) => b.length)).toEqual([30, 1]);
+    const flat = bodies.flat();
+    expect(flat.length).toBe(31);
+    expect(new Set(flat).size).toBe(31);
+    // 送出順序 = 可見順序
+    expect(flat).toEqual(CODES);
+  });
+
+  it('第一 chunk reject 後第二 chunk 仍執行，且兩批狀態互相隔離', async () => {
+    const qc = makeQc();
+    const CODES = codesOf(31);
+    fetchChipsBatch.mockImplementationOnce(async () => { throw new Error('chunk 1 down'); });
+    fetchChipsBatch.mockImplementation(async (codes: string[]) => okRes(codes));
+
+    renderHook(() => useChipsBatch({ codes: CODES }), { wrapper: wrapperFor(qc) });
+
+    await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalledTimes(2));
+    const bodies = fetchChipsBatch.mock.calls.map((c) => c[0] as string[]);
+    expect(bodies.map((b) => b.length)).toEqual([30, 1]);
+
+    await waitFor(() => {
+      expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey(CODES[30]))?.kind).toBe('ok');
+    });
+    const failStatus = qc.getQueryData<BatchStatus>(chipsBatchStatusKey(CODES[0]));
+    expect(failStatus?.kind).toBe('error');
+    expect(failStatus?.reason).toBe('chunk_failed');
+    expect(qc.getQueryData(chipsQueryKey(CODES[0]))).toBeUndefined();
+    expect(
+      qc.getQueryData<{ payload?: { stock_id?: string } }>(chipsQueryKey(CODES[30]))?.payload?.stock_id,
+    ).toBe(CODES[30]);
+  });
+
+  it('第一 chunk pending 時 unmount：之後第二 POST exact 0，且舊 run 不寫 error', async () => {
+    const qc = makeQc();
+    const CODES = codesOf(31);
+    const d1 = deferred<ReturnType<typeof okRes>>();
+    fetchChipsBatch.mockImplementationOnce(() => d1.promise);
+    fetchChipsBatch.mockImplementation(async (codes: string[]) => okRes(codes));
+
+    const { unmount } = renderHook(() => useChipsBatch({ codes: CODES }), { wrapper: wrapperFor(qc) });
+    await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalledTimes(1));
+
+    unmount();
+    d1.reject(new Error('aborted'));
+    await new Promise((r) => setTimeout(r, 80));
+
+    expect(fetchChipsBatch).toHaveBeenCalledTimes(1);
+    for (const code of [CODES[0], CODES[29], CODES[30]]) {
+      expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey(code))?.kind).not.toBe('error');
+    }
+  });
+
+  it('第一 chunk pending 時 codes 改變（new run）：舊 run 的第二批不得發出', async () => {
+    const qc = makeQc();
+    const CODES = codesOf(31);
+    const d1 = deferred<ReturnType<typeof okRes>>();
+    fetchChipsBatch.mockImplementationOnce(() => d1.promise);
+    fetchChipsBatch.mockImplementation(async (codes: string[]) => okRes(codes));
+
+    const { rerender } = renderHook(
+      ({ c }: { c: string[] }) => useChipsBatch({ codes: c }),
+      { wrapper: wrapperFor(qc), initialProps: { c: CODES } },
+    );
+    await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalledTimes(1));
+
+    rerender({ c: ['2330'] });
+    await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalledTimes(2));
+    // 第 2 次呼叫必須是新 run 的單一代號，不是舊 run 的第二個 chunk。
+    expect(fetchChipsBatch.mock.calls[1][0]).toEqual(['2330']);
+
+    d1.reject(new Error('aborted'));
+    await new Promise((r) => setTimeout(r, 80));
+    expect(fetchChipsBatch).toHaveBeenCalledTimes(2);
+    expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey(CODES[0]))?.kind).not.toBe('error');
+  });
+});
+
+/**
+ * Stage 1 · Edge source contract（**static source assertions**，非 runtime）
+ *
+ * 明說限制：`tw-chips-detail-v2/index.ts` 用 Deno / jsr / npm specifier，vitest 無法 import 執行，
+ * 因此以下是對 source 文字的靜態契約檢查，不冒充 runtime 行為驗證。
+ * runtime 行為（semaphore 實際併發、bulk 次數）必須以 Hosted 實測補上。
+ */
+describe('Stage 1 · Edge source contract（static only）', () => {
+  const src = readFileSync('supabase/functions/tw-chips-detail-v2/index.ts', 'utf8');
+
+  it('semaphore hard max = 6 且 code concurrency = 2', () => {
+    expect(src).toMatch(/const MAX_DB_CONCURRENCY = 6;/);
+    expect(src).toMatch(/const CODE_CONCURRENCY = 2;/);
+    expect(src).toMatch(/createSemaphore\(MAX_DB_CONCURRENCY\)/);
+    expect(src).toMatch(/withConcurrency\(batchIds, CODE_CONCURRENCY,/);
+    // 不得有第二個 semaphore 上限來源
+    expect(src.match(/createSemaphore\(/g)?.length).toBe(2); // 定義 + 唯一呼叫
+  });
+
+  it('batch ctx 只建立於 batch path；single GET 保留 ctx=null fallback', () => {
+    expect(src).toMatch(/buildChipsPayload\(supa, singleId, sem, null\)/);
+    const ctxIdx = src.indexOf('await buildBatchCtx(supa, sem, batchIds)');
+    const singleIdx = src.indexOf('if (!isBatch && singleId)');
+    expect(ctxIdx).toBeGreaterThan(-1);
+    expect(singleIdx).toBeGreaterThan(-1);
+    expect(ctxIdx).toBeGreaterThan(singleIdx);
+    // batch ctx 只建立一次
+    expect(src.match(/buildBatchCtx\(supa, sem, batchIds\)/g)?.length).toBe(1);
+  });
+
+  it('每個 bulk 查詢最多一次，且六類都存在', () => {
+    for (const t of [
+      '"tw_bsr_sync_queue"',
+      '"tw_bsr_fetch_failures"',
+      '"tw_bsr_sync_config"',
+      '"tw_bsr_upstream_probe"',
+      '"data_source_health"',
+    ]) {
+      expect(src.includes(t)).toBe(true);
+    }
+    const ctxBlock = src.slice(
+      src.indexOf('export async function buildBatchCtx'),
+      src.indexOf('// 單股 payload 建構'),
+    );
+    // bulk phase 恰 6 條，且全部經 sem()
+    expect(ctxBlock.match(/sem\(\(\) =>/g)?.length).toBe(6);
+  });
+
+  it('仍是 read-only：無任何 write / enqueue / provider fetch', () => {
+    expect(src).not.toMatch(/\.insert\(|\.upsert\(|\.update\(|\.delete\(/);
+    // RPC allowlist：只有兩支唯讀 RPC，沒有任何 writer / rebuild / enqueue RPC。
+    const rpcNames = Array.from(src.matchAll(/\.rpc\(\s*["']([a-z0-9_]+)["']/gi)).map((m) => m[1]).sort();
+    expect(Array.from(new Set(rpcNames))).toEqual(['get_bsr_daily_series', 'tw_bsr_eligibility']);
+    // 完全不對外抓資料（provider fetch = 0）。
+    expect(src).not.toMatch(/\bfetch\(/);
+    expect(src).not.toMatch(/https?:\/\/(?!jsr\.io)/);
+  });
+
+  it('response schema keys 不變', () => {
+    for (const k of ['results,', 'errors,', 'count:', 'failed:', 'served_at:']) {
+      expect(src.includes(k)).toBe(true);
+    }
+    expect(src).toMatch(/const MAX_BATCH = 30;/);
   });
 });
