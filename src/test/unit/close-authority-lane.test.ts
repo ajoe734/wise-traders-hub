@@ -43,19 +43,19 @@ let invokes: string[] = [];
 
 function installGateway(behavior: 'ok' | 'throw' | 'absent') {
   invokes = [];
-  setCheckupGateway(
-    createFakeGateway({
-      invoke: async (fn: string) => {
-        invokes.push(fn);
-        if (fn === 'checkup-sparkline') {
-          if (behavior === 'throw') throw new Error('boom');
-          if (behavior === 'absent') return { result: null };
-          return { result: {} };
-        }
-        return { data: [] };
-      },
-    } as any),
-  );
+  const fake = createFakeGateway({});
+  setCheckupGateway({
+    ...fake,
+    invoke: (async (fn: string) => {
+      invokes.push(fn);
+      if (fn === 'checkup-sparkline') {
+        if (behavior === 'throw') throw new Error('boom');
+        if (behavior === 'absent') return { result: null };
+        return { result: {} };
+      }
+      return { data: [] };
+    }) as any,
+  } as any);
 }
 
 beforeEach(() => {
