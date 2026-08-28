@@ -182,3 +182,157 @@ describe('needsCloseAuthorityRefresh', () => {
     expect(needsCloseAuthorityRefresh(null, SETTLED)).toBe(false);
   });
 });
+
+/**
+ * StrictMode dispose-probe 回歸（FreeCheckup.jsx autoDisposedRef）。
+ *
+ * 生產 bug：舊版 effect 只有 cleanup 設 true、沒有 setup 重設，
+ * StrictMode 的 setup→cleanup(true)→setup 之後 ref 永久 true，
+ * runAutoRefresh 完成後提前 return，authorityDoneRef 永遠不記 fingerprint，
+ * 5 分鐘 periodic 會再次打 checkup-sparkline。
+ *
+ * 此處用與 FreeCheckup.jsx L1601+ 相同的 effect 形狀做 executable probe，
+ * 並以 source contract 鎖住兩邊不漂移。
+ */
+import React, { useEffect, useRef } from 'react';
+import { render, act } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+describe('autoDisposedRef — source contract（防止與 FreeCheckup.jsx 漂移）', () => {
+  const src = readFileSync(resolve(__dirname, '../../pages/FreeCheckup.jsx'), 'utf8');
+  it('effect setup 明確重設 false、cleanup 才設 true', () => {
+    const m = src.match(/autoDisposedRef[\s\S]{0,400}?useEffect\(\(\) => \{([\s\S]*?)\}, \[\]\);/);
+    expect(m).toBeTruthy();
+    const body = m![1];
+    const setupIdx = body.indexOf('autoDisposedRef.current = false');
+    const cleanupIdx = body.indexOf('autoDisposedRef.current = true');
+    expect(setupIdx).toBeGreaterThanOrEqual(0);
+    expect(cleanupIdx).toBeGreaterThan(setupIdx); // cleanup 在 setup 之後
+  });
+});
+
+describe('autoDisposedRef — StrictMode executable probe', () => {
+  type Done = { fps: string[]; disposedAtMark: boolean[] };
+  function makeHarness(done: Done) {
+    const observed: { markedAfterProbe: boolean; invokeCount: () => number } = {
+      markedAfterProbe: false,
+      invokeCount: () => invokes.length,
+    };
+    // 與 FreeCheckup.jsx 相同的 effect / 完成標記邏輯（見 source contract 測試）
+    function Probe({ settle }: { settle: (v: unknown) => void }) {
+      const authorityDoneRef = useRef(new Set<string>());
+      const autoDisposedRef = useRef(false);
+      useEffect(() => {
+        autoDisposedRef.current = false;
+        return () => { autoDisposedRef.current = true; };
+      }, []);
+      useEffect(() => {
+        let cancelled = false;
+        (async () => {
+          const out = await new Promise<any>((res) => settle(res)); // 模擬 refreshPrices
+          void cancelled;
+          if (autoDisposedRef.current) { done.disposedAtMark.push(true); return; }
+          if (out?.kind === 'attempted' && out.lane === 'settled' && out.transport === 'ok' && out.fingerprint) {
+            authorityDoneRef.current.add(out.fingerprint);
+            done.fps.push(out.fingerprint);
+            observed.markedAfterProbe = true;
+          }
+        })();
+      }, [settle]);
+      return null;
+    }
+    return { Probe, observed };
+  }
+
+  it('StrictMode effect probe 後，一次 transport ok 仍能記 fingerprint；unmount 後 completion 不寫 ref', async () => {
+    const done: Done = { fps: [], disposedAtMark: [] };
+    const { Probe, observed } = makeHarness(done);
+    let settleFn!: (v: unknown) => void;
+    const settle = (res: (v: unknown) => void) => { settleFn = res; };
+
+    const utils = render(
+      React.createElement(React.StrictMode, null, React.createElement(Probe, { settle })),
+    );
+    // probe 已跑過 setup→cleanup(true)→setup；async 還在等
+    expect(done.fps).toEqual([]);
+
+    await act(async () => {
+      settleFn({ kind: 'attempted', lane: 'settled', transport: 'ok', fingerprint: '2026-08-28:2330' });
+    });
+    expect(done.fps).toEqual(['2026-08-28:2330']);
+    expect(observed.markedAfterProbe).toBe(true);
+    expect(done.disposedAtMark).toEqual([]); // probe cleanup 後第二次 setup 有重設 false
+
+    // unmount 後的 async completion 不得寫 ref/state
+    let settleFn2!: (v: unknown) => void;
+    const utils2 = render(React.createElement(Probe, { settle: (res: (v: unknown) => void) => { settleFn2 = res; } }));
+    utils2.unmount();
+    const before = done.fps.length;
+    await act(async () => {
+      settleFn2({ kind: 'attempted', lane: 'settled', transport: 'ok', fingerprint: '2026-08-28:2330' });
+    });
+    expect(done.fps.length).toBe(before);
+    expect(done.disposedAtMark.length).toBeGreaterThan(0);
+    utils.unmount();
+    void observed.invokeCount;
+  });
+});
+
+describe('autoDisposedRef — StrictMode 下 periodic 累計 invoke 仍為 1', () => {
+  it('首次 transport ok 記 fingerprint；+5min、+30min periodic 不再打 Edge', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(SETTLED);
+    try {
+      const fp = closeAuthorityFingerprint('2026-08-28', [{ code: '2330' }]);
+      const gateCalls: string[] = [];
+      let doneRef: { has: (k: string) => boolean; add: (k: string) => void } | null = null;
+      let disposedRef: { current: boolean } | null = null;
+
+      function PeriodicProbe() {
+        const authorityDoneRef = useRef(new Set<string>());
+        const autoDisposedRef = useRef(false);
+        doneRef = authorityDoneRef.current;
+        disposedRef = autoDisposedRef;
+        useEffect(() => {
+          autoDisposedRef.current = false;
+          return () => { autoDisposedRef.current = true; };
+        }, []);
+        return null;
+      }
+      const runPeriodic = async () => {
+        // 與 runAutoRefresh 相同 gate：settled + fingerprint 已完成 → 整次跳過（0 Edge）
+        if (authorityDoneRefHas(fp)) return;
+        const out = await (async () => {
+          invokes.push('checkup-sparkline'); // 實際打 Edge 才計數
+          return { kind: 'attempted', lane: 'settled', transport: 'ok', fingerprint: fp };
+        })();
+        if (disposedRef!.current) return;
+        if (out.transport === 'ok' && out.fingerprint) doneRef!.add(out.fingerprint);
+        gateCalls.push(fp);
+      };
+      const authorityDoneRefHas = (k: string) => doneRef!.has(k);
+
+      render(
+        React.createElement(React.StrictMode, null, React.createElement(PeriodicProbe)),
+      );
+      expect(closeAuthorityLane(new Date(), 'TW')).toBe('settled');
+
+      const t0 = invokes.length;
+      await runPeriodic();                       // 首次 auto：打 1 次、記完成
+      expect(invokes.length).toBe(t0 + 1);
+      expect(doneRef!.has(fp)).toBe(true);
+
+      vi.setSystemTime(new Date(SETTLED.getTime() + 5 * 60 * 1000));
+      await runPeriodic();                       // 5 分鐘 stale periodic：skip
+      expect(invokes.length).toBe(t0 + 1);
+
+      vi.setSystemTime(new Date(SETTLED.getTime() + 30 * 60 * 1000));
+      await runPeriodic();                       // 30 分鐘後：仍 skip
+      expect(invokes.length).toBe(t0 + 1);
+      expect(gateCalls).toEqual([fp]);           // 只有一次真的完成
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
