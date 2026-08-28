@@ -167,6 +167,29 @@ export function latestCompletedTradeDate(now: Date = new Date(), opts?: Calendar
   return previousTradingDay(localDate, { market, holidays: opts?.holidays });
 }
 
+/**
+ * close-authority lane：決定「現在該不該去要官方收盤」。
+ *
+ *   intraday  盤中（09:00–13:30）→ 主畫面維持即時／current，0 次 Edge。
+ *   settling  收盤後結算緩衝（13:30–14:05）→ 官方日 K 還沒出，0 次 Edge。
+ *   settled   盤前、收盤定版後、週末、休市日 → 應對齊最後完整交易日。
+ *   unknown   休市日表未載入 → 不得宣稱已確認，也不打 Edge。
+ */
+export type CloseAuthorityLane = 'intraday' | 'settling' | 'settled' | 'unknown';
+
+export function closeAuthorityLane(
+  now: Date = new Date(),
+  market: CalendarMarket = 'TW',
+): CloseAuthorityLane {
+  if (!holidaysLoaded(market)) return 'unknown';
+  const { localDate, phase } = sessionPhase(now, market);
+  if (!isTradingDay(localDate, { market })) return 'settled';
+  if (phase === 'open') return 'intraday';
+  if (phase === 'settling') return 'settling';
+  return 'settled'; // pre_open（對齊前一交易日）或 closed（今日已定版）
+}
+
+
 /** 兩個交易日之間相差幾個交易日（b 落後 a 幾天，負數代表超前）。 */
 export function tradingDayLag(expected: string, actual: string, opts?: CalendarOptions): number {
   if (!expected || !actual) return 0;

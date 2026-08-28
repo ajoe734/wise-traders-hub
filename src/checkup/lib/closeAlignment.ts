@@ -5,7 +5,7 @@
  * 只要有一檔停在別的交易日、或根本沒有官方收盤，就必須讓使用者看見，
  * 而不是用「剛剛更新」這種抓取時間掩蓋掉。
  */
-import { latestCompletedTradeDate } from './marketCalendar';
+import { latestCompletedTradeDate, closeAuthorityLane } from './marketCalendar';
 
 export interface HoldingCloseLike {
   code?: string;
@@ -60,4 +60,52 @@ export function summarizeCloseAlignment(
   ].filter(Boolean).join('\n');
 
   return { expected, total, confirmed, pending, otherDates, aligned, label, title };
+}
+
+// ── close-authority 觸發判定 ────────────────────────────────────────────────
+
+/** 台股代號判定：純數字（含 4-6 碼）視為 TW，其餘（含 . 或字母）不算。 */
+export function isTwHoldingCode(code: unknown): boolean {
+  const c = String(code ?? '').trim().toUpperCase();
+  if (!c) return false;
+  return /^[0-9]{4,6}[A-Z]?$/.test(c);
+}
+
+function normalizeCode(code: unknown): string {
+  return String(code ?? '').trim().toUpperCase();
+}
+
+/**
+ * close-authority one-shot 指紋 = expected 交易日 + 排序後的 TW 代號集合。
+ * 只有「換交易日」或「持股代號集合改變」才會產生新指紋（允許再一次 attempt）；
+ * 改股數／成本／現價都不算，避免每 5 分鐘重抓官方日 K。
+ */
+export function closeAuthorityFingerprint(
+  expected: string,
+  holdings: HoldingCloseLike[] | null | undefined,
+): string {
+  const list = Array.isArray(holdings) ? holdings : [];
+  const codes = Array.from(
+    new Set(list.map((h) => normalizeCode(h?.code)).filter((c) => isTwHoldingCode(c))),
+  ).sort();
+  return `${expected}:${codes.join(',')}`;
+}
+
+/**
+ * 是否需要一次 close-authority refresh：只有 settled lane 才可能為 true；
+ * 盤中／結算緩衝／休市日表未載入時一律 false（0 次 Edge）。
+ */
+export function needsCloseAuthorityRefresh(
+  holdings: HoldingCloseLike[] | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (closeAuthorityLane(now, 'TW') !== 'settled') return false;
+  const list = Array.isArray(holdings) ? holdings : [];
+  if (!list.length) return false;
+  const expected = latestCompletedTradeDate(now, { market: 'TW' });
+  return list.some((h) => {
+    if (!isTwHoldingCode(h?.code)) return false;
+    const td = h?.priceTradeDate ? String(h.priceTradeDate).slice(0, 10) : null;
+    return h?.priceState === 'pending' || td !== expected;
+  });
 }
