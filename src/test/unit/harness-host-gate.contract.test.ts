@@ -149,6 +149,14 @@ describe('harness host gate · source contract', () => {
     expect(src).not.toMatch(/\?\s*lazy\(\(\)\s*=>\s*import/);
   });
 
+  it('Holdings harness entry 不得再有第二層舊 preview gate 或空白 return', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/pages/HoldingsDetailPanelVolumeHarnessEntry.tsx'), 'utf8');
+    expect(src).toContain("if (params.get('stage2') === '1') return <HoldingsSparklineStage2Harness />;");
+    expect(src).not.toMatch(/function\s+isPreviewEnv/);
+    expect(src).not.toMatch(/if\s*\(!isPreviewEnv\(\)\)\s*return null/);
+    expect(src).not.toMatch(/import\.meta\.env\.(DEV|MODE)/);
+  });
+
   it('gate 不吃 query string（stage2 等旗標不得出現在 gate 模組）', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/routes/harnessHostGate.ts'), 'utf8');
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');

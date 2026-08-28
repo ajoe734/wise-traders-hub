@@ -12,6 +12,8 @@
  * 本模組**不做 market grouping**：caller 交來什麼 entries 就送單一既有 `{ codes }` body。
  */
 
+import { isHarnessHostAllowed } from '@/routes/harnessHostGate';
+
 export interface SparklineTaskEntry {
   code: string;
   /** 該 code 在本次任務使用的 cache key（reservation / attempt 同鍵） */
@@ -98,9 +100,16 @@ export const __TEST_ONLY_ENABLED: boolean = (() => {
   } catch { return false; }
 })();
 
-/** DEV/test only：先讓在途 task 失效，再清空 reservation。production 為 no-op。 */
+/** DEV/test 或 runtime allowlisted harness host 才能操作 reset seam。 */
+export function __testResetAllowed(): boolean {
+  if (__TEST_ONLY_ENABLED) return true;
+  if (typeof window === 'undefined' || !window.location) return false;
+  return isHarnessHostAllowed(window.location.hostname);
+}
+
+/** DEV/test/allowlisted harness only；一般 production 永遠 no-op。 */
 export function __resetSparklineTaskForTests(): void {
-  if (!__TEST_ONLY_ENABLED) return; // production no-op guard
+  if (!__testResetAllowed()) return;
   currentGeneration += 1;
   reservations.clear();
 }

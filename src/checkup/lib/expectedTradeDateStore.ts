@@ -17,6 +17,7 @@ import { nowDate, nowMs } from './nowProvider';
 import { holidaysLoaded, latestCompletedTradeDate } from './marketCalendar';
 import { loadMarketHolidays } from './marketHolidaysLoader';
 import { nextExpectedChangeAt } from './tradeDateBoundary';
+import { isHarnessHostAllowed } from '@/routes/harnessHostGate';
 
 export interface ExpectedSnapshot {
   /** YYYY-MM-DD；calendar 未就緒時為 '' */
@@ -144,9 +145,16 @@ export const __TEST_ONLY_ENABLED: boolean = (() => {
   } catch { return false; }
 })();
 
-/** DEV/test only：先讓在途工作失效，再清 timer/listener/state。production 為 no-op。 */
+/** DEV/test 或 runtime allowlisted harness host 才能操作 reset seam。 */
+export function __testResetAllowed(): boolean {
+  if (__TEST_ONLY_ENABLED) return true;
+  if (typeof window === 'undefined' || !window.location) return false;
+  return isHarnessHostAllowed(window.location.hostname);
+}
+
+/** DEV/test/allowlisted harness only；一般 production 永遠 no-op。 */
 export function __resetExpectedStoreForTests(): void {
-  if (!__TEST_ONLY_ENABLED) return; // production no-op guard
+  if (!__testResetAllowed()) return;
   generation += 1;
   clearTimer();
   unbindVisibility();
