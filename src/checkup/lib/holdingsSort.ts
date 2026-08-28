@@ -33,15 +33,25 @@ export function makeCompareByPriority(decisionsMap = {}) {
 }
 
 /**
- * FreeCheckup 版 valueKey：code|qty|price|cost。
+ * FreeCheckup 版 valueKey：code|qty|price|cost + close identity。
  * 用於穩定 H reference（B-P2 holdings audit 2026-05）。
  * H13 (audit 2026-06)：補上 `n=<length>:` 前綴，避免欄位分隔符（`|`/`;`）若被惡意/異常 code
  *                       字串包含時造成 key 碰撞（雖然台股 code 為純數字/字母，仍做防呆）。
+ * Stage 1 (2026-08-28)：補 priceTradeDate|priceState|priceSource|priceError。
+ *   refreshPrices 在收盤後重整時價格常與舊值相同，只有收盤身分改變；舊 key 不含這些欄位，
+ *   會讓 FreeCheckup H memo 命中舊 array，banner 永遠停在「N/N 待確認」。
+ *   刻意不含 priceUpdatedAt（每次 refresh 必變，會摧毀穩定 reference 的效能契約）。
  */
 export function holdingsValueKeyShort(holdings) {
   if (!Array.isArray(holdings) || holdings.length === 0) return '';
-  return `n=${holdings.length}:` + holdings.map((h) => `${h.code}|${h.qty}|${h.price}|${h.cost}`).join(';');
+  return `n=${holdings.length}:` + holdings
+    .map((h) => [
+      h.code, h.qty, h.price, h.cost,
+      h.priceTradeDate ?? '', h.priceState ?? '', h.priceSource ?? '', h.priceError ?? '',
+    ].join('|'))
+    .join(';');
 }
+
 
 /**
  * useRouteHoldingsPage 版 valueKey：code|qty|price|cost|value|pct|integrityIssue。
