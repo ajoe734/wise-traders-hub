@@ -824,7 +824,7 @@ export const runBatchPhases: (
         try {
           stampVers[i] = await deps.computeStamp(ids[i]);
         } catch (err) {
-          errors[i] = (err && err.message) || String(err);
+          errors[i] = err instanceof Error ? err.message : String(err);
         }
       }
     };
@@ -845,7 +845,7 @@ export const runBatchPhases: (
         try {
           values[i] = await deps.buildWithStamp(id, stampVers[i]);
         } catch (err) {
-          errors[i] = (err && err.message) || String(err);
+          errors[i] = err instanceof Error ? err.message : String(err);
         }
       }
     };
