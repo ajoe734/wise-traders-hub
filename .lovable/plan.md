@@ -50,43 +50,78 @@ export async function fetchDailyCloseCardsDetailed(codes, now?): Promise<DailyCl
 
 `fetchDailyCloseCards` / `fetchConfirmedCloses` 改為薄包裝呼叫 detailed 版並只回 `cards`，**既有 caller 與回傳型別 1:1 不變**。新增 transport contract test（三情境各一）。
 
-`authoritativeQuotes` 只在 TW settled lane 呼叫 `fetchDailyCloseCardsDetailed` 一次，並把 `{ lane, attempted, transport }` 以 meta 形式回給 `refreshPrices`（不杜撰）。
+`authoritativeQuotes` 只在 TW settled lane 且 `allowAuthority !== false` 時呼叫 `fetchDailyCloseCardsDetailed` 一次，並把 `{ lane, attempted, transport }` 以 meta 形式回給 `refreshPrices`（不杜撰）。
 
-### One-shot 標記規則（可證實）
+## 2b. One-shot fingerprint 契約（REVIEW_4 修正）
 
-| 情況 | 標 one-shot？ | 理由 |
+V4 的 one-shot 只用 `expected` 且第 4 步帶 `&& !stale`，導致 5 分鐘 stale 週期可繞過、且同日增刪持股不會重新開放。改為 fingerprint 且不得被 stale 繞過。
+
+```ts
+// 純函式，放在 closeAlignment.ts，可單測
+export function closeAuthorityFingerprint(expected: string, holdings): string {
+  const codes = Array.from(new Set(
+    holdings.filter(isTwMarket).map(h => normalizeCode(h.code))
+  )).sort();
+  return `${expected}:${codes.join(',')}`;   // codesKey；qty/price/cost 不參與
+}
+```
+
+規則：
+
+- fingerprint 變（新 expected 交易日，或 TW code 集合新增／刪除）→ 重新開放**恰 1 次** auto authority attempt。
+- 只改 qty / price / cost / 非 TW 持股 → fingerprint 不變 → 仍 0 次。
+- `authorityDoneRef.current: Set<string>`（per-mount）記錄「已完成」的 fingerprint。
+
+| 情況 | 記完成？ | 理由 |
 | --- | --- | --- |
-| `transport==='ok'`（含全部 factual pending、含 result 為空物件） | **標** | gateway attempt 已完成且回應可觀測；再打也是同一答案，避免 storm |
-| `transport==='throw'` | 不標 | transport failure，允許 60 秒 guard 後重試 |
-| `transport==='absent'` | 不標 | 回應形狀不合契約，視同未完成 attempt |
-| lane ≠ `settled`（intraday/settling/unknown） | 不標 | 根本沒進 authority lane，0 Edge call |
-| `refreshPrices` early return：`refreshing` / 30s cooldown / no-holdings / demo | **絕不標** | 沒有 attempt |
+| `transport==='ok'`（含 3 檔 factual pending、含 result 空物件） | **記** | attempt 已完成且可觀測；不得每 5 分鐘重抓 |
+| `transport==='throw'` | 不記 | transport failure，60 秒 guard 後同 fingerprint 可 retry |
+| `transport==='absent'` | 不記 | 回應形狀不合契約，視同未完成 |
+| lane ≠ `settled` | 不記 | 未進 authority lane，0 Edge call |
+| `refreshPrices` early return（refreshing / 30s cooldown / no-holdings / demo） | 不記 | 沒有 attempt |
+| 手動 `forceAuthority=true` | 不記、也不讀 | 手動路徑與 auto contract 完全隔離 |
 
-不 storm 證明：`transport==='ok'` 標記後，同一 `expected` 交易日內 auto effect 不再因 authority 觸發（stale 週期刷新照舊、仍受 5 分鐘 interval 與 60 秒 `lastRunAt` 節流）；`throw/absent` 不標，但每次重試前必須通過既有 60 秒 `lastRunAt` guard，effect deps 仍為 `[tab, holdings]`，不會 per-render 重打。跨到新 expected 交易日才重新開放 1 次。
-
-### Ordering / state machine（V3 §5 保留，補 typed outcome 來源）
+## 2c. Ordering / state machine（取代 V4 §「Ordering」）
 
 ```
 type RefreshOutcome =
   | { kind:'skipped', why:'refreshing'|'cooldown'|'no-holdings'|'demo' }
-  | { kind:'attempted', lane:'settled', expected:string, transport:'ok'|'throw'|'absent' }
+  | { kind:'attempted', lane:'settled', fingerprint:string, transport:'ok'|'throw'|'absent' }
+  | { kind:'attempted', lane:'settled', fingerprint:string, authoritySkipped:true }   // allowAuthority=false
   | { kind:'attempted', lane:'intraday'|'settling'|'unknown' }
 
-auto effect：
+refreshPrices(opts?: { allowAuthority?: boolean; forceAuthority?: boolean })
+  // allowAuthority 預設 true；false → settled lane 也 0 次 checkup-sparkline
+  // allowAuthority=false 時「不得把已 confirmed 的 identity 洗成 pending」：
+  //   對已是 confirmed 的 code 保留既有 priceSource/priceState/priceTradeDate 不覆寫，
+  //   僅更新從未 confirmed 的 code；不得寫入 tradeDate=null 覆蓋既有值。
+
+auto effect（immediate + 5 分鐘 periodic 共用同一路徑）：
 1. 既有 guards（tab / holdings / refreshing / minutes<=0）
-2. due = stale || needsCloseAuthorityRefresh(holdings)
-3. expected = latestCompletedTradeDate()
-4. if (authorityAttemptRef.current.date === expected && !stale) return
-5. if (Date.now() - lastRunAt < 60_000) return          // 既有 guard 不變
-6. lastRunAt = Date.now()
-7. timer = setTimeout(async () => {
-     const out = await refreshPrices()
-     if (disposedRef.current) return
-     if (out.kind==='attempted' && out.lane==='settled' && out.transport==='ok')
-        authorityAttemptRef.current = { date: out.expected }
-   }, 300)
-8. cleanup：clearTimeout(timer) + disposedRef（unmount 後不寫 ref/state）
+2. lane = closeAuthorityLane(now, 'TW')
+3. expected = latestCompletedTradeDate(); fp = closeAuthorityFingerprint(expected, holdings)
+4. authorityDone = lane==='settled' && authorityDoneRef.current.has(fp)
+5. due = stale || needsCloseAuthorityRefresh(holdings, now)
+6. if (!due) return
+7. if (authorityDone) {
+       // 收盤後價格已定版：整次 price refresh 直接跳過（0 Edge）
+       if (lane === 'settled') return;               // ← stale=true 也不得繞過
+       // 非 settled lane 不涉 authority，照常往下
+   }
+8. if (Date.now() - lastRunAt < 60_000) return       // 既有 guard 不變
+9. lastRunAt = Date.now()
+10. timer = setTimeout(async () => {
+      const out = await refreshPrices({ allowAuthority: !authorityDone })
+      if (disposedRef.current) return
+      if (out.kind==='attempted' && out.lane==='settled'
+          && out.transport==='ok') authorityDoneRef.current.add(out.fingerprint)
+    }, 300)
+11. cleanup：clearTimeout(timer) + disposedRef（unmount 後不寫 ref/state）
 ```
+
+手動「立即更新」：`refreshPrices({ forceAuthority: true })`。仍受既有 30 秒 cooldown；不讀也不寫 `authorityDoneRef`，因此不影響 auto one-shot contract（手動打完後 auto 若 fingerprint 未記完成，仍可在 60 秒 guard 後自行 attempt 1 次）。
+
+per-mount vs cross-reload：`authorityDoneRef` 是 per-mount ref，reload 會重建 → 每次 reload 允許 1 次 Edge（可接受）。單一 mount 內同 fingerprint 恆為 1 次，與 interval 次數無關。
 
 ## 3. Exact allowlist（production 5 檔 + tests 3 檔 = 8）
 
