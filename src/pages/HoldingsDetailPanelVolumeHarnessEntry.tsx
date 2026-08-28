@@ -19,6 +19,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
 import { useSparklines } from '@/checkup/hooks/useSparklines';
+import HoldingsSparklineStage2Harness from '@/pages/HoldingsSparklineStage2Harness';
 
 const HoldingsDetailPanel = lazy(
   () => import('@/checkup/components/freecheckup/HoldingsDetailPanel'),
@@ -219,6 +220,9 @@ export default function HoldingsDetailPanelVolumeHarnessEntry() {
 
   const search = typeof window !== 'undefined' ? window.location.search : '';
   const params = new URLSearchParams(search);
+
+  // ?stage2=1 —— Stage2 sparkline expected-trade-date 邊界面板（獨立子樹，自帶 hooks）
+  if (params.get('stage2') === '1') return <HoldingsSparklineStage2Harness />;
   const countRaw = Number.parseInt(params.get('count') || '10', 10);
   const count = Math.max(1, Math.min(200, Number.isFinite(countRaw) ? countRaw : 10));
   const widthMode = params.get('width') === 'desktop' ? 'desktop' : 'mobile';
