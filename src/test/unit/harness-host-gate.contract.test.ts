@@ -1,0 +1,111 @@
+/**
+ * Route-gate contract · `/e2e/*` harness 的 runtime 可達性。
+ *
+ * 這支同時鎖兩件事：
+ *   1) 純函式判定（hostname allow-list）—— localhost / 合法 preview host = true，
+ *      自訂網域、published production、lookalike = false。
+ *   2) source contract —— App.tsx 與 harnessRoutes.tsx 不得再用 build-time
+ *      `import.meta.env.DEV` 當唯一 gate（會讓 Hosted Preview 被 tree-shake 成 404），
+ *      且 harness route 只能掛在 `harnessRoutesEnabled()` 後面。
+ */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, it, expect } from 'vitest';
+import {
+  isHarnessHostAllowed,
+  isPreviewHost,
+  isLocalHost,
+  harnessRoutesEnabled,
+  PREVIEW_HOST_RE,
+} from '@/routes/harnessHostGate';
+
+const ALLOW = [
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '[::1]',
+  'preview--wise-traders-hub.lovable.app',
+  'preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
+];
+
+const DENY = [
+  // 自訂網域
+  'legendflow.tw',
+  'www.legendflow.tw',
+  // published production
+  'wise-traders-hub.lovable.app',
+  'id-preview--0f5bdae6.lovable.app', // 非 preview-- 開頭
+  // lookalike / suffix 注入
+  'preview--x.lovable.app.evil.com',
+  'evil.com/preview--x.lovable.app',
+  'xpreview--a.lovable.app',
+  'preview--a.lovable.app.',
+  'preview--a.lovable.appx',
+  'preview--a.lovable-app.com',
+  'preview--a.notlovable.app',
+  'sub.preview--a.lovable.app',
+  'preview--UPPER.lovable.app'.replace('UPPER', 'a/b'),
+  '',
+];
+
+describe('harness host gate · 純函式判定', () => {
+  it.each(ALLOW)('allow: %s', (h) => {
+    expect(isHarnessHostAllowed(h)).toBe(true);
+  });
+
+  it.each(DENY)('deny: %s', (h) => {
+    expect(isHarnessHostAllowed(h)).toBe(false);
+  });
+
+  it('localhost 與 preview host 兩條件互相獨立', () => {
+    expect(isLocalHost('localhost')).toBe(true);
+    expect(isLocalHost('preview--a.lovable.app')).toBe(false);
+    expect(isPreviewHost('preview--a.lovable.app')).toBe(true);
+    expect(isPreviewHost('localhost')).toBe(false);
+  });
+
+  it('regex 完全錨定（前後皆不可延伸）', () => {
+    expect(PREVIEW_HOST_RE.source.startsWith('^')).toBe(true);
+    expect(PREVIEW_HOST_RE.source.endsWith('$')).toBe(true);
+  });
+
+  it('大小寫不敏感（瀏覽器 hostname 已小寫，仍防呆）', () => {
+    expect(isHarnessHostAllowed('PREVIEW--Wise-Traders-Hub.LOVABLE.APP')).toBe(true);
+    expect(isHarnessHostAllowed('LEGENDFLOW.TW')).toBe(false);
+  });
+});
+
+describe('harness host gate · runtime gate 行為', () => {
+  it('vitest（DEV/test）下為 true', () => {
+    expect(harnessRoutesEnabled()).toBe(true);
+  });
+
+  it('非 DEV 時完全由 hostname 決定（以純函式代理驗證 production host 不 mount）', () => {
+    // production/custom hostname 一律不得放行 → App.tsx 的 HARNESS_ENABLED 為 false
+    for (const h of ['legendflow.tw', 'www.legendflow.tw', 'wise-traders-hub.lovable.app']) {
+      expect(isHarnessHostAllowed(h)).toBe(false);
+    }
+  });
+});
+
+describe('harness host gate · source contract', () => {
+  it('App.tsx 用 harnessRoutesEnabled()，不再用 import.meta.env.DEV 掛 harness', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
+    expect(src).toContain('harnessRoutesEnabled');
+    expect(src).toContain('{HARNESS_ENABLED ? harnessRoutes() : null}');
+    expect(src).toContain('{HARNESS_ENABLED ? portfolioHarnessRoutes() : null}');
+    expect(src).not.toMatch(/import\.meta\.env\.DEV \? (harnessRoutes|portfolioHarnessRoutes)\(\)/);
+  });
+
+  it('harnessRoutes.tsx 的 gate 是 runtime、不是 build-time literal', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/routes/harnessRoutes.tsx'), 'utf8');
+    expect(src).toContain('harnessRoutesEnabled()');
+    expect(src).not.toMatch(/const DEV = import\.meta\.env\.DEV/);
+  });
+
+  it('gate 不吃 query string（stage2 等旗標不得出現在 gate 模組）', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/routes/harnessHostGate.ts'), 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/search|URLSearchParams|stage2|token|header/i);
+  });
+});
