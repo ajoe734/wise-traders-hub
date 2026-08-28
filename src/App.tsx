@@ -291,7 +291,7 @@ const AppShell = () => (
             <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
             {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
-            {import.meta.env.DEV ? harnessRoutes() : null}
+            {HARNESS_ENABLED ? harnessRoutes() : null}
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
@@ -308,7 +308,7 @@ const AppShell = () => (
               <Route path="research" element={<ResearchPage />} />
               <Route path="trade" element={<TradePage />} />
               <Route path="log" element={<LogPage />} />
-              {import.meta.env.DEV ? portfolioHarnessRoutes() : null}
+              {HARNESS_ENABLED ? portfolioHarnessRoutes() : null}
             </Route>
             <Route path="/overview" element={<PortfolioLayout />}>
               <Route index element={<OverviewPage />} />
