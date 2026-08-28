@@ -53,9 +53,6 @@ const DemoFooterHint = lazy(() => import("@/checkup/components/freecheckup/DemoF
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));
-const CoachMarks = lazy(() =>
-  import("@/checkup/components/CoachMarks").then((m) => ({ default: m.CoachMarks }))
-);
 // Constants & helpers extracted to _freeCheckup/constants.js (pure, no React state).
 // Inline 憲法仍適用於 JSX / hooks；本 import 只搬「不依賴 component state」的部分。
 import {
@@ -3139,7 +3136,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         )}
 
-        <Suspense fallback={null}><CoachMarks onTabChange={setTab} /></Suspense>
         {/* Monocle 頂欄：4 tab + 右側「＋ 上傳」橘鈕（開上傳成交頁，內部仍走 tab='trade'） */}
         <div className="cm-desktop-tabs" style={{display:"flex",alignItems:"center",gap:0,marginTop:2,borderBottom:"1px solid var(--cm-hair)"}}>
           <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,flex:1}}>
