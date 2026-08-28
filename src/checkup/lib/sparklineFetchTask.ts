@@ -87,8 +87,20 @@ export function runSparklineTask<R>(
   return Promise.all([task, ...waiting]).then(() => undefined);
 }
 
-/** DEV/test only：先讓在途 task 失效，再清空 reservation。 */
+/**
+ * DEV/test only 守衛：production bundle 呼叫一律 no-op。
+ * `import.meta.env.DEV` 在 `vite build` 會被替換成字面 false；MODE==='test' 涵蓋 vitest。
+ */
+export const __TEST_ONLY_ENABLED: boolean = (() => {
+  try {
+    const env = (import.meta as any)?.env;
+    return env?.DEV === true || env?.MODE === 'test';
+  } catch { return false; }
+})();
+
+/** DEV/test only：先讓在途 task 失效，再清空 reservation。production 為 no-op。 */
 export function __resetSparklineTaskForTests(): void {
+  if (!__TEST_ONLY_ENABLED) return; // production no-op guard
   currentGeneration += 1;
   reservations.clear();
 }

@@ -223,6 +223,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // Stage2：持倉 sparkline 台北 14:05 expected trade date 換日 seam
+      name: 'desktop-holdings-sparkline-boundary',
+      testMatch: /holdings-sparkline-boundary\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // ChipsSection 行動端佈局回歸：viewport 由 spec 內 test.use 動態切換
       // 覆蓋 320 / 360 / 375 / 390 / 393 / 430 六個常見手機寬度
       name: 'mobile-chips-section',
