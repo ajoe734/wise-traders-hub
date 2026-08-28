@@ -63,9 +63,13 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
-// Playwright harness routes live in a dev-only module so `vite build` drops
-// them entirely (see src/routes/harnessRoutes.tsx).
+// Playwright harness routes — runtime host gate (local dev / localhost, or an
+// exact `preview--<slug>.lovable.app` unpublished preview). Every other host,
+// including custom domains and published production, gets 404.
+// See src/routes/harnessHostGate.ts.
 import { harnessRoutes, portfolioHarnessRoutes } from "./routes/harnessRoutes";
+import { harnessRoutesEnabled } from "./routes/harnessHostGate";
+const HARNESS_ENABLED = harnessRoutesEnabled();
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
@@ -287,7 +291,7 @@ const AppShell = () => (
             <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
             {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
-            {import.meta.env.DEV ? harnessRoutes() : null}
+            {HARNESS_ENABLED ? harnessRoutes() : null}
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
@@ -304,7 +308,7 @@ const AppShell = () => (
               <Route path="research" element={<ResearchPage />} />
               <Route path="trade" element={<TradePage />} />
               <Route path="log" element={<LogPage />} />
-              {import.meta.env.DEV ? portfolioHarnessRoutes() : null}
+              {HARNESS_ENABLED ? portfolioHarnessRoutes() : null}
             </Route>
             <Route path="/overview" element={<PortfolioLayout />}>
               <Route index element={<OverviewPage />} />
