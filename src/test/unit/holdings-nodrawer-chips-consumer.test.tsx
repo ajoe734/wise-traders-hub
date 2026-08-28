@@ -160,3 +160,102 @@ describe('Stage D · 卡片層 normalization 與零請求', () => {
     }
   });
 });
+
+/* ── DEMO_BATCH_GATE_P0：Demo 也必須啟用 visible-card 預載 ─────────────── */
+const WORKBENCH = src('src/checkup/components/freecheckup/HoldingsWorkbench.tsx');
+
+describe('DEMO_BATCH_GATE_P0 · Workbench 不得用 isDemo 關掉 chips batch', () => {
+  it('原始碼不得再出現 enabled: !isDemo（含空白變體）', () => {
+    expect(/enabled\s*:\s*!\s*isDemo/.test(WORKBENCH)).toBe(false);
+    expect(WORKBENCH.includes('isDemo')).toBe(false);
+    expect(/useChipsBatch\(\{\s*codes:\s*sparklineCodes,\s*enabled:\s*true\s*\}\)/.test(WORKBENCH)).toBe(true);
+  });
+
+  it('demo/no-drawer 契約下，Workbench 實際以 enabled=true 呼叫 useChipsBatch', async () => {
+    const calls: Array<{ codes: string[]; enabled: boolean }> = [];
+    vi.resetModules();
+    vi.doMock('@/checkup/hooks/useChipsBatch', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@/checkup/hooks/useChipsBatch')>();
+      return {
+        ...actual,
+        useChipsBatch: (args: { codes: string[]; enabled?: boolean }) => {
+          calls.push({ codes: args.codes, enabled: args.enabled !== false });
+          return { prefetch: () => {}, prefetched: new Set<string>() };
+        },
+      };
+    });
+    vi.doMock('@/checkup/hooks/useSparklines', () => ({
+      useSparklines: () => ({ sparklines: {}, sparklineErrors: {} }),
+    }));
+    vi.doMock('@/checkup/contexts/CheckupModeContext', () => ({
+      useCheckupMode: () => ({ isDemo: true }),
+      CheckupModeProvider: ({ children }: { children: React.ReactNode }) => children,
+    }));
+    vi.doMock('@/checkup/components/freecheckup/HoldingCard', () => ({
+      default: ({ code }: { code: string }) => <div data-testid={`card-${code}`}>{code}</div>,
+    }));
+
+    const { default: HoldingsWorkbench } = await import(
+      '@/checkup/components/freecheckup/HoldingsWorkbench'
+    );
+
+    const holdings = [
+      { code: '2330', name: '台積電', qty: 1000, price: 110, cost: 100 },
+      { code: '2317', name: '鴻海', qty: 1000, price: 110, cost: 100 },
+    ];
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <HoldingsWorkbench
+          WB={{}}
+          H={{}}
+          expandedDecision={null}
+          displayed={holdings}
+          sorted={holdings}
+          orderedDisplayed={holdings}
+          variantsMap={new Map()}
+          decisionsMap={new Map()}
+          targets={{}}
+          avgTarget={{}}
+          STOCK_META={{}}
+          overrides={{}}
+          holdingSyncStates={{}}
+          normalizedEvents={[]}
+          totalVal={0}
+          sortBy="code"
+          sortDir="asc"
+          cardGridCols={2}
+          viewMode="card"
+          showAll={false}
+          tradeLog={[]}
+          handleHoldingCardSelect={() => {}}
+          handleHoldingCardOpenDrawer={() => {}}
+          handleReportMeta={() => {}}
+          openHoldingDrawer={() => {}}
+          setSortBy={() => {}}
+          setSortDir={() => {}}
+          setExpandedDecision={() => {}}
+          setTab={() => {}}
+          setSearchQ={() => {}}
+          setFilterDecision={() => {}}
+          setFilterThesis={() => {}}
+          setFilterUrgency={() => {}}
+          setFilterConflict={() => {}}
+          setFilterPnl={() => {}}
+          setFilterStrategy={() => {}}
+          setSectorFilterPersisted={() => {}}
+          setShowAll={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((c) => c.enabled === true)).toBe(true);
+    expect(calls[calls.length - 1].codes).toEqual(['2330', '2317']);
+    vi.doUnmock('@/checkup/hooks/useChipsBatch');
+    vi.doUnmock('@/checkup/hooks/useSparklines');
+    vi.doUnmock('@/checkup/contexts/CheckupModeContext');
+    vi.doUnmock('@/checkup/components/freecheckup/HoldingCard');
+    vi.resetModules();
+  });
+});
