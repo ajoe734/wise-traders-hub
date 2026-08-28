@@ -195,53 +195,57 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
     const chunks = chunkCodes(validCodes, CHIPS_BATCH_MAX_STOCKS);
     (async () => {
       const done: string[] = [];
-      await Promise.all(
-        chunks.map(async (chunk) => {
-          try {
-            const res = await fetchChipsBatch(chunk, {
-              signal: ac.signal,
-              telemetry: { source: isDemo ? 'visible_batch_demo' : 'visible_batch', isViewAs },
-            });
-            // race 硬閘：舊 run 的回覆一律丟棄，不寫入任何快取。
-            if (myRun !== runIdRef.current) return;
-            const now = Date.now();
-            for (const [code, payload] of Object.entries(res.results)) {
-              // ownership 閘：token 已被 newer manual 接管 → 整筆丟棄。
-              if (!mine(code)) continue;
-              const stampVer = payload?._cache_meta?.stamp_ver ?? null;
-              qc.setQueryData<ChipsFetchResult>(
-                chipsQueryKey(code),
-                { payload, stampVer, bytes: 0, durationMs: 0 },
-                { updatedAt: now },
-              );
-              done.push(code);
-            }
-            for (const code of chunk) {
-              if (!mine(code)) continue;
-              const ok = Object.prototype.hasOwnProperty.call(res.results, code);
-              qc.setQueryData<ChipsBatchStatus>(
-                chipsBatchStatusKey(code),
-                ok
-                  ? { kind: 'ok', runId: myRun, at: now }
-                  : { kind: 'error', runId: myRun, at: now, reason: 'per_code_error' },
-                { updatedAt: now },
-              );
-            }
-          } catch {
-            // 單批失敗只影響該批代號；其他批的 payload 與狀態保留。
-            if (myRun !== runIdRef.current) return;
-            const now = Date.now();
-            for (const code of chunk) {
-              if (!mine(code)) continue;
-              qc.setQueryData<ChipsBatchStatus>(
-                chipsBatchStatusKey(code),
-                { kind: 'error', runId: myRun, at: now, reason: 'chunk_failed' },
-                { updatedAt: now },
-              );
-            }
+      // Stage 1 §E：chunks 改為「可見順序 sequential await」（原本是 Promise.all）。
+      // 理由：31 檔時兩個 Edge invocation 並行 → 兩組 request-scope semaphore(6) 疊加，
+      // 整頁最大 DB 併發會變 12。sequential 讓整頁硬上限維持 6。
+      // 契約不變：exact [30,1] 兩個 POST body、union/order 相同、單批失敗只影響該批。
+      for (const chunk of chunks) {
+        // 發出下一批前的硬閘：cleanup／disabled／新 run 之後 network exact 0。
+        if (myRun !== runIdRef.current || ac.signal.aborted) return;
+        try {
+          const res = await fetchChipsBatch(chunk, {
+            signal: ac.signal,
+            telemetry: { source: isDemo ? 'visible_batch_demo' : 'visible_batch', isViewAs },
+          });
+          // race 硬閘：舊 run 的回覆一律丟棄，不寫入任何快取。
+          if (myRun !== runIdRef.current) return;
+          const now = Date.now();
+          for (const [code, payload] of Object.entries(res.results)) {
+            // ownership 閘：token 已被 newer manual 接管 → 整筆丟棄。
+            if (!mine(code)) continue;
+            const stampVer = payload?._cache_meta?.stamp_ver ?? null;
+            qc.setQueryData<ChipsFetchResult>(
+              chipsQueryKey(code),
+              { payload, stampVer, bytes: 0, durationMs: 0 },
+              { updatedAt: now },
+            );
+            done.push(code);
           }
-        }),
-      );
+          for (const code of chunk) {
+            if (!mine(code)) continue;
+            const ok = Object.prototype.hasOwnProperty.call(res.results, code);
+            qc.setQueryData<ChipsBatchStatus>(
+              chipsBatchStatusKey(code),
+              ok
+                ? { kind: 'ok', runId: myRun, at: now }
+                : { kind: 'error', runId: myRun, at: now, reason: 'per_code_error' },
+              { updatedAt: now },
+            );
+          }
+        } catch {
+          // 單批失敗只影響該批代號；其他批的 payload 與狀態保留，後續批仍要送出。
+          if (myRun !== runIdRef.current) return;
+          const now = Date.now();
+          for (const code of chunk) {
+            if (!mine(code)) continue;
+            qc.setQueryData<ChipsBatchStatus>(
+              chipsBatchStatusKey(code),
+              { kind: 'error', runId: myRun, at: now, reason: 'chunk_failed' },
+              { updatedAt: now },
+            );
+          }
+        }
+      }
       if (myRun !== runIdRef.current) return;
       // 只做 per-code merge；絕不用 new Set(done) 全量覆蓋，
       // 否則 token 已被 manual 接管時舊 batch 會抹掉 manual 的成功結果。

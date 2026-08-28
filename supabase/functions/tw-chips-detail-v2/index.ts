@@ -27,6 +27,12 @@ import { classifyBsrProvider } from "../_shared/bsrProviderState.ts";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_BATCH = 30;
+/** Stage 1 §C：request-scope DB/RPC 併發硬上限。禁止任何路徑繞過。 */
+const MAX_DB_CONCURRENCY = 6;
+/** Stage 1 §C：code-level gate（computeChipsStamp 不經 semaphore，故 stamp 併發最大 4）。 */
+const CODE_CONCURRENCY = 2;
+/** bulk 取列上限；達上限視為 truncated，未命中的 stock 一律退回 per-code 查詢。 */
+const BULK_ROW_LIMIT = 5000;
 
 type BsrSource = "rollup" | "raw_fallback" | null;
 type BsrFreshness =
@@ -46,16 +52,245 @@ type DailySeriesRow = {
 };
 
 // ============================================================
+// Stage 1 §C：request-scope semaphore（hard max = MAX_DB_CONCURRENCY）
+// ============================================================
+export type Sem = <T>(fn: () => Promise<T>) => Promise<T>;
+
+export function createSemaphore(max: number): Sem {
+  let active = 0;
+  const queue: (() => void)[] = [];
+  const acquire = () =>
+    new Promise<void>((resolve) => {
+      if (active < max) {
+        active++;
+        resolve();
+        return;
+      }
+      // 排隊者由 release 端遞增 active，避免多個 waiter 同時被喚醒而超出上限。
+      queue.push(() => {
+        active++;
+        resolve();
+      });
+    });
+  const release = () => {
+    active--;
+    const next = queue.shift();
+    if (next) next();
+  };
+  return async <T>(fn: () => Promise<T>): Promise<T> => {
+    await acquire();
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  };
+}
+
+// ============================================================
+// Stage 1 §A/§B：batch-only context（POST batch path 才建立）
+// ============================================================
+export interface BatchCtx {
+  rawSince: string;
+  /** #4 done queue：stock → 已 done 的 trade_date 集合 */
+  queueDone: Map<string, Set<string>>;
+  queueDoneComplete: boolean;
+  /** #8 queue 最新一列 */
+  queueLatest: Map<string, any>;
+  queueLatestComplete: boolean;
+  /** #9 未解決失敗列（已依 trade_date desc、每股最多 10 列） */
+  failures: Map<string, any[]>;
+  failuresComplete: boolean;
+  /** #11 upstream probe：多列時比照 maybeSingle 的錯誤語意視為 false */
+  probe: Map<string, boolean>;
+  probeComplete: boolean;
+  /** #10 全域 market_batch config */
+  marketBatchConfig: any;
+  /** #12 全域 data_source_health */
+  healthRows: any[];
+  /** #13 per-date single-flight memo */
+  snapshotByDate: Map<string, Promise<any>>;
+}
+
+export async function buildBatchCtx(supa: any, sem: Sem, ids: string[]): Promise<BatchCtx> {
+  const rawSince = new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10);
+
+  // 6 條 bulk，恰好用滿 semaphore；全部 await 完成後才進 code phase（兩階段不重疊）。
+  const [doneRes, latestRes, failRes, cfgRes, probeRes, healthRes] = await Promise.all([
+    sem(() =>
+      supa
+        .from("tw_bsr_sync_queue")
+        .select("stock_id, trade_date")
+        .in("stock_id", ids)
+        .eq("status", "done")
+        .gte("trade_date", rawSince)
+        .limit(BULK_ROW_LIMIT)
+    ),
+    sem(() =>
+      supa
+        .from("tw_bsr_sync_queue")
+        .select("stock_id, status, attempts, max_attempts, next_run_at, last_error, updated_at, trade_date")
+        .in("stock_id", ids)
+        .order("updated_at", { ascending: false })
+        .limit(BULK_ROW_LIMIT)
+    ),
+    sem(() =>
+      supa
+        .from("tw_bsr_fetch_failures")
+        .select("stock_id, trade_date, reason, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures, last_error, error_class")
+        .in("stock_id", ids)
+        .is("resolved_at", null)
+        .order("trade_date", { ascending: false })
+        .limit(BULK_ROW_LIMIT)
+    ),
+    sem(() =>
+      supa
+        .from("tw_bsr_sync_config")
+        .select("config")
+        .eq("key", "market_batch")
+        .maybeSingle()
+    ),
+    sem(() =>
+      supa
+        .from("tw_bsr_upstream_probe")
+        .select("stock_id, exhausted")
+        .in("stock_id", ids)
+        .limit(BULK_ROW_LIMIT)
+    ),
+    sem(() =>
+      supa
+        .from("data_source_health")
+        .select("source, circuit_state, disabled_until, consecutive_failures, last_error_code")
+        .in("source", ["finmind_bsr", "twse_t86"])
+    ),
+  ]);
+
+  // 任一 bulk 失敗或被截斷 → 該類 complete=false，未命中的 stock 退回 per-code 查詢。
+  const doneRows = (doneRes?.data ?? []) as any[];
+  const queueDone = new Map<string, Set<string>>();
+  for (const r of doneRows) {
+    const k = String(r.stock_id);
+    if (!queueDone.has(k)) queueDone.set(k, new Set<string>());
+    queueDone.get(k)!.add(String(r.trade_date));
+  }
+
+  const latestRows = (latestRes?.data ?? []) as any[];
+  const queueLatest = new Map<string, any>();
+  for (const r of latestRows) {
+    // 已依 updated_at desc 排序 → 每股第一次出現即為最新。
+    const k = String(r.stock_id);
+    if (!queueLatest.has(k)) {
+      const { stock_id: _drop, ...rest } = r;
+      queueLatest.set(k, rest);
+    }
+  }
+
+  const failRows = (failRes?.data ?? []) as any[];
+  const failures = new Map<string, any[]>();
+  for (const r of failRows) {
+    const k = String(r.stock_id);
+    const arr = failures.get(k);
+    if (arr) {
+      if (arr.length < 10) arr.push(r);
+    } else {
+      failures.set(k, [r]);
+    }
+  }
+
+  const probeRows = (probeRes?.data ?? []) as any[];
+  const probeCount = new Map<string, number>();
+  const probe = new Map<string, boolean>();
+  for (const r of probeRows) {
+    const k = String(r.stock_id);
+    probeCount.set(k, (probeCount.get(k) ?? 0) + 1);
+    probe.set(k, !!r.exhausted);
+  }
+  for (const [k, n] of probeCount) {
+    // maybeSingle 在多列時回 error → 原行為為 false，這裡照抄。
+    if (n > 1) probe.set(k, false);
+  }
+
+  return {
+    rawSince,
+    queueDone,
+    queueDoneComplete: !doneRes?.error && doneRows.length < BULK_ROW_LIMIT,
+    queueLatest,
+    queueLatestComplete: !latestRes?.error && latestRows.length < BULK_ROW_LIMIT,
+    failures,
+    failuresComplete: !failRes?.error && failRows.length < BULK_ROW_LIMIT,
+    probe,
+    probeComplete: !probeRes?.error && probeRows.length < BULK_ROW_LIMIT,
+    marketBatchConfig: cfgRes?.error ? null : (cfgRes?.data ?? null),
+    healthRows: (healthRes?.data ?? []) as any[],
+    snapshotByDate: new Map<string, Promise<any>>(),
+  };
+}
+
+
+// ============================================================
 // 單股 payload 建構（原 _shared/chipsDetailCore.ts 已內聯，避免部署工具遺漏新 shared 檔）
 // ============================================================
-async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
+async function buildChipsPayload(
+  supa: any,
+  stockId: string,
+  sem: Sem,
+  ctx: BatchCtx | null = null,
+): Promise<any> {
+  // ==== §D 併行區：五個彼此獨立、只依賴 stockId 的讀取 ====
+  // 每一條都經 request-scope semaphore（hard max 6）；依賴鏈（raw dates→queue done、
+  // fallbackAsOf→rollup、chosenAsOf→snapshot）仍留在後面依原順序執行。
+  const rawSince = ctx?.rawSince ??
+    new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10);
+
+  const qInst = () =>
+    sem(() =>
+      supa
+        .from("tw_institutional_daily")
+        .select("trade_date, foreign_net, trust_net, dealer_net, total_net")
+        .eq("stock_id", stockId)
+        .order("trade_date", { ascending: false })
+        .limit(65)
+    );
+  const qRollup = () =>
+    sem(() =>
+      supa
+        .from("tw_chips_rollup")
+        .select("as_of_date, window_days, top_buy_brokers, top_sell_brokers, concentration_ratio, bsr_available")
+        .eq("stock_id", stockId)
+        .order("as_of_date", { ascending: false })
+        .limit(20)
+    );
+  const qBsrDaily = () =>
+    sem(() =>
+      supa
+        .from("tw_bsr_daily")
+        .select("trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares")
+        .eq("stock_id", stockId)
+        .gte("trade_date", rawSince)
+        .order("trade_date", { ascending: false })
+        .limit(15000)
+    );
+  const qSeries = () =>
+    sem(() => supa.rpc("get_bsr_daily_series", { _stock_id: stockId, _days: 60 }));
+  const qElig = () => sem(() => supa.rpc("tw_bsr_eligibility", { p_stock_id: stockId }));
+
+  let instRes: any, rollupRes: any, bsrDailyRes: any, seriesRes: any, eligRes: any;
+  if (ctx) {
+    [instRes, rollupRes, bsrDailyRes, seriesRes, eligRes] = await Promise.all([
+      qInst(), qRollup(), qBsrDaily(), qSeries(), qElig(),
+    ]);
+  } else {
+    // 無 batch ctx（single GET）：維持原本的逐條順序與 fail-fast 語意。
+    instRes = await qInst();
+    if (instRes.error) throw new Error(`DB_ERROR: ${instRes.error.message}`);
+    rollupRes = await qRollup();
+    bsrDailyRes = await qBsrDaily();
+    seriesRes = await qSeries();
+    eligRes = await qElig();
+  }
+
   // ==== 三大法人 1/5/20/60 日 ====
-  const { data: instRows, error: instErr } = await supa
-    .from("tw_institutional_daily")
-    .select("trade_date, foreign_net, trust_net, dealer_net, total_net")
-    .eq("stock_id", stockId)
-    .order("trade_date", { ascending: false })
-    .limit(65);
+  const { data: instRows, error: instErr } = instRes;
   if (instErr) throw new Error(`DB_ERROR: ${instErr.message}`);
 
   const windows = [1, 5, 20, 60] as const;
@@ -75,39 +310,41 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
   }
 
   // ==== BSR rollup（formal，含 d5/d20/d60）====
-  const { data: rollupRows } = await supa
-    .from("tw_chips_rollup")
-    .select("as_of_date, window_days, top_buy_brokers, top_sell_brokers, concentration_ratio, bsr_available")
-    .eq("stock_id", stockId)
-    .order("as_of_date", { ascending: false })
-    .limit(20);
+  const { data: rollupRows } = rollupRes;
   const rollupLatestAsOf: string | null = rollupRows?.[0]?.as_of_date || null;
 
   // ==== BSR raw daily（僅供 fallback 聚合 top_buy/top_sell 使用）====
-  const rawSince = new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10);
-  const { data: bsrDaily } = await supa
-    .from("tw_bsr_daily")
-    .select("trade_date, broker_id, broker_name, buy_shares, sell_shares, net_shares")
-    .eq("stock_id", stockId)
-    .gte("trade_date", rawSince)
-    .order("trade_date", { ascending: false })
-    .limit(15000);
+  const { data: bsrDaily } = bsrDailyRes;
   const bsrRawRows = (bsrDaily || []) as any[];
+
+  // ==== 序列與 eligibility（併行區結果，語意與原本相同）====
+  const { data: dailySeries, error: seriesErr } = seriesRes;
+  const { data: eligData } = eligRes;
 
   // ==== queue done set（判定 completeness 用）====
   const rawUniqueDatesDesc = Array.from(new Set(bsrRawRows.map((r) => r.trade_date))).sort(
     (a, b) => (a < b ? 1 : a > b ? -1 : 0),
   );
   const rawCandidatesForFallback = rawUniqueDatesDesc.slice(0, 20);
-  const { data: doneQueueRows } = rawCandidatesForFallback.length
-    ? await supa
-      .from("tw_bsr_sync_queue")
-      .select("trade_date, status")
-      .eq("stock_id", stockId)
-      .eq("status", "done")
-      .in("trade_date", rawCandidatesForFallback)
+  // #4：done queue bulk（IN stock_id + trade_date >= rawSince 的超集），
+  // 記憶體再依 per-code 的 rawCandidatesForFallback 交集過濾。
+  const useBulkDone = !!ctx && (ctx.queueDoneComplete || ctx.queueDone.has(stockId));
+  const { data: doneQueueRows } = useBulkDone
+    ? { data: [] as any[] }
+    : rawCandidatesForFallback.length
+    ? await sem(() =>
+      supa
+        .from("tw_bsr_sync_queue")
+        .select("trade_date, status")
+        .eq("stock_id", stockId)
+        .eq("status", "done")
+        .in("trade_date", rawCandidatesForFallback)
+    )
     : { data: [] as any[] };
-  const doneDateSet = new Set((doneQueueRows || []).map((r: any) => String(r.trade_date)));
+  const bulkDoneDates = useBulkDone ? (ctx!.queueDone.get(stockId) ?? new Set<string>()) : null;
+  const doneDateSet = bulkDoneDates
+    ? new Set(rawCandidatesForFallback.filter((d) => bulkDoneDates.has(String(d))).map(String))
+    : new Set((doneQueueRows || []).map((r: any) => String(r.trade_date)));
 
   const rowCountByDate = countRowsByDate(bsrRawRows);
   const fallbackCandidates = rawCandidatesForFallback.map((d) => ({
@@ -138,11 +375,14 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
   };
   const readRollupForDate = async (asOf: string) => {
     // READ-ONLY：只 SELECT 既有 rollup，不觸發任何 writer RPC。
-    const { data: rows } = await supa
-      .from("tw_chips_rollup")
-      .select("as_of_date, window_days, top_buy_brokers, top_sell_brokers, concentration_ratio, bsr_available")
-      .eq("stock_id", stockId)
-      .eq("as_of_date", asOf);
+    // 依賴鏈保持原順序：fallbackAsOf 決定後才可發此查詢。
+    const { data: rows } = await sem(() =>
+      supa
+        .from("tw_chips_rollup")
+        .select("as_of_date, window_days, top_buy_brokers, top_sell_brokers, concentration_ratio, bsr_available")
+        .eq("stock_id", stockId)
+        .eq("as_of_date", asOf)
+    );
     fillFromRollupRows(rows || [], asOf);
   };
 
@@ -167,10 +407,7 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
   }));
 
   // ==== BSR 每日集中度序列 ====
-  const { data: dailySeries, error: seriesErr } = await supa.rpc(
-    "get_bsr_daily_series",
-    { _stock_id: stockId, _days: 60 },
-  );
+  // 此 RPC 已在函式開頭與其他獨立讀取一起發出（見 §D 併行區）。
   if (seriesErr) console.warn("[chips-detail] get_bsr_daily_series failed:", seriesErr.message);
   const bsrConcentration = ((dailySeries || []) as DailySeriesRow[])
     .map((r) => ({
@@ -200,40 +437,55 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
   const bsrLagWeekdays = chosenAsOf ? weekdayDiff(chosenAsOf, expectedDate) : null;
 
   // ==== Eligibility + Queue status ====
-  const { data: eligData } = await supa.rpc("tw_bsr_eligibility", { p_stock_id: stockId });
+  // eligibility RPC 已在函式開頭與其他獨立讀取一起發出（見 §D 併行區）。
   const eligible = !!(eligData && (eligData as any).eligible);
   const ineligibleReason = eligible ? null : ((eligData as any)?.ineligible_reason ?? null);
 
-  const { data: queueRows } = await supa
-    .from("tw_bsr_sync_queue")
-    .select("status, attempts, max_attempts, next_run_at, last_error, updated_at, trade_date")
-    .eq("stock_id", stockId)
-    .order("updated_at", { ascending: false })
-    .limit(1);
+  // #8：queue 最新一列 bulk（IN + updated_at desc），記憶體取每股最新。
+  const { data: queueRows } = ctx && (ctx.queueLatestComplete || ctx.queueLatest.has(stockId))
+    ? { data: ctx.queueLatest.has(stockId) ? [ctx.queueLatest.get(stockId)] : [] }
+    : await sem(() =>
+      supa
+        .from("tw_bsr_sync_queue")
+        .select("status, attempts, max_attempts, next_run_at, last_error, updated_at, trade_date")
+        .eq("stock_id", stockId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+    );
   const q = (queueRows && queueRows[0]) || null;
 
   const SAFE_REASON_CODES = new Set([
     "captcha_retry_exhausted", "finmind_error", "http_block",
     "no_chip_data", "not_chip_eligible", "rate_limited", "empty_rows",
   ]);
-  const { data: failRows } = await supa
-    .from("tw_bsr_fetch_failures")
-    .select("trade_date, reason, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures, last_error, error_class")
+  // #9：未解決失敗列 bulk（IN + resolved_at is null），記憶體依 trade_date desc 取前 10。
+  const { data: failRows } = ctx && (ctx.failuresComplete || ctx.failures.has(stockId))
+    ? { data: ctx.failures.get(stockId) ?? [] }
+    : await sem(() =>
+      supa
+        .from("tw_bsr_fetch_failures")
+        .select("trade_date, reason, attempts, resolved_at, next_retry_at, backoff_seconds, consecutive_failures, last_error, error_class")
 
-    .eq("stock_id", stockId)
-    .is("resolved_at", null)
-    .order("trade_date", { ascending: false })
-    .limit(10);
+        .eq("stock_id", stockId)
+        .is("resolved_at", null)
+        .order("trade_date", { ascending: false })
+        .limit(10)
+    );
 
   // Provider capability is global, not stock-specific. The market-batch probe is the
   // authoritative persisted evidence for a plan-level rejection; per-stock failure rows
   // may only contain the later circuit-open symptom and must not downgrade terminal → unknown.
   // Raw config stays server-side; only the classifier's safe enum/code are returned.
-  const { data: marketBatchConfig } = await supa
-    .from("tw_bsr_sync_config")
-    .select("config")
-    .eq("key", "market_batch")
-    .maybeSingle();
+  // #10：market_batch 是全域 config，batch 內每批只查一次。
+  const { data: marketBatchConfig } = ctx
+    ? { data: ctx.marketBatchConfig }
+    : await sem(() =>
+      supa
+        .from("tw_bsr_sync_config")
+        .select("config")
+        .eq("key", "market_batch")
+        .maybeSingle()
+    );
   const marketBatch = (marketBatchConfig?.config ?? null) as Record<string, unknown> | null;
   // Stage C1 canonical admission gate (v8): the persisted gate itself is authoritative.
   const terminalGate = marketBatch?.admission_blocked === true &&
@@ -362,12 +614,19 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
 
   let upstreamExhausted = false;
   try {
-    const { data: probe } = await supa
-      .from("tw_bsr_upstream_probe")
-      .select("exhausted")
-      .eq("stock_id", stockId)
-      .maybeSingle();
-    upstreamExhausted = !!probe?.exhausted;
+    // #11：bulk 命中（或 bulk 完整而該股無列）時用記憶體結果；否則 per-code fallback。
+    if (ctx && (ctx.probeComplete || ctx.probe.has(stockId))) {
+      upstreamExhausted = ctx.probe.get(stockId) === true;
+    } else {
+      const { data: probe } = await sem(() =>
+        supa
+          .from("tw_bsr_upstream_probe")
+          .select("exhausted")
+          .eq("stock_id", stockId)
+          .maybeSingle()
+      );
+      upstreamExhausted = !!probe?.exhausted;
+    }
   } catch (_e) { /* 非致命 */ }
 
   // PR-8：上游熔斷狀態
@@ -381,10 +640,15 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     }>;
   } = { any_open: false, sources: {} };
   try {
-    const { data: healthRows } = await supa
-      .from('data_source_health')
-      .select('source, circuit_state, disabled_until, consecutive_failures, last_error_code')
-      .in('source', ['finmind_bsr', 'twse_t86']);
+    // #12：全域來源健康，batch 內每批只查一次。
+    const healthRows = ctx
+      ? ctx.healthRows
+      : (await sem(() =>
+        supa
+          .from('data_source_health')
+          .select('source, circuit_state, disabled_until, consecutive_failures, last_error_code')
+          .in('source', ['finmind_bsr', 'twse_t86'])
+      )).data;
     for (const r of (healthRows || []) as any[]) {
       const st = (r.circuit_state ?? 'closed') as 'closed' | 'open' | 'half_open';
       upstreamCircuit.sources[String(r.source)] = {
@@ -428,11 +692,30 @@ async function buildChipsPayload(supa: any, stockId: string): Promise<any> {
     snapshotState = 'ineligible';
   } else if (chosenAsOf) {
     try {
-      const { data: snap } = await supa
-        .from('tw_bsr_daily_snapshot_status')
-        .select('trade_date, status, sealed_at, sealed_by_lane, lane_a_status, lane_b_status, lane_c_status, coverage_stocks, coverage_brokers, updated_at')
-        .eq('trade_date', chosenAsOf)
-        .maybeSingle();
+      // #13：snapshot status 只依 trade_date（與 stock 無關）→ batch 內 per-date
+      // single-flight memoize；無 ctx 時維持原本每次查詢。
+      const readSnapshot = () =>
+        sem(async () => {
+          const { data } = await supa
+            .from('tw_bsr_daily_snapshot_status')
+            .select('trade_date, status, sealed_at, sealed_by_lane, lane_a_status, lane_b_status, lane_c_status, coverage_stocks, coverage_brokers, updated_at')
+            .eq('trade_date', chosenAsOf)
+            .maybeSingle();
+          return data ?? null;
+        });
+      let snapPromise: Promise<any>;
+      if (ctx) {
+        const memo = ctx.snapshotByDate.get(chosenAsOf);
+        if (memo) {
+          snapPromise = memo;
+        } else {
+          snapPromise = readSnapshot();
+          ctx.snapshotByDate.set(chosenAsOf, snapPromise);
+        }
+      } else {
+        snapPromise = readSnapshot();
+      }
+      const snap = await snapPromise;
       snapshotStatus = snap ?? null;
       if (snap?.sealed_at) {
         snapshotState = 'sealed';
@@ -519,13 +802,18 @@ async function withConcurrency<T>(items: T[], limit: number, fn: (item: T) => Pr
   return results;
 }
 
-async function buildOne(supa: any, stockId: string): Promise<{ payload: any; stampVer: string }> {
+async function buildOne(
+  supa: any,
+  stockId: string,
+  sem: Sem,
+  ctx: BatchCtx | null,
+): Promise<{ payload: any; stampVer: string }> {
   const stamp = await computeChipsStamp(supa, stockId);
   const stampVer = stamp.stampVer;
   const cacheKey = `chips:${stockId}:${stampVer}`;
   let cached = cacheGet<any>(cacheKey);
   if (!cached) {
-    cached = await buildChipsPayload(supa, stockId);
+    cached = await buildChipsPayload(supa, stockId, sem, ctx);
     cacheSet(cacheKey, cached, CACHE_TTL_MS);
   }
   return {
@@ -585,6 +873,10 @@ Deno.serve(async (req) => {
     }
 
     const supa = serviceClient();
+    // Stage 1 §C：request-scope DB/RPC semaphore，hard max=6。
+    // 注意：computeChipsStamp 在 _shared（本輪禁改），其兩條查詢不經 semaphore，
+    // 由 code-level concurrency=2 界定（stamp 併發最大 4）。
+    const sem = createSemaphore(MAX_DB_CONCURRENCY);
 
     // Single stock path (keeps original response shape + stamp_only + coalescing)
     if (!isBatch && singleId) {
@@ -614,7 +906,8 @@ Deno.serve(async (req) => {
       let coalescedHit = false;
       setCoalesceObserver((m) => { if (m.key === cacheKey && m.hit) coalescedHit = true; });
       // READ-ONLY：不註冊 DB inflight hook。
-      const payload = await coalesce(cacheKey, async () => buildChipsPayload(supa, singleId));
+      // 無 batch ctx → 走原本的 per-code 查詢路徑（fallback 保留）。
+      const payload = await coalesce(cacheKey, async () => buildChipsPayload(supa, singleId, sem, null));
 
       cacheSet(cacheKey, payload, CACHE_TTL_MS);
 
@@ -626,9 +919,12 @@ Deno.serve(async (req) => {
     }
 
     // Batch path
-    const settled = await withConcurrency(batchIds, 3, async (id) => {
+    // Stage 1：先跑 batch-scope bulk phase（6 條，恰好用滿 semaphore），
+    // 完全 await 完成後才進 code phase，兩階段不重疊。
+    const ctx = await buildBatchCtx(supa, sem, batchIds);
+    const settled = await withConcurrency(batchIds, CODE_CONCURRENCY, async (id) => {
       try {
-        return { ok: true, id, value: await buildOne(supa, id) };
+        return { ok: true, id, value: await buildOne(supa, id, sem, ctx) };
       } catch (err) {
         return { ok: false, id, error: (err as Error).message };
       }
