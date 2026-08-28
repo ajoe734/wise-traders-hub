@@ -10,6 +10,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createElement } from 'react';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect } from 'vitest';
 import {
   isHarnessHostAllowed,
@@ -18,6 +21,7 @@ import {
   harnessRoutesEnabled,
   PREVIEW_HOST_RE,
 } from '@/routes/harnessHostGate';
+import { HarnessRouteGuard } from '@/routes/harnessRoutes';
 
 const ALLOW = [
   'localhost',
@@ -86,21 +90,62 @@ describe('harness host gate · runtime gate 行為', () => {
       expect(isHarnessHostAllowed(h)).toBe(false);
     }
   });
+
+  it.each(['legendflow.tw', 'www.legendflow.tw', 'wise-traders-hub.lovable.app', 'preview--x.lovable.app.evil.com'])(
+    '非 allowlisted host element 必定 render NotFound: %s',
+    (hostname) => {
+      render(
+        createElement(
+          MemoryRouter,
+          null,
+          createElement(
+            HarnessRouteGuard,
+            { hostname },
+            createElement('div', { 'data-testid': 'harness-loaded' }, 'loaded'),
+          ),
+        ),
+      );
+      expect(screen.getByRole('heading', { name: '404' })).toBeInTheDocument();
+      expect(screen.queryByTestId('harness-loaded')).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(['localhost', '127.0.0.1', 'preview--wise-traders-hub.lovable.app'])(
+    'allowlisted runtime host 可載入 element: %s',
+    (hostname) => {
+      render(
+        createElement(
+          MemoryRouter,
+          null,
+          createElement(
+            HarnessRouteGuard,
+            { hostname },
+            createElement('div', { 'data-testid': 'harness-loaded' }, 'loaded'),
+          ),
+        ),
+      );
+      expect(screen.getByTestId('harness-loaded')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: '404' })).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe('harness host gate · source contract', () => {
-  it('App.tsx 用 harnessRoutesEnabled()，不再用 import.meta.env.DEV 掛 harness', () => {
+  it('App.tsx 無條件註冊 harness routes，不使用 module-top-level gate', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
-    expect(src).toContain('harnessRoutesEnabled');
-    expect(src).toContain('{HARNESS_ENABLED ? harnessRoutes() : null}');
-    expect(src).toContain('{HARNESS_ENABLED ? portfolioHarnessRoutes() : null}');
-    expect(src).not.toMatch(/import\.meta\.env\.DEV \? (harnessRoutes|portfolioHarnessRoutes)\(\)/);
+    expect(src).toContain('{harnessRoutes()}');
+    expect(src).toContain('{portfolioHarnessRoutes()}');
+    expect(src).not.toMatch(/HARNESS_ENABLED|harnessRoutesEnabled/);
+    expect(src).not.toMatch(/\?\s*(harnessRoutes|portfolioHarnessRoutes)\(\)\s*:\s*null/);
   });
 
-  it('harnessRoutes.tsx 的 gate 是 runtime、不是 build-time literal', () => {
+  it('目標 path 無條件存在，guard 在 element 且 lazy import 不受頂層條件控制', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/routes/harnessRoutes.tsx'), 'utf8');
-    expect(src).toContain('harnessRoutesEnabled()');
-    expect(src).not.toMatch(/const DEV = import\.meta\.env\.DEV/);
+    expect(src).toContain('path="/e2e/holdings-detail-panel-volume"');
+    expect(src).toContain('element={guarded(<HoldingsDetailPanelVolumeHarnessEntry />)}');
+    expect(src).toContain('window.location.hostname');
+    expect(src).not.toMatch(/const\s+(DEV|HARNESS_ENABLED)\s*=/);
+    expect(src).not.toMatch(/\?\s*lazy\(\(\)\s*=>\s*import/);
   });
 
   it('gate 不吃 query string（stage2 等旗標不得出現在 gate 模組）', () => {

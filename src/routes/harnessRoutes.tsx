@@ -10,11 +10,10 @@
  * bundle and the only thing standing between an anonymous visitor and a
  * component that renders economic numbers was a string comparison.
  *
- * Gate model (changed): the previous build-time-only gate (`import.meta.env.DEV`
- * as a literal) meant Rollup stripped this module from every non-dev build —
- * including Lovable's **unpublished Hosted Preview**, which is a production-like
- * build. `preview--<slug>.lovable.app/e2e/...` therefore 404'd and the harness
- * seam could not be verified by hand on Hosted.
+ * Gate model: every route and lazy import is always present in the route table.
+ * Authorization happens inside `HarnessRouteGuard` when React enters the route,
+ * using the browser's runtime hostname. This avoids both Rollup tree-shaking and
+ * module-top-level pre-evaluation in production-like unpublished Preview builds.
  *
  * The gate is now a RUNTIME check with a closed allow-list
  * (`src/routes/harnessHostGate.ts`): local dev/localhost, or a hostname that
@@ -23,59 +22,69 @@
  * host stay 404. The query string never grants access, and every harness page
  * renders fake-gateway fixtures only — no real user data, no live DB/Edge call.
  *
- * Because the gate is not a build-time literal, the harness chunks are emitted
- * but remain unreachable code behind the host check; they are only ever
- * `import()`-ed after `harnessRoutesEnabled()` returns true.
+ * The guard wraps every lazy element, so denied hosts render the same NotFound
+ * page without evaluating the lazy harness component. Every harness itself still
+ * uses fake gateway / fake fixtures only.
  */
-import { lazy } from "react";
+import { lazy, type ReactNode } from "react";
 import { Route } from "react-router-dom";
-import { harnessRoutesEnabled } from "./harnessHostGate";
+import NotFound from "../pages/NotFound";
+import { isHarnessHostAllowed } from "./harnessHostGate";
 
-// Runtime (NOT a build-time literal) — deliberately keeps Rollup from
-// tree-shaking the preview-host path away.
-const DEV = harnessRoutesEnabled();
+const HoldingCardHarnessEntry = lazy(() => import("../pages/HoldingCardHarnessEntry"));
+const RangeBandHarnessEntry = lazy(() => import("../pages/RangeBandHarnessEntry"));
+const HoldingsTableTargetHarnessEntry = lazy(() => import("../pages/HoldingsTableTargetHarnessEntry"));
+const HoldingsDetailPanelVolumeHarnessEntry = lazy(() => import("../pages/HoldingsDetailPanelVolumeHarnessEntry"));
+const SignalEditorHarnessEntry = lazy(() => import("../pages/SignalEditorHarnessEntry"));
+const EtfDisplayHarnessEntry = lazy(() => import("../pages/EtfDisplayHarnessEntry"));
+const SignalPreviewHarnessEntry = lazy(() => import("../pages/SignalPreviewHarnessEntry"));
+const SignalFocusHarnessEntry = lazy(() => import("../pages/SignalFocusHarnessEntry"));
+const JournalPdfHarnessEntry = lazy(() => import("../pages/JournalPdfHarnessEntry"));
+const NotificationLinkHarnessEntry = lazy(() => import("../pages/NotificationLinkHarnessEntry"));
+const EarlyPublishCopyHarnessEntry = lazy(() => import("../pages/EarlyPublishCopyHarnessEntry"));
+const JournalsExportHarnessEntry = lazy(() => import("../pages/JournalsExportHarnessEntry"));
+const JournalsExportUIHarnessEntry = lazy(() => import("../pages/JournalsExportUIHarnessEntry"));
+const JournalsExportHeaderDomHarnessEntry = lazy(() => import("../pages/JournalsExportHeaderDomHarnessEntry"));
+const ChipsSectionHarnessEntry = lazy(() => import("../pages/ChipsSectionHarnessEntry"));
+const ChipsBatchHarnessEntry = lazy(() => import("../pages/ChipsBatchHarnessEntry"));
+const JournalAuthoringHarnessEntry = lazy(() => import("../pages/JournalAuthoringHarnessEntry"));
+const ShellEventBusHarnessEntry = lazy(() => import("../pages/ShellEventBusHarnessEntry"));
 
-const HoldingCardHarnessEntry = DEV ? lazy(() => import("../pages/HoldingCardHarnessEntry")) : (() => null);
-const RangeBandHarnessEntry = DEV ? lazy(() => import("../pages/RangeBandHarnessEntry")) : (() => null);
-const HoldingsTableTargetHarnessEntry = DEV ? lazy(() => import("../pages/HoldingsTableTargetHarnessEntry")) : (() => null);
-const HoldingsDetailPanelVolumeHarnessEntry = DEV ? lazy(() => import("../pages/HoldingsDetailPanelVolumeHarnessEntry")) : (() => null);
-const SignalEditorHarnessEntry = DEV ? lazy(() => import("../pages/SignalEditorHarnessEntry")) : (() => null);
-const EtfDisplayHarnessEntry = DEV ? lazy(() => import("../pages/EtfDisplayHarnessEntry")) : (() => null);
-const SignalPreviewHarnessEntry = DEV ? lazy(() => import("../pages/SignalPreviewHarnessEntry")) : (() => null);
-const SignalFocusHarnessEntry = DEV ? lazy(() => import("../pages/SignalFocusHarnessEntry")) : (() => null);
-const JournalPdfHarnessEntry = DEV ? lazy(() => import("../pages/JournalPdfHarnessEntry")) : (() => null);
-const NotificationLinkHarnessEntry = DEV ? lazy(() => import("../pages/NotificationLinkHarnessEntry")) : (() => null);
-const EarlyPublishCopyHarnessEntry = DEV ? lazy(() => import("../pages/EarlyPublishCopyHarnessEntry")) : (() => null);
-const JournalsExportHarnessEntry = DEV ? lazy(() => import("../pages/JournalsExportHarnessEntry")) : (() => null);
-const JournalsExportUIHarnessEntry = DEV ? lazy(() => import("../pages/JournalsExportUIHarnessEntry")) : (() => null);
-const JournalsExportHeaderDomHarnessEntry = DEV ? lazy(() => import("../pages/JournalsExportHeaderDomHarnessEntry")) : (() => null);
-const ChipsSectionHarnessEntry = DEV ? lazy(() => import("../pages/ChipsSectionHarnessEntry")) : (() => null);
-const ChipsBatchHarnessEntry = DEV ? lazy(() => import("../pages/ChipsBatchHarnessEntry")) : (() => null);
-const JournalAuthoringHarnessEntry = DEV ? lazy(() => import("../pages/JournalAuthoringHarnessEntry")) : (() => null);
-const ShellEventBusHarnessEntry = DEV ? lazy(() => import("../pages/ShellEventBusHarnessEntry")) : (() => null);
+interface HarnessRouteGuardProps {
+  children: ReactNode;
+  /** Explicit only for executable contracts; production routes omit this. */
+  hostname?: string;
+}
 
-/** Top-level `/e2e/*` harness routes. Dev builds only. */
+export function HarnessRouteGuard({ children, hostname }: HarnessRouteGuardProps) {
+  const runtimeHostname = hostname ?? (typeof window === "undefined" ? "" : window.location.hostname);
+  return isHarnessHostAllowed(runtimeHostname) ? <>{children}</> : <NotFound />;
+}
+
+const guarded = (element: ReactNode) => <HarnessRouteGuard>{element}</HarnessRouteGuard>;
+
+/** Top-level `/e2e/*` harness routes. Always registered; runtime-host guarded. */
 export const harnessRoutes = () => [
-  <Route key="e2e-holding-card" path="/e2e/holding-card-harness" element={<HoldingCardHarnessEntry />} />,
-  <Route key="e2e-range-band" path="/e2e/range-band-harness" element={<RangeBandHarnessEntry />} />,
-  <Route key="e2e-holdings-table-target" path="/e2e/holdings-table-target-harness" element={<HoldingsTableTargetHarnessEntry />} />,
-  <Route key="e2e-holdings-detail-volume" path="/e2e/holdings-detail-panel-volume" element={<HoldingsDetailPanelVolumeHarnessEntry />} />,
-  <Route key="e2e-signal-editor" path="/e2e/signal-editor-harness" element={<SignalEditorHarnessEntry />} />,
-  <Route key="e2e-etf-display" path="/e2e/etf-display-harness" element={<EtfDisplayHarnessEntry />} />,
-  <Route key="e2e-signal-preview" path="/e2e/signal-preview-harness" element={<SignalPreviewHarnessEntry />} />,
-  <Route key="e2e-signal-focus" path="/e2e/signal-focus-harness" element={<SignalFocusHarnessEntry />} />,
-  <Route key="e2e-journal-pdf" path="/e2e/journal-pdf-harness" element={<JournalPdfHarnessEntry />} />,
-  <Route key="e2e-notification-link" path="/e2e/notification-link-harness" element={<NotificationLinkHarnessEntry />} />,
-  <Route key="e2e-early-publish-copy" path="/e2e/early-publish-copy-harness" element={<EarlyPublishCopyHarnessEntry />} />,
-  <Route key="e2e-journals-export" path="/e2e/journals-export-harness" element={<JournalsExportHarnessEntry />} />,
-  <Route key="e2e-journals-export-ui" path="/e2e/journals-export-ui-harness" element={<JournalsExportUIHarnessEntry />} />,
-  <Route key="e2e-journals-export-header" path="/e2e/journals-export-header-dom" element={<JournalsExportHeaderDomHarnessEntry />} />,
-  <Route key="e2e-chips-section" path="/e2e/chips-section" element={<ChipsSectionHarnessEntry />} />,
-  <Route key="e2e-chips-batch" path="/e2e/chips-batch" element={<ChipsBatchHarnessEntry />} />,
-  <Route key="e2e-journal-authoring" path="/e2e/journal-authoring-harness" element={<JournalAuthoringHarnessEntry />} />,
+  <Route key="e2e-holding-card" path="/e2e/holding-card-harness" element={guarded(<HoldingCardHarnessEntry />)} />,
+  <Route key="e2e-range-band" path="/e2e/range-band-harness" element={guarded(<RangeBandHarnessEntry />)} />,
+  <Route key="e2e-holdings-table-target" path="/e2e/holdings-table-target-harness" element={guarded(<HoldingsTableTargetHarnessEntry />)} />,
+  <Route key="e2e-holdings-detail-volume" path="/e2e/holdings-detail-panel-volume" element={guarded(<HoldingsDetailPanelVolumeHarnessEntry />)} />,
+  <Route key="e2e-signal-editor" path="/e2e/signal-editor-harness" element={guarded(<SignalEditorHarnessEntry />)} />,
+  <Route key="e2e-etf-display" path="/e2e/etf-display-harness" element={guarded(<EtfDisplayHarnessEntry />)} />,
+  <Route key="e2e-signal-preview" path="/e2e/signal-preview-harness" element={guarded(<SignalPreviewHarnessEntry />)} />,
+  <Route key="e2e-signal-focus" path="/e2e/signal-focus-harness" element={guarded(<SignalFocusHarnessEntry />)} />,
+  <Route key="e2e-journal-pdf" path="/e2e/journal-pdf-harness" element={guarded(<JournalPdfHarnessEntry />)} />,
+  <Route key="e2e-notification-link" path="/e2e/notification-link-harness" element={guarded(<NotificationLinkHarnessEntry />)} />,
+  <Route key="e2e-early-publish-copy" path="/e2e/early-publish-copy-harness" element={guarded(<EarlyPublishCopyHarnessEntry />)} />,
+  <Route key="e2e-journals-export" path="/e2e/journals-export-harness" element={guarded(<JournalsExportHarnessEntry />)} />,
+  <Route key="e2e-journals-export-ui" path="/e2e/journals-export-ui-harness" element={guarded(<JournalsExportUIHarnessEntry />)} />,
+  <Route key="e2e-journals-export-header" path="/e2e/journals-export-header-dom" element={guarded(<JournalsExportHeaderDomHarnessEntry />)} />,
+  <Route key="e2e-chips-section" path="/e2e/chips-section" element={guarded(<ChipsSectionHarnessEntry />)} />,
+  <Route key="e2e-chips-batch" path="/e2e/chips-batch" element={guarded(<ChipsBatchHarnessEntry />)} />,
+  <Route key="e2e-journal-authoring" path="/e2e/journal-authoring-harness" element={guarded(<JournalAuthoringHarnessEntry />)} />,
 ];
 
-/** Nested harness route under the portfolio shell. Dev builds only. */
+/** Nested harness route. Always registered; runtime-host guarded. */
 export const portfolioHarnessRoutes = () => [
-  <Route key="shell-bus" path="__shell-bus" element={<ShellEventBusHarnessEntry />} />,
+  <Route key="shell-bus" path="__shell-bus" element={guarded(<ShellEventBusHarnessEntry />)} />,
 ];

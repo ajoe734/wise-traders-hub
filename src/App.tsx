@@ -63,13 +63,10 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
-// Playwright harness routes — runtime host gate (local dev / localhost, or an
-// exact `preview--<slug>.lovable.app` unpublished preview). Every other host,
-// including custom domains and published production, gets 404.
-// See src/routes/harnessHostGate.ts.
+// Playwright harness routes are always registered so production-like Preview
+// builds cannot pre-evaluate/tree-shake them. Each route element performs the
+// runtime hostname guard; custom/published hosts render NotFound.
 import { harnessRoutes, portfolioHarnessRoutes } from "./routes/harnessRoutes";
-import { harnessRoutesEnabled } from "./routes/harnessHostGate";
-const HARNESS_ENABLED = harnessRoutesEnabled();
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
@@ -291,7 +288,7 @@ const AppShell = () => (
             <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
             {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
-            {HARNESS_ENABLED ? harnessRoutes() : null}
+            {harnessRoutes()}
             <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/data-sources" element={<DataSources />} />
@@ -308,7 +305,7 @@ const AppShell = () => (
               <Route path="research" element={<ResearchPage />} />
               <Route path="trade" element={<TradePage />} />
               <Route path="log" element={<LogPage />} />
-              {HARNESS_ENABLED ? portfolioHarnessRoutes() : null}
+              {portfolioHarnessRoutes()}
             </Route>
             <Route path="/overview" element={<PortfolioLayout />}>
               <Route index element={<OverviewPage />} />
