@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { createElement, type ReactNode } from 'react';
+import { StrictMode, createElement, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const fetchChipsBatch = vi.fn();
@@ -147,5 +147,94 @@ describe('Stage D · chips 批次分塊', () => {
     const failStatus = qc.getQueryData<BatchStatus>(chipsBatchStatusKey(failCode));
     expect(failStatus?.kind).toBe('error');
     expect(failStatus?.reason).toBe('chunk_failed');
+  });
+});
+
+/**
+ * v4.5 · initial-mount regression（Hosted Preview 真實紅燈）
+ *
+ * production 的 mount 一開始 codes 就非空、且此後永不改變；舊實作的 render-time
+ * `keyRef = useRef(key)` 讓首次 effect 的 `keyRef.current === key` 成立而永久跳過批次，
+ * 卡片就停在 data-bsr-state="loading"。既有測試都先 codes=[] 再 rerender，
+ * 只證「代號後來改變」，測不到這條路徑。以下測試一律 **不 rerender**（除了
+ * enabled toggle 案例），直接以非空 initialProps 掛載。
+ */
+describe('v4.5 · initial non-empty mount 必須啟動批次', () => {
+  beforeEach(() => {
+    fetchChipsBatch.mockReset();
+    fetchChipsBatch.mockImplementation(async (codes: string[]) => ({
+      results: Object.fromEntries(codes.map((c) => [c, { stock_id: c }])),
+      errors: {},
+      count: codes.length,
+      failed: 0,
+      servedAt: new Date().toISOString(),
+    }));
+  });
+
+  it('initial codes=[2330]、完全不 rerender：exact 1 次 batch、status ok、payload 落地', async () => {
+    const qc = makeQc();
+    renderHook(() => useChipsBatch({ codes: ['2330'] }), { wrapper: wrapperFor(qc) });
+
+    await waitFor(() => {
+      expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'))?.kind).toBe('ok');
+    });
+    expect(fetchChipsBatch).toHaveBeenCalledTimes(1);
+    expect(fetchChipsBatch.mock.calls[0][0]).toEqual(['2330']);
+    expect(
+      qc.getQueryData<{ payload?: { stock_id?: string } }>(chipsQueryKey('2330'))?.payload?.stock_id,
+    ).toBe('2330');
+  });
+
+  it('initial 直接 31 檔、完全不 rerender：exact 2 批、sizes [30,1]、union exact 31', async () => {
+    const qc = makeQc();
+    const CODES = codesOf(31);
+    renderHook(() => useChipsBatch({ codes: CODES }), { wrapper: wrapperFor(qc) });
+
+    await waitFor(() => expect(fetchChipsBatch).toHaveBeenCalledTimes(2));
+    const calls = fetchChipsBatch.mock.calls.map((c) => c[0] as string[]);
+    expect(calls.map((c) => c.length)).toEqual([30, 1]);
+    const flat = calls.flat();
+    expect(flat.length).toBe(31);
+    expect(new Set(flat).size).toBe(31);
+    expect(new Set(flat)).toEqual(new Set(CODES));
+  });
+
+  it('initial codes 非空但 enabled=false：network exact 0；同 mount 切 enabled=true 後啟動', async () => {
+    const qc = makeQc();
+    const { rerender } = renderHook(
+      ({ e }: { e: boolean }) => useChipsBatch({ codes: ['2330'], enabled: e }),
+      { wrapper: wrapperFor(qc), initialProps: { e: false } },
+    );
+    await new Promise((r) => setTimeout(r, 60));
+    expect(fetchChipsBatch).toHaveBeenCalledTimes(0);
+    expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'))).toBeUndefined();
+
+    rerender({ e: true });
+    await waitFor(() => {
+      expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'))?.kind).toBe('ok');
+    });
+    expect(fetchChipsBatch).toHaveBeenCalled();
+    expect(
+      qc.getQueryData<{ payload?: { stock_id?: string } }>(chipsQueryKey('2330'))?.payload?.stock_id,
+    ).toBe('2330');
+  });
+
+  it('StrictMode initial codes=[2330]：effect replay 後最終 ok + payload，且不得留下 error', async () => {
+    const qc = makeQc();
+    const StrictWrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StrictMode, null, createElement(QueryClientProvider, { client: qc }, children));
+
+    renderHook(() => useChipsBatch({ codes: ['2330'] }), { wrapper: StrictWrapper });
+
+    await waitFor(() => {
+      expect(qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'))?.kind).toBe('ok');
+    });
+    await new Promise((r) => setTimeout(r, 60));
+    const finalStatus = qc.getQueryData<BatchStatus>(chipsBatchStatusKey('2330'));
+    expect(finalStatus?.kind).toBe('ok');
+    expect(finalStatus?.kind).not.toBe('error');
+    expect(
+      qc.getQueryData<{ payload?: { stock_id?: string } }>(chipsQueryKey('2330'))?.payload?.stock_id,
+    ).toBe('2330');
   });
 });
