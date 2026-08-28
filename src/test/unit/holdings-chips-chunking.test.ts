@@ -376,10 +376,12 @@ describe('Stage 1 · Edge source contract（static only）', () => {
     expect(src).toMatch(/const MAX_DB_CONCURRENCY = 6;/);
     expect(src).toMatch(/const CODE_CONCURRENCY = 2;/);
     expect(src).toMatch(/createSemaphore\(MAX_DB_CONCURRENCY\)/);
-    expect(src).toMatch(/withConcurrency\(batchIds, CODE_CONCURRENCY,/);
+    expect(src).toMatch(/runBatchPhases\(batchIds, \{/);
+    expect(src).toMatch(/concurrency: CODE_CONCURRENCY,/);
     // 不得有第二個 semaphore 上限來源
     expect(src.match(/createSemaphore\(/g)?.length).toBe(2); // 定義 + 唯一呼叫
   });
+
 
   it('batch ctx 只建立於 batch path；single GET 保留 ctx=null fallback', () => {
     expect(src).toMatch(/buildChipsPayload\(supa, singleId, sem, null\)/);
@@ -425,5 +427,168 @@ describe('Stage 1 · Edge source contract（static only）', () => {
       expect(src.includes(k)).toBe(true);
     }
     expect(src).toMatch(/const MAX_BATCH = 30;/);
+  });
+});
+
+/**
+ * STAGE1_HARD_MAX · runBatchPhases 三階段排程（**executable**，非只讀字串）
+ *
+ * index.ts 是 Deno 模組（Deno.serve top-level + jsr/npm specifier），vitest 不能整檔 import。
+ * 因此本組測試把 index.ts 內以 `--- BEGIN runBatchPhases ---` 標記的 **自足、無型別註記 slice**
+ * 直接 new Function 執行，證明真的三階段、峰值不重疊，而不是只比對常數字串。
+ */
+describe('STAGE1_HARD_MAX · runBatchPhases（executable slice）', () => {
+  const src = readFileSync('supabase/functions/tw-chips-detail-v2/index.ts', 'utf8');
+  const BEGIN = '// --- BEGIN runBatchPhases';
+  const END = '// --- END runBatchPhases ---';
+
+  function loadRunBatchPhases() {
+    const b = src.indexOf(BEGIN);
+    const e = src.indexOf(END);
+    expect(b, 'BEGIN marker 必須存在').toBeGreaterThan(-1);
+    expect(e, 'END marker 必須存在').toBeGreaterThan(b);
+    const slice = src.slice(src.indexOf('\n', b) + 1, e).trim().replace(/;$/, '');
+    // slice 必須是純 JS（無型別註記），否則這裡會直接語法錯誤。
+    return new Function(`return (${slice});`)() as (
+      ids: string[],
+      deps: {
+        concurrency: number;
+        computeStamp: (id: string) => Promise<string>;
+        buildWithStamp: (id: string, stampVer: string) => Promise<unknown>;
+      },
+    ) => Promise<Array<{ ok: boolean; id: string; value?: unknown; error?: string }>>;
+  }
+
+
+  const ids10 = codesOf(10);
+
+  it('payload phase 在最後一個 stamp settled 前 exact 0 start', async () => {
+    const runBatchPhases = loadRunBatchPhases();
+    const events: string[] = [];
+    let stampSettled = 0;
+    let payloadStartsBeforeAllStamps = 0;
+
+    await runBatchPhases(ids10, {
+      concurrency: 2,
+      computeStamp: async (id) => {
+        await new Promise((r) => setTimeout(r, 5));
+        stampSettled += 1;
+        events.push(`stamp:${id}`);
+        return `v-${id}`;
+      },
+      buildWithStamp: async (id) => {
+        if (stampSettled < ids10.length) payloadStartsBeforeAllStamps += 1;
+        events.push(`payload:${id}`);
+        await new Promise((r) => setTimeout(r, 1));
+        return { id };
+      },
+    });
+
+    expect(payloadStartsBeforeAllStamps).toBe(0);
+    const lastStamp = events.map((e) => e.startsWith('stamp:')).lastIndexOf(true);
+    const firstPayload = events.findIndex((e) => e.startsWith('payload:'));
+    expect(firstPayload).toBeGreaterThan(lastStamp);
+    expect(events.filter((e) => e.startsWith('stamp:')).length).toBe(10);
+    expect(events.filter((e) => e.startsWith('payload:')).length).toBe(10);
+  });
+
+  it('任一時刻 stamp 併發 <=2、payload 併發 <=2，兩階段 active 不重疊', async () => {
+    const runBatchPhases = loadRunBatchPhases();
+    let stampActive = 0;
+    let payloadActive = 0;
+    let maxStamp = 0;
+    let maxPayload = 0;
+    let overlap = 0;
+
+    await runBatchPhases(ids10, {
+      concurrency: 2,
+      computeStamp: async (id) => {
+        stampActive += 1;
+        maxStamp = Math.max(maxStamp, stampActive);
+        if (payloadActive > 0) overlap += 1;
+        await new Promise((r) => setTimeout(r, 3));
+        stampActive -= 1;
+        return `v-${id}`;
+      },
+      buildWithStamp: async (id) => {
+        payloadActive += 1;
+        maxPayload = Math.max(maxPayload, payloadActive);
+        if (stampActive > 0) overlap += 1;
+        await new Promise((r) => setTimeout(r, 3));
+        payloadActive -= 1;
+        return { id };
+      },
+    });
+
+    expect(maxStamp).toBeLessThanOrEqual(2);
+    expect(maxPayload).toBeLessThanOrEqual(2);
+    expect(overlap).toBe(0);
+  });
+
+  it('stamp failure 只落該 code error；其餘仍進 payload，輸出仍依原 batch order', async () => {
+    const runBatchPhases = loadRunBatchPhases();
+    const payloadCalls: string[] = [];
+    const bad = new Set([ids10[2], ids10[7]]);
+
+    const out = await runBatchPhases(ids10, {
+      concurrency: 2,
+      computeStamp: async (id) => {
+        if (bad.has(id)) throw new Error(`stamp down ${id}`);
+        return `v-${id}`;
+      },
+      buildWithStamp: async (id, stampVer) => {
+        payloadCalls.push(id);
+        return { id, stampVer };
+      },
+    });
+
+    expect(out.map((r) => r.id)).toEqual(ids10);
+    for (const r of out) {
+      if (bad.has(r.id)) {
+        expect(r.ok).toBe(false);
+        expect(r.error).toBe(`stamp down ${r.id}`);
+        expect(r.value).toBeUndefined();
+      } else {
+        expect(r.ok).toBe(true);
+        expect(r.value).toEqual({ id: r.id, stampVer: `v-${r.id}` });
+      }
+    }
+    expect(payloadCalls.sort()).toEqual(ids10.filter((c) => !bad.has(c)).sort());
+    expect(payloadCalls).not.toContain(ids10[2]);
+    expect(payloadCalls).not.toContain(ids10[7]);
+  });
+
+  it('payload failure 只落該 code error，不影響其他 code', async () => {
+    const runBatchPhases = loadRunBatchPhases();
+    const out = await runBatchPhases(ids10, {
+      concurrency: 2,
+      computeStamp: async (id) => `v-${id}`,
+      buildWithStamp: async (id) => {
+        if (id === ids10[4]) throw new Error('payload down');
+        return { id };
+      },
+    });
+    expect(out.map((r) => r.id)).toEqual(ids10);
+    expect(out[4]).toEqual({ ok: false, id: ids10[4], error: 'payload down' });
+    expect(out.filter((r) => r.ok).length).toBe(9);
+  });
+
+  it('payload phase 的 build function 只吃 precomputed stamp：source 內 computeChipsStamp 只出現在 stamp phase 與 single path', () => {
+    // buildPayloadWithStamp 內不得出現 computeChipsStamp
+    const b = src.indexOf('async function buildPayloadWithStamp');
+    const e = src.indexOf('// ====', b) === -1 ? src.indexOf('Deno.serve', b) : src.indexOf('Deno.serve', b);
+    const block = src.slice(b, e);
+    expect(b).toBeGreaterThan(-1);
+    expect(block).not.toMatch(/computeChipsStamp/);
+    // buildChipsPayload 內也不得算 stamp
+    const pb = src.indexOf('async function buildChipsPayload');
+    const pe = src.indexOf('// ============================================================\n// Batch helpers');
+    expect(src.slice(pb, pe)).not.toMatch(/computeChipsStamp/);
+    // 整檔 computeChipsStamp 呼叫恰兩處：single path + stamp phase 的 computeStamp
+    const calls = src.match(/computeChipsStamp\(supa/g) ?? [];
+    expect(calls.length).toBe(2);
+    // 舊的 buildOne / withConcurrency 已移除
+    expect(src).not.toMatch(/function buildOne\(/);
+    expect(src).not.toMatch(/withConcurrency/);
   });
 });

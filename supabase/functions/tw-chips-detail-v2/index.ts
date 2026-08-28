@@ -29,8 +29,13 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_BATCH = 30;
 /** Stage 1 §C：request-scope DB/RPC 併發硬上限。禁止任何路徑繞過。 */
 const MAX_DB_CONCURRENCY = 6;
-/** Stage 1 §C：code-level gate（computeChipsStamp 不經 semaphore，故 stamp 併發最大 4）。 */
+/**
+ * Stage 1 §A：code-level gate。batch path 分成三個 complete-await 階段
+ * （bulk → stamp → payload），stamp 與 payload 永不重疊，
+ * 故任一時刻 DB/RPC 峰值 = max(bulk 6, stamp 2*2=4, payload 6) = 6。
+ */
 const CODE_CONCURRENCY = 2;
+
 /** bulk 取列上限；達上限視為 truncated，未命中的 stock 一律退回 per-code 查詢。 */
 const BULK_ROW_LIMIT = 5000;
 
@@ -781,35 +786,90 @@ async function buildChipsPayload(
 }
 
 // ============================================================
-// Batch helpers
+// Batch helpers（Stage 1 §A：三階段 complete-await 排程）
 // ============================================================
-async function withConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<any>): Promise<any[]> {
-  const results: any[] = new Array(items.length);
-  let index = 0;
-
-  async function worker() {
-    while (index < items.length) {
-      const i = index++;
-      try {
-        results[i] = await fn(items[i]);
-      } catch (err) {
-        results[i] = err;
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
+export interface BatchPhaseDeps {
+  concurrency: number;
+  computeStamp: (id: string) => Promise<string>;
+  buildWithStamp: (id: string, stampVer: string) => Promise<any>;
 }
 
-async function buildOne(
+export interface BatchPhaseOutcome {
+  ok: boolean;
+  id: string;
+  value?: any;
+  error?: string;
+}
+
+/**
+ * 三階段排程。BEGIN/END 之間刻意寫成「無型別註記、不引用外部符號」的自足片段，
+ * 讓 vitest 可以把它切出來直接 new Function 執行（真 runtime 驗證，不是字串比對）。
+ */
+export const runBatchPhases: (
+  ids: string[],
+  deps: BatchPhaseDeps,
+) => Promise<BatchPhaseOutcome[]> =
+  // --- BEGIN runBatchPhases (executable contract slice) ---
+  async function (ids, deps) {
+    const limit = Math.max(1, deps.concurrency);
+    const stampVers = new Array(ids.length).fill(null);
+    const errors = new Array(ids.length).fill(null);
+    const values = new Array(ids.length).fill(null);
+
+    // ---- stamp phase：只做 computeChipsStamp，全部 settled 後才可進 payload ----
+    let si = 0;
+    const stampWorker = async () => {
+      while (si < ids.length) {
+        const i = si++;
+        try {
+          stampVers[i] = await deps.computeStamp(ids[i]);
+        } catch (err) {
+          errors[i] = (err && err.message) || String(err);
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(limit, ids.length) }, stampWorker),
+    );
+
+    // ---- payload phase：只跑 stamp 成功的 code，且此階段不得再算 stamp ----
+    const pending = [];
+    for (let i = 0; i < ids.length; i++) {
+      if (errors[i] === null) pending.push({ id: ids[i], i });
+    }
+    let pi = 0;
+    const payloadWorker = async () => {
+      while (pi < pending.length) {
+        const k = pi++;
+        const { id, i } = pending[k];
+        try {
+          values[i] = await deps.buildWithStamp(id, stampVers[i]);
+        } catch (err) {
+          errors[i] = (err && err.message) || String(err);
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(limit, pending.length) }, payloadWorker),
+    );
+
+    // 輸出永遠依原 batch order
+    return ids.map((id, i) =>
+      errors[i] !== null
+        ? { ok: false, id, error: errors[i] }
+        : { ok: true, id, value: values[i] }
+    );
+  };
+// --- END runBatchPhases ---
+
+/** payload phase 專用：接受 precomputed stampVer，絕不呼叫 computeChipsStamp。 */
+async function buildPayloadWithStamp(
   supa: any,
   stockId: string,
+  stampVer: string,
   sem: Sem,
   ctx: BatchCtx | null,
 ): Promise<{ payload: any; stampVer: string }> {
-  const stamp = await computeChipsStamp(supa, stockId);
-  const stampVer = stamp.stampVer;
   const cacheKey = `chips:${stockId}:${stampVer}`;
   let cached = cacheGet<any>(cacheKey);
   if (!cached) {
@@ -873,9 +933,10 @@ Deno.serve(async (req) => {
     }
 
     const supa = serviceClient();
-    // Stage 1 §C：request-scope DB/RPC semaphore，hard max=6。
-    // 注意：computeChipsStamp 在 _shared（本輪禁改），其兩條查詢不經 semaphore，
-    // 由 code-level concurrency=2 界定（stamp 併發最大 4）。
+    // Stage 1 §A/§C：request-scope DB/RPC semaphore，hard max=6。
+    // computeChipsStamp 在 _shared（本輪禁改）不經 semaphore，但它只在
+    // 獨立的 stamp phase 執行（<=2 worker × 2 query = 4），與 payload phase 不重疊。
+
     const sem = createSemaphore(MAX_DB_CONCURRENCY);
 
     // Single stock path (keeps original response shape + stamp_only + coalescing)
@@ -918,16 +979,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Batch path
-    // Stage 1：先跑 batch-scope bulk phase（6 條，恰好用滿 semaphore），
-    // 完全 await 完成後才進 code phase，兩階段不重疊。
+    // Batch path — Stage 1 §A：三階段 complete-await
+    //   1) bulk phase：buildBatchCtx（6 條，經 sem）完全結束；
+    //   2) stamp phase：code concurrency=2，只做 computeChipsStamp（<=4 條並行）；
+    //   3) payload phase：只跑 stamp 成功者，DB/RPC 全走 sem（<=6）。
+    // stamp 與 payload 不重疊 → request 任一時刻 DB/RPC 峰值 <=6。
     const ctx = await buildBatchCtx(supa, sem, batchIds);
-    const settled = await withConcurrency(batchIds, CODE_CONCURRENCY, async (id) => {
-      try {
-        return { ok: true, id, value: await buildOne(supa, id, sem, ctx) };
-      } catch (err) {
-        return { ok: false, id, error: (err as Error).message };
-      }
+    const settled = await runBatchPhases(batchIds, {
+      concurrency: CODE_CONCURRENCY,
+      computeStamp: async (id) => (await computeChipsStamp(supa, id)).stampVer,
+      buildWithStamp: (id, stampVer) => buildPayloadWithStamp(supa, id, stampVer, sem, ctx),
     });
 
     const results: Record<string, any> = {};
