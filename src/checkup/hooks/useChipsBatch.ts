@@ -93,7 +93,11 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   // 被拒代號本身可能含逗號（例：'2330,2317' 這種注入字串），
   // 因此 dep key 必須用 JSON，不能用 join(',') 再 split 還原。
   const rejectedKey = JSON.stringify([...rejected].sort());
-  const keyRef = useRef(key);
+  // v4.5：刻意不保留任何 render-time「已看過 key」ref。舊版 `useRef(key)` 在
+  // production 的首次掛載（codes 一開始就非空）會讓 `keyRef.current === key` 成立，
+  // 初次批次被永久吞掉，卡片卡在 loading；StrictMode 下改初值為 null 也會因
+  // effect replay（第一次設 key → cleanup/abort → 第二次同 key return）復發。
+  // 何時啟動一律交給 effect dependency（enabled / key / …）決定。
   const runIdRef = useRef(0);
   const mountedRef = useRef(true);
   /**
@@ -164,8 +168,7 @@ export function useChipsBatch({ codes, enabled = true, isViewAs = false }: UseCh
   // Demo 也要預載：前端自身不 enqueue；但舊 tw-chips-detail 後端仍會 rebuild／寫 inflight，
   // 真正的 read-only 端點是 side-by-side 的 tw-chips-detail-v2（production 尚未切換）。
   useEffect(() => {
-    if (!enabled || keyRef.current === key) return;
-    keyRef.current = key;
+    if (!enabled) return;
     if (!validCodes.length) return;
 
     runIdRef.current += 1;
