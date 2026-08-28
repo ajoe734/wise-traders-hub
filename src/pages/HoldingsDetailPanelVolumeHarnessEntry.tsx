@@ -14,7 +14,8 @@
  *   - mega-list   : events=500、targetPriceHistory=500、thesisTracking=500
  *                  （count 仍以 URL 參數為主，但列表長度 override）
  *
- * SECURITY: preview-only；prod 回傳 null。
+ * SECURITY: route element 已由 HarnessRouteGuard 以 runtime hostname 封閉授權；
+ * published/custom hosts 不會 evaluate 此 lazy entry。
  */
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
@@ -24,21 +25,6 @@ import HoldingsSparklineStage2Harness from '@/pages/HoldingsSparklineStage2Harne
 const HoldingsDetailPanel = lazy(
   () => import('@/checkup/components/freecheckup/HoldingsDetailPanel'),
 );
-
-function isPreviewEnv() {
-  try {
-    const h = typeof window !== 'undefined' ? window.location.hostname : '';
-    return (
-      (typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV) ||
-      h === 'localhost' ||
-      h === '127.0.0.1' ||
-      h.endsWith('.lovableproject.com') ||
-      (h.startsWith('id-preview--') && h.endsWith('.lovable.app'))
-    );
-  } catch {
-    return false;
-  }
-}
 
 const NAME_POOL = [
   '台積電', '聯發科', '鴻海', '國泰金', '中華電', '台達電', '富邦金', '玉山金',
@@ -216,8 +202,6 @@ function fixtureBars(kind: ReversalFixture) {
 }
 
 export default function HoldingsDetailPanelVolumeHarnessEntry() {
-  if (!isPreviewEnv()) return null;
-
   const search = typeof window !== 'undefined' ? window.location.search : '';
   const params = new URLSearchParams(search);
 
