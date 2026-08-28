@@ -1,90 +1,159 @@
-# HOLDINGS_SPARKLINE_STAGE2_PLAN_V1
+# HOLDINGS_SPARKLINE_STAGE2_PLAN_V2
 
-Same-mount 跨 14:05 邊界時，sparkline 不會切換到新的 canonical expected trade date。以下先列逐項 source evidence，再給最小方案。
+回應 REVIEW_1 六項阻塞。V1 根因判讀保留（same-mount effect deps `[codesKey, enabled, pricesKey]`（`useSparklines.ts:216`）不含 expected date；`sparklineCacheKey → datasetCacheKey → latestCompletedTradeDate`（`confirmedClose.ts:112`）已含 tradeDate，故排除 reload cache collision 與 12h TTL 誤診）。
 
-## A. Source evidence（唯讀確認）
+---
 
-**1. useSparklines effect / attemptedRef / inflight / cache / set state**
-- `src/checkup/hooks/useSparklines.ts:143-149` — `useSparklines()`；`attemptedRef = useRef(new Set<string>())` (L146)，`codesKey`(L147)、`pricesKey`(L149)。
-- L162 fetch effect；**deps = `[codesKey, enabled, pricesKey]`（L216）**。deps 完全不含時間／expected date。
-- L164-168：`planSparklineFetch(...)` 再 `.filter(code => !attemptedRef.current.has(\`${code}:${sparklineCacheKey(code)}\`))`；L168 寫入同樣的 key。attemptedRef key **已含 expected date**（見第 2 點），所以 guard 本身是日期感知的；**唯一缺口是 effect 根本不會在邊界重跑**。
-- L170-215：`getCheckupGateway().invoke('checkup-sparkline', { codes: missing })`，失敗 → `sparklineFailCache.setMany`；good → `sparklineCache.setMany` 並刪 partial/fail；partial 只在 `!sparklineCache.get(key)` 時寫入。`cancelled` flag (L215) 是唯一 unmount 保護。
-- state：本 hook **不存資料在 state**，只有 `version`（L145）由三個 cache 的 `subscribe(bumpVersion)`（L153-161）遞增觸發重繪；L219-229 每次 render 直接從 cache 讀。
+## 1. Scheduler 作用域 → 改為 module-level singleton
 
-**2. sparklineCacheKey 是否含 canonical expected date → 是**
-- `marketDataStatus.ts:141-147` `sparklineCacheKey → datasetCacheKey(code,'daily_ohlc',now,market)`。
-- `confirmedClose.ts:102-114` `datasetCacheKey → identityOf({market, symbol, dataset, tradeDate: latestCompletedTradeDate(now,{market})})`。
-- 結論：**排除「reload cache collision / 12h TTL」誤診**。新 mount 因 key 內 tradeDate 改變而自然分流；本案純粹是 same-mount effect 不重跑。TTL 不需要動。
+**Exact production callers / cardinality（唯讀確認）**
+- `src/checkup/components/freecheckup/HoldingsWorkbench.tsx:98` — 唯一 production `useSparklines()`。
+- 上游鏈：`FreeCheckup.jsx:3246 <HoldingsTab>` → `HoldingsTab.tsx:397 <HoldingsWorkbench>`（皆 `memo`，各一處 render）。
+- 另一處 `src/pages/HoldingsDetailPanelVolumeHarnessEntry.tsx:279`，路由 `/e2e/holdings-detail-panel-volume`，由 `src/routes/harnessRoutes.tsx:33` 的 `const DEV = import.meta.env.DEV` **build-time** 剝除 → production 不可達。
 
-**3. prefetchSparkline**
-- 定義 `useSparklines.ts:240-264`；唯一 production caller `src/checkup/hooks/useChipsBatch.ts:291`（另有 harness `HoldingsDetailPanelVolumeHarnessEntry.tsx`）。
-- cache gate（L243）用 `sparklineCacheKey(code)` → 日期感知，邊界後會自然放行，**不需要為本案改 gate**。
-- 但 `sparklineInFlight`（L238、L244、L262）key 是**裸 code，不含 expected date**。這只在單股請求飛行中的短窗有影響，且方向是「少打一次」，非本案 bug。方案中僅把 inflight key 對齊為 cache key，讓它與 hook 共用同一 expected 維度（測試 H）。判定：**same-mount 邊界不需要另外改 prefetch 觸發邏輯**。
+即：**目前** production 同時 mounted instance = 1。但這是元件樹巧合，不是契約（tab 切換／未來多面板可破壞），因此**不把 timer 放進 hook**。
 
-**4. useConfirmedCloses**
-- `src/checkup/hooks/useConfirmedCloses.ts`，全 repo 除自身與 export default 外**無任何 import**（已 grep production 檔）。確認為 dead code；**本案不喚醒、不修改**。
+**設計**：`expectedTradeDateStore` — module-level external store（`subscribe/getSnapshot` + `useSyncExternalStore`）。
+- 全域最多一顆 timer、一個 `visibilitychange` listener。
+- refCount `0→1` 才 start（load calendar + schedule），`1→0` 才 stop（clear timer / remove listener / reset generation）。
+- consumer（hook）只讀 snapshot 字串，不擁有排程。
 
-**5. marketCalendar 能否給「下次 expected 變化時間」**
-- 現有：`settleMinute()` (L46)、`sessionPhase()` (L142)、`latestCompletedTradeDate()` (L160)、`closeAuthorityLane()` (L180)、`isTradingDay/previousTradingDay` (L125/132)。**沒有**「下一次邊界時間」的函式 → 需新增純函式。
-- `closeAuthorityLane` 已在 `!holidaysLoaded` 時回 `'unknown'`（L181）— fail-closed 前例。
-- holiday loader `marketHolidaysLoader.ts:17-40`：每台北日一次、inflight 去重、失敗回 `false` 且**不**設定 `holidaysLoaded` → 已 production ready 且 fail-closed。
+**測試**：StrictMode + 多 consumer mount/unmount 下斷言 `__debugActiveTimers() === 1`、`__debugListenerCount() === 1`；最後一個 subscriber 離開後兩者為 0。
 
-**6. 生命週期風險**
-- StrictMode setup→cleanup→setup：目前 fetch effect 只靠 `cancelled`；新增 timer 必須在 cleanup `clearTimeout` 且用 ref 保證同一時間只有一顆。
-- unmount：cache 是 module-level，`setVersion` 在 unmount 後可能被 subscribe 回呼觸發 → 需 `aliveRef` 保護新的 boundary state setter。
-- background tab throttling / 系統睡眠：`setTimeout` 會**延後但仍會觸發**，因此 callback 內必須以「現在」重算 expected，而不是信任排程當下的計算值。
+---
 
-## B. 方案（最小、單一 one-shot timer、無 polling）
+## 2. Inflight 矛盾 → 採 A（真正共用 reservation）
 
-**新增 `src/checkup/lib/tradeDateBoundary.ts`（純函式）**
-- `nextExpectedChangeAt(now, opts)`：回傳下一次 `latestCompletedTradeDate()` 會改變的絕對時刻。規則：若今天是交易日且 `localMinutes < settleMinute` → 今天 14:05（台北）；否則 → 下一個交易日的 14:05。以台北日曆計算後轉回 epoch。
-- `msUntilNextExpectedChange(now)`：`max(0, at - now)`，並 clamp 上限（避免超長 timer 精度問題）。
-- fail-closed：`holidaysLoaded('TW') === false` → 回傳 `null`（不排程、不推進 expected）。**不逐 code 查 holiday**，整個 hook 只算一次。
+**逐行證據**：`sparklineInFlight` 只出現在 `useSparklines.ts:237`（宣告）、`:243`（prefetch gate）、`:244`（add）、`:262`（finally delete）。batch effect（L162-217）**完全沒有讀寫這個 set**。V1 的 H claim 不成立，撤回。
 
-**新增 `src/checkup/hooks/useExpectedTradeDate.ts`**
-- 回傳 `{ expectedTradeDate, calendarReady }`。
-- 掛載時（若 `!holidaysLoaded`）呼叫 `loadMarketHolidays()`，成功才 setState 並排程；失敗維持 `calendarReady=false`、**不推進** expected。
-- 單一 `timerRef` one-shot：`setTimeout(msUntilNextExpectedChange(now))` → callback **以 `new Date()` 重算** `latestCompletedTradeDate()`；只有值真的改變才 `setState`，然後排下一顆。
-- 額外掛 `visibilitychange`（tab 回前景時重算一次，值不變 → 0 request）處理 background throttling／睡眠喚醒。
-- cleanup 清 timer + 移除 listener + `aliveRef=false`；StrictMode double-invoke 只會存在一顆 timer。
+**方案 A**：把 inflight 升級為 `Map<key, Promise<void>>`，key = `sparklineCacheKey(code, now)`（expected-aware）。
+- batch effect 在 `missing` 決定後、invoke 之前，對每個 key **原子 reserve**（同步 `set`，同一 tick 不可能被 prefetch 插隊）；把整批的 promise 存入每個 key。
+- `finally` 逐 key release（good / partial / fail / throw / cancelled 全部釋放）。
+- `prefetchSparkline` 看到 reservation → `await` 同一 promise 後 return，**不發第二次 invoke**。
+- 反向亦成立：batch 若看到某 key 已被 prefetch reserve，該 code 從 `missing` 移除並 await。
 
-**修改 `src/checkup/hooks/useSparklines.ts`**
-- hook 內呼叫 `useExpectedTradeDate()`，把 `expectedTradeDate` 加進 fetch effect 的 deps（`[codesKey, enabled, pricesKey, expectedTradeDate]`）。
-- `pricesKey` 保持不變 → 只改 qty/price 不會重打（attemptedRef key 已含日期，effect 重跑也會被擋）。
-- 同日新增 code：`planSparklineFetch` + attemptedRef 只會補新增集合。
-- `sparklineInFlight` key 由 `code` 改為 `sparklineCacheKey(code)`，與 hook 共用 expected 維度。
-- 不動 TTL、不動 fail/partial 語意 → 落後樣本（039108 / 053848 / 702157）仍維持 pending/stale，不會被 current price 或舊 cache 冒充 2026/08/28。
+**測試**：同一 tick 內同時啟動 hook batch 與 `prefetchSparkline(code)`，用 gateway route counter 斷言 `invoke total === 1`（不是只看 cache 最終值）。
 
-不碰：BSR、quote banner、drawer lazy fetch、Stage 1 close-authority lane、`forceAuthority` 文件漂移、`useConfirmedCloses`。
+---
 
-## C. Allowlist（exact，6 檔）
+## 3. 單一 clock seam
+
+**關鍵發現**：`installHarnessClock`（`harnessClock.ts:120`）覆寫的是 `Date.now`，**不是 `new Date()` 建構子**。V1 寫「callback 用 `new Date()`」會逃出 harness clock —— 這正是 review 指出的破口。
+
+**定義**：`src/checkup/lib/nowProvider.ts`
+```ts
+export function nowMs(): number { return Date.now(); }      // 唯一 clock seam
+export function nowDate(): Date { return new Date(nowMs()); }
+```
+全鏈一律以**同一個 `now: Date` 參數**貫穿，禁止在下游各自取時間：
+
+| 函式 | signature | now 來源 |
+|---|---|---|
+| `expectedTradeDateStore.recompute()` | `(now = nowDate())` | 唯一入口 |
+| `latestCompletedTradeDate(now, opts)` | 既有 `marketCalendar.ts:160` | 由 store 傳入 |
+| `nextExpectedChangeAt(now, opts)` (new) | `(now: Date, opts?) => number \| null` | 由 store 傳入 |
+| `sparklineCacheKey(code, now, market)` | 既有 `marketDataStatus.ts:141`（已有 now 參數） | **useSparklines 改為顯式傳入 store snapshot 對應的 now** |
+| attempt fingerprint | `${code}:${expectedTradeDate}` | 直接用 store snapshot 字串，不再重算 |
+
+production 預設就是實時 `nowMs()`；`fixedNow` 只能經 harness 路由的 `installHarnessClock` 注入（build-time DEV-only，**不新增任何 production query param**）。
+
+Caller flow：`harnessClock` 覆寫 `Date.now` → `nowMs()` → `nowDate()` → store → `latestCompletedTradeDate` / `nextExpectedChangeAt` / `sparklineCacheKey` / fingerprint。單一來源，三者證明同源。
+
+---
+
+## 4. Scheduler lifecycle（唯一 schedule owner，可執行 pseudocode）
+
+```ts
+let refCount = 0, timer: Timeout | null = null, generation = 0;
+let snapshot = '';            // expected trade date; '' = 尚未可信
+let calendarReady = false;
+
+// 唯一的 schedule owner；timer callback 與 visibility callback 都只呼叫它
+function recomputeAndSchedule(reason: 'start'|'timer'|'visibility'|'calendar') {
+  if (refCount === 0) return;                 // disposed guard
+  const gen = ++generation;                   // 讓所有舊 callback 失效
+  if (timer !== null) { clearTimeout(timer); timer = null; }  // 先 cancel stale
+  const now = nowDate();
+
+  if (!holidaysLoaded('TW')) {                // fail-closed：不推進、不排程
+    calendarReady = false;
+    ensureCalendar(gen);                      // loader daily cache + inflight dedupe
+    return;
+  }
+  calendarReady = true;
+
+  const next = latestCompletedTradeDate(now, { market: 'TW' });
+  if (next !== snapshot) { snapshot = next; emit(); }   // 只有真的變才通知
+
+  const at = nextExpectedChangeAt(now, { market: 'TW' });
+  if (at == null) return;
+  timer = setTimeout(() => {
+    if (gen !== generation || refCount === 0) return;   // generation guard
+    timer = null;
+    recomputeAndSchedule('timer');            // 醒來一律以「現在」重算
+  }, Math.max(0, at - nowMs()));
+}
+```
+- **雙排程防護**：schedule 只發生在 `recomputeAndSchedule` 內；進入時先 `clearTimeout` 再 `++generation`，任何遲到的舊 callback 因 `gen !== generation` 直接 return。React state/effect 不排程（consumer 只 subscribe）。
+- **subscriber transitions**：`subscribe()` 時 `refCount++`，`0→1` 呼叫 `recomputeAndSchedule('start')` 並 `addEventListener('visibilitychange', onVisible)`；unsubscribe `refCount--`，`1→0` 清 timer、移 listener、`++generation`。
+- **onVisible**：`document.visibilityState === 'visible'` → `recomputeAndSchedule('visibility')`。同 expected → 不 emit、不觸發 request。
+- **睡眠跳到 14:20**：timer 遲到觸發 → cancel stale ref → 以真實 now 重算 → expected 改變 emit 一次 → 只排下一顆。
+
+---
+
+## 5. Calendar fail-closed 但可恢復（不 polling）
+
+- 首次 `loadMarketHolidays()` reject → `calendarReady=false`、snapshot 維持 `''`、**不推進 expected、0 次 sparkline**（保留 V1 契約）。
+- 恢復點：`ensureCalendar(gen)` 在 `visibilitychange` 回前景時再試一次，走 loader 既有的 daily cache + inflight dedupe（`marketHolidaysLoader.ts:17-40`），成功即 `recomputeAndSchedule('calendar')`。**無 polling、無定時重試**。
+- 不逐 code 查 holiday：整個 app 只有 store 這一處查。
+- 不採「永久鎖住」：那會讓使用者不 reload 就永遠看不到收盤，不可接受。
+
+**測試**：首次 reject → 0 sparkline；visibility regain 後 loader success → 依真實 now **恰 1 次** expected attempt；反覆 visibility 且同 expected → 0 新增 request。
+
+---
+
+## 6. Hosted harness
+
+- harness 掛的是 **production 元件與 production hook**：`HoldingsDetailPanelVolumeHarnessEntry.tsx:279` 既有的 `useSparklines`，其內部訂閱同一個 `expectedTradeDateStore`。**不複製 boundary logic**（以 source-contract 測試鎖 harness 檔不得 import `nextExpectedChangeAt`）。
+- clock 驅動證明：harness `installHarnessClock({ fixedNow })` 覆寫 `Date.now` → 第 3 點 `nowMs()` 是唯一 seam → store / cacheKey / fingerprint 全部跟著走。E2E 以 `fixedNow` 起於 14:04:5x，再由 harness 暴露的 `advanceTo(...)` 控制鈕推過 14:05（同一 mount，不等真實時間）。
+- route counter 區分兩條路徑：harness 對 `checkup-sparkline` 的請求以 body `codes.length > 1` / 自帶 `x-lf-harness-path: batch|prefetch` 標記分流計數，斷言 batch=1、prefetch=0。
+- 汙染防治：harness unmount 時 `clock.uninstall()` + 呼叫 store 的 `__resetForTests()`（清 timer/listener/generation/snapshot），且 sparkline 三個 cache namespace 於 spec `afterEach` 清空。
+
+---
+
+## 允許修改清單（exact，8 檔）
 
 | 檔案 | 理由 |
 |---|---|
-| `src/checkup/lib/tradeDateBoundary.ts` (new) | 邊界時刻純函式，唯一資料源，可單獨 fixed-clock 測試 |
-| `src/checkup/hooks/useExpectedTradeDate.ts` (new) | 單一 one-shot scheduler + fail-closed calendar gate |
-| `src/checkup/hooks/useSparklines.ts` | 唯一需要接上 expected 維度的取數入口；inflight key 對齊 |
-| `src/test/unit/sparkline-expected-boundary.test.tsx` (new) | A–I 全部 executable fake-timer 覆蓋 |
-| `src/pages/HoldingsDetailPanelVolumeHarnessEntry.tsx` | 只加 harness-only 可觀測 seam（`data-expected-trade-date`、invoke 計數、`fixedNow` 透過既有 `harnessClock`），prod 路由不可達 |
-| `e2e/holdings-sparkline-boundary.spec.ts` (new) | Hosted gate：同一 mount 以受控時鐘跨界 |
+| `src/checkup/lib/nowProvider.ts` (new) | 唯一 clock seam（`Date.now` 基底），閉合 harness 注入 |
+| `src/checkup/lib/tradeDateBoundary.ts` (new) | `nextExpectedChangeAt(now, opts)` 純函式 |
+| `src/checkup/lib/expectedTradeDateStore.ts` (new) | module-level singleton scheduler（timer=1 / listener=1 / refCount） |
+| `src/checkup/hooks/useExpectedTradeDate.ts` (new) | `useSyncExternalStore` 薄封裝，consumer 只讀 snapshot |
+| `src/checkup/hooks/useSparklines.ts` | effect deps 加 expected；cacheKey/fingerprint 顯式帶 now；inflight 升級為共用 reservation Map |
+| `src/test/unit/sparkline-expected-boundary.test.tsx` (new) | A–I + singleton/lifecycle/clock 契約 |
+| `src/pages/HoldingsDetailPanelVolumeHarnessEntry.tsx` | 只加 DEV-only 可觀測 seam（`data-expected-trade-date`、`advanceTo` 控制、路徑標記），不複製邏輯 |
+| `e2e/holdings-sparkline-boundary.spec.ts` (new) | Hosted gate：同一 mount 受控跨界 |
 
-Rollback scope：兩個新 lib/hook 檔刪除 + `useSparklines.ts` 還原 deps 與 inflight key（單一 revert，無 DB／Edge／cron／secret 面）。
+**Rollback scope**：刪除 4 個新 lib/hook 檔 + 2 個新測試檔，還原 `useSparklines.ts`（deps / inflight）與 harness entry 的 seam。無 DB／Edge／cron／secret／Publish 面，單一 revert。
 
-## D. 測試
+不動：TTL、`useConfirmedCloses`（確認 dead code，不喚醒）、factual laggers 誠實標示、BSR、quote banner、drawer lazy fetch、Stage 1 close-authority lane、`forceAuthority` 文件漂移。
 
-Unit（fake timers + fixed clock，`src/test/unit/sparkline-expected-boundary.test.tsx`）：
-- A 交易日 14:04:59 mount → 邊界前 0 次；跨 14:05:00 後 expected 改變且**恰 1 次**。
-- B `+5min` / `+30min` 同 expected → 累計仍 1。
-- C 13:00 盤中不提前抓 settled sparkline。
-- D 週五 14:05 後 expected 不推到週六／假日；holiday loader reject → **0 次**新的 expected attempt（fail-closed）。
-- E 14:04 mount，系統時間直接跳到 14:20（timer 延遲觸發）→ callback 以「現在」重算，仍恰 1 次。
-- F `React.StrictMode` double effect → 單一 timer、單一 request；unmount 後無 state 更新（no act warning / no setState-after-unmount）。
-- G 同日新增 code → 只抓新增集合；純 qty/price 變更 → 0 次。
-- H `prefetchSparkline` 與 hook 共用 expected/cache/inflight → 不雙打。
-- I 三個 factual lagging 樣本仍 pending/stale，不被 cache 或 current price 覆蓋。
+---
 
-其他 gate：`tsgo --noEmit`、targeted vitest、full regression（現況 3168 tests 全綠為基準）、`bunx playwright test e2e/holdings-sparkline-boundary.spec.ts`。
+## 測試矩陣（全部 executable，fake timers + fixed clock）
 
-Hosted gate：以 harness 路由 + `installHarnessClock({ fixedNow })` 在**同一個 mount** 內把時鐘從 14:04:5x 推過 14:05，觀察 `data-expected-trade-date` 改變且 `checkup-sparkline` 請求數 +1（route counter 加 positive control）。**不需要真的等到下一個 14:05**，也不以 unit PASS 充當前端證據。
+- **A** 14:04:59 mount → 邊界前 0；跨 14:05:00 expected 改變且恰 1 次。
+- **B** +5min / +30min 同 expected → 累計仍 1。
+- **C** 13:00 盤中不提前抓 settled sparkline。
+- **D** 週五 14:05 後不推到週末／假日；loader reject → 0 次新 expected attempt。
+- **E** 14:04 mount，時鐘跳到 14:20 → 遲到 callback 以「現在」重算，恰 1 次。
+- **F** StrictMode double effect → 全域 timer=1、listener=1、request=1；unmount 後無 setState。
+- **G** 同日新增 code 只抓新增集合；純 qty/price 變更 0 次。
+- **H** 同一 tick 併發 batch + prefetch → route total invoke=1（reservation 生效）。
+- **I** 039108 / 053848 / 702157 仍 pending/stale，不被 cache 或 current price 覆蓋。
+- **J**（新增）多 consumer mount/unmount：refCount 0↔1 只在邊界 start/stop；最後一個離開後 timer=0、listener=0。
+- **K**（新增）clock 契約：`installHarnessClock({fixedNow})` 後 store snapshot、`sparklineCacheKey`、fingerprint 三者同時反映注入時間。
 
-HOLDINGS_SPARKLINE_STAGE2_PLAN_V1_READY
+其他 gate：`tsgo --noEmit`、targeted vitest、full regression（基準 3168 tests 全綠）、`bunx playwright test e2e/holdings-sparkline-boundary.spec.ts`。Hosted gate 於同一 mount 用受控時鐘證明，不等真實 14:05，不以 unit PASS 充當前端證據。
+
+HOLDINGS_SPARKLINE_STAGE2_PLAN_V2_READY
