@@ -63,9 +63,13 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
 const HoldingCheckupDemoEntry = lazy(() => import("./pages/HoldingCheckupDemoEntry"));
-// Playwright harness routes live in a dev-only module so `vite build` drops
-// them entirely (see src/routes/harnessRoutes.tsx).
+// Playwright harness routes — runtime host gate (local dev / localhost, or an
+// exact `preview--<slug>.lovable.app` unpublished preview). Every other host,
+// including custom domains and published production, gets 404.
+// See src/routes/harnessHostGate.ts.
 import { harnessRoutes, portfolioHarnessRoutes } from "./routes/harnessRoutes";
+import { harnessRoutesEnabled } from "./routes/harnessHostGate";
+const HARNESS_ENABLED = harnessRoutesEnabled();
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CheckupModeProviderLazy = lazy(() =>
