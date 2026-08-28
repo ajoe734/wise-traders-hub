@@ -105,7 +105,7 @@ describe('holdingsValueKeyShort (FreeCheckup B-P2)', () => {
       { code: 'A', qty: 1, price: 10, cost: 9 },
       { code: 'B', qty: 2, price: 20, cost: 18 },
     ]);
-    expect(k).toBe('n=2:A|1|10|9;B|2|20|18');
+    expect(k).toBe('n=2:A|1|10|9||||;B|2|20|18||||');
   });
 
   it('H13：length 前綴可區分不同長度避免碰撞', () => {
