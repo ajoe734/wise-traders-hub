@@ -84,7 +84,7 @@ export function createSemaphore(max: number): Sem {
     const next = queue.shift();
     if (next) next();
   };
-  return async <T>(fn: () => Promise<T>): Promise<T> => {
+  return async <T>(fn: () => T): Promise<Awaited<T>> => {
     await acquire();
     try {
       return await fn();
