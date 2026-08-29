@@ -44,6 +44,10 @@ export default function ManualTradeForm({ C, alpha, card, lbl, isDemo, onAdd, ho
   const [resolving, setResolving] = useState(false);
   const seqRef = useRef(0);
   const mountedRef = useRef(true);
+  // 名稱編輯版本號：使用者每次動到名稱欄位（含 IME compositionstart，尚未 commit）就 +1。
+  // resolver 只有在「request 啟動後版本號未變」時才可寫入 → 組字中的名稱不會被清掉。
+  const nameEditSeqRef = useRef(0);
+  const markNameEdited = useCallback(() => { nameEditSeqRef.current += 1; }, []);
 
   useEffect(() => () => { mountedRef.current = false; }, []);
 
@@ -61,24 +65,31 @@ export default function ManualTradeForm({ C, alpha, card, lbl, isDemo, onAdd, ho
     const seq = ++seqRef.current;
     setDraft((prev) => ({ ...prev, code, name: prev.nameDirty ? prev.name : '' }));
     if (classifyCode(code) === 'unknown') { setResolving(false); return; }
+    const nameSeqAtStart = nameEditSeqRef.current;
+    // resolver 落地條件（三重且必須全中）：
+    //   1) 這是最後一次 code request（sequence token）
+    //   2) code 未變
+    //   3) name 自 request 啟動後未被使用者編輯，且目前為空
+    // 另外：**只寫入真實名稱**，絕不用 code 當 fallback 塞進名稱欄位
+    //（送出時 buildManualTradeRow 仍會以 code 補值，不影響落地資料）。
+    const landName = (name) => {
+      if (!mountedRef.current || seq !== seqRef.current) return;
+      setResolving(false);
+      if (!name) return;
+      if (nameEditSeqRef.current !== nameSeqAtStart) return;
+      setDraft((prev) => {
+        if (prev.nameDirty || prev.code !== code) return prev;
+        if (String(prev.name ?? '').trim()) return prev;
+        return { ...prev, name };
+      });
+    };
     setResolving(true);
     Promise.resolve()
       .then(() => resolveStockName(code))
-      .then((name) => {
-        // race guard：只有最後一次輸入的結果能落地
-        if (!mountedRef.current || seq !== seqRef.current) return;
-        setResolving(false);
-        setDraft((prev) => {
-          if (prev.nameDirty || prev.code !== code) return prev;
-          return { ...prev, name: name || code };
-        });
-      })
-      .catch(() => {
-        if (!mountedRef.current || seq !== seqRef.current) return;
-        setResolving(false);
-        setDraft((prev) => (prev.nameDirty || prev.code !== code ? prev : { ...prev, name: code }));
-      });
+      .then(landName)
+      .catch(() => landName(null));
   }, []);
+
 
   const submit = () => {
     setTouched(true);
@@ -179,7 +190,12 @@ export default function ManualTradeForm({ C, alpha, card, lbl, isDemo, onAdd, ho
             maxLength={40}
             placeholder="自動帶入，可修改"
             value={draft.name}
-            onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value, nameDirty: true }))}
+            onCompositionStart={markNameEdited}
+            onBeforeInput={markNameEdited}
+            onChange={(e) => {
+              markNameEdited();
+              setDraft((p) => ({ ...p, name: e.target.value, nameDirty: true }));
+            }}
             style={inputStyle('name')}
           />
         </div>
