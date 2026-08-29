@@ -15,6 +15,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "typecheck:edge:chips": "deno check --no-lock --node-modules-dir=auto supabase/functions/tw-chips-detail-v2/index.ts",
     "test:e2e:line-checkup": "playwright test --project=desktop-line-checkup",
     "test:e2e:update": "playwright test --update-snapshots",
     "check:freecheckup-rwd": "node scripts/check-freecheckup-rwd.mjs",
