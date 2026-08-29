@@ -302,7 +302,7 @@ async function buildChipsPayload(
 
   const windows = [1, 5, 20, 60] as const;
   const institutional: Record<string, any> = {};
-  const instAll = instRows || [];
+  const instAll = (instRows || []) as any[];
   for (const w of windows) {
     const slice = instAll.slice(0, w);
     institutional[`d${w}`] = slice.length
@@ -349,7 +349,7 @@ async function buildChipsPayload(
     )
     : { data: [] as any[] };
   const bulkDoneDates = useBulkDone ? (ctx!.queueDone.get(stockId) ?? new Set<string>()) : null;
-  const doneDateSet = bulkDoneDates
+  const doneDateSet: Set<string> = bulkDoneDates
     ? new Set(rawCandidatesForFallback.filter((d) => bulkDoneDates.has(String(d))).map(String))
     : new Set((doneQueueRows || []).map((r: any) => String(r.trade_date)));
 
@@ -993,7 +993,7 @@ Deno.serve(async (req) => {
     });
 
     const results: Record<string, any> = {};
-    const errors: Record<string, string> = {};
+    const errors: Record<string, string | undefined> = {};
     for (const r of settled) {
       if (r.ok) {
         results[r.id] = r.value.payload;
