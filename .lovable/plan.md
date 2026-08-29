@@ -1,184 +1,131 @@
-# HOLDINGS_MANUAL_ENTRY_PLAN_READY
+# HOLDINGS_MANUAL_ENTRY_PLAN_V2
 
-- current HEAD: `cacc6df5032860b179a2e4b8bd8153083fd301dc`
-- `git status --porcelain`: 空（本輪 0 mutation，只做 `rg` / `code--view` 唯讀）
+唯讀稽核完成，尚未寫任何 production 檔。以下每一點都對應 source 證據。
 
-## A. 重現與根因
+## 0. 稽核推翻 V1 的三個前提
 
-### A1. 現行 exact components / functions / files
+| V1 假設 | Source 事實 | 影響 |
+|---|---|---|
+| 手動列需帶 `market` / `currency` | checkup 交易／持倉 schema **完全沒有** market/currency。OCR 契約 `constants.jsx:242` = `{action,code,name,qty,price,market_price,amount,total_cost,fee}`；`normalizeHoldingRow` (`holdings.js:163`) 產出 `{code,name,qty,cost,price,type,alert,expire,targetPrice}`。唯一分類器是 `inferHoldingType(code,name)` (`constants.jsx:284`) | 手動列**不得**新增任何欄位；`signalFieldResolvers.inferMarket` 完全不進場（那是 signals domain） |
+| trade log 寫 `checkup_trade_memos` | 兩處都寫：`save("pf-log-v2", tradeLog)` (`FreeCheckup.jsx:929`, → localStorage + `checkup_storage` upsert，`constants.jsx:401`)，並 debounce 800ms 後 `saveTradeLogToCloud` 做 `checkup_trade_memos` delete+insert (`FreeCheckup.jsx:891-925`)。註：`pf-log-v2` **不在** `CLOUD_SYNC_KEYS` (`constants.jsx:272`)，寫得進去、開機不讀回 | 資料流圖與測試斷言改成雙寫；本計畫不修 `CLOUD_SYNC_KEYS`（non-goal） |
+| 目標價 orphan 只需提示 | `targets` 的唯一 consumer 是 `dossierUtils.js:85` `targets[holding.code]?.reports`，以 holding 為索引 | 非持倉／非 preview 代碼的目標價**永久不可見** → 必須阻擋提交 |
 
-| 環節 | 檔案 : 位置 |
-|---|---|
-| 「＋上傳」CTA → modal | `src/checkup/components/freecheckup/TradeUploadModal.jsx`（整檔；L90 只是把 `TradeTab` 包起來） |
-| Trade tab 本體 | `src/checkup/components/freecheckup/TradeTab.jsx`（644 行） |
-| 上傳 dropzone / file input | `TradeTab.jsx` L226-271（`#fi` input、`processFile` / `processFiles` / `parseShot`） |
-| OCR preview 逐筆編輯 | `TradeTab.jsx` L312-494（`validateRow` L314-329、`updateTrade` L389、`removeTrade` L394） |
-| preview → 寫入 | `TradeTab.jsx` `applyCorrections` L334-377 |
-| 主解析寫入路徑 | `src/pages/FreeCheckup.jsx` L2660-2730（MAX_HOLDINGS 檢查 L2662-2682、`setHoldings` L2695、`setTradeLog` L2699） |
-| 持倉合併 | `FreeCheckup.jsx` `mergeTradeIntoHoldings` L2444、`upsertSnapshotHolding` L2536 |
-| 交易備忘三問 | `TradeTab.jsx` L533-562 + `FreeCheckup.jsx` `submitMemo` L2755-2800 |
-| 目標價區塊（問題所在） | `TradeTab.jsx` L567-636，state `tpCode/tpFirm/tpVal` 在 `FreeCheckup.jsx` L246-248，傳入 L3436-3438 |
-| 交易 replay / 刪除回滾 | `src/checkup/lib/tradeLogOps.js`（`replayTradeLog`、`recomputeHoldingsAfterDelete`）、`src/checkup/lib/holdings.js` `applyTradeEntryToHoldings` L225 |
-| 逐筆刪除 UI | `src/checkup/components/log/LogPanel.jsx` L49-54、L319-320、L552-604 |
-| cloud sync（交易紀錄） | `FreeCheckup.jsx` `saveTradeLogToCloud` L891-925 + debounce effect L926-934（寫 `checkup_trade_memos`） |
-| cloud sync（持倉等 pf-* key） | `FreeCheckup.jsx` `save()` + `CLOUD_SYNC_KEYS`（L78 import，`resetAll` L2882-2911 列出全 key） |
-| 上限常數 | `src/pages/_freeCheckup/constants.jsx` L282 `MAX_HOLDINGS = 50`、L278 `SNAPSHOT_IMPORT_ACTION` |
+## 1. Exact unique file list（10 檔，無「附帶」）
 
-### A2. 為何輸入 2331 沒有新增個股（根因）
+新增 5：
+1. `src/checkup/lib/stockIdentity.ts` — 純識別工具（`normalizeStockCode`、`isTaiwanStockCode`），零 import、零 I/O。
+2. `src/checkup/lib/manualTradeEntry.ts` — 純 builder + validator + replay 檢查，只 import (1) 與 `constants.jsx` 的 `inferHoldingType` / `MAX_HOLDINGS`。
+3. `src/checkup/components/freecheckup/ManualTradeForm.jsx` — 手動輸入表單（preview 列、名稱 async resolve）。
+4. `src/test/unit/manual-trade-entry.test.ts` — row contract / validator / replay / 日期 round-trip 矩陣。
+5. `src/test/integration/manual-trade-entry.integration.test.tsx` — 0 network/0 DB → confirm 一次 → 刪除 replay 回空。
 
-**不是 input bug，是功能不存在。** `TradeTab.jsx` L567-636 的區塊標題就是「手動更新目標價」，其 `handleAddTarget`（L569-593）只呼叫 `setTargets(...)`，把 `{firm, target, date}` 寫進 `pf-targets-v1`。它**完全不觸碰** `setHoldings` / `setTradeLog`，所以：
+修改 5：
+6. `src/checkup/lib/chipsRepository.ts` — 只把 `normalizeStockCode`/`isTaiwanStockCode` 改為 `export { ... } from './stockIdentity'`（行為 0 變更）。理由：現檔 import `./gateway` 與 `@/lib/trafficTracker`，交易 domain 不得反向耦合籌碼 repository。
+7. `src/checkup/components/freecheckup/TradeTab.jsx` — 新增 segmented control（截圖 / 手動）＋ 目標價區塊改文案與位置。
+8. `src/checkup/lib/tradeLogOps.js` — `replayTradeLog` 比較子改 deterministic（見 §4）。
+9. `src/checkup/lib/__tests__/tradeLogOps.test.js` — 補跨月／混合日期格式排序回歸。
+10. `src/pages/FreeCheckup.jsx` — 只新增一個 `commitManualTrades(rows)`（複用既有 `mergeTradeIntoHoldings` + `setTradeLog` 相同 shape）並以 prop 傳入 TradeTab；不動 parse pipeline、不動 auto-save effect。
 
-- 輸入 2331 後按鈕仍 disabled（L625 `disabled={!tpCode.trim()||!tpVal}` — 只填代碼、沒填目標價 → 永遠不能按），使用者以為「代碼沒被接受」。
-- 就算填了目標價成功送出，`pf-holdings-v2` 不變 → 持倉仍 0 檔，且 `targets[2331]` 因為沒有對應持倉，在持倉頁完全不會被渲染 → **零回饋**。
-- 該區塊只在 `!parsed && !img` 時顯示（L568），在空狀態時它是 modal 內**唯一**可輸入的表單，視覺上（`card` + 左側 teal border，與其他卡片同款）與「新增持倉」無法區分 → 嚴重誤導。
+不碰：Edge function、migration、RLS、Demo fixture、`CLOUD_SYNC_KEYS`、BSR 修正檔、`db/r1/p/acl-25.*`。
 
-逐項 input bug 檢查結果：
+## 2. Atomic stages（每階段可獨立 rollback）
 
-- focus / controlled value：`tpCode` 是受控 input（L603），值有進 state，無 focus 竊取，無 re-mount 重置。**無 bug**。
-- mobile keyboard：`tpCode` **缺 `inputMode`**（OCR preview 的 code 欄 L449 有 `inputMode="numeric"`），iOS 會跳英數鍵盤 —— 次要缺陷，但非根因。
-- validation：目標價表單**無任何 inline error**，只有 disabled 按鈕，不會說明為什麼不能按。
-- disabled button：確認為上述 L625 條件。
-- 股票名稱解析：目標價路徑**完全沒有**名稱解析；`resolveStockName`（`src/lib/stockNameResolver.ts` L71）在此路徑未被呼叫。
-- 代碼正規化：此路徑用 `tpCode.trim()`（L571），**沒有** `normalizeStockCode`（`src/checkup/lib/chipsRepository.ts` L451）→ `00637l` 會存成小寫，與籌碼查詢的 canonical 形式不一致。
+- **Stage A（純工具，無 UI）**：檔 1、2、6、8、9、4。行為對使用者 0 變化。Rollback = revert 6 檔。
+- **Stage B（核心功能，atomic）**：檔 3、7、10、5 一起上。tab 與目標價搬遷在同一 commit（V1 的 Stage1 依賴 Stage2 之錯誤已消除）。Rollback = revert 4 檔，回到 Stage A 狀態仍可用。
+- **Stage C（驗收，不改 production code）**：390×844 RWD / a11y 證據。
 
-### A3. 文案承諾但功能不存在
+## 3. Exact row contract
 
-- `src/checkup/components/holdings/HoldingsTable.jsx` L433：空狀態文字「**上傳成交記錄或手動新增**」— 承諾手動新增，全站無此入口。（`HoldingsTable` 僅被 `HoldingsPage`/harness 使用，非主線 FreeCheckup，但文案仍是假承諾。）
-- `src/pages/_freeCheckup/constants.jsx` L281 註解：「觸發點：截圖解析新增 / **手動新增** / 批次匯入」— 註解描述了不存在的觸發點。
-- `src/checkup/components/freecheckup/HoldingsEmptyState.tsx` L121：「支援 JPG / PNG 截圖，**無需手動輸入**」— 目前這句是**唯一誠實**的，但補了手動流程後必須改寫，否則反向誤導。
-- `src/checkup/components/trade/TradePanel.jsx` L976 / L1074 有「手動更新目標價 / 手動更新財報」，屬 `TradePage` 舊路徑，**同樣沒有手動成交**。
+Manual draft →（builder）→ **trade row**（與 OCR `preparedTrades` 逐欄同構）：
 
-**結論：全站零手動成交路徑，且至少 2 處文案／註解承諾了它。**
-
-## B. 資料流圖（目標狀態）
-
-```text
-                     ┌──────────── 上傳成交 modal (TradeUploadModal) ───────────┐
-                     │  [ 截圖辨識 ]  [ 手動輸入 ]   ← 同一工作流的兩個 tab      │
-                     └───────┬──────────────────────┬───────────────────────────┘
-                             │                      │
-        processFile/parseShot│                      │ ManualTradeForm.submit()
-        (checkup-parse Edge) │                      │  normalizeStockCode
-                             │                      │  resolveStockName / fallback
-                             ▼                      ▼  inline validate
-                    ┌────────────────────────────────────────┐
-                    │  parsed.trades[]  ← 共用 preview 清單    │  (source: 'ocr' | 'manual')
-                    │  逐列可編輯 / 可刪除 / validateRow      │  ★ 0 DB write 到此為止
-                    └───────────────┬────────────────────────┘
-                                    │ applyCorrections()（既有，唯一提交點）
-                                    ▼
-       stripDemoSeedHoldings → mergeTradeIntoHoldings ×N → setHoldings
-                                    │
-                                    └→ setTradeLog（新 entry，append-only，不覆蓋）
-                                             │
-              ┌──────────────────────────────┴───────────────────────────┐
-              ▼                                                          ▼
-   save('pf-holdings-v2') + checkup_storage upsert          saveTradeLogToCloud (debounce 800ms)
-                                                            → checkup_trade_memos delete+insert
-              │
-              ▼
-   刪除回復：LogPanel 逐筆刪除 → recomputeHoldingsAfterDelete → replayTradeLog（全量重算）
-             或 resetAll() → 全 pf-* key 歸零
+```json
+{ "action": "買進", "code": "2330", "name": "台積電", "qty": 1000, "price": 1085,
+  "market_price": null, "amount": null, "total_cost": null, "fee": null,
+  "date": "2026/08/29", "time": "10:32" }
 ```
 
-## C. 分階段 plan
+四個必答案例（builder 輸出）：
 
-### Stage 1 — 目標價區塊語意分離（最小、可獨立上）
+| 欄位 | TW 2330 | TW ETF 00637L | AMD | SOXL |
+|---|---|---|---|---|
+| code | `"2330"` | `"00637L"`（upper） | `"AMD"` | `"SOXL"` |
+| name | `"台積電"`(resolve) / fallback code | `"元大滬深300正2"` / code | 使用者填或 `"AMD"` | 使用者填或 `"SOXL"` |
+| qty | 1000 | 5000 | 30 | 100 |
+| price / market_price / amount / total_cost / fee | 1085 / null / null / null / null | 同左 | 132.5 / null… | 21.44 / null… |
+| date / time | `"2026/08/29"` / `"10:32"` | 同 | 同 | 同 |
+| action | `"買進"`｜`"賣出"` | 同 | 同 | 同 |
 
-**檔案：** `src/checkup/components/freecheckup/TradeTab.jsx`（僅 L567-636 區塊）
+- **無 market/currency/source 欄**（§0）。
+- `mergeTradeIntoHoldings` (`FreeCheckup.jsx:2444`) 消費：`action/code/name/qty/price/total_cost/fee/market_price`；未帶 `market_price` 時以 `price` 當市價，新持倉得 `type: inferHoldingType(code,name)`（2330→股票、00637L→ETF、AMD/SOXL→股票）、`priceSource:'screenshot'`。**唯一差異**：手動列由 `commitManualTrades` 設 `priceSource:'manual'`（`holdingHasUserOrigin` `constants.jsx:` 已認得 `'manual'`），其餘完全相同。
+- **tradeLog entry**（與 `FreeCheckup.jsx:2700-2707` 同 shape）：`{ id: Date.now()+Math.random(), date, time, action, code, name, qty, price, qa: [] }`。
+- `replayTradeLog` (`tradeLogOps.js:20`) 只讀 `date/time/id/action/code/qty/price/name` → 手動列可完整 replay。
+- `saveTradeLogToCloud` 映射：`trade_date=date`、`trade_time=time`、`action/code/name/qty/price`、`qa=[]`。
 
-- 標題改為「研究報告目標價（不會新增持倉）」，加一行說明；卡片改用 teal 淡底 + `lbl` 附註，與成交表單視覺明確分層。
-- `tpCode` 加 `inputMode="numeric"`、`aria-label`、`aria-describedby`。
-- 送出時走 `normalizeStockCode(tpCode)`。
-- 加 inline error（代碼空白／目標價非正數／該代碼不在持倉 → 提示「目標價會保存，但需先有此持倉才會顯示」）。
-- 位置移到手動輸入 tab 的**下方次要區**，不再是空狀態唯一表單。
+## 4. 日期：deterministic，不新增 locale 契約
 
-**Acceptance：** 空持倉時輸入 2331 有明確「這裡不會新增持倉，請用上方手動輸入」提示；`pf-holdings-v2` 不變。
-**Rollback：** 單檔 revert L567-636。
+現況風險（既有 bug，本計畫順手收斂）：log 用 `toLocaleDateString("zh-TW")` → `"2026/8/9"`（不補零），而 `replayTradeLog` 用**字串比較** → `"2026/8/9" > "2026/08/29"`，跨月與補零混用會排錯。
 
-### Stage 2 — 手動成交表單（核心）
+- 手動列一律輸出補零 `YYYY/MM/DD`（純函式 `formatSlashDate` 置於 `manualTradeEntry.ts`，不用 `toLocaleDateString`）。
+- `tradeLogOps.replayTradeLog` 比較子改為：`parseFlexibleDate(date)`（`datetime.js:9`，已支援 `YYYY/M/D` 與 `YYYY-MM-DD`）→ epoch，再比 `time`（`HH:mm` 補零字串），最後 `String(id)`。無法 parse 者排最後，保持穩定。
+- 測試：round-trip（build → parse → format 相等）、跨月（8/9 vs 8/29 vs 9/1）、補零與非補零混排、Safari 相容（不使用 `new Date("YYYY-MM-DD HH:mm")` 這類 Safari NaN 形式，只走 `parseFlexibleDate` 既有分支，並加 regex 斷言）。
 
-**新增檔案（2 個）：**
-- `src/checkup/components/freecheckup/ManualTradeForm.jsx` — 純表單，state 內含，`onAddRow(row)` 往上拋。
-- `src/checkup/lib/manualTradeEntry.ts` — 純函式：`buildManualTradeRow(input)`、`validateManualTradeInput(input, { holdings, previewRows, maxHoldings })`。**不碰 DB、不碰 React**。
+## 5. 目標價（0 orphan write）
 
-**修改檔案（2 個）：**
-- `src/checkup/components/freecheckup/TradeTab.jsx` — 在 dropzone 之上加 `[截圖辨識][手動輸入]` segmented control（`role="tablist"`），手動 tab 渲染 `ManualTradeForm`；`onAddRow` → `setParsed(prev => ({...prev, trades:[...(prev?.trades||[]), row]}))`，**重用既有 preview 清單與 `applyCorrections`**。TRADE_TAB_PROP_SCHEMA 需同步（`freecheckup-tab-prop-schema.test.ts` 會擋）。
-- `src/pages/_freeCheckup/constants.jsx` — 若需新增 `MANUAL_ENTRY_SOURCE` 常數與修正 L281 註解。
+- 提交條件：`code ∈ (現有 holdings ∪ 本次 preview 列)`。
+- 否則**阻擋**提交，inline error「此代碼尚未在你的持倉中，請先用『手動新增成交』建立部位」，並提供跳到手動 tab 的按鈕（帶入該代碼）。
+- 若 code 已在 preview → 允許存草稿，**confirm 之後才寫入** `targets`，確保 `dossierUtils` 立即看得到。
+- 測試：`0 orphan write` — 對未持有代碼提交，斷言 `save("pf-targets-v1", …)` 呼叫次數 = 0 且 `targets` state 不變。
 
-**欄位與 canonical 重用：**
+## 6. Demo / 未登入 exact 契約
 
-| 欄位 | 來源 canonical function | 缺口 |
-|---|---|---|
-| 代碼正規化 | `normalizeStockCode`（`chipsRepository.ts` L451） | 無 |
-| 市場推斷 TW/US | `isTaiwanStockCode` 規則 `/^\d{4,6}[A-Z]?$/`（同檔）；US 走 `inferMarket`（`src/lib/signalFieldResolvers.ts` L50） | `inferMarket` 目前只服務 signal 域 → **最小新增**：`manualTradeEntry.ts` 內薄包裝，不複製規則 |
-| 名稱解析 | `resolveStockName` / `resolveStockNames`（`src/lib/stockNameResolver.ts` L71/L112） | 無。解析失敗 → 名稱欄可手填，fallback 顯示「未知名稱（可自行輸入）」，**不阻擋** |
-| 買/賣 | 沿用字面 `"買進"/"賣出"`（`mergeTradeIntoHoldings` L2459 判斷） | 無 |
-| 股數 | TW 整股/零股：正整數；US fractional：`Number.isFinite && > 0`，依市場切換 `validateRow` 的整數要求 | **`TradeTab.jsx` L325 現行硬性 `Number.isInteger` 需依市場放寬**（唯一 preview 驗證改動） |
-| 幣別 | 由市場推斷，沿用 holdings row 既有欄位；不新增 schema | 無 |
-| 成交價 | `> 0` | 無 |
-| 日期 | 沿用 `toLocaleDateString("zh-TW")` 格式（`FreeCheckup.jsx` L2703 / `tradeLogOps.js` 排序依賴此字串） | 無。手動日期需輸出**同格式**，否則 replay 排序錯亂 |
-| 手續費/稅 | `mergeTradeIntoHoldings` 已支援 optional `fee` / `total_cost`（L2450-2451） | 無。手動表單設為 optional，留白即 `null` |
+TradeTab 已有 `isDemo` prop。
 
-**inline error 覆蓋（`validateManualTradeInput`）：** 空代碼、格式不符 `^[0-9A-Za-z]{2,8}$`、qty ≤ 0 / NaN / TW 非整數、price ≤ 0 / NaN、日期非法或未來日、空白名稱且解析失敗、賣超（`qty > 現有持倉 + preview 內同碼淨買`）、合併後代碼數 > `MAX_HOLDINGS`（沿用 `FreeCheckup.jsx` L2662-2682 同一算式）、未知代碼（warning 非 error）。
+| 情境 | 行為 |
+|---|---|
+| demo 點「手動輸入」tab | tab 可切換，表單以 `disabled` 呈現＋既有登入 CTA；`onChange` 不掛載，`draft` state 不建立 |
+| demo 點「加入清單」 | 按鈕 `disabled` 且 `onClick` 早退（`if (isDemo) return;`）→ `setManualRows` 不被呼叫，`parsed` **不變**；斷言 `parsed === null` |
+| demo 點「確認寫入」 | 不存在（沒有 rows），且 `commitManualTrades` 首行 `if (isDemo) return;` |
 
-**重複成交：** 同碼同日同價再加一列 → **新增新 row**，不去重、不覆蓋；`replayTradeLog` 會照時間序逐筆套用（`tradeLogOps.js` L20-32）。
+測試以 callback spy 斷言（不引用行號）：`setParsed` / `commitManualTrades` 呼叫次數皆為 0。
 
-**Auth：** 手動 tab 與截圖 tab 共用 `isDemo` 判斷（`TradeTab.jsx` L172-188 既有登入提示），demo 未登入時渲染同一提示，**不新增任何 bypass**。
+## 7. 賣超驗證（依序 replay，非淨額）
 
-**Acceptance：** 加入 N 列 preview 期間 DB write = 0（以 network 斷言）；按一次「套用修正並更新持倉」後 holdings/tradeLog/cloud 三者一致。
-**Rollback：** 刪 2 新檔 + revert `TradeTab.jsx` 的 tab 區塊。
+`validatePreview(existingHoldings, previewRows)`：以 `Map<code, qty>` 由現有持倉起算，**依 preview 陣列順序**逐列套用；賣出時 `if (qty > map.get(code)) → error(index)`。因此「先賣 1000 後買 1000」在第 1 列即擋下，不被後面的買單倒灌放行。回傳 `{ ok, errors: [{index, code, reason}] }`，deterministic、純函式。
 
-### Stage 3 — 390x844 RWD 與可及性
+## 8. MAX_HOLDINGS
 
-**檔案：** `ManualTradeForm.jsx` + `TradeTab.jsx`（僅 style / a11y）
+以 replay 後結果計算：`unique codes where qty > 0`（現有持倉套完 preview 全部列之後）。賣到 0 的代碼在 `mergeTradeIntoHoldings` 會 splice 移除，因此**釋放名額**。超過 50 才擋，錯誤訊息標出超出的代碼數。不沿用 FreeCheckup 現有的粗略「代碼聯集」估算。
 
-- 遵守專案憲法：任何 `fontSize >= 32` 必須有 className + `≤560px` / `≤380px` media query（本表單刻意全部 < 32，避免碰 L2965/L4745 字面 `<style>` 硬合約）。
-- 「加入清單」CTA 置於表單內、非 sticky 底欄，鍵盤彈出時不遮擋；modal 本身已 `overflowY:auto`（`TradeUploadModal.jsx` L48）。
-- 每個 input 有 `<label>` 或 `aria-label`；error 用 `aria-describedby` + `role="alert"`；tablist 支援方向鍵。
+## 9. parsed / manual state 契約
 
-**Acceptance：** 執行既有 `scripts/check-freecheckup-rwd.mjs` 與手機三斷點回歸清單（560/390/380）+ `bunx playwright test e2e/freecheckup-card.spec.ts`。
-**Rollback：** style-only revert。
+- 單一事實來源：手動列只存在 `TradeTab` 內部 `manualRows`（陣列，初始 `[]`），**不寫入 `parsed`**，直到 confirm。
+- `parsed === null` 時切到手動 tab：`img`、`parsed` 皆不動。
+- confirm 後：呼叫 `commitManualTrades(rows)` → 清空 `manualRows`，`parsed`/`img` 仍保持原值（OCR 結果不被清掉）。
+- 移除最後一列：`manualRows = []`，confirm 按鈕 disabled，不觸發任何 setState 於 parent。
+- 再次上傳 OCR：走原 pipeline，`manualRows` 不受影響（互不清除）。
 
-## D. 測試與驗收
+## 10. 名稱 async resolve race
 
-### D1. 新增/修改 exact files（總計 8 檔，無大範圍 refactor）
+`resolveStockName` (`src/lib/stockNameResolver.ts:71`) 以 seq token 控制：每次 code 變更 `seq += 1`，回呼比對 `seq === mySeq` 才 setState；unmount 時 `cancelled=true`。狀態：`idle / loading / resolved / error`；error 或查無 → fallback = code；使用者手填後 `nameDirty=true`，此後 resolve 結果**不覆寫**。component test：2330→AMD 快速切換（舊 promise 後到）斷言顯示 AMD 名稱。
 
-新增：
-1. `src/checkup/components/freecheckup/ManualTradeForm.jsx`
-2. `src/checkup/lib/manualTradeEntry.ts`
-3. `src/checkup/lib/__tests__/manualTradeEntry.test.ts`
-4. `src/checkup/components/freecheckup/__tests__/ManualTradeForm.test.tsx`
-5. `src/test/integration/manual-trade-pipeline.test.tsx`
-6. `e2e/manual-trade-entry.spec.ts`
+## 11. Test matrix
 
-修改：
-7. `src/checkup/components/freecheckup/TradeTab.jsx`（tab 切換 + 目標價區塊 + `validateRow` 市場感知）
-8. `src/pages/_freeCheckup/constants.jsx`（註解 L281 + 常數）
+Unit（檔 4）：row shape ×4 案例、`inferHoldingType` 對齊、date round-trip/跨月/混排、sell-over-position 依序 replay ×6、MAX_HOLDINGS 邊界（49/50/51、賣光釋放）、normalizeStockCode（` 00637l ` → `00637L`）、0 orphan target。
+Component（檔 4 或 3 對應）：name race、loading/error/fallback/dirty、demo disabled。
+Integration（檔 5）：真實 `TradeTab` + 真實 `commitManualTrades`（只 mock `supabase` client 與 `fetch` 作為 spy，不 mock orchestration）—
+- 加入 preview 前後、confirm 前：`fetch` 0 次、`supabase.from` 0 次；
+- confirm：`setHoldings` 1 次、`setTradeLog` 1 次、`checkup_storage` upsert 與 `checkup_trade_memos` delete+insert 各恰一輪（debounce fake timer）；
+- 刪除該筆 → `recomputeHoldingsAfterDelete` replay 回空。
+E2E/RWD（Stage C）：390×844 截圖；鍵盤限制見 §12。
 
-附帶文案修正（1 行級）：`HoldingsTable.jsx` L433、`HoldingsEmptyState.tsx` L121。
+## 12. 390×844 鍵盤 limitation（明標）
 
-### D2. Component/unit
-輸入 2330 顯示「台積電」；解析失敗顯示 fallback 且可手填；各 inline error 狀態；加入 preview 後清單 +1 且表單清空；**送出前 `supabase.from` 呼叫數 = 0**；刪除 preview row 後清單 -1。
+Playwright/Chromium **無法開啟 OS 軟鍵盤**，因此不宣稱「鍵盤不遮擋」。替代證據：(a) 每個輸入框 `focus()` 後 `scrollIntoViewIfNeeded` + `boundingBox` 落在 visualViewport 內；(b) 以 `visualViewport` 高度模擬 844→460 後重測 CTA 可見；(c) `inputmode="decimal"` / `enterKeyHint` 屬性斷言；(d) 真機手動截圖列為人工驗收項。
 
-### D3. Integration
-manual + OCR row 混合於同一 `parsed.trades`；一次 `applyCorrections` 後 `pf-holdings-v2` / `pf-log-v2` / `checkup_trade_memos` payload 三者一致；`recomputeHoldingsAfterDelete` 逐筆刪回空 = `replayTradeLog([])` baseline。
+## 13. Rollback / Non-goals
 
-### D4. Canonical normalization cases
-`2330`→TW 整股；` 00637l `→`00637L` TW 槓桿 ETF；`AMD`→US（允許 fractional）；`SOXL`→US ETF；以及 invalid `12`／duplicate 同碼同日／sell-over-position／第 51 檔觸發 MAX_HOLDINGS。
+Rollback：Stage B revert 4 檔即回到「只有純工具、UI 無變化」；Stage A revert 6 檔回到 baseline。無 DB／Edge 變更，故無資料回滾。
 
-### D5. Hosted acceptance
-QA account（`b3502f0a…`, company_admin）baseline 已證全空 → 用手動輸入建 31 檔不同普通台股 → **不開任何 drawer**，觀測 `tw-chips-detail-v2` 為 `[30, 1]` 兩次 POST → 390x844 layout / console / network 截圖 → 逐筆刪除或 `resetAll()` 回空 baseline 並複驗 `checkup_storage` 9 key 全空。
+Non-goals：不動 Edge、migration、RLS、cron、Demo fixture、`CLOUD_SYNC_KEYS`、BSR 修正檔與 `db/r1/p/acl-25.*`（維持 byte-identical）；不重構 FreeCheckup 主體；不改 OCR prompt；不引入 market/currency 欄位；不 deploy、不 Publish。
 
-### D6. 全量回歸
-`npx vitest run`、`npm run typecheck:edge:chips`、`npm run build`、`npm run check:module-boundaries`、changed-files diff 與 `db/r1/p/acl-25.*` 對 baseline byte-identical。**既有 `journal-flow-perf.test.ts` timing flake 需單獨標註，不冒充本次結果。**
-
-## E. Non-goals（明確排除）
-
-- 不改 `checkup_storage` / `checkup_trade_memos` schema、不新增 migration、不動 RLS/GRANT。
-- 不改 `tw-chips-detail-v2` 或任何 Edge function。
-- 不寫任何繞過 `applyCorrections` 直接改 holdings 的捷徑。
-- 不改 DEMO fixture 的 20 檔上限、不新增 auth bypass / 測試後門。
-- 不重構 `FreeCheckup.jsx` 主體（本計畫對該檔 0 行改動）、不動 L2965/L4745 字面 `<style>` 硬合約。
-- 不做 CSV/批次貼上匯入（後續獨立議題）。
-- 不改既有 OCR 解析、備忘三問、目標價資料結構。
+**HOLDINGS_MANUAL_ENTRY_PLAN_V2_READY** — 本輪 0 檔寫入 production、0 DB mutation、0 deploy。
