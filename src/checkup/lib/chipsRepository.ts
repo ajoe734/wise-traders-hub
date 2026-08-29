@@ -12,6 +12,10 @@
  */
 import { getCheckupGateway } from './gateway';
 import { trackEvent } from '@/lib/trafficTracker';
+import { normalizeStockCode, isTaiwanStockCode } from './stockIdentity';
+
+// 代號身分判定的定義住在 `./stockIdentity`（零 import 純函式檔）；此處 re-export 維持既有 API。
+export { normalizeStockCode, isTaiwanStockCode } from './stockIdentity';
 
 /**
  * 與 `supabase/functions/_shared/bsrProviderState.ts` 的 enum 對齊（型別鏡像，無邏輯）。
@@ -269,11 +273,8 @@ export function classifyChipsError(err: unknown, status?: number): ChipsError {
   return { kind: 'unknown', status, message: msg, reason: msg.slice(0, 80) || '未知錯誤' };
 }
 
-// 台股代碼判定：4-6 位純數字（2330、00878、911616 等）
-export function isTaiwanStockCode(code: string | undefined | null): boolean {
-  if (!code) return false;
-  return /^\d{4,6}[A-Z]?$/.test(String(code).trim());
-}
+// 台股代碼判定已移至 `./stockIdentity`（本檔頂部 re-export）。
+
 
 /**
  * 分點（BSR）資料可用性判定。
@@ -443,14 +444,9 @@ export interface ChipsBatchResult {
   servedAt: string;
 }
 
-/**
- * 代號正規化（單一資料源）：trim + 大寫。
- * 為什麼要 uppercase：`isTaiwanStockCode` 是 `/^\d{4,6}[A-Z]?$/`（大小寫敏感），
- * 而 hook 端曾用 `/i` 版本，導致 `00637l` 通過 hook 卻在 repository 被丟掉（靜默漏檔）。
- */
-export function normalizeStockCode(code: unknown): string {
-  return String(code ?? '').trim().toUpperCase();
-}
+// 代號正規化與台股判定的定義已移到 `./stockIdentity`（零 import 的純函式檔），
+// 讓交易表單等模組不必為了正規化而拉進 gateway / trafficTracker。此處只做 re-export，行為完全相同。
+
 
 function normalizeStockCodes(codes: unknown): string[] {
   if (!Array.isArray(codes)) return [];
