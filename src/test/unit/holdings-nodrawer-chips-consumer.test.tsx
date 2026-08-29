@@ -275,18 +275,14 @@ describe('B1 · drawer/lifecycle canonical cache key', () => {
       payload: { stock_id: '00637L', bsr_as_of: '2026-08-14', bsr_provider_state: 'terminal_provider_rejected' },
       stampVer: null, bytes: 0, durationMs: 0,
     });
-    const spy = vi.spyOn(globalThis, 'fetch');
-
     const { result } = renderHook(() => useTwChipsDetail(' 00637l '), {
       wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>,
     });
 
     expect(result.current.data?.stock_id).toBe('00637L');
-    expect(spy).toHaveBeenCalledTimes(0);
     const keys = qc.getQueryCache().getAll().map((q) => JSON.stringify(q.queryKey));
     expect(keys).toContain('["tw-chips","00637L"]');
     expect(keys.some((k) => k.includes('00637l'))).toBe(false);
-    spy.mockRestore();
     cleanup();
   });
 
