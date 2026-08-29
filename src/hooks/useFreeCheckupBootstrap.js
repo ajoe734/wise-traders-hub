@@ -23,6 +23,38 @@ import {
   LOCAL_STORAGE_OWNER_KEY,
 } from "@/pages/_freeCheckup/constants";
 
+// ── checkup_trade_memos 保序 ──────────────────────────────────────────────
+// 寫入端（saveTradeLogToCloud）以 tradeLog array index 落 sort_index，
+// 讀取端一律先看 sort_index。舊資料（migration 前全部 default 0）或帳號合併後
+// 兩批 0..n 重號時，退回可觀測的 created_at DESC → id DESC，保證 deterministic。
+export function sortTradeMemoRows(rows) {
+  const cmpDesc = (a, b) => (a === b ? 0 : a < b ? 1 : -1);
+  return [...(rows || [])].sort((x, y) => {
+    const sx = Number.isFinite(Number(x?.sort_index)) ? Number(x.sort_index) : 0;
+    const sy = Number.isFinite(Number(y?.sort_index)) ? Number(y.sort_index) : 0;
+    if (sx !== sy) return sx - sy;
+    const cx = x?.created_at || "";
+    const cy = y?.created_at || "";
+    if (cx !== cy) return cmpDesc(cx, cy);
+    return cmpDesc(String(x?.id || ""), String(y?.id || ""));
+  });
+}
+
+export function mapTradeMemoRow(row) {
+  return {
+    id: row.id,
+    date: row.trade_date || "",
+    time: row.trade_time || "",
+    action: row.action || "",
+    code: row.code || "",
+    name: row.name || "",
+    qty: row.qty != null ? Number(row.qty) : 0,
+    price: row.price != null ? Number(row.price) : 0,
+    qa: Array.isArray(row.qa) ? row.qa : [],
+  };
+}
+
+
 // 跨帳號 LocalStorage sweeper：當登入 uid 與本機 owner 不符時，
 // 主動清掉所有 pf-* 殘留，避免任何 fallback 路徑把上一個帳號的資料當成新帳號的初始值。
 function sweepStaleLocalIfOwnerMismatch(userId) {
@@ -255,31 +287,24 @@ export function useFreeCheckupBootstrap({
         // RLS 已限制只回自己的 row；但 fallback 必須用 scoped local，
         // 否則跨帳號 LocalStorage 殘留會被當成新帳號的初始 trade log，
         // 接著 auto-save 會把它寫進新帳號的 checkup_trade_memos，造成永久污染。
-        // 排序：created_at 為主鍵順序；同一批寫入 created_at 可能相同，以 id 做 deterministic tie-break
+        // 排序權威：sort_index ASC（寫入時的 tradeLog array index）；
+        // migration 前的 legacy row 或帳號合併後重號，以 created_at DESC、id DESC 決勝。
         const { data } = await supabase
           .from("checkup_trade_memos")
           .select("*")
+          .order("sort_index", { ascending: true })
           .order("created_at", { ascending: false })
           .order("id", { ascending: false });
 
         if (data && data.length > 0) {
-          l = data.map(row => ({
-            id: row.id,
-            date: row.trade_date || "",
-            time: row.trade_time || "",
-            action: row.action || "",
-            code: row.code || "",
-            name: row.name || "",
-            qty: row.qty != null ? Number(row.qty) : 0,
-            price: row.price != null ? Number(row.price) : 0,
-            qa: Array.isArray(row.qa) ? row.qa : [],
-          }));
+          l = sortTradeMemoRows(data).map(mapTradeMemoRow);
         } else {
           l = loadScopedLocal("pf-log-v2", [], userId);
         }
       } catch {
         l = loadScopedLocal("pf-log-v2", [], userId);
       }
+
 
       if (cancelled) return;
 

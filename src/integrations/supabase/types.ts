@@ -1011,6 +1011,7 @@ export type Database = {
           price: number | null
           qa: Json | null
           qty: number | null
+          sort_index: number
           trade_date: string | null
           trade_time: string | null
           user_id: string
@@ -1024,6 +1025,7 @@ export type Database = {
           price?: number | null
           qa?: Json | null
           qty?: number | null
+          sort_index?: number
           trade_date?: string | null
           trade_time?: string | null
           user_id: string
@@ -1037,6 +1039,7 @@ export type Database = {
           price?: number | null
           qa?: Json | null
           qty?: number | null
+          sort_index?: number
           trade_date?: string | null
           trade_time?: string | null
           user_id?: string

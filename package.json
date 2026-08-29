@@ -22,6 +22,8 @@
     "check:freecheckup-i18n": "node scripts/check-freecheckup-i18n.mjs",
     "check:sitemap": "bunx tsx scripts/sitemap-consistency-check.ts",
     "check:ai-sdk-versions": "node scripts/check-ai-sdk-versions.mjs",
+    "acl25:generate": "python3 db/r1/p/build_acl25.py",
+    "check:acl-clean": "git diff --quiet -- db/r1/p/acl-25.json db/r1/p/acl-25.md db/r1/p/095_acl25_verify.sql",
     "check:rls-audit": "vitest run src/test/integration/1.35-rls-security-audit.test.ts",
     "check:prod-debug": "node scripts/check-prod-debug-bundle.mjs",
     "lint:modules": "eslint src/checkup/modules src/checkup/shell",
