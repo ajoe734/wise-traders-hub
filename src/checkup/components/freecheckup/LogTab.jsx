@@ -137,28 +137,28 @@ function LogTabImpl({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
                     <span style={{ ...tab, fontSize: 11, color: C.textMute }}>{log.time || ''}</span>
                     {canMutate && (
-                      <button
+                      <Button
                         type="button"
-                        className="ui-btn"
+                        size="xs"
                         aria-label="編輯這筆"
                         title="修正股數 / 價格 / 日期 / 動作"
                         onClick={() => setEditingRow({ id: log.id, action: log.action, qty: log.qty, price: log.price, date: log.date })}
                         style={{ border: 'none', background: 'transparent', color: C.textMute, cursor: 'pointer', fontSize: 10, padding: '0 4px' }}
                       >
                         編
-                      </button>
+                      </Button>
                     )}
                     {canMutate && (
-                      <button
+                      <Button
                         type="button"
-                        className="ui-btn"
+                        size="xs"
                         aria-label="刪除這筆"
                         title="刪除這筆並回滾持倉"
                         onClick={() => setConfirmDelete(log)}
                         style={{ border: 'none', background: 'transparent', color: C.textMute, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 4px' }}
                       >
                         ×
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
