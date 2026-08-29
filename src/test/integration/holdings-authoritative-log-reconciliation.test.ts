@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyMarketQuotesToHoldings } from '@/checkup/lib/holdings.js'
 import { reconcileHoldingsWithTradeLog } from '@/checkup/lib/tradeLogOps.js'
+import { stripDemoSeedHoldings } from '@/pages/_freeCheckup/constants'
 
 const CODES = [
   '2330', '2317', '2454', '2382', '2412', '2881', '2882', '2891', '3008', '3034',
@@ -61,6 +62,7 @@ describe('authoritative trade log reconciliation', () => {
       userOrigin: true,
       tradeLogTouched: true,
     })
+    expect(stripDemoSeedHoldings(repaired).map((row) => row.code)).toContain('2308')
   })
 
   it.each([
@@ -97,7 +99,7 @@ describe('authoritative trade log reconciliation', () => {
     }
   })
 
-  it('reconciliation 不得創造重複交易或改變同代碼 replay 後的 qty/cost', () => {
+  it('reconciliation 不得創造重複持倉或改變既有同代碼的 qty/cost', () => {
     const duplicateCodeLogs = [
       ...logs31,
       { ...logs31[0], id: 'trade-2330-second', qty: 500, price: 200 },
@@ -105,7 +107,7 @@ describe('authoritative trade log reconciliation', () => {
     const repaired = reconcileHoldingsWithTradeLog(cloudHoldings30, duplicateCodeLogs)
     const tsmcRows = repaired.filter((row) => row.code === '2330')
     expect(tsmcRows).toHaveLength(1)
-    expect(tsmcRows[0].qty).toBe(1500)
-    expect(tsmcRows[0].cost).toBeCloseTo(133.33, 2)
+    expect(tsmcRows[0].qty).toBe(1000)
+    expect(tsmcRows[0].cost).toBe(100)
   })
 })
