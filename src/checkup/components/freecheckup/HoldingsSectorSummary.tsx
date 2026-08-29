@@ -109,7 +109,25 @@ function HoldingsSectorSummaryImpl({
     ? aggregateBySector(holdings, stockMeta, overrides)
     : { industryByValue: [], themeByCount: [], strategyByCount: [], unclassifiedCount: 0, multiIndustryCount: 0, warnings: [], overDiversified: false }
 
+  // ── 集中度編輯註記（前 3 大合計）
+  // 必須在下方 early return **之前**呼叫：0 檔 → N 檔（手動新增／截圖匯入）時
+  // 若這顆 useMemo 在 early return 之後，React hook 順序會由 23 變 24，
+  // 直接觸發「change in the order of Hooks」而讓整頁進 error boundary。
+  const top3Pct = industryByValue.slice(0, 3).reduce((s: number, x: any) => s + x.pct, 0)
+  const concentrationNote = useMemo(() => {
+    if (industryByValue.length === 0) return ''
+    if (industryByValue.length <= 2) return ''
+    const p = Math.round(top3Pct)
+    if (top3Pct >= 70) return `前三大合計 ${p}%——集中度偏高。`
+    if (top3Pct >= 50) return `前三大合計 ${p}%——集中度略高。`
+    if (industryByValue.length > 6 && (industryByValue[0]?.pct ?? 0) < 20) {
+      return `共 ${industryByValue.length} 個產業且無明顯核心倉，追蹤成本較高。`
+    }
+    return `前三大合計 ${p}%——分佈尚均衡。`
+  }, [industryByValue, top3Pct])
+
   if (!hasHoldings || industryByValue.length === 0) return null
+
 
   const singleHolding = holdings.length === 1
   const sel = selected && Array.isArray(selected.items) ? selected : EMPTY_SEL
@@ -210,19 +228,7 @@ function HoldingsSectorSummaryImpl({
     return (b.createdAt || 0) - (a.createdAt || 0)
   })
 
-  // ── 集中度編輯註記（前 3 大合計）
-  const top3Pct = industryByValue.slice(0, 3).reduce((s: number, x: any) => s + x.pct, 0)
-  const concentrationNote = useMemo(() => {
-    if (industryByValue.length === 0) return ''
-    if (industryByValue.length <= 2) return ''
-    const p = Math.round(top3Pct)
-    if (top3Pct >= 70) return `前三大合計 ${p}%——集中度偏高。`
-    if (top3Pct >= 50) return `前三大合計 ${p}%——集中度略高。`
-    if (industryByValue.length > 6 && (industryByValue[0]?.pct ?? 0) < 20) {
-      return `共 ${industryByValue.length} 個產業且無明顯核心倉，追蹤成本較高。`
-    }
-    return `前三大合計 ${p}%——分佈尚均衡。`
-  }, [industryByValue, top3Pct])
+
 
   return (
     <section
