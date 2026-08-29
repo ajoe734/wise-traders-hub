@@ -190,7 +190,12 @@ export default function ManualTradeForm({ C, alpha, card, lbl, isDemo, onAdd, ho
             maxLength={40}
             placeholder="自動帶入，可修改"
             value={draft.name}
-            onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value, nameDirty: true }))}
+            onCompositionStart={markNameEdited}
+            onBeforeInput={markNameEdited}
+            onChange={(e) => {
+              markNameEdited();
+              setDraft((p) => ({ ...p, name: e.target.value, nameDirty: true }));
+            }}
             style={inputStyle('name')}
           />
         </div>
