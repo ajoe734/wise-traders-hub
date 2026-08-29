@@ -27,7 +27,7 @@ vi.mock('@/pages/_freeCheckup/constants.jsx', () => ({
   WB: {},
 }));
 
-import ManualTradeForm from '@/checkup/components/freecheckup/ManualTradeForm';
+import { ManualTradeForm } from '@/checkup/modules/tradeIO/free';
 import TradeTab from '@/checkup/components/freecheckup/TradeTab';
 import { appendToParsed, computePreviewIssues, MANUAL_ROW_KEYS } from '@/checkup/lib/manualTradeEntry';
 
