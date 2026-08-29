@@ -49,7 +49,7 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
     setTradeLog(nextLog)
     if (typeof setHoldings === 'function') {
       // Replay from empty 起點重算，比反向回滾更穩（均價、全賣後再買、跨筆都對）
-      setHoldings(recomputeHoldingsAfterDelete(tradeLog, log.id))
+      setHoldings((prev) => recomputeHoldingsAfterDelete(tradeLog, log.id, null, prev))
     }
     flashSaved?.(`↺ 已刪除並用所有交易紀錄重新計算持倉`, 2800)
     setConfirmDelete(null)
@@ -93,7 +93,7 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
     )
     setTradeLog(nextLog)
     if (typeof setHoldings === 'function') {
-      setHoldings(replayTradeLog(nextLog))
+      setHoldings((prev) => replayTradeLog(nextLog, null, prev))
     }
     flashSaved?.('✅ 已更新並重新計算持倉', 2800)
     setEditingRow(null)
