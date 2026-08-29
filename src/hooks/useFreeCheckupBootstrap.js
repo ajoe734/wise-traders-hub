@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
+import { reconcileHoldingsWithTradeLog } from "@/checkup/lib/tradeLogOps.js";
 
 // P0-3: demoData lazy — 15.3 KB chunk only loads when isDemo branch hits
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
@@ -308,17 +309,22 @@ export function useFreeCheckupBootstrap({
 
       if (cancelled) return;
 
+      // checkup_trade_memos 是交易權威；若舊版曾把 holdings 寫成較短陣列，
+      // 載入時只補回 logs 可 replay 的缺失代碼，既有行情 enrichment 不動。
+      const reconciledHoldings = reconcileHoldingsWithTradeLog(sanitizedHoldings, l);
+
       DBG("full-apply", {
         rawHoldingsLen: Array.isArray(h) ? h.length : 0,
         sanitizedLen: sanitizedHoldings.length,
+        reconciledLen: reconciledHoldings.length,
         removedDemoSeedCount,
         tradeLogLen: l.length,
       });
-      setHoldings(sanitizedHoldings); setTradeLog(l); setTargets(t);
+      setHoldings(reconciledHoldings); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(shouldRebuildDerivedEvents ? [] : ce);
 
 
-      const hasHoldings = sanitizedHoldings.length > 0;
+      const hasHoldings = reconciledHoldings.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
         setStrategyBrain(null); setCalendarEvents([]);
@@ -334,7 +340,7 @@ export function useFreeCheckupBootstrap({
       setCloudSync(true);
 
       if (shouldRebuildDerivedEvents && typeof fetchCalendarEventsRef?.current === "function") {
-        fetchCalendarEventsRef.current(sanitizedHoldings, resetGuardRef.current, []);
+        fetchCalendarEventsRef.current(reconciledHoldings, resetGuardRef.current, []);
       }
     })();
     return () => { cancelled = true; };

@@ -41,12 +41,39 @@ export function mergeReplayWithPriorHoldings(replayRows, priorHoldings, quotes =
   const merged = (Array.isArray(replayRows) ? replayRows : []).map((row) => {
     const base = priorByCode.get(normalizeStockCode(row?.code))
     if (!base) return row
-    const out = { ...base, code: row.code, name: base.name || row.name, type: row.type || base.type }
+    const out = {
+      ...base,
+      code: row.code,
+      name: base.name || row.name,
+      type: row.type || base.type,
+      // 只要可由正式交易紀錄 replay，這筆就是真實使用者持倉。
+      // 避免代碼碰巧位於 DEMO_SEED_CODES（例如 2308）時被 auto-save 清除。
+      userOrigin: true,
+      tradeLogTouched: true,
+    }
     for (const key of TRADE_AUTHORITATIVE_KEYS) out[key] = row[key]
     return out
   })
 
   return normalizeHoldings(merged, quotes)
+}
+
+/**
+ * Hydration reconciliation：雲端 holdings 可能因舊版競態少於權威 trade log。
+ * 只補入「logs 可 replay、holdings 卻缺少」的部位；既有 holdings 的交易欄位與
+ * 行情 enrichment 全部原樣保留，避免載入時改動已存在部位的 qty / cost。
+ */
+export function reconcileHoldingsWithTradeLog(holdings, tradeLog, quotes = null) {
+  const current = normalizeHoldings(Array.isArray(holdings) ? holdings : [], quotes)
+  const replayed = replayTradeLog(tradeLog, quotes)
+  if (!replayed.length) return current
+
+  const existingCodes = new Set(current.map((row) => normalizeStockCode(row?.code)).filter(Boolean))
+  const missing = replayed
+    .filter((row) => !existingCodes.has(normalizeStockCode(row?.code)))
+    .map((row) => ({ ...row, userOrigin: true, tradeLogTouched: true }))
+
+  return missing.length ? normalizeHoldings([...current, ...missing], quotes) : current
 }
 
 /**
