@@ -3471,6 +3471,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               card={card}
               startLineLogin={startLineLogin}
               navigate={navigate}
+              setTradeLog={setTradeLog}
+              setHoldings={setHoldings}
+              flashSaved={(message, duration = 2500) => {
+                setSaved(message);
+                setTimeout(() => setSaved(''), duration);
+              }}
             />
           </Suspense>
         )}
