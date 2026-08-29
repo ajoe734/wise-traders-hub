@@ -130,13 +130,16 @@ Chain：`npx vitest run` → `src/test/unit/acl25-generator.test.ts:29` `execFil
 自動重生：`src/integrations/supabase/types.ts`
 
 ## Migration 風險
-- 大表 `UPDATE` 全掃一次（單次、可接受）；`SET NOT NULL` 需 backfill 完成，故順序不可調換。
+- 全表 `UPDATE` 已用實測容量證明可接受（119 rows / 80 kB）；門檻（>100k rows 或 >50MB）一旦被突破即改分批設計重審。
+- `SET NOT NULL` 依賴 backfill 完成，順序不可調換；三段皆冪等，可重跑。
+- `lock_timeout=3s` / `statement_timeout=30s` 讓遇到長交易時快速失敗而非阻塞寫入。
 - 舊 bundle 使用者在 migration 後仍能寫入（default 0）→ 其資料 hydration 走 fallback，不報錯、不遺失。
-- 無 unique constraint，故重複 sort_index 不會讓舊 writer 失敗。
+- 無 unique constraint，故合併帳號後重複 sort_index 或舊 writer 全 0 都不會失敗。
 
 ## 部署 / 回滾順序
-1. migration（先）→ 2. types 重生 → 3. 前端 code 上線 → 4. 觀察。
+1. 在 disposable production-shape clone 跑 migration 兩次（冪等驗證）→ 2. production migration → 3. types 重生 → 4. 前端 code 上線 → 5. 觀察 hydration 排序與 merge 路徑。
 回滾：先回前端 revision（新版依賴欄位，但欄位保留亦相容）→ 必要時才執行上方 rollback SQL。
+
 
 ## Gates
 `npx vitest run <5 支 selected>` exit 0 → full `npx vitest run` exit 0 → `npm run build` → `tsgo`/typecheck → `npm run typecheck:edge:chips` → `npm run check:module-boundaries` → `npx playwright test e2e/holdings-bsr-unavailable.spec.ts` → `npm run check:acl-clean`（full Vitest 後 `git diff --quiet` exit 0）→ BSR gate 無 regression。
