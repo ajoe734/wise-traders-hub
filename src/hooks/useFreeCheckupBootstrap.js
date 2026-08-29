@@ -259,30 +259,6 @@ export function useFreeCheckupBootstrap({
         ce = ceRaw || [];
       }
 
-      const sanitizedHoldings = stripDemoSeedHoldings(Array.isArray(h) ? h : []);
-      const removedDemoSeedCount = (Array.isArray(h) ? h.length : 0) - sanitizedHoldings.length;
-      // 雲端污染回寫：authenticated 模式拉到含 demo seed 的舊資料，立即覆寫雲端，避免下次再被拉回來。
-      if (removedDemoSeedCount > 0 && userId) {
-        try {
-          console.warn(`[demo-seed-leak] strip ${removedDemoSeedCount} seed holdings for user ${userId}, writing sanitized list back to cloud`);
-          await supabase
-            .from("checkup_storage")
-            .upsert(
-              { user_id: userId, key: "pf-holdings-v2", data: sanitizedHoldings, updated_at: new Date().toISOString() },
-              { onConflict: "user_id,key" },
-            );
-          try { localStorage.setItem("pf-holdings-v2", JSON.stringify(sanitizedHoldings)); } catch {}
-        } catch (e) {
-          console.error("[demo-seed-leak] failed to upsert sanitized holdings:", e);
-        }
-      }
-      const holdingCodesKey = getHoldingCodesKey(sanitizedHoldings);
-      const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
-      const shouldRebuildDerivedEvents =
-        holdingCodesKey.length > 0 &&
-        (removedDemoSeedCount > 0 || storedCalendarHoldingCodes !== holdingCodesKey);
-      const manualNewsEvents = (Array.isArray(ne) ? ne : []).filter((event) => event?.source !== "calendar");
-
       let l = [];
       try {
         // RLS 已限制只回自己的 row；但 fallback 必須用 scoped local，
@@ -309,9 +285,19 @@ export function useFreeCheckupBootstrap({
 
       if (cancelled) return;
 
-      // checkup_trade_memos 是交易權威；若舊版曾把 holdings 寫成較短陣列，
-      // 載入時只補回 logs 可 replay 的缺失代碼，既有行情 enrichment 不動。
-      const reconciledHoldings = reconcileHoldingsWithTradeLog(sanitizedHoldings, l);
+      // checkup_trade_memos 是交易權威；先用 logs 證明 seed-code 也是真實持倉，
+      // 再清除沒有任何交易／使用者來源證據的 demo 污染。
+      const rawHoldings = Array.isArray(h) ? h : [];
+      const reconciledHoldings = stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(rawHoldings, l));
+      const removedDemoSeedCount = rawHoldings.length - reconciledHoldings.filter((row) =>
+        rawHoldings.some((prior) => String(prior?.code || '').trim() === String(row?.code || '').trim())
+      ).length;
+      const holdingCodesKey = getHoldingCodesKey(reconciledHoldings);
+      const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
+      const shouldRebuildDerivedEvents =
+        holdingCodesKey.length > 0 &&
+        (removedDemoSeedCount > 0 || storedCalendarHoldingCodes !== holdingCodesKey);
+      const manualNewsEvents = (Array.isArray(ne) ? ne : []).filter((event) => event?.source !== "calendar");
 
       DBG("full-apply", {
         rawHoldingsLen: Array.isArray(h) ? h.length : 0,

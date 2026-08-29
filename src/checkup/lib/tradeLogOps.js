@@ -68,12 +68,16 @@ export function reconcileHoldingsWithTradeLog(holdings, tradeLog, quotes = null)
   const replayed = replayTradeLog(tradeLog, quotes)
   if (!replayed.length) return current
 
-  const existingCodes = new Set(current.map((row) => normalizeStockCode(row?.code)).filter(Boolean))
+  const replayCodes = new Set(replayed.map((row) => normalizeStockCode(row?.code)).filter(Boolean))
+  const markedCurrent = current.map((row) => replayCodes.has(normalizeStockCode(row?.code))
+    ? { ...row, userOrigin: true, tradeLogTouched: true }
+    : row)
+  const existingCodes = new Set(markedCurrent.map((row) => normalizeStockCode(row?.code)).filter(Boolean))
   const missing = replayed
     .filter((row) => !existingCodes.has(normalizeStockCode(row?.code)))
     .map((row) => ({ ...row, userOrigin: true, tradeLogTouched: true }))
 
-  return missing.length ? normalizeHoldings([...current, ...missing], quotes) : current
+  return normalizeHoldings([...markedCurrent, ...missing], quotes)
 }
 
 /**
