@@ -5,7 +5,7 @@ import TradeTab from './TradeTab';
  * TradeUploadModal — Batch C §6.3
  *
  * 把原 tab='trade' 的 TradeTab 包成置中 modal。
- * 由頂欄 / 手機底欄的「＋ 上傳」CTA 開啟；ESC / 背景 / × 關閉。
+ * 由頂欄 / 手機底欄的「＋ 新增成交」CTA 開啟；ESC / 背景 / × 關閉。
  * TradeTab 內部 DOM 完全保留，e2e 選擇器不變。
  */
 export default function TradeUploadModal({ open, onClose, C, alpha, quota, formatResetCountdown, tradeProps }) {
@@ -37,7 +37,7 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="上傳成交"
+      aria-label="新增成交"
       data-testid="trade-upload-modal"
       onClick={onClose}
       style={{
@@ -69,7 +69,7 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
             fontFamily: "'Noto Serif TC', ui-serif, Georgia, serif",
             fontSize: 22, fontWeight: 600, color: C?.text,
             letterSpacing: '0.02em',
-          }}>上傳成交</div>
+          }}>新增成交</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
             <div style={{ fontSize: 11, color: C?.textMute, fontVariantNumeric: 'tabular-nums' }}>
               {quota ? <>今日餘 <span style={{ color: C?.text }}>{remaining}</span> 次{reset ? ` · ${reset}` : ''}</> : null}

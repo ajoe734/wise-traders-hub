@@ -2483,7 +2483,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           totalCost: newTotalCost,
           fee: newFee,
           value, pnl, pct,
-          priceSource: 'screenshot',
+          priceSource: trade?.priceSource === 'manual' ? 'manual' : 'screenshot',
           priceUpdatedAt: new Date().toISOString(),
           priceError: null,
         };
@@ -2495,7 +2495,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           totalCost: tradeTotalCost,
           fee: tradeFee,
           type: inferHoldingType(code, name),
-          priceSource: 'screenshot',
+          priceSource: trade?.priceSource === 'manual' ? 'manual' : 'screenshot',
           priceUpdatedAt: new Date().toISOString(),
           priceError: null,
         };
@@ -2557,7 +2557,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       totalCost,
       fee,
       type: prev?.type || inferHoldingType(code, name),
-      priceSource: 'screenshot',
+      priceSource: trade?.priceSource === 'manual' ? 'manual' : 'screenshot',
       priceUpdatedAt: new Date().toISOString(),
       priceError: null,
     };
@@ -3202,9 +3202,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             className="cm-upload-cta"
             data-testid="checkup-upload-cta"
             onClick={()=>{openUploadModal();trackRaw('checkup_tab_change',{tab:'trade',via:'upload_cta'});}}
-            aria-label="上傳成交"
+            aria-label="新增成交"
             style={{marginLeft:8}}
-          >＋ 上傳</button>
+          >＋ 新增成交</button>
         </div>
         {/* 手機底欄 tab bar — 五格：持倉／收盤／[＋ 圓鈕]／事件／記錄 */}
         <nav className="cm-mobile-tabbar" aria-label="持倉診斷分頁">
@@ -3221,7 +3221,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             type="button"
             className="cm-mobile-tabbar__upload"
             data-testid="checkup-upload-cta-mobile"
-            aria-label="上傳成交"
+            aria-label="新增成交"
             onClick={()=>{openUploadModal();trackRaw('checkup_tab_change',{tab:'trade',via:'mobile_upload_cta'});}}
           >＋</button>
           {[

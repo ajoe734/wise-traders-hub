@@ -33,6 +33,7 @@ const SCHEMA = {
 // 對齊 stockPriceWaterfall 的 label 映射，讓 hero 顯示與卡片/抽屜一致
 const SRC_LABEL: Record<string, string> = {
   screenshot: '截圖',
+  manual: '手動',
   live: '即時',
   high: '最高',
   ask: '賣一',

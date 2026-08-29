@@ -255,7 +255,13 @@ export function useFreeCheckupBootstrap({
         // RLS 已限制只回自己的 row；但 fallback 必須用 scoped local，
         // 否則跨帳號 LocalStorage 殘留會被當成新帳號的初始 trade log，
         // 接著 auto-save 會把它寫進新帳號的 checkup_trade_memos，造成永久污染。
-        const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
+        // 排序：created_at 為主鍵順序；同一批寫入 created_at 可能相同，以 id 做 deterministic tie-break
+        const { data } = await supabase
+          .from("checkup_trade_memos")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false });
+
         if (data && data.length > 0) {
           l = data.map(row => ({
             id: row.id,

@@ -18,6 +18,7 @@ import { formatAge, formatClock } from '@/checkup/lib/freshness';
 // 對齊 supabase/functions/_shared/stockPriceWaterfall.ts 的 label 映射，保留 data-price-src 以供抽屜使用
 const SRC_LABEL = {
   screenshot: '截圖',
+  manual: '手動',
   live: '即時',
   high: '最高',
   ask: '賣一',

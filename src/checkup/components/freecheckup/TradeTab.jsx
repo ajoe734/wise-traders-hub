@@ -1,8 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { validateProps } from '@/checkup/lib/validateProps.js';
 import { trackPaywall } from '@/lib/paywallTracking';
 import { markUserOwnedHolding } from '@/pages/_freeCheckup/constants';
 import BatchParsePanel from './BatchParsePanel';
+import ManualTradeForm from './ManualTradeForm';
+import { appendToParsed, computePreviewIssues, describeIssue } from '@/checkup/lib/manualTradeEntry';
+import { normalizeStockCode, classifyCode, validateQty, qtyRuleFor } from '@/checkup/lib/stockIdentity';
 
 
 
@@ -107,6 +110,8 @@ function TradeTabImpl({
   setTargets, setSaved,
 }) {
   validateProps('TradeTab', arguments[0], TRADE_TAB_PROP_SCHEMA);
+  // 'upload' = 截圖解析（既有路徑）；'manual' = 手動輸入。兩者共用同一份 preview 清單與同一顆確認鈕。
+  const [entryMode, setEntryMode] = useState('upload');
   // W4-4: 配額用盡 banner 出現時送 view + hit_limit
   useEffect(() => {
     if (hasReachedDailyLimit && !isDemo) {
@@ -114,10 +119,23 @@ function TradeTabImpl({
       trackPaywall('hit_limit', 'trade_tab_limit', { tier });
     }
   }, [hasReachedDailyLimit, isDemo, tier]);
+
+  const hasPreview = (parsed?.trades?.length || 0) > 0;
+  /** 再次上傳截圖會覆蓋尚未確認的清單 → 先要求二次確認。 */
+  const confirmOverwrite = () => {
+    if (!hasPreview) return true;
+    return window.confirm(`目前有 ${parsed.trades.length} 筆尚未確認的成交，重新上傳截圖會覆蓋這份清單。要繼續嗎？`);
+  };
+  const addManualRow = (row) => {
+    setParsed(prev => appendToParsed(prev, row));
+    toast.success(`已加入清單：${row.code} ${row.name}`, { description: '確認後才會寫入持倉' });
+  };
+
   return (
     <>
       {/* 批次解析狀態（必須在 overlay/!parsed 之外，否則批次中按鈕被遮罩擋住無法點） */}
       <BatchParsePanel
+
         C={C}
         batchState={batchState}
         cancelBatch={cancelBatch}
@@ -223,9 +241,58 @@ function TradeTabImpl({
           )}
         </div>
       )}
-      {!parsed && !isDemo && (
+      {/* 新增成交的兩種來源：截圖解析 / 手動輸入。切換不影響已在清單中的列。 */}
+      {!isDemo && (
+        <div role="tablist" aria-label="新增成交方式" style={{display:"flex",gap:6,marginBottom:12}}>
+          {[['upload','上傳截圖'],['manual','手動輸入']].map(([mode,label])=>{
+            const on = entryMode === mode;
+            return (
+              <button
+                key={mode}
+                role="tab"
+                type="button"
+                aria-selected={on}
+                onClick={()=>setEntryMode(mode)}
+                style={{
+                  flex:1,padding:"9px 0",borderRadius:8,
+                  border:`1px solid ${on?alpha(C.amber,'88'):C.border}`,
+                  background:on?alpha(C.amber,'12'):"transparent",
+                  color:on?C.text:C.textMute,
+                  fontSize:13,fontWeight:500,fontFamily:"inherit",cursor:"pointer",letterSpacing:"0.04em",
+                }}
+              >{label}</button>
+            );
+          })}
+        </div>
+      )}
+
+      {entryMode === 'manual' && !isDemo && (
+        <div style={{marginBottom:14}}>
+          <ManualTradeForm
+            C={C} alpha={alpha} card={card} lbl={lbl}
+            isDemo={isDemo}
+            onAdd={addManualRow}
+            holdingsCount={(holdings || []).length}
+            maxHoldings={MAX_HOLDINGS}
+          />
+        </div>
+      )}
+
+      {entryMode === 'upload' && hasPreview && !isDemo && (
+        <div style={{marginBottom:12,fontSize:12,color:C.textMute,lineHeight:1.7}}>
+          下方已有 {parsed.trades.length} 筆尚未確認的成交。
+          <button
+            type="button"
+            onClick={()=>{ if (confirmOverwrite()) { setParsed(null); setImg(null); setB64(null); } }}
+            style={{marginLeft:6,background:"transparent",border:"none",color:C.blue,fontSize:12,fontFamily:"inherit",cursor:"pointer",padding:0,textDecoration:"underline"}}
+          >清空並重新上傳截圖</button>
+        </div>
+      )}
+
+      {entryMode === 'upload' && !parsed && !isDemo && (
 
         <>
+
           <div
             onDragOver={e=>{e.preventDefault();setDragOver(true)}}
             onDragLeave={()=>setDragOver(false)}
@@ -310,35 +377,42 @@ function TradeTabImpl({
       )}
 
       {parsed?.trades?.length>0 && (() => {
-        // 欄位驗證：必填 + 格式檢查
+        // 欄位驗證：必填 + 格式檢查（TW/US universe 與股數規則來自 stockIdentity 單一資料源）
         const validateRow = (t) => {
           const errs = {};
-          const code = String(t?.code || "").trim();
+          const code = normalizeStockCode(t?.code);
           const name = String(t?.name || "").trim();
-          const qty = Number(t?.qty);
           const price = Number(t?.price);
           const action = String(t?.action || "").trim();
           if (!name) errs.name = "請填寫股票名稱";
           if (!code) errs.code = "請填寫代碼";
-          else if (!/^[0-9A-Za-z]{2,8}$/.test(code)) errs.code = "代碼格式不正確（2–8 位數字/字母）";
-          if (!Number.isFinite(qty) || qty <= 0) errs.qty = "股數需為正整數";
-          else if (!Number.isInteger(qty)) errs.qty = "股數需為整數";
+          else if (classifyCode(code) === 'unknown') errs.code = "代碼格式不正確（台股 4–6 碼，美股 1–5 英文字母）";
+          const qtyErr = validateQty(code, t?.qty);
+          if (qtyErr) errs.qty = qtyErr;
           if (!Number.isFinite(price) || price <= 0) errs.price = "成交價需大於 0";
           if (action !== "買進" && action !== "賣出" && action !== SNAPSHOT_IMPORT_ACTION) errs.action = "請選擇買進或賣出";
           return errs;
         };
         const rowErrors = parsed.trades.map(validateRow);
         const totalErrCount = rowErrors.reduce((acc, e) => acc + Object.keys(e).length, 0);
-        const hasError = totalErrCount > 0;
+        // 依清單順序 replay，逐列編輯／刪除／換序後每次 render 重算（純函式，無 state）
+        const previewIssues = computePreviewIssues(holdings, parsed.trades);
+        const hasError = totalErrCount > 0 || previewIssues.length > 0;
+
+
 
         const applyCorrections = () => {
           if (hasError) {
-            toast.error("仍有欄位未通過驗證", { description: `共 ${totalErrCount} 個欄位需要修正` });
+            if (previewIssues.length > 0) {
+              toast.error("清單有無法套用的內容", { description: describeIssue(previewIssues[0]) });
+            } else {
+              toast.error("仍有欄位未通過驗證", { description: `共 ${totalErrCount} 個欄位需要修正` });
+            }
             return;
           }
           const trades = parsed.trades.map(t => ({
             ...t,
-            code: String(t.code).trim(),
+            code: normalizeStockCode(t.code),
             name: String(t.name).trim(),
             qty: Number(t.qty),
             price: Number(t.price),
@@ -380,21 +454,33 @@ function TradeTabImpl({
         <div>
             <div style={{marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
-              <div style={{fontSize:11,color:C.textMute,fontWeight:400,letterSpacing:"0.1em"}}>解析結果</div>
+              <div style={{fontSize:11,color:C.textMute,fontWeight:400,letterSpacing:"0.1em"}}>待確認清單</div>
               <div style={{fontSize:10,color: hasError ? C.down : C.textMute}}>
-                {hasError ? `尚有 ${totalErrCount} 個欄位需修正` : "點擊欄位可修正"}
+                {totalErrCount > 0 ? `尚有 ${totalErrCount} 個欄位需修正` : "點擊欄位可修正"}
               </div>
             </div>
+            {previewIssues.length > 0 && (
+              <ul role="alert" style={{margin:"0 0 10px",padding:"10px 12px 10px 26px",listStyle:"disc",
+                background:alpha(C.down,'06'),border:`1px solid ${alpha(C.down,'44')}`,borderRadius:8,
+                fontSize:12,color:C.down,lineHeight:1.7}}>
+                {previewIssues.map((issue,idx)=>(<li key={idx}>{describeIssue(issue)}</li>))}
+              </ul>
+            )}
             {parsed.trades.map((t,i)=>{
               const updateTrade = (patch) => setParsed(prev => {
                 const trades = [...(prev?.trades || [])];
-                trades[i] = { ...trades[i], ...patch };
+                // 代碼一改就清空名稱：避免 code=AMD / name=台積電 這種錯配被送出
+                const codeChanged = Object.prototype.hasOwnProperty.call(patch, 'code')
+                  && normalizeStockCode(patch.code) !== normalizeStockCode(trades[i]?.code);
+                trades[i] = { ...trades[i], ...patch, ...(codeChanged ? { name: '' } : null) };
                 return { ...prev, trades };
               });
               const removeTrade = () => setParsed(prev => {
                 const trades = (prev?.trades || []).filter((_, idx) => idx !== i);
+                if (trades.length === 0) return null;
                 return { ...prev, trades };
               });
+
               const isBuy = t.action === "買進";
               const errs = rowErrors[i] || {};
               const hasRowErr = Object.keys(errs).length > 0;
@@ -443,10 +529,15 @@ function TradeTabImpl({
                     />
                     <input
                       value={t.code || ""}
-                      onChange={e => updateTrade({ code: e.target.value })}
+                      onChange={e => updateTrade({ code: e.target.value.toUpperCase() })}
                       aria-label="股票代碼"
                       aria-invalid={!!errs.code}
-                      inputMode="numeric"
+                      type="text"
+                      inputMode="text"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      maxLength={8}
                       style={{...cellWith('code'), color: errs.code ? C.down : C.textMute, fontSize: 11, width: 64}}
                     />
                     <button
@@ -462,13 +553,15 @@ function TradeTabImpl({
                   <div style={{display:"flex",alignItems:"baseline",gap:6,fontSize:13,color:C.textMute}}>
                     <input
                       type="number"
+                      step={qtyRuleFor(t.code).step}
                       value={t.qty ?? ""}
                       onChange={e => updateTrade({ qty: e.target.value === "" ? "" : Number(e.target.value) })}
                       aria-label="股數"
                       aria-invalid={!!errs.qty}
-                      inputMode="numeric"
+                      inputMode={qtyRuleFor(t.code).inputMode}
                       style={{...cellWith('qty'), width: 70, textAlign: "right"}}
                     />
+
                     <span>股 @</span>
                     <input
                       type="number"
@@ -506,11 +599,11 @@ function TradeTabImpl({
               </div>
             )}
 
-            {/* 套用修正：把編輯後的結果重新寫入持倉並導向持倉頁 */}
+            {/* 唯一提交點：截圖與手動列共用同一顆按鈕、同一條 apply/replay/cloud 管線 */}
             <button
               onClick={applyCorrections}
               disabled={hasError || parsed.trades.length === 0}
-              aria-label="套用修正並更新持倉"
+              aria-label="確認並更新持倉"
               style={{
                 marginTop: 14,
                 width: "100%",
@@ -526,7 +619,12 @@ function TradeTabImpl({
                 letterSpacing: "0.04em",
               }}
             >
-              {hasError ? `請先修正 ${totalErrCount} 個欄位` : `套用修正並更新持倉（${parsed.trades.length} 筆）`}
+              {totalErrCount > 0
+                ? `請先修正 ${totalErrCount} 個欄位`
+                : previewIssues.length > 0
+                  ? '請先修正清單問題'
+                  : `確認並更新持倉（${parsed.trades.length} 筆）`}
+
             </button>
           </div>
 
@@ -564,11 +662,15 @@ function TradeTabImpl({
         );
       })()}
 
-      {/* 手動更新目標價 */}
+      {/* 手動更新目標價 — 只作用於「現有持倉」，不會新增成交或持倉 */}
       {!parsed && !img && (()=>{
+        const heldCodes = new Set((holdings || []).map(h => normalizeStockCode(h?.code)).filter(Boolean));
+        const tpNorm = normalizeStockCode(tpCode);
+        const notHeld = !!tpNorm && !heldCodes.has(tpNorm);
+        const canAddTarget = !!tpNorm && !!tpVal && !notHeld;
         const handleAddTarget = () => {
-          if (!tpCode.trim()||!tpVal) return;
-          const code = tpCode.trim();
+          if (!canAddTarget) return;
+          const code = tpNorm;
           const target = parseFloat(tpVal);
           if (isNaN(target)) return;
           setTargets(prev=>{
@@ -595,19 +697,29 @@ function TradeTabImpl({
           <div style={{...card,marginTop:14,borderLeft:`2px solid ${alpha(C.teal,'66')}`}}>
             <div style={lbl}>手動更新目標價</div>
             <div style={{fontSize:13,color:C.textMute,marginBottom:10,lineHeight:1.6}}>
-              收到新研究報告時，直接在這裡更新。系統會自動計算多家均值。
+              這裡<strong style={{color:C.textSec,fontWeight:600}}>不會新增成交或持倉</strong>，只更新已持有個股的研究報告目標價。
+              要新增成交請用上方「上傳截圖」或「手動輸入」。
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:7}}>
               <div>
-                <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>股票代碼</div>
-                <input value={tpCode} onChange={e=>setTpCode(e.target.value)}
+                <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>股票代碼（限現有持倉）</div>
+                <input value={tpCode} onChange={e=>setTpCode(e.target.value.toUpperCase())}
+                  aria-label="目標價股票代碼"
+                  aria-invalid={notHeld}
+                  type="text" inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false} maxLength={8}
                   placeholder="如 3006"
-                  style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
+                  style={{width:"100%",background:C.subtle,border:`1px solid ${notHeld?C.down:C.border}`,
                     borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+                {notHeld && (
+                  <div role="alert" style={{fontSize:11,color:C.down,marginTop:3,lineHeight:1.6}}>
+                    目前持倉沒有 {tpNorm}，請先完成新增成交。
+                  </div>
+                )}
               </div>
               <div>
                 <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>目標價（元）</div>
                 <input value={tpVal} onChange={e=>setTpVal(e.target.value)}
+                  aria-label="目標價"
                   placeholder="如 205"
                   type="number"
                   style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
@@ -617,23 +729,26 @@ function TradeTabImpl({
             <div style={{marginBottom:10}}>
               <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>券商 / 來源</div>
               <input value={tpFirm} onChange={e=>setTpFirm(e.target.value)}
+                aria-label="券商或來源"
                 placeholder="如 元大投顧、FactSet共識"
                 style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
                   borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
             </div>
             <button onClick={handleAddTarget}
-              disabled={!tpCode.trim()||!tpVal}
+              disabled={!canAddTarget}
+              aria-label="新增或更新目標價"
               style={{
                 width:"100%",padding:"10px",border:"none",borderRadius:8,
-                background: tpCode.trim()&&tpVal ? alpha(C.teal,'cc') : C.subtle,
-                color: tpCode.trim()&&tpVal ? "#fff" : C.textMute,
-                fontSize:14,fontWeight:500,cursor:tpCode.trim()&&tpVal?"pointer":"not-allowed",
+                background: canAddTarget ? alpha(C.teal,'cc') : C.subtle,
+                color: canAddTarget ? "#fff" : C.textMute,
+                fontSize:14,fontWeight:500,cursor:canAddTarget?"pointer":"not-allowed",
               }}>
               新增 / 更新目標價
             </button>
           </div>
         );
       })()}
+
     </>
   );
 }
