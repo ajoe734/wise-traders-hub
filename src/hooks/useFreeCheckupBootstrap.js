@@ -301,7 +301,7 @@ export function useFreeCheckupBootstrap({
 
       DBG("full-apply", {
         rawHoldingsLen: Array.isArray(h) ? h.length : 0,
-        sanitizedLen: sanitizedHoldings.length,
+        sanitizedLen: reconciledHoldings.length,
         reconciledLen: reconciledHoldings.length,
         removedDemoSeedCount,
         tradeLogLen: l.length,
