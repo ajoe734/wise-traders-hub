@@ -59,7 +59,9 @@ type DailySeriesRow = {
 // ============================================================
 // Stage 1 §C：request-scope semaphore（hard max = MAX_DB_CONCURRENCY）
 // ============================================================
-export type Sem = <T>(fn: () => Promise<T>) => Promise<T>;
+// 註：callback 常回傳 supabase client 的 thenable（型別為 any），故用 `() => T`
+// 搭配 `Awaited<T>` 推導，否則 T 會被推成 unknown，整個 batch path 都失去型別。
+export type Sem = <T>(fn: () => T) => Promise<Awaited<T>>;
 
 export function createSemaphore(max: number): Sem {
   let active = 0;
