@@ -209,4 +209,4 @@ Blob / baseline 契約（持續保留）：`db/r1/p/acl-25.json` 與 `db/r1/p/ac
 
 不新增第二條 commit 管線；不改 `tradeLogOps.js`；不修金額 `Math.round` 慣例；不修既有非補零日期排序；不動 `CLOUD_SYNC_KEYS` 或其他 storage key；不新增 market/currency 欄位；不改 OCR prompt、Demo fixture、Edge、migration、RLS、cron；不擴張到 TW/US 以外市場；不 deploy、不 Publish。
 
-**HOLDINGS_MANUAL_ENTRY_PLAN_V4_READY**
+**HOLDINGS_MANUAL_ENTRY_PLAN_V4_1_READY**
