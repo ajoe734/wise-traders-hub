@@ -45,6 +45,9 @@ describe('Hosted /holding-checkup 記錄頁 mutation contract', () => {
     fireEvent.click(screen.getByRole('button', { name: '確認刪除' }))
 
     expect(setTradeLog).toHaveBeenCalledWith([])
-    expect(setHoldings).toHaveBeenCalledWith([])
+    // 改為 functional updater：需帶入刪除前的持倉才能保留行情／enrichment
+    const updater = setHoldings.mock.calls[0][0]
+    expect(typeof updater).toBe('function')
+    expect(updater([{ code: '2330', name: '台積電', qty: 100, cost: 1000, price: 1180, priceSource: 'close' }])).toEqual([])
   })
 })

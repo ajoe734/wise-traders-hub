@@ -47,7 +47,8 @@ function LogTabImpl({
     const nextLog = (Array.isArray(tradeLog) ? tradeLog : []).filter((row) => row.id !== log.id);
     setTradeLog(nextLog);
     if (typeof setHoldings === 'function') {
-      setHoldings(recomputeHoldingsAfterDelete(tradeLog, log.id));
+      // prev 傳入：保留刪除前的行情／enrichment，只覆蓋交易權威欄位
+      setHoldings((prev) => recomputeHoldingsAfterDelete(tradeLog, log.id, null, prev));
     }
     flashSaved?.('↺ 已刪除並用所有交易紀錄重新計算持倉', 2800);
     setConfirmDelete(null);
@@ -66,7 +67,7 @@ function LogTabImpl({
       row.id === editingRow.id ? { ...row, action, qty, price, date } : row
     );
     setTradeLog(nextLog);
-    if (typeof setHoldings === 'function') setHoldings(replayTradeLog(nextLog));
+    if (typeof setHoldings === 'function') setHoldings((prev) => replayTradeLog(nextLog, null, prev));
     flashSaved?.('✅ 已更新並重新計算持倉', 2800);
     setEditingRow(null);
   };

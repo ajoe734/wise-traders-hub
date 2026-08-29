@@ -7,6 +7,7 @@
  */
 
 import { normalizeHoldings, applyTradeEntryToHoldings } from './holdings.js'
+import { normalizeStockCode } from './stockIdentity.ts'
 
 function num(v) {
   const n = Number(v)
@@ -14,10 +15,46 @@ function num(v) {
 }
 
 /**
+ * 交易權威欄位：只有這些欄位可以由 replay 覆蓋 prior holdings。
+ * 其餘（price / priceSource / priceUpdatedAt / yesterday / change / changePct /
+ * targetPrice / alert / sector…）都是非交易衍生的行情與 enrichment，
+ * 從空 rows replay 時無法重建，必須沿用刪除／編輯前的同代碼持倉，
+ * 否則使用者刪一筆無關交易就會整批現價被重設為成本（來源顯示「未同步」）。
+ */
+const TRADE_AUTHORITATIVE_KEYS = ['qty', 'cost', 'totalCost', 'fee']
+
+/**
+ * 以 normalized code 把 replay 結果合併回刪除前的持倉。
+ * - replay 沒有的代碼 → 已被刪除，不得殘留
+ * - prior 沒有的代碼 → 直接採用 replay row（新標的）
+ */
+export function mergeReplayWithPriorHoldings(replayRows, priorHoldings, quotes = null) {
+  const prior = Array.isArray(priorHoldings) ? priorHoldings : []
+  if (!prior.length) return normalizeHoldings(replayRows, quotes)
+
+  const priorByCode = new Map()
+  for (const row of prior) {
+    const code = normalizeStockCode(row?.code)
+    if (code && !priorByCode.has(code)) priorByCode.set(code, row)
+  }
+
+  const merged = (Array.isArray(replayRows) ? replayRows : []).map((row) => {
+    const base = priorByCode.get(normalizeStockCode(row?.code))
+    if (!base) return row
+    const out = { ...base, code: row.code, name: base.name || row.name, type: row.type || base.type }
+    for (const key of TRADE_AUTHORITATIVE_KEYS) out[key] = row[key]
+    return out
+  })
+
+  return normalizeHoldings(merged, quotes)
+}
+
+/**
  * Replay tradeLog from empty holdings to recompute deterministic state.
  * tradeLog 預期由近到遠（畫面排序）；replay 內部會自行依時間正序套用。
+ * priorHoldings：replay 前的持倉，用來保留非交易衍生的行情／enrichment。
  */
-export function replayTradeLog(tradeLog = [], quotes = null) {
+export function replayTradeLog(tradeLog = [], quotes = null, priorHoldings = null) {
   const sorted = [...(Array.isArray(tradeLog) ? tradeLog : [])].sort((a, b) => {
     const da = `${a.date || ''} ${a.time || ''}`
     const db = `${b.date || ''} ${b.time || ''}`
@@ -28,16 +65,17 @@ export function replayTradeLog(tradeLog = [], quotes = null) {
   for (const t of sorted) {
     rows = applyTradeEntryToHoldings(rows, t, quotes)
   }
-  return normalizeHoldings(rows, quotes)
+  const replayed = normalizeHoldings(rows, quotes)
+  return priorHoldings ? mergeReplayWithPriorHoldings(replayed, priorHoldings, quotes) : replayed
 }
 
 /**
  * Recompute holdings after deleting a single trade by id, by replaying remaining log.
  * 比起反向回滾更安全：均價與全賣後再買等情境都正確。
  */
-export function recomputeHoldingsAfterDelete(tradeLog, deletedId, quotes = null) {
+export function recomputeHoldingsAfterDelete(tradeLog, deletedId, quotes = null, priorHoldings = null) {
   const next = (Array.isArray(tradeLog) ? tradeLog : []).filter((r) => r.id !== deletedId)
-  return replayTradeLog(next, quotes)
+  return replayTradeLog(next, quotes, priorHoldings)
 }
 
 export function reverseTradeOnHoldings(rows, trade, quotes = null) {
