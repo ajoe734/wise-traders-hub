@@ -116,8 +116,9 @@ Chain：`npx vitest run` → `src/test/unit/acl25-generator.test.ts:29` `execFil
 1. `build_acl25.py` 新增 `--out-dir <path>`（預設 = `db/r1/p`）；所有 `write_text` 改寫入 out-dir。
 2. `acl25-generator.test.ts` 改為 `--check --out-dir <mkdtemp>`，把產出與 tracked 檔用既有 `stable()` 正規化後比對 hash，**永不寫 tracked**。
 3. `package.json` 新增 `"acl25:generate": "python3 db/r1/p/build_acl25.py"`（唯一可更新 tracked 的明確命令）與 `"check:acl-clean": "git diff --quiet -- db/r1/p/acl-25.json db/r1/p/acl-25.md"`。
-4. 新增 guard `src/test/unit/acl25-no-write-guard.test.ts`：記錄兩檔 mtime+sha，跑完 generator test 後必須完全不變（含 `generated_at` 行，不做忽略）。
+4. 新增 guard `src/test/unit/acl25-no-write-guard.test.ts`：**不得巢狀啟動 Vitest**。作法：對三個產物 `acl-25.json`／`acl-25.md`／`095_acl25_verify.sql` 先記錄 tracked 的 raw sha256 + mtimeMs（不做 `generated_at` 忽略）→ 直接 `execFileSync('python3', ['db/r1/p/build_acl25.py', '--check', '--out-dir', mkdtemp()])` → 斷言 (a) 三個 temp 產物存在且經 `stable()` 正規化後與 tracked 相同、(b) 三個 tracked 檔的 raw sha256 與 mtimeMs **完全未變**、(c) `git diff --quiet -- db/r1/p/acl-25.json db/r1/p/acl-25.md db/r1/p/095_acl25_verify.sql` exit 0。
 5. 還原兩檔到 `c62a3290b` exact blob：`git checkout c62a3290b -- db/r1/p/acl-25.json db/r1/p/acl-25.md`（不 commit 前先驗 `git diff --quiet` exit 0）。
+
 
 ---
 
