@@ -59,7 +59,9 @@ type DailySeriesRow = {
 // ============================================================
 // Stage 1 §C：request-scope semaphore（hard max = MAX_DB_CONCURRENCY）
 // ============================================================
-export type Sem = <T>(fn: () => Promise<T>) => Promise<T>;
+// 註：callback 常回傳 supabase client 的 thenable（型別為 any），故用 `() => T`
+// 搭配 `Awaited<T>` 推導，否則 T 會被推成 unknown，整個 batch path 都失去型別。
+export type Sem = <T>(fn: () => T) => Promise<Awaited<T>>;
 
 export function createSemaphore(max: number): Sem {
   let active = 0;
@@ -82,7 +84,7 @@ export function createSemaphore(max: number): Sem {
     const next = queue.shift();
     if (next) next();
   };
-  return async <T>(fn: () => Promise<T>): Promise<T> => {
+  return async <T>(fn: () => T): Promise<Awaited<T>> => {
     await acquire();
     try {
       return await fn();
@@ -300,7 +302,7 @@ async function buildChipsPayload(
 
   const windows = [1, 5, 20, 60] as const;
   const institutional: Record<string, any> = {};
-  const instAll = instRows || [];
+  const instAll = (instRows || []) as any[];
   for (const w of windows) {
     const slice = instAll.slice(0, w);
     institutional[`d${w}`] = slice.length
@@ -347,7 +349,7 @@ async function buildChipsPayload(
     )
     : { data: [] as any[] };
   const bulkDoneDates = useBulkDone ? (ctx!.queueDone.get(stockId) ?? new Set<string>()) : null;
-  const doneDateSet = bulkDoneDates
+  const doneDateSet: Set<string> = bulkDoneDates
     ? new Set(rawCandidatesForFallback.filter((d) => bulkDoneDates.has(String(d))).map(String))
     : new Set((doneQueueRows || []).map((r: any) => String(r.trade_date)));
 
@@ -991,7 +993,7 @@ Deno.serve(async (req) => {
     });
 
     const results: Record<string, any> = {};
-    const errors: Record<string, string> = {};
+    const errors: Record<string, string | undefined> = {};
     for (const r of settled) {
       if (r.ok) {
         results[r.id] = r.value.payload;
@@ -1008,6 +1010,6 @@ Deno.serve(async (req) => {
       served_at: new Date().toISOString(),
     });
   } catch (err) {
-    return errorResponse((err as Error).message, 500, { code: "INTERNAL_ERROR" });
+    return errorResponse(err instanceof Error ? err.message : String(err), 500, { code: "INTERNAL_ERROR" });
   }
 });

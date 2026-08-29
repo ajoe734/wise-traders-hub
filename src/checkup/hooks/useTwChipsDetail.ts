@@ -16,6 +16,7 @@ import {
   classifyChipsError,
   isTaiwanStockCode,
   isTaiwanChipEligible,
+  normalizeStockCode,
   type ChipsError,
   type ChipsFetchResult,
   type TwChipsPayload,
@@ -25,6 +26,7 @@ export {
   isTaiwanStockCode,
   isTaiwanChipEligible,
   classifyChipsError,
+  normalizeStockCode,
 };
 export type {
   TwChipsPayload,
@@ -71,7 +73,10 @@ const stampQueryKey = (stockCode: string) => ['tw-chips-stamp', stockCode] as co
 
 export function useTwChipsDetail(stockCode: string | undefined | null, enabled = true) {
   const qc = useQueryClient();
-  const code = stockCode ? String(stockCode).trim() : '';
+  // B1：抽屜／lifecycle 必須與 batch / card 共用同一把 canonical key。
+  // 舊寫法只 trim 不 uppercase，raw " 00637l " 會產生 ['tw-chips','00637l']
+  // 這種 lowercase 幽靈鍵，且被 case-sensitive 的 isTaiwanStockCode 誤判 invalid。
+  const code = normalizeStockCode(stockCode);
   const valid = !!enabled && !!code && isTaiwanStockCode(code);
 
   const [online, setOnline] = useState(
