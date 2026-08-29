@@ -99,6 +99,7 @@ import {
   useHoldingsMigration,
   useFreeCheckupBootstrap,
   useFetchCalendarEventsRef,
+  useAuthoritativeHoldingsReconciliation,
 } from "@/hooks/useFreeCheckupBootstrap";
 import { fetchAuthoritativeQuotesDetailed } from "@/checkup/lib/authoritativeQuotes";
 import { fetchDailyCloseCards } from "@/checkup/lib/closeAuthority";
@@ -679,6 +680,13 @@ export default function App() {
       setStrategyBrain, setCalendarEvents, setReady, setCloudSync,
       setDailyReport,
     },
+  });
+  useAuthoritativeHoldingsReconciliation({
+    ready,
+    isDemo,
+    holdings,
+    tradeLog,
+    setHoldings,
   });
 
   // dev-only：追蹤 holdings.length 變化（N→0 / 0→N），不包裝 setter、不改資料流

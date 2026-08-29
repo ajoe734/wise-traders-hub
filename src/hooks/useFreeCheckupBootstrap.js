@@ -127,6 +127,29 @@ export function useHoldingsMigration() {
 }
 
 /**
+ * Post-bootstrap safety net for production-shaped hydration.
+ * Holdings and authoritative memos can be hydrated by independent async paths;
+ * whenever both are available, restore only missing replayable positions and
+ * preserve all existing market enrichment.
+ */
+export function useAuthoritativeHoldingsReconciliation({
+  ready,
+  isDemo,
+  holdings,
+  tradeLog,
+  setHoldings,
+}) {
+  useEffect(() => {
+    if (!ready || isDemo || !Array.isArray(holdings) || !Array.isArray(tradeLog) || tradeLog.length === 0) return;
+    setHoldings((current) => {
+      const previous = Array.isArray(current) ? current : [];
+      const reconciled = stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(previous, tradeLog));
+      return JSON.stringify(previous) === JSON.stringify(reconciled) ? previous : reconciled;
+    });
+  }, [ready, isDemo, holdings, tradeLog, setHoldings]);
+}
+
+/**
  * 主 hydration：等 auth ready → demo 走 seed；否則 cloud-first → local fallback。
  * 處理 trade memos 從 supabase 拉回，並依持倉碼差異重建衍生事件。
  *
