@@ -8,13 +8,13 @@
  *      不得留白、不得出現舊禁止文案，也絕不觸碰 quantity / value / ROI。
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, renderHook, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import HoldingCardBsr from '@/checkup/components/freecheckup/_ui/holdingCard/HoldingCardBsr';
 import { chipsBatchStatusKey } from '@/checkup/hooks/useChipsBatch';
-import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
+import { chipsQueryKey, useTwChipsDetail } from '@/checkup/hooks/useTwChipsDetail';
 
 function src(rel: string): string {
   try { return readFileSync(resolve(process.cwd(), rel), 'utf8'); } catch { return ''; }
@@ -257,5 +257,50 @@ describe('DEMO_BATCH_GATE_P0 · Workbench 不得用 isDemo 關掉 chips batch', 
     vi.doUnmock('@/checkup/contexts/CheckupModeContext');
     vi.doUnmock('@/checkup/components/freecheckup/HoldingCard');
     vi.resetModules();
+  });
+});
+
+/* ── B1：抽屜／lifecycle 也必須用同一把 canonical key ─────────────────── */
+const DETAIL_SRC = src('src/checkup/hooks/useTwChipsDetail.ts');
+
+describe('B1 · drawer/lifecycle canonical cache key', () => {
+  it('useTwChipsDetail 原始碼不得再自刻 trim-only 正規化', () => {
+    expect(DETAIL_SRC.includes('normalizeStockCode(stockCode)')).toBe(true);
+    expect(/String\(stockCode\)\.trim\(\)/.test(DETAIL_SRC)).toBe(false);
+  });
+
+  it('raw " 00637l " 讀到 batch 寫入的 ["tw-chips","00637L"]，且不建 lowercase 幽靈鍵', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(chipsQueryKey('00637L'), {
+      payload: { stock_id: '00637L', bsr_as_of: '2026-08-14', bsr_provider_state: 'terminal_provider_rejected' },
+      stampVer: null, bytes: 0, durationMs: 0,
+    });
+    const spy = vi.spyOn(globalThis, 'fetch');
+
+    const { result } = renderHook(() => useTwChipsDetail(' 00637l '), {
+      wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>,
+    });
+
+    expect(result.current.data?.stock_id).toBe('00637L');
+    expect(spy).toHaveBeenCalledTimes(0);
+    const keys = qc.getQueryCache().getAll().map((q) => JSON.stringify(q.queryKey));
+    expect(keys).toContain('["tw-chips","00637L"]');
+    expect(keys.some((k) => k.includes('00637l'))).toBe(false);
+    spy.mockRestore();
+    cleanup();
+  });
+
+  it('raw lowercase 不得被 case-sensitive 檢查誤判 invalid（query 仍 enabled）', () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(chipsQueryKey('00637L'), {
+      payload: { stock_id: '00637L', bsr_as_of: '2026-08-14', bsr_provider_state: 'terminal_provider_rejected' },
+      stampVer: null, bytes: 0, durationMs: 0,
+    });
+    renderHook(() => useTwChipsDetail(' 00637l '), {
+      wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>,
+    });
+    const q = qc.getQueryCache().find({ queryKey: chipsQueryKey('00637L') });
+    expect(q?.observers.length ?? 0).toBeGreaterThan(0);
+    cleanup();
   });
 });
