@@ -84,13 +84,22 @@
 ```
 （消費點：`TradeTab.jsx:312,495`、`FreeCheckup.jsx:2739-2742`）
 
-### 4.2 manual row（白名單 10 欄，缺值 `null`）
+### 4.2 manual row（**exact 12-key set**，缺值 `null`）
+
+canonical key set（builder / whitelist / test 三處一律以此為準，多一個少一個都算失敗）：
+`action, code, name, qty, price, market_price, amount, total_cost, fee, date, time, priceSource`
+
 ```json
 {"action":"買進","code":"00637L","name":"元大滬深300正2","qty":5000,"price":32.15,
  "market_price":null,"amount":null,"total_cost":null,"fee":null,
  "date":"2026/8/29","time":"10:32","priceSource":"manual"}
 ```
-（實為 11 key，含 `priceSource`。`date/time/priceSource` 皆不被 `validateRow` 檢查；`mergeTradeIntoHoldings` 以 `Number(market_price) || price` 兜底 → `null` 安全。）
+
+- `date` / `time` / `priceSource` 不被 `validateRow` 檢查；`mergeTradeIntoHoldings` 以 `Number(market_price) || price` 兜底 → `null` 安全。
+- `buildManualTradeRow` 以 exact 12-key 白名單輸出，表單 draft 的 `nameDirty` 等欄位自然被 strip。
+- tradeLog entry 與 `checkup_trade_memos` 各自維持既有 **explicit mapping**（`TradeTab.jsx:363-371` 9 欄 / `FreeCheckup.jsx:897-906` 9 欄），`priceSource` **不得外洩**到任一者。
+- T1/T4 以 `Object.keys(row).sort()` 精確比對 12-key set，並斷言 log/memos payload key 集合不含 `priceSource`。
+
 
 mixed `parsed.trades`（OCR ×2 + manual ×1，append 尾端、順序永不重排）：
 ```json
