@@ -228,19 +228,7 @@ function HoldingsSectorSummaryImpl({
     return (b.createdAt || 0) - (a.createdAt || 0)
   })
 
-  // ── 集中度編輯註記（前 3 大合計）
-  const top3Pct = industryByValue.slice(0, 3).reduce((s: number, x: any) => s + x.pct, 0)
-  const concentrationNote = useMemo(() => {
-    if (industryByValue.length === 0) return ''
-    if (industryByValue.length <= 2) return ''
-    const p = Math.round(top3Pct)
-    if (top3Pct >= 70) return `前三大合計 ${p}%——集中度偏高。`
-    if (top3Pct >= 50) return `前三大合計 ${p}%——集中度略高。`
-    if (industryByValue.length > 6 && (industryByValue[0]?.pct ?? 0) < 20) {
-      return `共 ${industryByValue.length} 個產業且無明顯核心倉，追蹤成本較高。`
-    }
-    return `前三大合計 ${p}%——分佈尚均衡。`
-  }, [industryByValue, top3Pct])
+
 
   return (
     <section
