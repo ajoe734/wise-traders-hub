@@ -894,7 +894,7 @@ export default function App() {
     try {
       // 不帶客端 id：永遠讓 DB 用 gen_random_uuid() 產 id，
       // 避免跨帳號（過往 leak 殘留）的 UUID 撞到他人 row 造成 PK unique violation。
-      const rows = logs.map(l => ({
+      const rows = logs.map((l, idx) => ({
         user_id: uid,
         trade_date: l.date || null,
         trade_time: l.time || null,
@@ -904,7 +904,11 @@ export default function App() {
         qty: l.qty != null ? l.qty : null,
         price: l.price != null ? l.price : null,
         qa: l.qa || [],
+        // 保序唯一權威：同批 insert 的 created_at 相同、id 為隨機 UUID，
+        // 只有這個欄位能讓 reload 還原使用者看到的順序。
+        sort_index: idx,
       }));
+
       // 僅刪除自己的資料（RLS + 顯式 user_id 雙重保險）
       const { error: delErr } = await supabase
         .from("checkup_trade_memos")

@@ -29,6 +29,11 @@ PIN = EV / "prod_acl_baseline.sha256"
 CANON_KEYS = EV / "prod_acl_canonical_keys.txt"
 CANON_PROBE = EV / "prod_acl_canonical_probe.txt"
 
+# Output directory for generated artifacts. Defaults to the tracked db/r1/p, but
+# `--out-dir <path>` redirects every write so tests can verify without touching
+# tracked files (see src/test/unit/acl25-no-write-guard.test.ts).
+OUT = P
+
 NAMED = {
     "get_expert_capital_status",
     "has_active_subscription_after",
@@ -352,7 +357,7 @@ def build():
         },
         "items": items,
     }
-    (P / "acl-25.json").write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+    (OUT / "acl-25.json").write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
     write_md(doc)
     write_verifier(doc)
     return doc
@@ -572,8 +577,8 @@ END $BODY$;
 """
     total = 2 * len(doc["items"]) + 2 + 3 + 3
     body = body.replace("%ROWS%", ",\n".join(rows)).replace("%TOTAL%", str(total))
-    (P / "095_acl25_verify.sql").write_text(body)
-    print("wrote db/r1/p/095_acl25_verify.sql (%d assertions + coverage)" % total)
+    (OUT / "095_acl25_verify.sql").write_text(body)
+    print("wrote %s (%d assertions + coverage)" % (OUT / "095_acl25_verify.sql", total))
 
 
 def write_md(doc):
@@ -636,7 +641,7 @@ def write_md(doc):
         L.append(f"| keep negative proof | {i['keep_negative_proof'] or '—(revoked)'} |")
         L.append(f"| post-migration test | `{i['post_migration_test_id']}` |")
         L.append("")
-    (P / "acl-25.md").write_text("\n".join(L) + "\n")
+    (OUT / "acl-25.md").write_text("\n".join(L) + "\n")
 
 
 def check(doc):
@@ -682,6 +687,9 @@ def check(doc):
 
 
 if __name__ == "__main__":
+    if "--out-dir" in sys.argv:
+        OUT = Path(sys.argv[sys.argv.index("--out-dir") + 1]).resolve()
+        OUT.mkdir(parents=True, exist_ok=True)
     d = build()
-    print("wrote db/r1/p/acl-25.json + acl-25.md")
+    print(f"wrote {OUT / 'acl-25.json'} + {OUT / 'acl-25.md'}")
     sys.exit(check(d) if "--check" in sys.argv else 0)

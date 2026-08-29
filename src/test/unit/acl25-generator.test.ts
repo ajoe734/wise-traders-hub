@@ -12,7 +12,8 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const P = join(process.cwd(), 'db/r1/p')
@@ -24,10 +25,18 @@ const sha = (p: string) => createHash('sha256').update(stable(p)).digest('hex')
 
 describe('R1-P acl-25 generator', () => {
   it('regeneration is byte-identical (no hand edits, no drift)', () => {
+    // NEVER regenerate in place: the generator stamps generated_at on every run,
+    // which would dirty the tracked artifacts on any `vitest run`. Emit to a temp
+    // dir and compare the stable content against the tracked blobs instead.
+    const out = mkdtempSync(join(tmpdir(), 'acl25-'))
     const before = files.map((f) => sha(join(P, f)))
-    execFileSync('python3', [join(P, 'build_acl25.py'), '--check'], { stdio: 'pipe' })
+    execFileSync('python3', [join(P, 'build_acl25.py'), '--check', '--out-dir', out], {
+      stdio: 'pipe',
+    })
+    expect(files.map((f) => sha(join(out, f)))).toEqual(before)
     expect(files.map((f) => sha(join(P, f)))).toEqual(before)
   }, 30_000)
+
 
   it('095 pins 64 assertions + coverage (65 executed) — the old "70" is void', () => {
     const sql = readFileSync(join(P, '095_acl25_verify.sql'), 'utf8')

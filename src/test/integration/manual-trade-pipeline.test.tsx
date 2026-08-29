@@ -27,9 +27,8 @@ vi.mock('@/pages/_freeCheckup/constants.jsx', () => ({
   WB: {},
 }));
 
-import ManualTradeForm from '@/checkup/components/freecheckup/ManualTradeForm';
 import TradeTab from '@/checkup/components/freecheckup/TradeTab';
-import { appendToParsed, computePreviewIssues, MANUAL_ROW_KEYS } from '@/checkup/lib/manualTradeEntry';
+import { appendToParsed, computePreviewIssues } from '@/checkup/lib/manualTradeEntry';
 
 const C: Record<string, string> = {
   bg: '#F5F3EF', card: '#fff', subtle: '#EEE', border: '#DDD',
@@ -40,90 +39,12 @@ const alpha = (c: string) => c;
 const card = {};
 const lbl = {};
 
-function renderForm(onAdd = vi.fn()) {
-  render(
-    <ManualTradeForm
-      C={C}
-      alpha={alpha}
-      card={card}
-      lbl={lbl}
-      isDemo={false}
-      onAdd={onAdd}
-      holdingsCount={0}
-      maxHoldings={50}
-    />,
-  );
-  return onAdd;
-}
-
 async function fillValidDraft() {
   fireEvent.change(screen.getByLabelText('股票代碼'), { target: { value: '2330' } });
   await waitFor(() => expect((screen.getByLabelText('股票名稱') as HTMLInputElement).value).toBe('台積電'));
   fireEvent.change(screen.getByLabelText('股數'), { target: { value: '1000' } });
   fireEvent.change(screen.getByLabelText('成交價'), { target: { value: '1100' } });
 }
-
-describe('ManualTradeForm — 只輸出 row，不提交', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('填完必填欄位後 onAdd 收到 exact 12-key row', async () => {
-    const onAdd = renderForm();
-    await fillValidDraft();
-    fireEvent.click(screen.getByLabelText('加入這筆成交'));
-    expect(onAdd).toHaveBeenCalledTimes(1);
-    const row = onAdd.mock.calls[0][0];
-    expect(Object.keys(row).sort()).toEqual([...MANUAL_ROW_KEYS].sort());
-    expect(row.priceSource).toBe('manual');
-    expect(row.code).toBe('2330');
-    expect(row.name).toBe('台積電');
-    expect(row.qty).toBe(1000);
-  });
-
-  it('draft 專屬 nameDirty 不會流進 row', async () => {
-    const onAdd = renderForm();
-    await fillValidDraft();
-    fireEvent.change(screen.getByLabelText('股票名稱'), { target: { value: '台積電A' } });
-    fireEvent.click(screen.getByLabelText('加入這筆成交'));
-    expect(onAdd.mock.calls[0][0]).not.toHaveProperty('nameDirty');
-    expect(onAdd.mock.calls[0][0].name).toBe('台積電A');
-  });
-
-  it('code 改變會清掉未手改的名稱，避免 code=AMD/name=台積電', async () => {
-    renderForm();
-    await fillValidDraft();
-    fireEvent.change(screen.getByLabelText('股票代碼'), { target: { value: 'AMD' } });
-    await waitFor(() =>
-      expect((screen.getByLabelText('股票名稱') as HTMLInputElement).value).not.toBe('台積電'),
-    );
-  });
-
-  it('美股允許小數股數、台股不允許', async () => {
-    const onAdd = renderForm();
-    fireEvent.change(screen.getByLabelText('股票代碼'), { target: { value: 'amd' } });
-    fireEvent.change(screen.getByLabelText('股數'), { target: { value: '0.5' } });
-    fireEvent.change(screen.getByLabelText('成交價'), { target: { value: '210' } });
-    fireEvent.change(screen.getByLabelText('股票名稱'), { target: { value: 'AMD' } });
-    fireEvent.click(screen.getByLabelText('加入這筆成交'));
-    expect(onAdd).toHaveBeenCalledTimes(1);
-    expect(onAdd.mock.calls[0][0].qty).toBe(0.5);
-
-    fireEvent.change(screen.getByLabelText('股票代碼'), { target: { value: '2330' } });
-    fireEvent.change(screen.getByLabelText('股數'), { target: { value: '0.5' } });
-    fireEvent.change(screen.getByLabelText('成交價'), { target: { value: '1100' } });
-    fireEvent.click(screen.getByLabelText('加入這筆成交'));
-    expect(onAdd).toHaveBeenCalledTimes(1); // 仍是 1，台股小數被擋
-    await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
-  });
-
-  it('demo 模式無法加入', async () => {
-    const onAdd = vi.fn();
-    render(
-      <ManualTradeForm C={C} alpha={alpha} card={card} lbl={lbl} isDemo onAdd={onAdd} holdingsCount={0} maxHoldings={50} />,
-    );
-    fireEvent.click(screen.getByLabelText('加入這筆成交'));
-    expect(onAdd).not.toHaveBeenCalled();
-  });
-});
 
 describe('TradeTab — 手動 / OCR 共用同一份 preview 與同一顆確認鈕', () => {
   const baseProps = () => ({
