@@ -14,15 +14,33 @@
 ### 資料表現況
 `public.checkup_trade_memos(id uuid pk default gen_random_uuid(), created_at timestamptz not null default now(), trade_date text, trade_time text, action text, code text, name text, qty numeric, price numeric, qa jsonb default '[]', user_id uuid not null)`；RLS 四條 policy 皆 `user_id = auth.uid()`（`20260412104335`）。
 
-### Migration（單一檔，Lovable Cloud 原生）
+### 容量實測（唯讀，不含任何 memo 正文／個資）
+| 指標 | 值 |
+|---|---|
+| total rows | 119 |
+| distinct users | 10 |
+| max rows / user | 28 |
+| avg rows / user | 11.9 |
+| heap size | 24 kB |
+| index size | 16 kB |
+| total_relation_size | 80 kB |
+
+判定：119 rows / 80 kB，**遠低於** 100,000 rows 與 50 MB 門檻 → 允許單次 full-table backfill 與一般（非 CONCURRENTLY）index。若日後任一門檻被突破，本 migration 不得沿用，必須改為可重入分批 backfill（`WHERE sort_index IS NULL` + `LIMIT n` 迴圈／多次執行）並重新送審。
+
+### Migration（單一檔，Lovable Cloud 原生，可重跑）
 檔名：`supabase/migrations/<ts>_checkup_trade_memos_sort_index.sql`
 
 ```sql
+-- 鎖與逾時保護：拿不到鎖就快速失敗，不 pile-up；整份可安全重跑
+SET LOCAL lock_timeout = '3s';
+SET LOCAL statement_timeout = '30s';
+
 -- 1) 新欄位：可為 NULL 起步，舊 writer 不會失敗
 ALTER TABLE public.checkup_trade_memos
   ADD COLUMN IF NOT EXISTS sort_index integer;
 
--- 2) per-user backfill：以目前「可觀測順序」created_at DESC, id DESC 產生 0-based 序號
+-- 2) per-user backfill（單次；本表 119 rows 已實測）：
+--    以目前可觀測順序 created_at DESC, id DESC 產生 0-based 序號
 WITH ranked AS (
   SELECT id,
          row_number() OVER (
@@ -40,18 +58,29 @@ WHERE t.id = r.id AND t.sort_index IS DISTINCT FROM r.rn;
 ALTER TABLE public.checkup_trade_memos ALTER COLUMN sort_index SET DEFAULT 0;
 ALTER TABLE public.checkup_trade_memos ALTER COLUMN sort_index SET NOT NULL;
 
--- 4) 只做非負檢查，不做唯一性（舊 writer 全 0 也必須合法）
-ALTER TABLE public.checkup_trade_memos
-  ADD CONSTRAINT checkup_trade_memos_sort_index_nonneg CHECK (sort_index >= 0);
+-- 4) 非負 CHECK：唯一命名 + pg_constraint guard，重跑不撞名
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'checkup_trade_memos_sort_index_nonneg_chk'
+      AND conrelid = 'public.checkup_trade_memos'::regclass
+  ) THEN
+    ALTER TABLE public.checkup_trade_memos
+      ADD CONSTRAINT checkup_trade_memos_sort_index_nonneg_chk CHECK (sort_index >= 0);
+  END IF;
+END $$;
 
--- 5) 讀取路徑索引
+-- 5) 讀取路徑索引（小表：一般 CREATE INDEX，鎖時間 < 1ms 級）
 CREATE INDEX IF NOT EXISTS idx_checkup_trade_memos_user_sort
   ON public.checkup_trade_memos (user_id, sort_index, created_at DESC, id DESC);
 ```
 
+- **鎖風險說明**：Lovable/Supabase migration 在單一 transaction 中執行，`CREATE INDEX CONCURRENTLY` 在 transaction 內**不可用**；一般 `CREATE INDEX` 會持有 `SHARE` 鎖擋住寫入。本表 24 kB heap，建索引與 `ALTER TABLE` 的 `ACCESS EXCLUSIVE` 鎖皆為毫秒級，可接受。`lock_timeout=3s` 保證即使遇到長交易也是快速失敗而非阻塞全表；失敗後整份 migration 因 `IF NOT EXISTS` / `IS DISTINCT FROM` / `pg_constraint` guard 皆為冪等，可直接重跑。
+- 若未來表變大：改為 (a) 欄位與 default 一支 migration、(b) 分批 backfill 腳本、(c) `CREATE INDEX CONCURRENTLY` 走非 transaction 的獨立 rollout，三段分開送審。
 - RLS：不變（不 DROP/CREATE 任何 policy）。GRANT：不變（既有表，非 CREATE TABLE）。
-- 不刪任何 row、不加 unique constraint（避免舊 writer 或部分寫入衝突失敗）。
-- Rollback：`DROP INDEX IF EXISTS public.idx_checkup_trade_memos_user_sort; ALTER TABLE public.checkup_trade_memos DROP CONSTRAINT IF EXISTS checkup_trade_memos_sort_index_nonneg; ALTER TABLE public.checkup_trade_memos DROP COLUMN IF EXISTS sort_index;` — 純加法，回滾不影響使用者內容。
+- 不刪任何 row、不加 unique constraint（避免舊 writer 或合併後重複值造成失敗）。
+- Rollback：`DROP INDEX IF EXISTS public.idx_checkup_trade_memos_user_sort; ALTER TABLE public.checkup_trade_memos DROP CONSTRAINT IF EXISTS checkup_trade_memos_sort_index_nonneg_chk; ALTER TABLE public.checkup_trade_memos DROP COLUMN IF EXISTS sort_index;` — 純加法，回滾不影響使用者內容。
 
 ### 讀寫 consumer（窮舉）
 | 檔案 | 動作 | 變更 |
@@ -59,10 +88,13 @@ CREATE INDEX IF NOT EXISTS idx_checkup_trade_memos_user_sort
 | `src/pages/FreeCheckup.jsx` `saveTradeLogToCloud` | insert | 每列加 `sort_index: idx`（`logs.map((l, idx) => ...)`，即 tradeLog array index） |
 | `src/hooks/useFreeCheckupBootstrap.js` | select | `.order('sort_index', {ascending:true}).order('created_at',{ascending:false}).order('id',{ascending:false})`；client 端再做 deterministic 穩定排序 fallback（同 sort_index 時以 created_at DESC、id DESC 決勝），legacy 全 0 時等同舊行為 |
 | `src/integrations/supabase/types.ts` | 型別 | migration 後自動重生 |
-| `supabase/functions/account-link-consume/index.ts` | 整表搬移（table name list） | 無需改（`select *` / re-insert 帶欄位） |
-| `supabase/functions/admin-account-force-merge/index.ts` | 同上 | 無需改 |
+| `supabase/functions/account-link-consume/index.ts` (`USER_ID_TABLES` 迴圈 L156-168) | **不是** select*/insert，而是 `.update({user_id: primaryUid}).eq('user_id', secondary).select('user_id')` 就地改 owner | code 無需改（未列欄位、不重建列 → `sort_index` 原值保留）；但**合併後兩個帳號的 sort_index 會重號**（各自 0..n），必須靠 hydration 的 `created_at DESC,id DESC` fallback 決勝 → 補 regression test |
+| `supabase/functions/admin-account-force-merge/index.ts` (同型迴圈 L133-138) | 同上 | 同上 |
+
+合併 regression（列入 T5）：造 user A(sort_index 0..2) + user B(sort_index 0..1)，模擬 merge（全部改成 A 的 user_id）後 hydration 必須 deterministic、無列遺失、無 crash；重跑 `saveTradeLogToCloud` 後 sort_index 重寫為 0..4 且順序與 UI 一致。另加 migration regression：在 clone 上跑兩次同一份 migration，第二次 exit 0 且 `sort_index` 值不變。
 
 `sort_index` 只存在 DB 列與 hydration 排序，**不進 `qa`**、不進 tradeLog row contract 的 12 keys。
+
 
 ---
 
