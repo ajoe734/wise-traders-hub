@@ -97,7 +97,7 @@ export default function TradeUploadModal({ open, onClose, C, alpha, quota, forma
           fontSize: 11, color: C?.textMute, lineHeight: 1.7,
           display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
         }}>
-          <span>批次解析 · 去重 · 備忘三問全部沿用既有流程</span>
+          <span>可上傳截圖或切換手動輸入 · 解析、去重、備忘三問沿用既有流程</span>
           <button
             type="button"
             onClick={onClose}

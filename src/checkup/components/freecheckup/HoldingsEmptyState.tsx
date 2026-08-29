@@ -9,8 +9,8 @@ function HoldingsEmptyState({ WB, onUpload }) {
   const steps = [
     {
       n: '1',
-      title: '上傳截圖',
-      desc: '從券商 App 截下持倉畫面',
+      title: '新增成交',
+      desc: '上傳券商截圖或手動輸入',
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <rect x="3" y="5" width="18" height="14" rx="1.5"/>
@@ -21,8 +21,8 @@ function HoldingsEmptyState({ WB, onUpload }) {
     },
     {
       n: '2',
-      title: 'AI 辨識',
-      desc: '自動讀取股號與股數',
+      title: '辨識或填寫',
+      desc: '截圖自動辨識，或逐筆填寫',
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M4 7h16M4 12h10M4 17h16"/>
@@ -32,7 +32,7 @@ function HoldingsEmptyState({ WB, onUpload }) {
     },
     {
       n: '3',
-      title: '確認上傳',
+      title: '確認更新',
       desc: '逐條檢視後一鍵建立',
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -59,7 +59,7 @@ function HoldingsEmptyState({ WB, onUpload }) {
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
         <span style={{fontSize:18,fontWeight:500,letterSpacing:'0.08em',color:WB.ink}}>還沒有持倉資料</span>
         <span style={{fontSize:13,fontWeight:400,lineHeight:1.7,color:WB.inkMute,textAlign:'center',maxWidth:420}}>
-          上傳一張下單 App 的持倉截圖，系統會自動辨識成交資料，您只需逐條確認即可。
+          可上傳下單 App 的持倉截圖由系統自動辨識，或手動輸入成交，您只需逐條確認即可。
         </span>
       </div>
 
@@ -114,11 +114,11 @@ function HoldingsEmptyState({ WB, onUpload }) {
           cursor:'pointer',
         }}
       >
-        現在上傳成交
+        新增成交
       </button>
 
       <span style={{fontSize:11,fontWeight:400,letterSpacing:'0.12em',color:WB.inkMute}}>
-        支援 JPG / PNG 截圖，無需手動輸入
+        支援 JPG / PNG 截圖，或切換手動輸入
       </span>
     </div>
   );
