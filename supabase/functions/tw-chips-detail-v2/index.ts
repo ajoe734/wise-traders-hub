@@ -1010,6 +1010,6 @@ Deno.serve(async (req) => {
       served_at: new Date().toISOString(),
     });
   } catch (err) {
-    return errorResponse((err as Error).message, 500, { code: "INTERNAL_ERROR" });
+    return errorResponse(err instanceof Error ? err.message : String(err), 500, { code: "INTERNAL_ERROR" });
   }
 });
