@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
+import { reconcileHoldingsWithTradeLog } from "@/checkup/lib/tradeLogOps.js";
 
 // P0-3: demoData lazy — 15.3 KB chunk only loads when isDemo branch hits
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
@@ -258,30 +259,6 @@ export function useFreeCheckupBootstrap({
         ce = ceRaw || [];
       }
 
-      const sanitizedHoldings = stripDemoSeedHoldings(Array.isArray(h) ? h : []);
-      const removedDemoSeedCount = (Array.isArray(h) ? h.length : 0) - sanitizedHoldings.length;
-      // 雲端污染回寫：authenticated 模式拉到含 demo seed 的舊資料，立即覆寫雲端，避免下次再被拉回來。
-      if (removedDemoSeedCount > 0 && userId) {
-        try {
-          console.warn(`[demo-seed-leak] strip ${removedDemoSeedCount} seed holdings for user ${userId}, writing sanitized list back to cloud`);
-          await supabase
-            .from("checkup_storage")
-            .upsert(
-              { user_id: userId, key: "pf-holdings-v2", data: sanitizedHoldings, updated_at: new Date().toISOString() },
-              { onConflict: "user_id,key" },
-            );
-          try { localStorage.setItem("pf-holdings-v2", JSON.stringify(sanitizedHoldings)); } catch {}
-        } catch (e) {
-          console.error("[demo-seed-leak] failed to upsert sanitized holdings:", e);
-        }
-      }
-      const holdingCodesKey = getHoldingCodesKey(sanitizedHoldings);
-      const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
-      const shouldRebuildDerivedEvents =
-        holdingCodesKey.length > 0 &&
-        (removedDemoSeedCount > 0 || storedCalendarHoldingCodes !== holdingCodesKey);
-      const manualNewsEvents = (Array.isArray(ne) ? ne : []).filter((event) => event?.source !== "calendar");
-
       let l = [];
       try {
         // RLS 已限制只回自己的 row；但 fallback 必須用 scoped local，
@@ -308,17 +285,32 @@ export function useFreeCheckupBootstrap({
 
       if (cancelled) return;
 
+      // checkup_trade_memos 是交易權威；先用 logs 證明 seed-code 也是真實持倉，
+      // 再清除沒有任何交易／使用者來源證據的 demo 污染。
+      const rawHoldings = Array.isArray(h) ? h : [];
+      const reconciledHoldings = stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(rawHoldings, l));
+      const removedDemoSeedCount = rawHoldings.length - reconciledHoldings.filter((row) =>
+        rawHoldings.some((prior) => String(prior?.code || '').trim() === String(row?.code || '').trim())
+      ).length;
+      const holdingCodesKey = getHoldingCodesKey(reconciledHoldings);
+      const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
+      const shouldRebuildDerivedEvents =
+        holdingCodesKey.length > 0 &&
+        (removedDemoSeedCount > 0 || storedCalendarHoldingCodes !== holdingCodesKey);
+      const manualNewsEvents = (Array.isArray(ne) ? ne : []).filter((event) => event?.source !== "calendar");
+
       DBG("full-apply", {
         rawHoldingsLen: Array.isArray(h) ? h.length : 0,
-        sanitizedLen: sanitizedHoldings.length,
+        sanitizedLen: reconciledHoldings.length,
+        reconciledLen: reconciledHoldings.length,
         removedDemoSeedCount,
         tradeLogLen: l.length,
       });
-      setHoldings(sanitizedHoldings); setTradeLog(l); setTargets(t);
+      setHoldings(reconciledHoldings); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(shouldRebuildDerivedEvents ? [] : ce);
 
 
-      const hasHoldings = sanitizedHoldings.length > 0;
+      const hasHoldings = reconciledHoldings.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
         setStrategyBrain(null); setCalendarEvents([]);
@@ -334,7 +326,7 @@ export function useFreeCheckupBootstrap({
       setCloudSync(true);
 
       if (shouldRebuildDerivedEvents && typeof fetchCalendarEventsRef?.current === "function") {
-        fetchCalendarEventsRef.current(sanitizedHoldings, resetGuardRef.current, []);
+        fetchCalendarEventsRef.current(reconciledHoldings, resetGuardRef.current, []);
       }
     })();
     return () => { cancelled = true; };

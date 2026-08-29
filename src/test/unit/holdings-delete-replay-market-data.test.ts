@@ -87,6 +87,8 @@ describe('刪除單筆成交後的 replay', () => {
       expect(row.yesterday).toBe(148 + i)
       expect(row.targetPrice).toBe(200 + i)
       expect(row.sector).toBe('半導體')
+      expect(row.userOrigin).toBe(true)
+      expect(row.tradeLogTouched).toBe(true)
       // 損益不得為 0
       expect(row.pnl, `${code} pnl`).toBeGreaterThan(0)
     })
