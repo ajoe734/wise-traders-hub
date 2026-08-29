@@ -1,4 +1,4 @@
-# HOLDINGS_MANUAL_ENTRY_PLAN_V4（最終修訂）
+# HOLDINGS_MANUAL_ENTRY_PLAN_V4.1（最終版）
 
 只規劃。本輪 0 寫檔、0 DB、0 deploy、0 Publish。
 
@@ -189,9 +189,20 @@ exact 現況：`TradeUploadModal.jsx:40 aria-label="上傳成交"`、`:72` 標�
 ## 12. Acceptance
 
 功能（local）：manual only／OCR only／mixed；confirm 前 0 mutation；confirm 只走同一 orchestration；reload 後 rows/holdings/log 一致；記錄逐筆刪除回空；US fractional（AMD 0.5、SOXL 1.25）端到端。
-工程門檻（全部 exit 0）：`npx vitest run` 上列 5 檔；`e2e/holdings-bsr-unavailable.spec.ts`；`npm run typecheck:edge:chips`；`npm run build`；`npm run check:module-boundaries`；`db/r1/p/acl-25.json|.md` 對 baseline byte-identical。
+工程門檻（全部 exit 0）：
+1. selected：`npx vitest run` 上列 5 個新測試檔；
+2. **完整回歸：`npx vitest run`（全量，必跑，不可只跑 selected）**；
+3. `bunx playwright test e2e/holdings-bsr-unavailable.spec.ts`；
+4. `npm run typecheck:edge:chips`；`npm run build`；`npm run check:module-boundaries`。
+
+全量 Vitest 判定規則（不假綠）：
+- 若唯一失敗是**已知 `journal-flow-perf.test.ts` timing flakes** → 貼 exact 全量 run 輸出 + 該檔 **isolated rerun** 結果，明列為既有 timing flake，不併入本功能綠燈、不以「全量綠」宣稱。
+- 若出現**任何非 timing 的新失敗** → 本輪判定 **BLOCKED**，先修完再繼續，不得帶病交付。
+
+Blob / baseline 契約（持續保留）：`db/r1/p/acl-25.json` 與 `db/r1/p/acl-25.md` 對 baseline `c62a3290b` **byte-identical**；current BSR production / test / Edge typecheck blobs 不得變更（`supabase/functions/tw-chips-detail-v2/index.ts`、`src/checkup/hooks/useChipsBatch.ts`、`src/checkup/hooks/useTwChipsDetail.ts`、`e2e/holdings-bsr-unavailable.spec.ts` 等本功能檔案清單以外的檔一律 diff 為空）。**不 deploy、不 Publish、不動 DB schema。**
+
 **Hosted 驗收（依序）**：① 入口文案顯示「＋ 新增成交」、modal 標題「新增成交」；② 兩 tab（上傳截圖／手動輸入）皆可見可切；③ 輸入 `2330` 有名稱回饋；④ 加入**共同** preview 清單（與 OCR 同一區塊）；⑤ confirm 後持倉 1 檔；⑥ reload 後一致、刪除該筆回空；⑦ 再做 31 檔 `[30,1]` 分批、未開 drawer、390×844；⑧ 驗收後回復 DB baseline。
-**既有全量 Vitest timing flakes（`journal-flow-perf.test.ts`）獨立列示**，不併入綠燈、不以「全量綠」冒充。
+
 390×844 鍵盤限制：Chromium 無 OS 軟鍵盤 → 不宣稱「不遮擋」；以 `focus()` + `boundingBox ⊂ visualViewport`、模擬 viewport 844→460 後 CTA 可見、屬性斷言取代；真機截圖列人工驗收。
 
 ## 13. Non-goals
