@@ -15,7 +15,7 @@ import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { fetchFinmindDay, parseT86 } from "../_shared/institutionalDay.ts";
-import { deltaUpsertInstitutional, acquireSyncLease, releaseSyncLease } from "../_shared/institutionalUniverse.ts";
+import { deltaUpsertInstitutional, acquireSyncLease, releaseSyncLease, ZeroYieldStopper, ZERO_YIELD_STOP_REASON } from "../_shared/institutionalUniverse.ts";
 import {
   isPublicSyncMode,
   isValidStockId,
@@ -359,6 +359,8 @@ async function runColdStart(
   const attempts: Array<{ date: string; ok: boolean; rows: number; reason?: string }> = [];
   let done = opts.resume ? status.days_done : 0;
   let stoppedReason: string | null = null;
+  // 成本控制：連續 5 天 0 新增就停本輪（下一輪 cron 仍會再檢查，缺口不會被永久略過）。
+  const zeroYield = new ZeroYieldStopper(5);
 
   for (const ymd of plan) {
     if (Date.now() - startWall > opts.timeBudgetMs) {
@@ -377,6 +379,7 @@ async function runColdStart(
         attempts.push({ date: iso, ok: true, rows: count ?? 0, reason: "already_present" });
         done += 1;
         await writeColdStartStatus(supa, { days_done: done, cursor_date: iso, attempts });
+        if (zeroYield.record(0)) { stoppedReason = ZERO_YIELD_STOP_REASON; break; }
         continue;
       }
 
@@ -405,6 +408,7 @@ async function runColdStart(
           attempts.push({ date: iso, ok: true, rows: inserted });
           done += 1;
           await recordSourceHealth(supa, "twse_t86", true, latency);
+          if (zeroYield.record(inserted)) stoppedReason = ZERO_YIELD_STOP_REASON;
         }
       }
     } catch (err) {
@@ -419,6 +423,7 @@ async function runColdStart(
       // heartbeat：refresh started_at 讓長跑期間不會被誤判卡死
       started_at: new Date().toISOString(),
     });
+    if (stoppedReason === ZERO_YIELD_STOP_REASON) break;
     await sleep(COLD_START_SLEEP_MS);
   }
 

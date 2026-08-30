@@ -6,10 +6,14 @@
  *  1. body 只接受 { orderId, transactionId }。任何未知欄位 → 400 fail-closed，零 mutation。
  *     production 不再接受 client 控制的 simulate / userId / planId / amount。
  *  2. user / plan / amount / billingCycle 一律從 payment_intents（trade_no = orderId）反查。
- *  3. 必須先向 LINE Pay confirm，且 returnCode === '0000'，
- *     並逐項比對 orderId / transactionId / amount / currency，全部相符才寫入。
+ *  3. 必須先向 LINE Pay confirm，且 returnCode === '0000'，並逐項比對
+ *     orderId / transactionId / amount / currency —— 四欄都必須「非 null 且
+ *     exact match」，任一缺漏即失敗（REV2：舊版 null 跳過比對是 fail-open）。
  *  4. provider_tx_id 具 DB unique index（idx_payment_tx_provider_tx_id_unique）；
- *     重播相同 transactionId → 200 no-op，不會續期第二次。
+ *     重播相同 transactionId → 200 no-op，不會續期第二次。REV2：replay 必須先
+ *     以 orderId 反查 intent，並證明該交易的 subscription 屬於同一 user+plan，
+ *     否則 409；replay 回應不得含任何 user / plan / subscription / tx id。
+ *  4b. intent.status 必須屬於 CONFIRMABLE_INTENT_STATUSES，否則 409。
  *  5. 任何 provider / config / intent / 欄位缺失 → 零 mutation。
  */
 
@@ -98,20 +102,34 @@ export function extractConfirmEcho(result: any): {
   };
 }
 
-/** 逐欄比對 provider 回應與 intent。回傳不符欄位清單（空 = 全部相符）。 */
+/**
+ * 逐欄比對 provider 回應與 intent。回傳不符欄位清單（空 = 全部相符）。
+ *
+ * REV2 強化：四欄（orderId / transactionId / amount / currency）都必須
+ * 「非 null 且 exact match」。任何一欄缺漏 → 視為不符，fail-closed。
+ * 舊版對 null 採「跳過比對」= fail-open，已移除。
+ */
 export function diffConfirmEcho(
   echo: ReturnType<typeof extractConfirmEcho>,
   expected: { orderId: string; transactionId: string; amount: number; currency: string },
 ): string[] {
   const bad: string[] = [];
-  if (echo.orderId !== null && echo.orderId !== expected.orderId) bad.push('orderId');
-  if (echo.transactionId !== null && echo.transactionId !== expected.transactionId) bad.push('transactionId');
-  if (echo.amount === null || Number(echo.amount) !== Number(expected.amount)) bad.push('amount');
-  if (echo.currency !== null && String(echo.currency).toUpperCase() !== expected.currency.toUpperCase()) {
+  if (echo.orderId === null || String(echo.orderId) !== expected.orderId) bad.push('orderId');
+  if (echo.transactionId === null || String(echo.transactionId) !== expected.transactionId) {
+    bad.push('transactionId');
+  }
+  if (echo.amount === null || !Number.isFinite(Number(echo.amount)) || Number(echo.amount) !== Number(expected.amount)) {
+    bad.push('amount');
+  }
+  if (echo.currency === null || String(echo.currency).toUpperCase() !== expected.currency.toUpperCase()) {
     bad.push('currency');
   }
   return bad;
 }
+
+/** 允許進行 confirm 的 intent 狀態。其餘（completed / expired / failed / refunded…）一律拒絕。 */
+export const CONFIRMABLE_INTENT_STATUSES = ['pending', 'abandoned'] as const;
+
 
 function fail(status: number, code: string, message: string): ConfirmOutcome {
   return { status, body: { success: false, code, error: message } };
@@ -138,29 +156,7 @@ export async function confirmLinepayPayment(deps: ConfirmDeps, rawBody: unknown)
     return fail(503, 'PROVIDER_CONFIG_MISSING', 'LINE Pay channel credentials are not configured');
   }
 
-  // ---- 3. idempotency：相同 provider transaction 直接 no-op ---------------
-  const { data: existingTx, error: txLookupErr } = await supabase
-    .from('payment_transactions')
-    .select('id, subscription_id')
-    .eq('provider_tx_id', transactionId)
-    .maybeSingle();
-  if (txLookupErr) {
-    log.error?.('tx_lookup_failed', { message: String((txLookupErr as any)?.message ?? txLookupErr) });
-    return fail(503, 'LOOKUP_FAILED', 'payment transaction lookup failed');
-  }
-  if (existingTx) {
-    return {
-      status: 200,
-      body: {
-        success: true,
-        idempotent: true,
-        replay: true,
-        subscriptionId: existingTx.subscription_id ?? null,
-      },
-    };
-  }
-
-  // ---- 4. intent 反查（user/plan/amount 唯一來源） ------------------------
+  // ---- 3. intent 反查（user/plan/amount 唯一來源，且先於 replay 判定） ----
   const { data: intent, error: intentErr } = await supabase
     .from('payment_intents')
     .select('id, trade_no, user_id, plan_id, expert_id, billing_cycle, amount, original_amount, discount_amount, discount_reason, attribution, product_kind, status')
@@ -182,6 +178,49 @@ export async function confirmLinepayPayment(deps: ConfirmDeps, rawBody: unknown)
 
   const amount = Number(intent.amount);
   const billingCycle = intent.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+
+  // ---- 4. idempotency：相同 provider transaction 必須綁定「同一張已驗證的 order」--
+  //      舊版只比對 provider_tx_id 就回 200 + subscriptionId：
+  //      任何人拿別人的 transactionId 猜，就能回收到內部 id。
+  //      REV2：replay 必須證明該筆交易屬於本 orderId 對應的 intent
+  //      (user_id + plan_id)，且回應不得含任何 user / plan / internal id。
+  const { data: existingTx, error: txLookupErr } = await supabase
+    .from('payment_transactions')
+    .select('id, subscription_id')
+    .eq('provider_tx_id', transactionId)
+    .maybeSingle();
+  if (txLookupErr) {
+    log.error?.('tx_lookup_failed', { message: String((txLookupErr as any)?.message ?? txLookupErr) });
+    return fail(503, 'LOOKUP_FAILED', 'payment transaction lookup failed');
+  }
+  if (existingTx) {
+    if (!existingTx.subscription_id) {
+      log.error?.('replay_unverifiable', { reason: 'transaction has no subscription binding' });
+      return fail(409, 'REPLAY_UNVERIFIABLE', 'existing transaction cannot be bound to this order');
+    }
+    const { data: boundSub, error: subErr } = await supabase
+      .from('member_subscriptions')
+      .select('id, user_id, plan_id')
+      .eq('id', existingTx.subscription_id)
+      .maybeSingle();
+    if (subErr) {
+      log.error?.('replay_sub_lookup_failed', { message: String((subErr as any)?.message ?? subErr) });
+      return fail(503, 'LOOKUP_FAILED', 'subscription lookup failed');
+    }
+    if (!boundSub || boundSub.user_id !== intent.user_id || boundSub.plan_id !== intent.plan_id) {
+      log.error?.('replay_order_mismatch', {});
+      return fail(409, 'REPLAY_ORDER_MISMATCH', 'transaction does not belong to this order');
+    }
+    // 不回傳任何 user / plan / subscription / transaction id。
+    return { status: 200, body: { success: true, idempotent: true, replay: true } };
+  }
+
+  // ---- 4b. intent 狀態閘門：只有可確認狀態才允許往下走 --------------------
+  if (!(CONFIRMABLE_INTENT_STATUSES as readonly string[]).includes(String(intent.status ?? ''))) {
+    log.error?.('intent_status_rejected', { status: intent.status ?? null });
+    return fail(409, 'INTENT_STATUS_INVALID', `payment intent status not confirmable: ${intent.status ?? 'null'}`);
+  }
+
 
   // ---- 5. provider 設定列 --------------------------------------------------
   const { data: provider, error: provErr } = await supabase
