@@ -15,6 +15,7 @@ import { checkCircuit, recordCircuit } from "../_shared/circuitBreaker.ts";
 import { fetchWithRetry, isRetryExhausted, recordRetryFailure } from "../_shared/retryFetch.ts";
 import { checkKillSwitch } from "../_shared/killSwitch.ts";
 import { fetchFinmindDay, parseT86 } from "../_shared/institutionalDay.ts";
+import { deltaUpsertInstitutional, acquireSyncLease, releaseSyncLease } from "../_shared/institutionalUniverse.ts";
 import {
   isPublicSyncMode,
   isValidStockId,
@@ -164,7 +165,7 @@ async function backfillStockViaFinmind(
     .gte("trade_date", startDate)
     .lte("trade_date", endDate)
     .not("sealed_at", "is", null);
-  const sealed = new Set((sealedRows ?? []).map((r: any) => String(r.trade_date)));
+  const sealed = new Set<string>((sealedRows ?? []).map((r: any) => String(r.trade_date)));
 
   // 只有「已存在且封存」的列會被 trigger 擋（trigger 走 OLD），不存在的日期仍可 insert
   let existing = new Set<string>();
@@ -395,19 +396,12 @@ async function runColdStart(
           await recordSourceHealth(supa, "twse_t86", false, latency, "schema_drift");
         }
         if (parsed) {
-          const BATCH = 500;
-          let inserted = 0;
-          for (let i = 0; i < parsed.length; i += BATCH) {
-            const chunk = parsed.slice(i, i + BATCH).map((r) => ({
-              ...r,
-              raw: { source: "twse_t86_cold_start" },
-            }));
-            const { error } = await supa
-              .from("tw_institutional_daily")
-              .upsert(chunk, { onConflict: "stock_id,trade_date" });
-            if (error) throw new Error(`upsert_failed:${error.message}`);
-            inserted += chunk.length;
-          }
+          const delta = await deltaUpsertInstitutional(supa, parsed as any, {
+            tradeDate: iso,
+            source: "twse_t86_cold_start",
+          });
+          if (delta.error) throw new Error(delta.error);
+          const inserted = delta.written;
           attempts.push({ date: iso, ok: true, rows: inserted });
           done += 1;
           await recordSourceHealth(supa, "twse_t86", true, latency);
@@ -477,33 +471,18 @@ async function fillOtcGap(
   const rows = await fetchFinmindDay(tradeDate, { supa });
   if (!rows || rows.length === 0) return { fetched: 0, inserted: 0, reason: "finmind_no_data" };
 
-  const { data: existing } = await supa
-    .from("tw_institutional_daily")
-    .select("stock_id")
-    .eq("trade_date", tradeDate)
-    .limit(20000);
-  const have = new Set((existing || []).map((r: any) => String(r.stock_id)));
-  const missing = rows.filter((r: any) => !have.has(String(r.stock_id)));
-  if (missing.length === 0) return { fetched: rows.length, inserted: 0, reason: "no_gap" };
-
-  const BATCH = 500;
-  let inserted = 0;
-  for (let i = 0; i < missing.length; i += BATCH) {
-    const chunk = missing.slice(i, i + BATCH).map((r: any) => ({
-      ...r,
-      raw: { source: `otc_gap_fill:${wave}` },
-    }));
-    const { error } = await supa
-      .from("tw_institutional_daily")
-      .upsert(chunk, { onConflict: "stock_id,trade_date" });
-    if (error) return { fetched: rows.length, inserted, reason: `upsert_failed:${error.message}` };
-    inserted += chunk.length;
-  }
-  return { fetched: rows.length, inserted };
+  // 成本：先收斂 universe（權證/ETF 永遠不入庫），再交給 delta upsert。
+  const delta = await deltaUpsertInstitutional(supa, rows as any, {
+    tradeDate,
+    source: `otc_gap_fill:${wave}`,
+  });
+  if (delta.error) return { fetched: rows.length, inserted: delta.written, reason: delta.error };
+  if (delta.written === 0) return { fetched: rows.length, inserted: 0, reason: "no_gap" };
+  return { fetched: rows.length, inserted: delta.written };
 }
 
 
-async function runKeepWarm(
+async function runKeepWarmInner(
   supa: any,
   opts: { wave: string; force: boolean; lookback: number },
 ): Promise<Record<string, unknown>> {
@@ -655,31 +634,25 @@ async function runKeepWarm(
     return { ok: false, mode: "keep_warm", wave: opts.wave, reason: "schema_drift" };
   }
 
-  const BATCH = 500;
-  let inserted = 0;
-  for (let i = 0; i < parsedRows.length; i += BATCH) {
-    const chunk = parsedRows.slice(i, i + BATCH).map((r) => ({
-      ...r,
-      raw: { source: `keep_warm:${opts.wave}` },
-    }));
-    const { error } = await supa
-      .from("tw_institutional_daily")
-      .upsert(chunk, { onConflict: "stock_id,trade_date" });
-    if (error) {
-      await recordSourceHealth(supa, "twse_t86", false, fetchLatency, "db_error");
-      await supa.from("data_source_refresh_logs").insert({
-        source_key: "tw_keep_warm",
-        status: "failed",
-        started_at: startedAt,
-        finished_at: new Date().toISOString(),
-        duration_ms: Date.now() - Date.parse(startedAt),
-        row_count: inserted,
-        error_message: `upsert_failed:${error.message}`,
-        metadata: { run_id: runId, wave: opts.wave, date: tradeDate },
-      });
-      return { ok: false, mode: "keep_warm", wave: opts.wave, reason: `upsert_failed:${error.message}` };
-    }
-    inserted += chunk.length;
+  // 成本：universe 收斂為 4 碼普通股 + 值沒變就不寫（避免 dead tuple 膨脹）
+  const delta = await deltaUpsertInstitutional(supa, parsedRows as any, {
+    tradeDate,
+    source: `keep_warm:${opts.wave}`,
+  });
+  const inserted = delta.written;
+  if (delta.error) {
+    await recordSourceHealth(supa, "twse_t86", false, fetchLatency, "db_error");
+    await supa.from("data_source_refresh_logs").insert({
+      source_key: "tw_keep_warm",
+      status: "failed",
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      duration_ms: Date.now() - Date.parse(startedAt),
+      row_count: inserted,
+      error_message: delta.error,
+      metadata: { run_id: runId, wave: opts.wave, date: tradeDate },
+    });
+    return { ok: false, mode: "keep_warm", wave: opts.wave, reason: delta.error };
   }
 
   await recordSourceHealth(supa, "twse_t86", true, fetchLatency);
@@ -692,13 +665,37 @@ async function runKeepWarm(
     finished_at: new Date().toISOString(),
     duration_ms: Date.now() - Date.parse(startedAt),
     row_count: inserted + otc.inserted,
-    metadata: { run_id: runId, wave: opts.wave, requested_date: iso, resolved_date: tradeDate, attempts, otc },
+    metadata: {
+      run_id: runId, wave: opts.wave, requested_date: iso, resolved_date: tradeDate, attempts, otc,
+      delta: { written: delta.written, skipped_unchanged: delta.skipped, dropped_non_common: delta.dropped },
+    },
   });
 
   return {
     ok: true, mode: "keep_warm", wave: opts.wave,
     requested_date: iso, resolved_date: tradeDate, inserted, otc, attempts,
+    delta: { written: delta.written, skipped_unchanged: delta.skipped, dropped_non_common: delta.dropped },
   };
+}
+
+/**
+ * keep-warm 的租約包裝：同一 wave 同時只允許一個 runner。
+ * 之前多個排程/手動觸發會同時全量 upsert 同一天，造成重複 DB 負載。
+ */
+async function runKeepWarm(
+  supa: any,
+  opts: { wave: string; force: boolean; lookback: number },
+): Promise<Record<string, unknown>> {
+  const lockKey = `inst_keep_warm:${opts.wave}`;
+  const got = await acquireSyncLease(supa, lockKey, 600);
+  if (!got) {
+    return { ok: true, mode: "keep_warm", wave: opts.wave, skipped: "lease_held" };
+  }
+  try {
+    return await runKeepWarmInner(supa, opts);
+  } finally {
+    await releaseSyncLease(supa, lockKey);
+  }
 }
 
 

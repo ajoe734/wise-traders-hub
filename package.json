@@ -37,7 +37,8 @@
     "gen:journal-export-mirror": "node scripts/gen-journal-export-core-mirror.mjs",
     "check:journal-export-mirror": "node scripts/gen-journal-export-core-mirror.mjs --check",
     "test:run:raw": "vitest run",
-    "check:schema-readiness": "node scripts/check-schema-readiness.mjs"
+    "check:schema-readiness": "node scripts/check-schema-readiness.mjs",
+    "typecheck:edge": "node scripts/typecheck-edge-chips.mjs supabase/functions/tw-chips-detail-v2/index.ts supabase/functions/tw-institutional-daily-sync/index.ts supabase/functions/traffic-ingest/index.ts supabase/functions/confirm-linepay/index.ts supabase/functions/weekly-journal-export/index.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.0",

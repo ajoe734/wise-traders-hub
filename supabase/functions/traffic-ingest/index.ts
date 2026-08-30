@@ -118,19 +118,36 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
     if (kind === 'event') {
       const route = normalizeRoute(String(body.route || '/'));
       const referrer = typeof body.referrer === 'string' ? body.referrer.slice(0, 1000) : null;
+      const referrer_host = safeHost(referrer);
       const event_name = typeof body.event_name === 'string' ? body.event_name.slice(0, 80) : null;
       const event_props = body.event_props && typeof body.event_props === 'object' ? body.event_props : null;
 
-      // Two paths:
-      //  - batch page views: body.routes = string[]  → many rows, no event_name
-      //  - single named event: body.event_name set   → one row with name+props
+      // Three paths (cost: the batch path collapses N boots into 1):
+      //  - batch named events: body.events = [{name, props, route}]  → many rows
+      //  - batch page views:   body.routes = string[]                → many rows, no name
+      //  - single named event: body.event_name set                   → one row (legacy)
       let rows: Array<Record<string, unknown>>;
-      if (event_name) {
+      const batched = Array.isArray(body.events) ? (body.events as any[]).slice(0, 50) : null;
+      if (batched && batched.length) {
+        rows = batched.map((e) => {
+          const nr = normalizeRoute(String(e?.route || route));
+          const nm = typeof e?.name === 'string' ? e.name.slice(0, 80) : null;
+          return {
+            visitor_id,
+            user_id: userId || null,
+            route: nr,
+            referrer_host,
+            event_name: nm,
+            event_props: e?.props && typeof e.props === 'object' ? e.props : null,
+            is_internal: isInternalRoute(nr),
+          };
+        }).filter((r) => r.event_name);
+      } else if (event_name) {
         rows = [{
           visitor_id,
           user_id: userId || null,
           route,
-          referrer_host: safeHost(referrer),
+          referrer_host,
           event_name,
           event_props,
           is_internal: isInternalRoute(route),
@@ -143,10 +160,13 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
             visitor_id,
             user_id: userId || null,
             route: nr,
-            referrer_host: safeHost(referrer),
+            referrer_host,
             is_internal: isInternalRoute(nr),
           };
         });
+      }
+      if (rows.length === 0) {
+        return jsonResponse({ ok: true, count: 0 }, {}, req, CORS_OPTS);
       }
       await supabase.from('traffic_events').insert(rows);
 
