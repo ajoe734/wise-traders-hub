@@ -437,8 +437,12 @@ describe('drift-detection: Edge Functions 使用共用 _shared/paymentVerify.ts'
   });
 
   it('confirm-linepay 從 _shared/ 取用 linepayHmacSha256Base64', () => {
-    const src = edgeFn('confirm-linepay');
-    expect(src).toContain('../_shared/paymentVerify.ts');
+    expect(edgeFn('confirm-linepay')).toContain('../_shared/linepayConfirm.ts');
+    const src = readFileSync(
+      resolve(process.cwd(), 'supabase/functions/_shared/linepayConfirm.ts'),
+      'utf-8',
+    );
+    expect(src).toContain('./paymentVerify.ts');
     expect(src).toContain('linepayHmacSha256Base64');
   });
 

@@ -244,8 +244,12 @@ describe('drift-detection: Edge Functions 使用共用 _shared/paymentProcessor.
   });
 
   it('confirm-linepay 從 _shared/ 取用 createSubscriptionAndTransaction', () => {
-    const src = edgeFn('confirm-linepay');
-    expect(src).toContain('../_shared/paymentProcessor.ts');
+    expect(edgeFn('confirm-linepay')).toContain('../_shared/linepayConfirm.ts');
+    const src = readFileSync(
+      resolve(process.cwd(), 'supabase/functions/_shared/linepayConfirm.ts'),
+      'utf-8',
+    );
+    expect(src).toContain('./paymentProcessor.ts');
     expect(src).toContain('createSubscriptionAndTransaction');
   });
 
