@@ -16,12 +16,14 @@ async function installCollector(page: Page): Promise<Captured[]> {
   await page.route(`${SUPABASE_HOST}/functions/v1/traffic-ingest`, (route: Route) => {
     try {
       const body = route.request().postDataJSON();
-      if (body && typeof body === 'object') sink.push(body as Captured);
+      // 具名事件已批次化成 body.events[]，必須攤平才看得到 event_name。
+      for (const ev of flattenIngestBody(body)) sink.push(ev as Captured);
     } catch { /* ignore */ }
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
   return sink;
 }
+
 
 async function mockAuth(
   page: Page,
