@@ -6951,6 +6951,10 @@ export type Database = {
           win_rate: number
         }[]
       }
+      has_active_checkup_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       has_active_subscription: {
         Args: { _user_id: string }
         Returns: {

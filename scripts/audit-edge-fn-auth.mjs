@@ -27,6 +27,7 @@ const MATRIX_DOC = 'docs/security/edge-function-auth-matrix.md';
 const CLASSIFIERS = [
   { cls: 'user',    pattern: /requireCaller\s*\(|\/\/\s*AUTH:\s*user\b/i },
   { cls: 'cron',    pattern: /requireCronKey\s*\(|\/\/\s*AUTH:\s*cron\b/i },
+  { cls: 'admin',   pattern: /requireCompanyAdmin\s*\(|isCompanyAdmin\s*\(|resolveExportCaller\s*\(|\/\/\s*AUTH:\s*company_admin\b/i },
   { cls: 'webhook', pattern: /\/\/\s*AUTH:\s*webhook-signature/i },
   { cls: 'public',  pattern: /\/\/\s*AUTH:\s*public\b/i },
 ];
@@ -34,7 +35,7 @@ const CLASSIFIERS = [
 // A function has a "real" runtime guard when it calls the helper (or an
 // established webhook/public pattern). Comment-only markers count as
 // documented-but-pending — surfaced separately so we can burn them down.
-const RUNTIME_GUARD = /requireCaller\s*\(|requireCronKey\s*\(|CheckMacValue|verifyLinepaySignature|verifyAcpaySignature|X-Line-Signature|getCallerUserId|auth\.getUser|getClaims\(|consumeCheckupQuota\s*\(|requireCheckupAuth\s*\(|verifyToken\s*\(|extractApiKey\s*\(|defineMcp\s*\(/;
+const RUNTIME_GUARD = /requireCaller\s*\(|requireCronKey\s*\(|requireCompanyAdmin\s*\(|isCompanyAdmin\s*\(|resolveExportCaller\s*\(|CheckMacValue|verifyLinepaySignature|verifyAcpaySignature|X-Line-Signature|getCallerUserId|auth\.getUser|getClaims\(|consumeCheckupQuota\s*\(|requireCheckupAuth\s*\(|verifyToken\s*\(|extractApiKey\s*\(|defineMcp\s*\(/;
 
 // `mcp` is a fully-auto-generated file owned by @lovable.dev/mcp-js — it uses
 // OAuth via `defineMcp({ auth })` from that package, and the plugin refuses to

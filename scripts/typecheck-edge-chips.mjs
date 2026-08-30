@@ -15,7 +15,10 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-const TARGET = resolve(process.cwd(), 'supabase/functions/tw-chips-detail-v2/index.ts');
+const DEFAULT_TARGETS = ['supabase/functions/tw-chips-detail-v2/index.ts'];
+// 可傳入額外目標：node scripts/typecheck-edge-chips.mjs <path> [<path>...]
+const TARGETS = (process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_TARGETS)
+  .map((t) => resolve(process.cwd(), t));
 const SANDBOX = join(tmpdir(), 'legendflow-edge-typecheck');
 
 mkdirSync(SANDBOX, { recursive: true });
@@ -25,7 +28,7 @@ writeFileSync(
   JSON.stringify({ name: 'edge-typecheck', private: true, dependencies: { openai: '^4.52.5' } }),
 );
 
-const r = spawnSync('deno', ['check', '--no-lock', TARGET], {
+const r = spawnSync('deno', ['check', '--no-lock', ...TARGETS], {
   cwd: SANDBOX,
   stdio: 'inherit',
 });

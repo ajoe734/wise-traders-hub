@@ -375,6 +375,18 @@ export interface ChipsTelemetryContext {
   isViewAs?: boolean;
 }
 
+/**
+ * per-stock debug 遙測開關（預設關閉）。
+ *
+ * 成本事故 2026-08-30：chips_fetch_start / chips_fetch_done 是每檔一發，
+ * 一次開 30 檔就是 60 筆遠端事件，占 traffic-ingest boot 的大宗，而它們
+ * 只在 debug 時有用。錯誤事件與 batch 層級事件不受影響，永遠照送。
+ * 需要時在 console 執行 localStorage.lf_chips_debug = '1'。
+ */
+export function chipsDebugTelemetryOn(): boolean {
+  try { return localStorage.getItem('lf_chips_debug') === '1'; } catch { return false; }
+}
+
 /** 取完整籌碼 payload。錯誤一律是 ChipsRequestError。 */
 export async function fetchChipsPayload(
   stockId: string,
@@ -382,7 +394,10 @@ export async function fetchChipsPayload(
 ): Promise<ChipsFetchResult> {
   const source = opts?.telemetry?.source ?? 'unknown';
   const isViewAs = !!opts?.telemetry?.isViewAs;
-  trackEvent('chips_fetch_start', { stock_code: stockId, source, is_view_as: isViewAs });
+  const debugTelemetry = chipsDebugTelemetryOn();
+  if (debugTelemetry) {
+    trackEvent('chips_fetch_start', { stock_code: stockId, source, is_view_as: isViewAs });
+  }
   try {
     const { text, durationMs } = await requestText(
       `/${CHIPS_FN}?stock_id=${encodeURIComponent(stockId)}`,
@@ -390,17 +405,19 @@ export async function fetchChipsPayload(
     );
     const payload = JSON.parse(text) as TwChipsPayload;
     const stampVer = payload?._cache_meta?.stamp_ver ?? null;
-    trackEvent('chips_fetch_done', {
-      stock_code: stockId,
-      source,
-      duration_ms: durationMs,
-      payload_bytes: text.length,
-      bsr_freshness_status: payload?.bsr_freshness_status ?? null,
-      edge_cache: payload?._cache_meta?.cache ?? null,
-      stamp_ver: stampVer,
-      bsr_source: payload?.bsr_source ?? null,
-      is_view_as: isViewAs,
-    });
+    if (debugTelemetry) {
+      trackEvent('chips_fetch_done', {
+        stock_code: stockId,
+        source,
+        duration_ms: durationMs,
+        payload_bytes: text.length,
+        bsr_freshness_status: payload?.bsr_freshness_status ?? null,
+        edge_cache: payload?._cache_meta?.cache ?? null,
+        stamp_ver: stampVer,
+        bsr_source: payload?.bsr_source ?? null,
+        is_view_as: isViewAs,
+      });
+    }
     return { payload, stampVer, bytes: text.length, durationMs };
   } catch (err) {
     const chips = classifyChipsError(err, (err as ChipsRequestError)?.status);

@@ -97,6 +97,18 @@ function shouldSkip(_path: string): boolean {
   return false;
 }
 
+/**
+ * 成本控制（2026-08-30 事故）：具名事件原本是「一個事件一個 POST」，
+ * 持倉看板一次開 30 檔會瞬間打出數十個 edge boot。改為：
+ *   1. 同一批次內完全相同的 (name|route|props) 只送一筆
+ *   2. 所有具名事件合併成單一 POST（body.events[]）
+ */
+function dedupeKey(ev: { name: string; route: string; props?: Record<string, unknown> }): string {
+  let p = '';
+  try { p = JSON.stringify(ev.props ?? null); } catch { p = '?'; }
+  return `${ev.name}|${ev.route}|${p}`;
+}
+
 function flushEvents() {
   if (!queue.length) return;
   const batch = queue.slice(0, 50);
@@ -106,12 +118,16 @@ function flushEvents() {
   if (pvRoutes.length) {
     post({ kind: 'event', visitor_id, routes: pvRoutes, referrer: document.referrer || null });
   }
-  for (const ev of named) {
-    post({
-      kind: 'event', visitor_id,
-      route: ev.route, event_name: ev.name, event_props: ev.props ?? null,
-      referrer: document.referrer || null,
-    });
+  if (named.length) {
+    const seen = new Set<string>();
+    const events: Array<{ name: string; route: string; props: Record<string, unknown> | null }> = [];
+    for (const ev of named) {
+      const k = dedupeKey(ev);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      events.push({ name: ev.name, route: ev.route, props: ev.props ?? null });
+    }
+    post({ kind: 'event', visitor_id, events, referrer: document.referrer || null });
   }
 }
 
