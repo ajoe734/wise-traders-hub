@@ -94,3 +94,28 @@ export function eventNames(events: FunnelEvent[]): string[] {
 export function pageViewRoutes(events: FunnelEvent[]): string[] {
   return events.flatMap((e) => e.routes ?? []);
 }
+
+/**
+ * 攤平 traffic-ingest 的 request body。
+ *
+ * 2026-08-30 成本控制後，具名事件改為單一 POST 的 `events: [{name, route, props}]`。
+ * 任何直接攔 postData 的 spec 都必須經過這裡，否則只會看到沒有 event_name 的信封。
+ */
+export function flattenIngestBody(body: unknown): FunnelEvent[] {
+  const b = body as Record<string, any> | null;
+  if (!b || typeof b !== 'object') return [];
+  const out: FunnelEvent[] = [];
+  if (Array.isArray(b.events)) {
+    for (const ev of b.events) {
+      out.push({
+        kind: b.kind,
+        event_name: ev?.name ?? ev?.event_name,
+        route: ev?.route ?? b.route,
+        event_props: ev?.props ?? ev?.event_props ?? null,
+      });
+    }
+  }
+  if (Array.isArray(b.routes) && b.routes.length) out.push({ kind: b.kind, routes: b.routes });
+  if (!Array.isArray(b.events) && !Array.isArray(b.routes)) out.push(b as FunnelEvent);
+  return out;
+}
