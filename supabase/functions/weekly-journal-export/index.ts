@@ -1,4 +1,4 @@
-// AUTH: user  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+// AUTH: cron  (SECURITY_ACCESS_FIX: hybrid cron-or-company-admin; 一般登入者一律 403)
 // Weekly journal export — 每週五 23:30 Asia/Taipei 自動執行
 // 抓當週 (Mon 00:00 ~ next Mon 00:00) 所有 mentor 已發布週記
 // → 每位老師產出獨立 Markdown 檔（<週別>/<slug>.md）
@@ -10,7 +10,8 @@
 
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { listCompanyAdminIds } from "../_shared/adminGuard.ts";
-import { requireCaller, AuthError } from '../_shared/authGuard.ts';
+import { AuthError } from '../_shared/authGuard.ts';
+import { computeRiskAckHash, decideForce, resolveExportCaller, type ExportCaller } from '../_shared/exportAuthz.ts';
 import { taipeiMondayOf, taipeiWeekRangeUtc } from "../_shared/weekBoundary.ts";
 import {
   buildMentorMarkdown,
@@ -67,27 +68,28 @@ async function loadHistory(
 }
 
 Deno.serve(async (req) => {
-  // AUTH: user (Phase M-2 runtime enforcement)
-  if (req.method !== 'OPTIONS') {
-    try { await requireCaller(req); }
-    catch (e) {
-      if (e instanceof AuthError) {
-        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
-          status: e.status,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        });
-      }
-      throw e;
-    }
-  }
-
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // SECURITY: cron (X-Cron-Key) 或 company_admin 才可觸發。一般登入使用者 403。
+  let caller: ExportCaller;
+  try {
+    caller = await resolveExportCaller(req);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return new Response(JSON.stringify({ error: e.message, code: e.code }), {
+        status: e.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    throw e;
+  }
 
   const supabase = serviceClient();
 
   try {
     let weekStart: string | null = null;
     let force = false;
+    let riskAckHash: string | null = null;
     try {
       if (req.method === "POST") {
         const body = await req.json().catch(() => ({}));
@@ -95,6 +97,7 @@ Deno.serve(async (req) => {
           weekStart = taipeiMondayOf(new Date(`${body.weekStart}T12:00:00+08:00`));
         }
         if (body?.force === true) force = true;
+        if (typeof body?.risk_ack_hash === 'string') riskAckHash = body.risk_ack_hash;
       }
     } catch { /* ignore */ }
     if (!weekStart) weekStart = taipeiMondayOf(new Date());
@@ -119,20 +122,30 @@ Deno.serve(async (req) => {
       const history = await loadHistory(supabase, list, range.startIso);
       costBasis = history.costBasis;
       riskReport = detectExportRisks(list, { openingBalances: history.openingBalances, publishedOnly: true });
-      if (riskReport.blocked && !force) {
-        console.warn(`[weekly-journal-export] blocked: ${riskReport.summary.block} block / ${riskReport.summary.warn} warn`);
+      const expectedHash = await computeRiskAckHash(range.startLabel, riskReport);
+      const decision = decideForce({
+        caller,
+        force,
+        riskAckHash,
+        expectedHash,
+        blocked: riskReport.blocked,
+      });
+      if (!decision.allowed) {
+        console.warn(`[weekly-journal-export] ${decision.code}: ${riskReport.summary.block} block / ${riskReport.summary.warn} warn`);
         return new Response(
           JSON.stringify({
             ok: false,
-            code: "EXPORT_BLOCKED",
-            error: `偵測到 ${riskReport.summary.block} 項高風險資料，已阻擋匯出。若確認可加上 { force: true } 重試。`,
+            code: decision.code,
+            error: decision.error,
             weekStart: range.startLabel,
             weekEnd: range.endLabel,
             risk_report: riskReport,
+            expected_risk_ack_hash: decision.expected_risk_ack_hash ?? expectedHash,
           }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          { status: decision.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+      force = decision.forced;
     }
 
     // 2. 依老師分組（規則與前台共用 core）
@@ -215,6 +228,7 @@ Deno.serve(async (req) => {
       files: uploaded,
       cleaned_up: deletedCount,
       forced: force,
+      triggered_by: caller.mode,
       risk_report: riskReport,
     };
     console.log(`[weekly-journal-export] done`, result);

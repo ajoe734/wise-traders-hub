@@ -155,20 +155,12 @@ const Checkout = () => {
       const confirmPayment = async () => {
         setIsConfirming(true);
         try {
-          const returnedBillingCycle = searchParams.get('billingCycle') || billingCycle;
-          const currentPrice = returnedBillingCycle === 'yearly'
-            ? (plan.price_yearly || plan.price_monthly * 12)
-            : plan.price_monthly;
-          const isSimulate = searchParams.get('simulate') === 'true';
+          // SECURITY: confirm-linepay 只接受 orderId + transactionId；
+          // user / plan / amount / billingCycle 一律由後端從 payment_intents 反查。
           const { data, error } = await supabase.functions.invoke('confirm-linepay', {
             body: {
               transactionId,
               orderId: txOrderId || '',
-              amount: currentPrice,
-              planId,
-              billingCycle: returnedBillingCycle,
-              userId: user?.id || null,
-              simulate: isSimulate,
             },
           });
           if (error || !data?.success) {

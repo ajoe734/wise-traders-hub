@@ -203,8 +203,14 @@ describe('extendSubscriptionExpiry（自動續約延期 4.3-4）', () => {
 
 describe('drift-detection: 訂閱生命週期各節點', () => {
   it('confirm-linepay 呼叫 createSubscriptionAndTransaction 建立訂閱（4.3-1）', () => {
-    const src = readFileSync(
+    const entry = readFileSync(
       resolve(process.cwd(), 'supabase/functions/confirm-linepay/index.ts'),
+      'utf-8',
+    );
+    // 邏輯已抽到 _shared/linepayConfirm.ts（單一資料源），entry 只做轉呼叫
+    expect(entry).toContain('../_shared/linepayConfirm.ts');
+    const src = readFileSync(
+      resolve(process.cwd(), 'supabase/functions/_shared/linepayConfirm.ts'),
       'utf-8',
     );
     expect(src).toContain('createSubscriptionAndTransaction');

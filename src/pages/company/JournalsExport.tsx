@@ -132,6 +132,7 @@ async function describeInvokeError(err: unknown): Promise<{ message: string; det
 
 function AutoExportSection() {
   const [running, setRunning] = useState(false);
+  const [ackPrompt, setAckPrompt] = useState<{ hash: string; blocks: number; warns: number; message: string } | null>(null);
   const [failure, setFailure] = useState<ExportFailure | null>(null);
 
   const { data: files = [], isLoading, refetch } = useQuery({
@@ -175,11 +176,13 @@ function AutoExportSection() {
     window.open(data.signedUrl, '_blank');
   };
 
-  const triggerNow = async () => {
+  const triggerNow = async (ackHash?: string) => {
     setRunning(true);
     setFailure(null);
+    setAckPrompt(null);
     try {
-      const { data, error } = await supabase.functions.invoke('weekly-journal-export', { body: {} });
+      const body = ackHash ? { force: true, risk_ack_hash: ackHash } : {};
+      const { data, error } = await supabase.functions.invoke('weekly-journal-export', { body });
       if (error) {
         const info = await describeInvokeError(error);
         setFailure({ ...info, at: Date.now() });
@@ -199,6 +202,21 @@ function AutoExportSection() {
         return;
       }
       if ((data as any).ok === false) {
+        const code = String((data as any).code ?? '');
+        const expected = (data as any).expected_risk_ack_hash;
+        // 高風險阻擋：改走「人工二次確認 + risk_ack_hash」流程，不再盲目 force
+        if (
+          typeof expected === 'string' && expected &&
+          (code === 'EXPORT_BLOCKED' || code === 'RISK_ACK_MISSING' || code === 'RISK_ACK_MISMATCH')
+        ) {
+          setAckPrompt({
+            hash: expected,
+            blocks: Number((data as any).risk_report?.summary?.block ?? 0),
+            warns: Number((data as any).risk_report?.summary?.warn ?? 0),
+            message: String((data as any).error ?? ''),
+          });
+          return;
+        }
         const info: ExportFailure = {
           message: '匯出流程回報失敗',
           detail: String((data as any).error ?? '未提供錯誤原因'),
@@ -234,7 +252,7 @@ function AutoExportSection() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()}>重新整理</Button>
-          <Button size="sm" onClick={triggerNow} disabled={running} data-testid="je-manual-trigger">
+          <Button size="sm" onClick={() => triggerNow()} disabled={running} data-testid="je-manual-trigger">
             {running ? '執行中…' : '立即手動觸發'}
           </Button>
         </div>
@@ -268,7 +286,7 @@ function AutoExportSection() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={triggerNow}
+                  onClick={() => triggerNow()}
                   disabled={running}
                   className="gap-1"
                   data-testid="je-manual-retry"
@@ -313,6 +331,30 @@ function AutoExportSection() {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!ackPrompt} onOpenChange={(o) => { if (!o) setAckPrompt(null); }}>
+        <AlertDialogContent data-testid="je-risk-ack-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>偵測到高風險資料，需人工確認</AlertDialogTitle>
+            <AlertDialogDescription>
+              {ackPrompt?.message || '本週資料含高風險項目。'}
+              <br />
+              阻擋 {ackPrompt?.blocks ?? 0} 項 · 警告 {ackPrompt?.warns ?? 0} 項。
+              <br />
+              確認後將以此風險快照（{ackPrompt?.hash.slice(0, 12)}…）強制匯出；若期間資料再變動，此確認會自動失效。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="je-risk-ack-confirm"
+              onClick={() => { const h = ackPrompt?.hash; if (h) triggerNow(h); }}
+            >
+              我已確認，強制匯出
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

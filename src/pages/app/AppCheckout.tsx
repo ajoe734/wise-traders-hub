@@ -190,11 +190,9 @@ const AppCheckout = () => {
   const confirmLinePayPayment = async (transactionId: string, orderId: string) => {
     setIsConfirming(true);
     try {
-      const returnedBillingCycle = searchParams.get("billingCycle") || billingCycle;
-      const currentPrice = returnedBillingCycle === "yearly" ? (planData?.price_yearly ?? 0) : (planData?.price_monthly ?? 0);
-      const isSimulate = searchParams.get("simulate") === "true";
+      // SECURITY: confirm-linepay 只接受 orderId + transactionId（後端反查 payment_intents）
       const { data, error } = await supabase.functions.invoke("confirm-linepay", {
-        body: { transactionId, orderId, amount: currentPrice, planId, billingCycle: returnedBillingCycle, userId: user?.id || null, simulate: isSimulate },
+        body: { transactionId, orderId },
       });
       if (error || !data?.success) { setResultDialog({ open: true, success: false }); } else { setResultDialog({ open: true, success: true }); }
     } catch { setResultDialog({ open: true, success: false }); } finally { setIsConfirming(false); }
