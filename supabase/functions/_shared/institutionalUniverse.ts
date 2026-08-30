@@ -138,3 +138,40 @@ export async function releaseSyncLease(supa: any, lockKey: string): Promise<void
     await supa.from('tw_bsr_sync_locks').delete().eq('lock_key', lockKey);
   } catch { /* best-effort */ }
 }
+
+/**
+ * D. 零新增自停（zero-yield auto-stop）
+ *
+ * 為什麼存在（成本事故 2026-08-30）：cold-start / resume lane 會把 90 天的
+ * 計畫從頭跑到尾，即使每一天都「已存在、0 新增」。每 5 分鐘一輪 → DB CPU
+ * 長期被無收穫的掃描吃掉。
+ *
+ * 規則：連續 `maxZeroStreak` 天實際寫入 0 列（含 already_present 與
+ * delta 全 skip），就停止本輪並回報 `zero_yield_auto_stop`。
+ * 任一天有寫入就把 streak 歸零 —— 真的有缺口時不會被誤停。
+ */
+export class ZeroYieldStopper {
+  private streak = 0;
+  constructor(private readonly maxZeroStreak: number = 5) {}
+
+  /** 回報一天的寫入列數。回傳 true = 應停止本輪。 */
+  record(written: number): boolean {
+    if (Number(written) > 0) this.streak = 0;
+    else this.streak += 1;
+    return this.shouldStop();
+  }
+
+  shouldStop(): boolean {
+    return this.streak >= this.maxZeroStreak;
+  }
+
+  get zeroStreak(): number {
+    return this.streak;
+  }
+
+  reset(): void {
+    this.streak = 0;
+  }
+}
+
+export const ZERO_YIELD_STOP_REASON = 'zero_yield_auto_stop';

@@ -1,43 +1,52 @@
 -- ============================================================================
--- SECURITY_ACCESS_FIX — item 3: view / table / function 存取收斂
+-- SECURITY_ACCESS_FIX (REV2) — item 3: view / table / function 存取收斂
 --
 -- 狀態：PENDING（本輪只產檔，未 apply）。
--- 套用方式：核准後由 migration 工具原文送出，會自動落成正式 migration 檔。
--- 內容全部可逆（檔尾附 rollback）。不動 cron 排程、不刪任何資料列。
+--
+-- REV2 重寫理由（相對第一版）：
+--   1. live DB 已由人工 transaction 10073021 / 10073064 先行修好一部分
+--      （expert_limit_up_hits / checkup_knowledge_items 的 policy + anon 收回、
+--        has_active_checkup_access 已建立並收回 anon）。本檔改為
+--      **完全可重入（reentrant）**：對已修好的部分是 no-op，對未修的部分才生效，
+--      套用後與 live 收斂到同一狀態。
+--   2. 移除所有 definer metadata views（expert_limit_up_hits_public /
+--      checkup_knowledge_items_public）。定義者權限的投影 view 會再開一條
+--      繞過 RLS 的讀取面，且目前無任何前台消費端 → 不建立。
+--   3. payment_providers_safe 維持 definer（不改 security_invoker）：
+--      底層 public.payment_providers 只有一條
+--      `Company admins full access providers`（TO authenticated,
+--      has_role(auth.uid(),'company_admin')）policy，改成 invoker 會讓
+--      anon / 一般會員在結帳頁讀到 0 列 → 直接壞掉。改以 scanner exception
+--      紀錄（見檔尾與 security memory）。
+--   4. 不重設 service_role：本檔不含任何 `REVOKE ... FROM service_role`，
+--      GRANT 只做加法。
+--   5. 不觸碰 pg_cron：本檔不含 cron.schedule / cron.alter_job，
+--      SECURITY_CLOUD_STOP_BLEEDING 停用的 8 個 job 不會被改回。
 --
 -- 涵蓋：
---   A. payment_providers_safe 改 security_invoker
---   B. expert_limit_up_hits    → metadata-only public view + 收緊原表
---   C. checkup_knowledge_items → metadata-only public view + 收緊原表（付費內容）
---   D. SECURITY DEFINER 函式：加 uid guard 或收回 anon EXECUTE
+--   A. expert_limit_up_hits    → owner/admin-only 讀取（live 已一致，保持重入）
+--   B. checkup_knowledge_items → 具 checkup 存取權者才可讀全文（同上）
+--   C. SECURITY DEFINER 函式：收回 anon/authenticated EXECUTE 或補 uid guard
+--   D. payment_providers_safe：明示保留現況 + 例外理由
 --
--- 備註：expert_line_channels 本身是 table，對外暴露的是 view
---       public.expert_line_channels_public，該 view 已是 security_invoker=true
---       （稽核確認），本次無需變更。
+-- 全檔可逆（檔尾附 rollback）。不刪任何資料列。
 -- ============================================================================
 
 SET lock_timeout = '5s';
 SET statement_timeout = '120s';
 
 -- ---------------------------------------------------------------------------
--- A. payment_providers_safe：改為 invoker 權限（唯一缺 security_invoker 的 view）
--- ---------------------------------------------------------------------------
-ALTER VIEW public.payment_providers_safe SET (security_invoker = true);
-
--- 該 view 僅暴露非機密欄位（不含 config secrets），維持既有讀取角色。
-GRANT SELECT ON public.payment_providers_safe TO anon, authenticated;
-GRANT ALL ON public.payment_providers_safe TO service_role;
-
--- ---------------------------------------------------------------------------
--- B. expert_limit_up_hits
---    現況：policy "Anyone can view limit up hits" USING (true) TO public
---          → 任何人可讀 entry_price / close_price / trade_record_id。
---    改為：原表僅 company_admin 與該老師本人可讀；對外只留 metadata view。
---    消費端稽核：前台無任何直接 select（排行榜走 SECURITY DEFINER RPC
---                get_weekly_limit_up_leaderboard，不受影響）；
---                daily-snapshot edge function 以 service_role 寫入，不受影響。
+-- A. expert_limit_up_hits
+--    舊：policy "Anyone can view limit up hits" USING (true) TO public
+--        → 任何人可讀 entry_price / close_price / trade_record_id。
+--    新：僅 company_admin 與該老師本人可讀。
+--    消費端稽核：前台排行榜走 SECURITY DEFINER RPC
+--                get_weekly_limit_up_leaderboard（不受影響）；
+--                daily-snapshot edge function 以 service_role 寫入（不受影響）。
+--    live 現況：已一致（policy 存在、anon 無 SELECT）→ 本段為 no-op。
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Anyone can view limit up hits" ON public.expert_limit_up_hits;
+DROP POLICY IF EXISTS "limit_up_hits_admin_or_owner_read" ON public.expert_limit_up_hits;
 
 CREATE POLICY "limit_up_hits_admin_or_owner_read"
   ON public.expert_limit_up_hits
@@ -52,39 +61,22 @@ CREATE POLICY "limit_up_hits_admin_or_owner_read"
     )
   );
 
+ALTER TABLE public.expert_limit_up_hits ENABLE ROW LEVEL SECURITY;
 REVOKE SELECT ON public.expert_limit_up_hits FROM anon;
-GRANT SELECT ON public.expert_limit_up_hits TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.expert_limit_up_hits TO authenticated;
 GRANT ALL ON public.expert_limit_up_hits TO service_role;
 
--- metadata-only：不含 entry_price / close_price / trade_record_id
-CREATE OR REPLACE VIEW public.expert_limit_up_hits_public AS
-  SELECT
-    h.expert_id,
-    h.symbol,
-    h.instrument,
-    h.trade_date
-  FROM public.expert_limit_up_hits h
-  JOIN public.experts e ON e.id = h.expert_id AND e.status = 'active';
-
-COMMENT ON VIEW public.expert_limit_up_hits_public IS
-  'Marketing-safe projection of expert_limit_up_hits: no prices, no trade_record_id. Definer-rights on purpose.';
-
-GRANT SELECT ON public.expert_limit_up_hits_public TO anon, authenticated;
-GRANT ALL ON public.expert_limit_up_hits_public TO service_role;
-
 -- ---------------------------------------------------------------------------
--- C. checkup_knowledge_items
---    現況：policy "Anyone can read knowledge items" TO anon,authenticated
---          USING (is_active) → 付費知識庫全文（fact/interpretation/action/
---          lessons/trigger_condition/expected_outcome）任何人可整包抓走。
---    改為：全文僅 company_admin 或「有效 checkup 存取權」使用者可讀；
---          對外只留不含全文的 metadata view。
+-- B. checkup_knowledge_items
+--    舊：policy "Anyone can read knowledge items" TO anon,authenticated
+--        USING (is_active) → 付費知識庫全文任何人可整包抓走。
+--    新：全文僅 company_admin 或「有效 checkup 存取權」使用者可讀。
 --    消費端稽核：
---      - src/checkup/lib/knowledgeBase.js：查不到列時本來就退成空 cache，
---        AI prompt 自動省略「知識庫參考」段落，不會拋錯（既有 catch 路徑）。
---      - /company/knowledge-base/*：company_admin 身分，維持全文。
---      - knowledge-daily-scheduler / knowledge-backtest 等 edge function：
---        service_role，不受 RLS 影響。
+--      - src/checkup/lib/knowledgeBase.js：查不到列即退成空 cache，
+--        AI prompt 自動省略「知識庫參考」段落（既有 catch 路徑，不拋錯）。
+--      - /company/knowledge-base/*：company_admin，維持全文。
+--      - knowledge-* edge functions：service_role，不受 RLS 影響。
+--    live 現況：已一致 → 本段為 no-op。
 -- ---------------------------------------------------------------------------
 
 -- 有效 checkup 存取權 = 有效訂閱 或 未過期 entitlement（聯集，避免斷訂閱）
@@ -115,6 +107,7 @@ REVOKE EXECUTE ON FUNCTION public.has_active_checkup_access(uuid) FROM PUBLIC, a
 GRANT EXECUTE ON FUNCTION public.has_active_checkup_access(uuid) TO authenticated, service_role;
 
 DROP POLICY IF EXISTS "Anyone can read knowledge items" ON public.checkup_knowledge_items;
+DROP POLICY IF EXISTS "knowledge_items_entitled_read" ON public.checkup_knowledge_items;
 
 CREATE POLICY "knowledge_items_entitled_read"
   ON public.checkup_knowledge_items
@@ -128,42 +121,21 @@ CREATE POLICY "knowledge_items_entitled_read"
     )
   );
 
+ALTER TABLE public.checkup_knowledge_items ENABLE ROW LEVEL SECURITY;
 REVOKE SELECT ON public.checkup_knowledge_items FROM anon;
-GRANT SELECT ON public.checkup_knowledge_items TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkup_knowledge_items TO authenticated;
 GRANT ALL ON public.checkup_knowledge_items TO service_role;
 
--- metadata-only：標題/分類/標籤/統計，無全文內容
-CREATE OR REPLACE VIEW public.checkup_knowledge_items_public AS
-  SELECT
-    k.id,
-    k.item_id,
-    k.category,
-    k.title,
-    k.tags,
-    k.industry_tags,
-    k.time_horizon,
-    k.source_type,
-    k.win_rate,
-    k.sample_size,
-    k.confidence,
-    k.lifecycle_status,
-    k.updated_at
-  FROM public.checkup_knowledge_items k
-  WHERE k.is_active = true
-    AND k.lifecycle_status IN ('active', 'rescue');
-
-COMMENT ON VIEW public.checkup_knowledge_items_public IS
-  'Marketing-safe projection: titles/tags/stats only. Never expose fact/interpretation/action/lessons here.';
-
-GRANT SELECT ON public.checkup_knowledge_items_public TO anon, authenticated;
-GRANT ALL ON public.checkup_knowledge_items_public TO service_role;
-
 -- ---------------------------------------------------------------------------
--- D. SECURITY DEFINER 函式收斂
+-- C. SECURITY DEFINER 函式收斂
+--    live 現況（2026-08-30 查證）：
+--      已收斂：enqueue_institutional_backfill_universe / enqueue_backfill_jobs /
+--              claim_backfill_jobs（anon+authenticated 皆無 EXECUTE）
+--      仍開放：以下各支 → 本檔補齊。
+--    所有 REVOKE 皆不含 service_role。
 -- ---------------------------------------------------------------------------
 
--- D1. 純後端 / 排程專用（前台無任何呼叫端；edge function 走 service_role）
---     → 收回 anon 與 authenticated 的 EXECUTE。
+-- C1. 純後端 / 排程專用（前台無任何呼叫端；edge function 走 service_role）
 REVOKE EXECUTE ON FUNCTION public.enqueue_institutional_backfill_universe() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.enqueue_all_active_tw_holdings_bsr(integer) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.enqueue_institutional_new_stock(text) FROM PUBLIC, anon, authenticated;
@@ -184,18 +156,18 @@ GRANT EXECUTE ON FUNCTION public.bsr_snapshot_claim(date, uuid, integer) TO serv
 GRANT EXECUTE ON FUNCTION public.finmind_admit(text, text, text, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.finmind_admit_v2(text, text, text, numeric, boolean) TO service_role;
 
--- D2. 管理端函式：內部已有 has_role(company_admin) guard，僅收回 anon EXECUTE。
+-- C2. 管理端函式：內部已有 has_role(company_admin) guard，僅收回 anon EXECUTE。
 REVOKE EXECUTE ON FUNCTION public.admin_apply_fix_proposal(uuid, boolean) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.admin_generate_fix_proposals(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_apply_fix_proposal(uuid, boolean) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_generate_fix_proposals(text) TO authenticated, service_role;
 
--- D3. enqueue_bsr_backfill：函式內已強制 auth.uid() 非空 + 擁有者/管理員檢查，
+-- C3. enqueue_bsr_backfill：函式內已強制 auth.uid() 非空 + 擁有者/管理員檢查，
 --     anon 呼叫本來就會 raise。收回 anon EXECUTE 讓拒絕發生在權限層（零行為變更）。
 REVOKE EXECUTE ON FUNCTION public.enqueue_bsr_backfill(text, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.enqueue_bsr_backfill(text, integer) TO authenticated, service_role;
 
--- D4. ensure_bsr_queued：原本完全沒有呼叫者身分檢查 → 匿名可無限灌 queue（成本放大）。
+-- C4. ensure_bsr_queued：原本完全沒有呼叫者身分檢查 → 匿名可無限灌 queue（成本放大）。
 --     加 uid guard；維持 jsonb 回傳形狀（不 raise），前台既有 'ineligible' 分支即可吸收。
 CREATE OR REPLACE FUNCTION public.ensure_bsr_queued(p_stock_id text)
 RETURNS jsonb
@@ -314,11 +286,31 @@ $function$;
 REVOKE EXECUTE ON FUNCTION public.ensure_bsr_queued(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.ensure_bsr_queued(text) TO anon, authenticated, service_role;
 
+-- ---------------------------------------------------------------------------
+-- D. payment_providers_safe — 明示保留現況（scanner exception）
+--
+--    掃描器會標記「view 缺 security_invoker」。此處為**刻意保留**：
+--      * 底層 public.payment_providers 唯一 policy 是
+--        `Company admins full access providers`（TO authenticated,
+--         has_role(auth.uid(),'company_admin')）。
+--      * payment_providers_safe 只投影非機密欄位（不含 config secrets），
+--        供結帳頁列出可用支付方式；讀者是 anon / 一般會員。
+--      * 改 security_invoker=true → 這些讀者拿到 0 列，結帳頁直接壞掉。
+--    風險界線：view 不得新增任何機密欄位。若日後要加欄位，必須重新評估。
+--    → 本檔刻意不執行：ALTER VIEW public.payment_providers_safe SET (security_invoker = true);
+-- ---------------------------------------------------------------------------
+GRANT SELECT ON public.payment_providers_safe TO anon, authenticated;
+GRANT ALL ON public.payment_providers_safe TO service_role;
+
 -- ============================================================================
+-- 本檔刻意不做（REV2 明列）
+--   * 不建立 expert_limit_up_hits_public / checkup_knowledge_items_public
+--     等 definer metadata view。
+--   * 不改 payment_providers_safe 的 security_invoker（見 D）。
+--   * 不含任何 REVOKE ... FROM service_role。
+--   * 不含任何 cron.schedule / cron.alter_job / cron.unschedule。
+--
 -- ROLLBACK（若需回復，逐段執行）
---   ALTER VIEW public.payment_providers_safe SET (security_invoker = false);
---   DROP VIEW IF EXISTS public.expert_limit_up_hits_public;
---   DROP VIEW IF EXISTS public.checkup_knowledge_items_public;
 --   DROP POLICY IF EXISTS "limit_up_hits_admin_or_owner_read" ON public.expert_limit_up_hits;
 --   CREATE POLICY "Anyone can view limit up hits" ON public.expert_limit_up_hits FOR SELECT USING (true);
 --   GRANT SELECT ON public.expert_limit_up_hits TO anon;
@@ -326,6 +318,6 @@ GRANT EXECUTE ON FUNCTION public.ensure_bsr_queued(text) TO anon, authenticated,
 --   CREATE POLICY "Anyone can read knowledge items" ON public.checkup_knowledge_items
 --     FOR SELECT TO anon, authenticated USING (is_active = true);
 --   GRANT SELECT ON public.checkup_knowledge_items TO anon;
---   GRANT EXECUTE ON FUNCTION ... TO anon, authenticated;  -- D1/D2/D3 逐一還原
+--   GRANT EXECUTE ON FUNCTION ... TO anon, authenticated;  -- C1/C2/C3 逐一還原
 --   （ensure_bsr_queued 還原：移除開頭 auth.uid() guard 區塊）
 -- ============================================================================

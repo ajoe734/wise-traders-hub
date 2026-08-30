@@ -9,11 +9,11 @@
   "viewport": "1280x900",
   "theme": "light",
   "screenshot": "db/r1/p/evidence/preview/smoke-home.png",
-  "bodyChars": 636,
-  "expertsBodyChars": 387,
+  "bodyChars": 815,
+  "expertsBodyChars": 431,
   "layout": {
     "headerOrNavLandmarks": 2,
-    "navLinks": 29,
+    "navLinks": 30,
     "subscribeEntries": 8
   },
   "consoleErrors": [],
