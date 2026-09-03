@@ -6,6 +6,8 @@
  *   - auth_signup_submit / auth_signup_success / auth_signup_failure
  */
 import { test, expect, type Route, type Page } from '@playwright/test';
+import { flattenIngestBody } from './helpers/funnel-events';
+
 
 const SUPABASE_HOST = 'https://yqacmrgdjlenbijclngi.supabase.co';
 
