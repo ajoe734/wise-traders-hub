@@ -98,7 +98,7 @@ export function RenewalBanner() {
                 </p>
               </div>
               <Button size="sm" asChild>
-                <a href={url} onClick={() => track('checkup_upgrade_click', { from: 'renewal_banner' })}>立即續訂</a>
+                <Link to={url} onClick={() => track('checkup_upgrade_click', { from: 'renewal_banner' })}>立即續訂</Link>
               </Button>
             </CardContent>
           </Card>
