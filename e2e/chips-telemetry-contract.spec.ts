@@ -17,6 +17,7 @@
  */
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { gotoWithRetry } from './helpers/navigation';
+import { flattenIngestBody } from './helpers/funnel-events';
 
 type IngestEvent = { event_name: string; event_props: Record<string, unknown> | null };
 
@@ -65,15 +66,27 @@ function captureChipsEvents(page: Page): IngestEvent[] {
     try {
       const raw = req.postData();
       if (!raw) return;
-      const body = JSON.parse(raw);
-      const name = String(body?.event_name ?? '');
-      if (!name.startsWith('chips_')) return;
-      events.push({ event_name: name, event_props: body?.event_props ?? null });
+      // 具名事件已批次化成 body.events[]；攤平後才拿得到 chips_* 名稱。
+      for (const ev of flattenIngestBody(JSON.parse(raw))) {
+        const name = String(ev.event_name ?? '');
+        if (!name.startsWith('chips_')) continue;
+        events.push({ event_name: name, event_props: (ev.event_props ?? null) as Record<string, unknown> | null });
+      }
     } catch {
       /* ignore malformed */
     }
   });
   return events;
+}
+
+/**
+ * chips_fetch_start / chips_fetch_done 為降低 edge boot 成本，已改成
+ * 只在 localStorage.lf_chips_debug === '1' 時送出。契約 spec 必須顯式開啟。
+ */
+async function enableChipsDebug(page: Page) {
+  await page.addInitScript(() => {
+    try { localStorage.setItem('lf_chips_debug', '1'); } catch { /* noop */ }
+  });
 }
 
 /** 統一 mock：tw-chips-detail 回指定 payload；traffic-ingest 一律 200 */
@@ -106,6 +119,7 @@ async function waitForEvent(
 
 test.describe('Phase G · Chips 端到端事件契約', () => {
   test('drawer_open + edge_cache=miss + bsr_source=rollup → L3 rollup 事件鏈完整', async ({ page }) => {
+    await enableChipsDebug(page);
     await mockChipsWith(page, fakeChipsPayload());
     const events = captureChipsEvents(page);
 
@@ -131,6 +145,7 @@ test.describe('Phase G · Chips 端到端事件契約', () => {
     const payload = fakeChipsPayload({
       _cache_meta: { cache: 'hit', stamp_ver: 'v1', served_at: new Date().toISOString() },
     });
+    await enableChipsDebug(page);
     await mockChipsWith(page, payload);
     const events = captureChipsEvents(page);
 
@@ -146,6 +161,7 @@ test.describe('Phase G · Chips 端到端事件契約', () => {
     const payload = fakeChipsPayload({
       _cache_meta: { cache: 'coalesced', stamp_ver: 'v1', served_at: new Date().toISOString() },
     });
+    await enableChipsDebug(page);
     await mockChipsWith(page, payload);
     const events = captureChipsEvents(page);
 
@@ -162,6 +178,7 @@ test.describe('Phase G · Chips 端到端事件契約', () => {
       bsr_fallback_used: true,
       _cache_meta: { cache: 'miss', stamp_ver: 'v1', served_at: new Date().toISOString() },
     });
+    await enableChipsDebug(page);
     await mockChipsWith(page, payload);
     const events = captureChipsEvents(page);
 
