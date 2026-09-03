@@ -5,6 +5,7 @@
 //   - 任一週期：expired 且 expires_at > now-24h（24h 回購窗）
 // 金額與續訂連結依 billing_cycle 顯示對應月費/年費。
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,21 @@ export function RenewalBanner() {
         .order('expires_at', { ascending: true });
 
       const nowMs = Date.now();
-      const filtered = ((data as any[]) || []).filter((s) => {
+      const rows = ((data as any[]) || []);
+      // 已續約：同一 plan 另有尚未到期的 active 訂閱時，不再顯示到期／回購提醒
+      const { data: activeRows } = await supabase
+        .from('member_subscriptions')
+        .select('plan_id, expires_at, status')
+        .eq('user_id', effectiveUserId)
+        .eq('status', 'active')
+        .is('canceled_at', null);
+      const renewedPlanIds = new Set(
+        ((activeRows as any[]) || [])
+          .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > nowMs)
+          .map((r) => r.plan_id),
+      );
+      const filtered = rows.filter((s) => {
+        if (renewedPlanIds.has(s.plan_id) && new Date(s.expires_at).getTime() <= nowMs) return false;
         const cycle = s.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
         const msLeft = new Date(s.expires_at).getTime() - nowMs;
         // 硬規則：真的超過 24h 回購窗，就不再顯示此橫幅（避免誤寫「24H 內」文案）
