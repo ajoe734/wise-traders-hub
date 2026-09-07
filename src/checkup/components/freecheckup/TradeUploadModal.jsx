@@ -7,26 +7,43 @@ import TradeTab from './TradeTab';
  * 把原 tab='trade' 的 TradeTab 包成置中 modal。
  * 由頂欄 / 手機底欄的「＋ 新增成交」CTA 開啟；ESC / 背景 / × 關閉。
  * TradeTab 內部 DOM 完全保留，e2e 選擇器不變。
+ *
+ * Focus 憲法（BUGFIX 2026-09-07）：
+ *   focus trap / body scroll lock 只能綁 `open`，**絕不可**把每次 render 都新建的
+ *   `onClose` 放進相依陣列 —— 否則父層每重繪一次（持倉冷卻倒數每秒 tick）effect
+ *   就 cleanup + 重跑，把焦點從「股票代碼」等輸入框搶走，使用者打字被中斷。
+ *   handler 一律走 ref 讀最新 onClose。
  */
 export default function TradeUploadModal({ open, onClose, C, alpha, quota, formatResetCountdown, tradeProps }) {
   const dialogRef = useRef(null);
   const previouslyFocused = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
     previouslyFocused.current = typeof document !== 'undefined' ? document.activeElement : null;
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current?.(); };
     document.addEventListener('keydown', onKey);
-    // simple focus trap: focus the dialog
-    setTimeout(() => dialogRef.current?.focus?.(), 0);
+    // simple focus trap: focus the dialog（只在開啟當下一次）
+    const focusTimer = setTimeout(() => dialogRef.current?.focus?.(), 0);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
+      clearTimeout(focusTimer);
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
-      try { previouslyFocused.current?.focus?.(); } catch {}
+      // 關閉／卸載才還原焦點；若焦點還在 dialog 內（例如使用者正在輸入）不強搶。
+      try {
+        const active = typeof document !== 'undefined' ? document.activeElement : null;
+        if (!dialogRef.current || !active || !dialogRef.current.contains(active)) {
+          previouslyFocused.current?.focus?.();
+        }
+      } catch {}
     };
-  }, [open, onClose]);
+  }, [open]);
+
 
   if (!open) return null;
 

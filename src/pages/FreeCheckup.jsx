@@ -118,6 +118,12 @@ export default function App() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const openUploadModal = () => { setUploadModalOpen(true); try { trackRaw('checkup_upload_modal_open'); } catch {} };
   const closeUploadModal = () => setUploadModalOpen(false);
+  // stable identity：避免每次 render 產生新 onClose 讓 modal 的 focus effect 重跑（打斷輸入）
+  const handleUploadModalClose = useCallback(() => {
+    setUploadModalOpen(false);
+    setTab((prev) => (prev === 'trade' ? 'holdings' : prev));
+  }, []);
+
   useEffect(() => { trackRaw('checkup_view', { tab: 'holdings' }); }, []);
   // 配額耗盡採 inline banner（TradeTab L162 / DailyTab）+ toast 提示，
   // 不再使用全螢幕 modal，避免擋住 tab 導航（見 .lovable/plan.md）
@@ -3455,7 +3461,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <Suspense fallback={null}>
               <TradeUploadModal
                 open={modalOpen}
-                onClose={() => { setUploadModalOpen(false); if (tab === 'trade') setTab('holdings'); }}
+                onClose={handleUploadModalClose}
                 C={C} alpha={alpha}
                 quota={quota}
                 formatResetCountdown={formatResetCountdown}
