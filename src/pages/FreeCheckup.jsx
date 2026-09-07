@@ -3461,7 +3461,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <Suspense fallback={null}>
               <TradeUploadModal
                 open={modalOpen}
-                onClose={() => { setUploadModalOpen(false); if (tab === 'trade') setTab('holdings'); }}
+                onClose={handleUploadModalClose}
                 C={C} alpha={alpha}
                 quota={quota}
                 formatResetCountdown={formatResetCountdown}
