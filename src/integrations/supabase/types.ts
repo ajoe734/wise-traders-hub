@@ -813,6 +813,50 @@ export type Database = {
           },
         ]
       }
+      checkup_pending_grants: {
+        Row: {
+          consumed_at: string | null
+          consumed_user_id: string | null
+          created_at: string
+          email: string
+          granted_by: string | null
+          id: string
+          months: number
+          note: string | null
+          plan_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          consumed_user_id?: string | null
+          created_at?: string
+          email: string
+          granted_by?: string | null
+          id?: string
+          months?: number
+          note?: string | null
+          plan_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          consumed_user_id?: string | null
+          created_at?: string
+          email?: string
+          granted_by?: string | null
+          id?: string
+          months?: number
+          note?: string | null
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkup_pending_grants_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkup_plans: {
         Row: {
           created_at: string

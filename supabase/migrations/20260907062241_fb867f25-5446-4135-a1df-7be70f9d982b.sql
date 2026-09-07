@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.consume_checkup_pending_grant() FROM PUBLIC, anon, authenticated;
