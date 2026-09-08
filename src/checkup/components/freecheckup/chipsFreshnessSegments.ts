@@ -15,10 +15,16 @@ import {
   isTerminalUnavailable,
   mapProviderState,
 } from '@/checkup/lib/bsrCanonicalCodes';
+import { BSR_TEXT_ENTITLEMENT } from '@/checkup/lib/cardChipsFact';
 
 /** terminal／不可用共用文案：不指名上游、不承諾時間、不露內部 code。 */
 function unavailableText(asOf: string | null): string {
   return asOf ? `${BSR_TEXT_UNAVAILABLE} · 顯示最後可得資料 ${asOf}` : BSR_TEXT_UNAVAILABLE;
+}
+
+/** 上游授權缺口（terminal）：券商分點專用，明說需授權且給最後可得日期。 */
+function entitlementText(asOf: string | null): string {
+  return asOf ? `${BSR_TEXT_ENTITLEMENT} · 最後可得 ${asOf}` : BSR_TEXT_ENTITLEMENT;
 }
 
 export type SegmentTone = 'ok' | 'warn' | 'error' | 'muted';
@@ -101,8 +107,8 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
     return { ...base, state: 'ineligible', tone: 'muted', text: BSR_TEXT_INELIGIBLE };
   }
   if (terminal) {
-    // canonical terminal：狀態一律 unavailable_unsupported，文案不得指名上游或方案。
-    return { ...base, state: BSR_TERMINAL_SEG_STATE, tone: 'error', text: unavailableText(asOf) };
+    // canonical terminal：狀態一律 unavailable_unsupported；分點缺的是授權，不是暫時性失敗。
+    return { ...base, state: BSR_TERMINAL_SEG_STATE, tone: 'warn', text: entitlementText(asOf) };
   }
   if (providerState === 'unknown_degraded') {
     return {
@@ -123,7 +129,7 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
 
   // 舊／新端點都可能回 'unsupported'（不在 payload 型別列舉內），一律落 canonical terminal。
   if (String(status) === 'unsupported') {
-    return { ...base, state: BSR_TERMINAL_SEG_STATE, tone: 'error', text: unavailableText(asOf) };
+    return { ...base, state: BSR_TERMINAL_SEG_STATE, tone: 'warn', text: entitlementText(asOf) };
   }
 
   switch (status) {

@@ -23,7 +23,8 @@ describe('buildBsrSegment × provider_state', () => {
     const seg = buildBsrSegment(payload({ bsr_provider_state: 'terminal_provider_rejected' }));
     // Stage D canonical：terminal 一律 unavailable_unsupported + 統一文案（不得洩漏 provider/方案）
     expect(seg.state).toBe('unavailable_unsupported');
-    expect(seg.text).toBe('籌碼資料暫時無法取得 · 顯示最後可得資料 2026/08/14');
+    // 2026-09 起：分點缺的是上游授權（非暫時性失敗），文案改為需授權 + 最後可得日期。
+    expect(seg.text).toBe('券商分點資料源需授權 · 最後可得 2026/08/14');
     expect(seg.text).not.toContain('上游來源中止');
     FORBIDDEN.forEach((w) => expect(seg.text).not.toContain(w));
   });
@@ -33,7 +34,7 @@ describe('buildBsrSegment × provider_state', () => {
       payload({ bsr_as_of: null, bsr_provider_state: 'terminal_provider_rejected' }),
     );
     expect(seg.state).toBe('unavailable_unsupported');
-    expect(seg.text).toBe('籌碼資料暫時無法取得');
+    expect(seg.text).toBe('券商分點資料源需授權');
     expect(seg.text).not.toContain('上游目前不提供此資料');
     FORBIDDEN.forEach((w) => expect(seg.text).not.toContain(w));
   });

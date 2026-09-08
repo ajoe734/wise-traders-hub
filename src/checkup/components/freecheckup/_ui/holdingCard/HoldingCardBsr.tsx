@@ -16,7 +16,8 @@ import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
 import { chipsBatchStatusKey, type ChipsBatchStatus } from '@/checkup/hooks/useChipsBatch';
 import type { ChipsFetchResult } from '@/checkup/lib/chipsRepository';
 import { normalizeStockCode } from '@/checkup/lib/chipsRepository';
-import { resolveCardBsrState, bsrStateText, type BsrUiState } from '@/checkup/lib/bsrCanonicalCodes';
+import { type BsrUiState } from '@/checkup/lib/bsrCanonicalCodes';
+import { resolveCardChipsFact } from '@/checkup/lib/cardChipsFact';
 
 const SR_ONLY: React.CSSProperties = {
   position: 'absolute',
@@ -57,19 +58,27 @@ export function HoldingCardBsr({ code: rawCode, suppressStrip = false }: Holding
     retry: false,
   });
 
-  const payload = chips.data?.payload ?? null;
-  const state: BsrUiState = resolveCardBsrState(chips.data ?? null, status.data ?? null);
-  const asOf = payload?.bsr_as_of ?? null;
-  const text = bsrStateText(state, asOf);
+  const fact = resolveCardChipsFact(chips.data ?? null, status.data ?? null);
+  const state: BsrUiState = fact.bsrState;
+  const asOf = fact.bsrAsOf;
+  const text = fact.text;
+  const secondary = fact.secondaryText;
 
   const common = {
     'data-testid': 'holding-card-bsr',
+    'data-chips-kind': fact.kind,
+    'data-chips-as-of': fact.asOf ?? '',
     'data-bsr-state': state,
     'data-bsr-as-of': asOf ?? '',
   } as const;
 
   if (!text || suppressStrip) {
-    return <span {...common} style={SR_ONLY}>{text}</span>;
+    return (
+      <span {...common} style={SR_ONLY}>
+        {text}
+        {secondary ? ` · ${secondary}` : ''}
+      </span>
+    );
   }
 
   return (
@@ -78,6 +87,7 @@ export function HoldingCardBsr({ code: rawCode, suppressStrip = false }: Holding
       <div aria-hidden data-testid="holding-card-bsr-spacer" style={{ height: 18, flex: '0 0 auto' }} />
       <div
       {...common}
+      title={secondary ? `${text} · ${secondary}` : text}
       style={{
         position: 'absolute',
         left: 0,
@@ -94,7 +104,13 @@ export function HoldingCardBsr({ code: rawCode, suppressStrip = false }: Holding
         zIndex: 3,
       }}
     >
-      {text}
+      <span data-testid="holding-card-chips-primary">{text}</span>
+      {secondary ? (
+        <span data-testid="holding-card-chips-secondary" style={{ color: '#8d867c' }}>
+          {' · '}
+          {secondary}
+        </span>
+      ) : null}
       </div>
     </>
   );
