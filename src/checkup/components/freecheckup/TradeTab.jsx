@@ -6,6 +6,7 @@ import BatchParsePanel from './BatchParsePanel';
 import ManualTradeForm from './ManualTradeForm';
 import { appendToParsed, computePreviewIssues, describeIssue } from '@/checkup/lib/manualTradeEntry';
 import { normalizeStockCode, classifyCode, validateQty, qtyRuleFor } from '@/checkup/lib/stockIdentity';
+import { canonicalizeTradeCode } from '@/checkup/lib/importedTradeIdentity';
 
 
 
@@ -412,7 +413,7 @@ function TradeTabImpl({
           }
           const trades = parsed.trades.map(t => ({
             ...t,
-            code: normalizeStockCode(t.code),
+            code: canonicalizeTradeCode(t.code, t.name),
             name: String(t.name).trim(),
             qty: Number(t.qty),
             price: Number(t.price),
