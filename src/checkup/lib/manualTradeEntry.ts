@@ -10,6 +10,7 @@
  */
 
 import { normalizeStockCode, qtyRuleFor, validateQty, classifyCode } from './stockIdentity';
+import { canonicalizeTradeCode } from './importedTradeIdentity';
 import { MAX_HOLDINGS } from '@/pages/_freeCheckup/constants.jsx';
 
 /** manual row 的 canonical key set（builder / whitelist / test 三處唯一依據）。 */
@@ -93,7 +94,7 @@ export interface ManualDraft {
 
 /** draft → exact 12-key manual row。缺值一律 `null`，不是 `undefined`／`0`。 */
 export function buildManualTradeRow(draft: ManualDraft): ManualTradeRow {
-  const code = normalizeStockCode(draft?.code);
+  const code = canonicalizeTradeCode(draft?.code, draft?.name);
   const name = String(draft?.name ?? '').trim() || code;
   const action = String(draft?.action ?? '').trim() === '賣出' ? '賣出' : '買進';
   return {
@@ -120,7 +121,7 @@ export interface DraftError {
 /** 表單送出前的欄位檢查（與 preview 的 `validateRow` 規則一致）。 */
 export function validateManualDraft(draft: ManualDraft): DraftError[] {
   const errs: DraftError[] = [];
-  const code = normalizeStockCode(draft?.code);
+  const code = canonicalizeTradeCode(draft?.code, draft?.name);
   if (!code) errs.push({ field: 'code', message: '請填寫代碼' });
   else if (classifyCode(code) === 'unknown') {
     errs.push({ field: 'code', message: '代碼格式不正確（台股 4–6 碼，美股 1–5 英文字母）' });
