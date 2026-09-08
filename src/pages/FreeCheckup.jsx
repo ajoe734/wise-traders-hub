@@ -2674,6 +2674,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             ? String(trade.action).trim()
             : (isSnapshotImport ? SNAPSHOT_IMPORT_ACTION : "買進"),
         }));
+        // fail-closed identity gate：名稱是權證但代號是 4 碼標的 → 整批擋下，
+        // 不 setParsed、不寫持倉、不發報價／K 線請求（不得依名稱猜回權證代號）。
+        const identityGate = screenImportedTradeIdentities(preparedTrades);
+        if (!identityGate.ok) {
+          setParseErr(identityGate.error);
+          setParseStep({ stage: 'error', label: '代號辨識有疑慮', progress: 60, detail: identityGate.error });
+          setParsing(false);
+          return { ok: false, error: identityGate.error, errorDetail: {
+            type: 'identity_mismatch',
+            message: identityGate.error,
+            rows: identityGate.rejected.map((r) => ({ code: String(r?.code ?? ''), name: String(r?.name ?? '') })),
+            hint: '請確認權證代號或改用手動輸入',
+          }};
+        }
         parsedResult.trades = preparedTrades;
         setParsed(parsedResult);
         setParseStep({ stage: 'persist', label: '寫入持倉與交易記錄', progress: 70, detail: `辨識出 ${preparedTrades.length} 筆部位` });
