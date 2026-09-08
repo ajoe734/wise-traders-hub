@@ -37,19 +37,24 @@ describe('卡片籌碼行 · 法人優先', () => {
     expect(line.text.startsWith('籌碼資料暫時無法取得')).toBe(false);
   });
 
-  it('法人新鮮 + BSR 正常 → 只顯示法人行，不加附註', () => {
+  it('BSR 正常 → 卡片維持零版面（不加字）', () => {
     const line = resolveCardChipsLine(
       { ...INST_FRESH, bsr_as_of: '2026-09-07', bsr_provider_state: null } as any,
       'available',
     );
-    expect(line.kind).toBe('institutional');
-    expect(line.text).not.toContain('券商分點');
+    expect(line.kind).toBe('none');
+    expect(line.text).toBe('');
   });
 
   it('法人淨額為 0 不得當成「有資料」冒充：仍顯示日期但標為 0 張', () => {
     const line = resolveCardChipsLine(
-      { as_of: '2026-09-07', institutional: { d1: { foreign_net: 0, days_covered: 1 } } } as any,
-      'available',
+      {
+        as_of: '2026-09-07',
+        institutional: { d1: { foreign_net: 0, days_covered: 1 } },
+        bsr_as_of: '2026-08-14',
+        bsr_provider_state: 'terminal_provider_rejected',
+      } as any,
+      'unavailable_unsupported',
     );
     expect(line.kind).toBe('institutional');
     expect(line.text).toContain('2026/09/07');

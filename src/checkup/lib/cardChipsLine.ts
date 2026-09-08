@@ -43,7 +43,11 @@ export function resolveCardChipsLine(
   const d1 = payload?.institutional?.d1 ?? null;
   const hasInst = Boolean(instAsOf && d1 && Number.isFinite(Number(d1.foreign_net ?? d1.total_net)));
 
-  if (hasInst) {
+  const fallbackText = bsrStateText(bsrState, payload?.bsr_as_of ?? null);
+
+  // 只有在「原本會顯示 BSR 警語」時才改用法人事實取代；
+  // BSR 正常時維持既有零版面行為（卡片不加字），避免無謂的版面回歸。
+  if (hasInst && fallbackText) {
     const net = Number(d1?.foreign_net ?? d1?.total_net ?? 0);
     const lots = formatSharesAsLots(net, { signed: true, suffix: '', subLotLabel: '0' });
     const head = `三大法人 ${formatBsrAsOf(instAsOf)} · 外資 ${lots} 張`;
@@ -51,6 +55,5 @@ export function resolveCardChipsLine(
     return { kind: 'institutional', text: `${head}${note}`, instAsOf };
   }
 
-  const fallback = bsrStateText(bsrState, payload?.bsr_as_of ?? null);
-  return { kind: fallback ? 'bsr' : 'none', text: fallback, instAsOf: null };
+  return { kind: fallbackText ? 'bsr' : 'none', text: fallbackText, instAsOf: null };
 }
