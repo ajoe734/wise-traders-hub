@@ -25,6 +25,7 @@ import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
 // E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
+import { canonicalizeTradeRow } from "@/checkup/lib/importedTradeIdentity";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { getAutoRefreshMinutes } from "@/checkup/lib/autoRefreshInterval";
 import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
@@ -2665,7 +2666,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         const parsedResult = JSON.parse(clean);
         const parsedTrades = Array.isArray(parsedResult?.trades) ? parsedResult.trades : [];
         const isSnapshotImport = parsedTrades.length > 0 && parsedTrades.every((trade) => !hasExplicitTradeAction(trade));
-        const preparedTrades = parsedTrades.map((trade) => ({
+        // 代號 canonicalize 與手動輸入共用同一契約（importedTradeIdentity）：
+        // OCR JSON 會把 "054530" 數值化成 54530，這裡還原前導 0；永不使用標的代號。
+        const preparedTrades = parsedTrades.map((trade) => canonicalizeTradeRow({
           ...trade,
           action: hasExplicitTradeAction(trade)
             ? String(trade.action).trim()
