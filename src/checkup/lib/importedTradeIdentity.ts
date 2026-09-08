@@ -58,3 +58,34 @@ export function isSuspectImportedIdentity(code: unknown, name: unknown): boolean
   if (looksLikeWarrantName(name) && /^\d{4}$/.test(c)) return true;
   return false;
 }
+
+/** OCR 匯入的 fail-closed 錯誤文案（權證名稱 + 標的代號）。 */
+export const WARRANT_UNDERLYING_IMPORT_ERROR =
+  '辨識到權證名稱，但代號疑似是標的股票，請確認權證代號或改用手動輸入';
+
+/**
+ * OCR 匯入 identity gate（fail-closed）。
+ * 名稱是權證、代號卻是 4 碼標的 → 整批拒絕，不得 setParsed / persist / 發 chart request。
+ * 絕不依名稱猜回權證代號。手動輸入路徑不套用此 gate。
+ */
+export function screenImportedTradeIdentities<T extends { code?: unknown; name?: unknown }>(
+  rows: readonly T[] | null | undefined,
+): { ok: boolean; accepted: T[]; rejected: T[]; error: string | null } {
+  const list = Array.isArray(rows) ? rows : [];
+  const rejected = list.filter((r) => {
+    const c = normalizeStockCode(r?.code);
+    return looksLikeWarrantName(r?.name) && /^\d{4}$/.test(c);
+  });
+  if (rejected.length > 0) {
+    const detail = rejected
+      .map((r) => `${String(r?.name ?? '').trim()}（${normalizeStockCode(r?.code)}）`)
+      .join('、');
+    return {
+      ok: false,
+      accepted: [],
+      rejected,
+      error: `${WARRANT_UNDERLYING_IMPORT_ERROR}：${detail}`,
+    };
+  }
+  return { ok: true, accepted: [...list], rejected: [], error: null };
+}
