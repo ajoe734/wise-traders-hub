@@ -2665,7 +2665,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         const parsedResult = JSON.parse(clean);
         const parsedTrades = Array.isArray(parsedResult?.trades) ? parsedResult.trades : [];
         const isSnapshotImport = parsedTrades.length > 0 && parsedTrades.every((trade) => !hasExplicitTradeAction(trade));
-        const preparedTrades = parsedTrades.map((trade) => ({
+        // 代號 canonicalize 與手動輸入共用同一契約（importedTradeIdentity）：
+        // OCR JSON 會把 "054530" 數值化成 54530，這裡還原前導 0；永不使用標的代號。
+        const preparedTrades = parsedTrades.map((trade) => canonicalizeTradeRow({
           ...trade,
           action: hasExplicitTradeAction(trade)
             ? String(trade.action).trim()
