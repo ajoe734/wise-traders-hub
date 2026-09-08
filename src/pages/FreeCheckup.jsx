@@ -25,7 +25,7 @@ import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
 // E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
-import { canonicalizeTradeRow } from "@/checkup/lib/importedTradeIdentity";
+import { canonicalizeTradeRow, screenImportedTradeIdentities } from "@/checkup/lib/importedTradeIdentity";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { getAutoRefreshMinutes } from "@/checkup/lib/autoRefreshInterval";
 import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
