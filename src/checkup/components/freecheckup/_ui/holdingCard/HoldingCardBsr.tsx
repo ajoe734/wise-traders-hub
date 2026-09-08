@@ -16,8 +16,7 @@ import { chipsQueryKey } from '@/checkup/hooks/useTwChipsDetail';
 import { chipsBatchStatusKey, type ChipsBatchStatus } from '@/checkup/hooks/useChipsBatch';
 import type { ChipsFetchResult } from '@/checkup/lib/chipsRepository';
 import { normalizeStockCode } from '@/checkup/lib/chipsRepository';
-import { resolveCardBsrState, type BsrUiState } from '@/checkup/lib/bsrCanonicalCodes';
-import { resolveCardChipsLine } from '@/checkup/lib/cardChipsLine';
+import { resolveCardBsrState, bsrStateText, type BsrUiState } from '@/checkup/lib/bsrCanonicalCodes';
 
 const SR_ONLY: React.CSSProperties = {
   position: 'absolute',
@@ -61,17 +60,12 @@ export function HoldingCardBsr({ code: rawCode, suppressStrip = false }: Holding
   const payload = chips.data?.payload ?? null;
   const state: BsrUiState = resolveCardBsrState(chips.data ?? null, status.data ?? null);
   const asOf = payload?.bsr_as_of ?? null;
-  // 籌碼面有兩個獨立來源：法人（每日同步）與券商分點（上游停更）。
-  // 卡片以實際可得的最新事實為主，BSR 不可用只當附註（見 cardChipsLine）。
-  const line = resolveCardChipsLine(payload as never, state);
-  const text = line.text;
+  const text = bsrStateText(state, asOf);
 
   const common = {
     'data-testid': 'holding-card-bsr',
     'data-bsr-state': state,
     'data-bsr-as-of': asOf ?? '',
-    'data-chips-line-kind': line.kind,
-    'data-inst-as-of': line.instAsOf ?? '',
   } as const;
 
   if (!text || suppressStrip) {
