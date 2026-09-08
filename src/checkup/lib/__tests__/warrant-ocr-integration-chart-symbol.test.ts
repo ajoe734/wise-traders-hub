@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { canonicalizeTradeRow } from '../importedTradeIdentity';
-import { planSparklineFetch, twSubsetOf } from '../sparklineFetchTask';
+import { planSparklineFetch, twSubsetOf } from '@/checkup/hooks/useSparklines';
 
 // checkup-parse 回傳的原始字串（模型未加引號 → 數值化，前導 0 消失）
 const OCR_RAW = '{"trades":[{"action":"buy","code":054530,"name":"祥碩凱基5C購01","qty":10,"price":0.61,"date":"2026/09/08"}]}';
