@@ -86,3 +86,17 @@ describe('已錯存資料 repair predicate（唯讀判定）', () => {
     expect(isSuspectImportedIdentity('00878', '國泰永續高股息')).toBe(false);
   });
 });
+
+describe('修復前行為見證（red witness）', () => {
+  // 修復前 OCR 管線：`String(trade.code).trim()`，代號直接沿用模型輸出。
+  const legacy = (raw: unknown) => String(raw ?? '').trim();
+  it('舊管線對數值化代號會產生 54530（與手動 054530 不一致）', () => {
+    expect(legacy(54530)).toBe('54530');
+    expect(legacy(54530)).not.toBe('054530');
+    // 新契約修復
+    expect(canonicalizeTradeCode(54530, WARRANT.name)).toBe('054530');
+  });
+  it('舊 server prompt 要求「4位數」→ 模型會回標的 5269；新契約不會把 5269 當持倉代號', () => {
+    expect(isSuspectImportedIdentity(legacy(UNDERLYING), WARRANT.name)).toBe(true);
+  });
+});
