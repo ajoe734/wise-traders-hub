@@ -38,6 +38,7 @@ const HoldingsDetailPanelVolumeHarnessEntry = lazy(() => import("../pages/Holdin
 const SignalEditorHarnessEntry = lazy(() => import("../pages/SignalEditorHarnessEntry"));
 const EtfDisplayHarnessEntry = lazy(() => import("../pages/EtfDisplayHarnessEntry"));
 const SignalPreviewHarnessEntry = lazy(() => import("../pages/SignalPreviewHarnessEntry"));
+const WarrantIdentityHarnessEntry = lazy(() => import("../pages/WarrantIdentityHarnessEntry"));
 const SignalFocusHarnessEntry = lazy(() => import("../pages/SignalFocusHarnessEntry"));
 const JournalPdfHarnessEntry = lazy(() => import("../pages/JournalPdfHarnessEntry"));
 const NotificationLinkHarnessEntry = lazy(() => import("../pages/NotificationLinkHarnessEntry"));
@@ -71,6 +72,7 @@ export const harnessRoutes = () => [
   <Route key="e2e-holdings-detail-volume" path="/e2e/holdings-detail-panel-volume" element={guarded(<HoldingsDetailPanelVolumeHarnessEntry />)} />,
   <Route key="e2e-signal-editor" path="/e2e/signal-editor-harness" element={guarded(<SignalEditorHarnessEntry />)} />,
   <Route key="e2e-etf-display" path="/e2e/etf-display-harness" element={guarded(<EtfDisplayHarnessEntry />)} />,
+  <Route key="e2e-warrant-identity" path="/e2e/warrant-identity-harness" element={guarded(<WarrantIdentityHarnessEntry />)} />,
   <Route key="e2e-signal-preview" path="/e2e/signal-preview-harness" element={guarded(<SignalPreviewHarnessEntry />)} />,
   <Route key="e2e-signal-focus" path="/e2e/signal-focus-harness" element={guarded(<SignalFocusHarnessEntry />)} />,
   <Route key="e2e-journal-pdf" path="/e2e/journal-pdf-harness" element={guarded(<JournalPdfHarnessEntry />)} />,
