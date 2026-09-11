@@ -47,8 +47,8 @@ INSERT INTO public.checkup_subscriptions (user_id, status, expires_at) VALUES ('
 
 -- helper -------------------------------------------------------------------
 CREATE TEMP TABLE t_results (name text, passed boolean, detail text);
-GRANT ALL ON t_results TO authenticated; GRANT USAGE ON SCHEMA pg_temp TO authenticated;
-CREATE OR REPLACE FUNCTION pg_temp.chk(name text, cond boolean, detail text DEFAULT '') RETURNS void LANGUAGE sql AS
+GRANT ALL ON t_results TO authenticated;
+CREATE OR REPLACE FUNCTION pg_temp.chk(name text, cond boolean, detail text DEFAULT '') RETURNS void LANGUAGE sql SECURITY DEFINER AS
 $$ INSERT INTO t_results VALUES (name, cond, detail) $$;
 
 -- T1 A 老師名單：3/7/1/0 天納入，8 天/過期/取消/無到期/無 mapping 排除
