@@ -136,7 +136,12 @@ const CompanyAnalysts = () => {
       const { error } = await (supabase.from('experts') as any).update(values).eq('id', expertId);
       if (error) throw error;
       setExperts((prev) => prev.map((e) => (e.id === expertId ? { ...e, ...values } : e)));
-      await logAdminAction('update_journal_reminder_time', 'experts', expertId, values);
+      await logAdminAction({
+        action: 'update_journal_reminder_time',
+        targetType: 'experts',
+        targetId: expertId,
+        detail: { before: { journal_reminder_time: reminderExpert?.journal_reminder_time, journal_reminder_timezone: reminderExpert?.journal_reminder_timezone }, after: values },
+      });
       toast.success('已更新撰寫提醒時間');
       setReminderExpert(null);
     } catch (e: any) {
