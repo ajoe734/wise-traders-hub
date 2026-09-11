@@ -40,9 +40,9 @@ const row = (o: Partial<ExpiringSubscriberRow>): ExpiringSubscriberRow => ({
 describe('subscriberExpiryReminder pure helpers', () => {
   it('title / days-left / date formats are 繁中 and YYYY/MM/DD', () => {
     expect(reminderTitle(3)).toBe('3 位訂閱者將於 7 日內到期');
-    expect(daysLeftLabel(0)).toContain('今天');
-    expect(daysLeftLabel(1)).toContain('1');
-    expect(daysLeftLabel(7)).toContain('7');
+    expect(daysLeftLabel(0)).toBe('今日到期');
+    expect(daysLeftLabel(1)).toBe('明日到期');
+    expect(daysLeftLabel(7)).toBe('剩 7 天');
     expect(formatExpiresOn('2026-09-14')).toBe('2026/09/14');
   });
 
@@ -138,6 +138,7 @@ describe('ExpiringSubscribersBanner consumer', () => {
     fireEvent.click(screen.getByLabelText('今天先收起'));
     expect(screen.queryByTestId('expiring-subscribers-banner')).toBeNull();
     const saved = JSON.parse(window.localStorage.getItem('lf.expiringSubscribersBanner.v1') || '{}');
-    expect(saved.dismissed).toContain(dismissKey('e1', '2026-09-11'));
+    const dismissedList: string[] = saved?.data?.dismissed ?? saved?.dismissed ?? [];
+    expect(dismissedList).toContain(dismissKey('e1', row({}).local_date));
   });
 });
