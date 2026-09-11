@@ -15,6 +15,7 @@ import { sanitizeRichHtml, htmlToPlainText } from '@/lib/sanitizeHtml';
 import { cn } from '@/lib/utils';
 import { Plus, Loader2, ArrowLeft, Eye } from 'lucide-react';
 import { JournalPreviewDialog } from '@/pages/_signalEditor/JournalPreviewDialog';
+import { ExpiringSubscribersBanner } from '@/components/admin/ExpiringSubscribersBanner';
 import { toast } from 'sonner';
 import {
   emptyTrade, newUid,
@@ -316,6 +317,7 @@ const SignalEditor = () => {
     <AdminLayout>
       <SEO title={`${expertSlug || ''} 訊號編輯 | legendflow`} description={'撰寫或編輯策略訊號。'} path={`/admin/${expertSlug || ''}/signals/edit`} noindex />
       <div className="space-y-6 max-w-4xl mx-auto pb-20">
+        <ExpiringSubscribersBanner expertId={expert?.id} expertSlug={expert?.slug} enabled={canEdit} />
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>
