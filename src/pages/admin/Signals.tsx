@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen, canRecallSignal, marketOfAssetClass, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
+import { ExpiringSubscribersBanner } from '@/components/admin/ExpiringSubscribersBanner';
 import { useAdminSignals } from '@/hooks/useAdminSignals';
 import { SignalsTable } from '@/pages/_adminSignals/SignalsTable';
 import { SignalCreateDialog } from '@/pages/_adminSignals/SignalCreateDialog';
