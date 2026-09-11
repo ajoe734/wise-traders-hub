@@ -50,6 +50,7 @@ const ChipsSectionHarnessEntry = lazy(() => import("../pages/ChipsSectionHarness
 const ChipsBatchHarnessEntry = lazy(() => import("../pages/ChipsBatchHarnessEntry"));
 const JournalAuthoringHarnessEntry = lazy(() => import("../pages/JournalAuthoringHarnessEntry"));
 const ShellEventBusHarnessEntry = lazy(() => import("../pages/ShellEventBusHarnessEntry"));
+const SubscriberExpiryReminderHarnessEntry = lazy(() => import("../pages/SubscriberExpiryReminderHarnessEntry"));
 
 interface HarnessRouteGuardProps {
   children?: ReactNode;
@@ -84,6 +85,7 @@ export const harnessRoutes = () => [
   <Route key="e2e-chips-section" path="/e2e/chips-section" element={guarded(<ChipsSectionHarnessEntry />)} />,
   <Route key="e2e-chips-batch" path="/e2e/chips-batch" element={guarded(<ChipsBatchHarnessEntry />)} />,
   <Route key="e2e-journal-authoring" path="/e2e/journal-authoring-harness" element={guarded(<JournalAuthoringHarnessEntry />)} />,
+  <Route key="e2e-subscriber-expiry" path="/e2e/subscriber-expiry-reminder-harness" element={guarded(<SubscriberExpiryReminderHarnessEntry />)} />,
 ];
 
 /** Nested harness route. Always registered; runtime-host guarded. */
