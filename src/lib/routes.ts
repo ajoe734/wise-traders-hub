@@ -28,3 +28,10 @@ export const renewalUrl = (
   const path = `/checkout/${encodeURIComponent(expertSlug)}/${encodeURIComponent(planId)}`;
   return joinBase(options.baseUrl, path);
 };
+
+/** 通知中心（Edge `_shared/routes.ts` 鏡像）。 */
+export const accountNotificationsUrl = (): string => '/account/notifications';
+
+/** 分析師後台週記列表／撰寫入口（Edge `_shared/routes.ts` 鏡像；route 為 /admin/:expertSlug/signals）。 */
+export const adminSignalsUrl = (expertSlug?: string | null): string =>
+  expertSlug ? `/admin/${encodeURIComponent(expertSlug)}/signals` : accountNotificationsUrl();
