@@ -22,12 +22,30 @@ interface Props {
 export function ReminderTimeDialog({ expert, saving, onClose, onSave }: Props) {
   const [time, setTime] = useState(DEFAULT_JOURNAL_REMINDER_TIME);
   const [tz, setTz] = useState(DEFAULT_JOURNAL_REMINDER_TIMEZONE);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!expert) return;
+    setSaveError(null);
     setTime(normalizeReminderTime(expert.journal_reminder_time));
     setTz(expert.journal_reminder_timezone || DEFAULT_JOURNAL_REMINDER_TIMEZONE);
   }, [expert]);
+
+  const handleSave = async () => {
+    if (!expert) return;
+    setSaveError(null);
+    try {
+      await onSave(expert.id, { journal_reminder_time: time, journal_reminder_timezone: tz.trim() });
+    } catch (err: any) {
+      const raw = String(err?.message || err || '');
+      const schemaMissing = /column|schema cache|does not exist|PGRST204/i.test(raw);
+      setSaveError(
+        schemaMissing
+          ? '尚未完成資料庫更新，暫時無法儲存提醒時間，請稍後再試。'
+          : `儲存失敗：${raw || '請稍後再試'}`,
+      );
+    }
+  };
 
   const timeOk = isValidReminderTime(time);
   const tzOk = isValidTimezone(tz);
