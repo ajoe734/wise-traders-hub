@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, MessageCircle, Key, Users } from 'lucide-react';
+import { Eye, MessageCircle, Key, Users, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { avatarUrl } from '@/lib/imageTransform';
 
@@ -14,9 +14,10 @@ interface Props {
   onToggleStatus: (id: string, currentStatus: string) => void;
   onOpenSubscribers?: (exp: any) => void;
   onAdopt?: (exp: any) => void;
+  onOpenReminder?: (exp: any) => void;
 }
 
-export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers, onAdopt }: Props) {
+export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers, onAdopt, onOpenReminder }: Props) {
 
   return (
     <Card>
@@ -90,6 +91,11 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onOpenAccount(exp)}>
                         <Key className="h-3 w-3 mr-1" />帳號
                       </Button>
+                      {onOpenReminder && (
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onOpenReminder(exp)} title="每日撰寫提醒時間">
+                          <Clock className="h-3 w-3 mr-1" />提醒
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
                         <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
                       </Button>

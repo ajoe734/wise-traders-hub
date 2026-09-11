@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen, canRecallSignal, marketOfAssetClass, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
+import { ExpiringSubscribersBanner } from '@/components/admin/ExpiringSubscribersBanner';
 import { useAdminSignals } from '@/hooks/useAdminSignals';
 import { SignalsTable } from '@/pages/_adminSignals/SignalsTable';
 import { SignalCreateDialog } from '@/pages/_adminSignals/SignalCreateDialog';
@@ -206,6 +207,7 @@ const AdminSignals = () => {
     <AdminLayout>
       <SEO title={`${expertSlug || ''} 訊號管理 | legendflow`} description={'發布與管理策略訊號。'} path={`/admin/${expertSlug || ''}/signals`} noindex />
       <div className="space-y-6">
+        <ExpiringSubscribersBanner expertId={expert?.id} expertSlug={expert?.slug} enabled={isOwner || isCompanyAdmin} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>

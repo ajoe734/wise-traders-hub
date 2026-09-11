@@ -89,6 +89,8 @@ export function NotificationBell() {
     subscription: '🎫',
     warning: '⚠️',
     recall: '🔄',
+    subscriber_expiry_reminder: '⏰',
+    journal_publish_reminder: '📝',
   };
 
   return (

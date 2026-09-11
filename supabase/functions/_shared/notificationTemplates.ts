@@ -89,3 +89,35 @@ export function buildJournalExportNotification(params: {
     link: companyUrl('journals-export'),
   });
 }
+
+/**
+ * 訂閱者即將到期 —— 每日於老師撰寫時間發給老師的彙總續訂關懷提醒。
+ * 一則通知涵蓋該老師名下 0–7 天內到期的所有訂閱；連到週記撰寫頁。
+ */
+export type SubscriberExpiryItem = {
+  display_name: string;
+  plan_name: string | null;
+  expires_on: string; // YYYY/MM/DD（老師時區）
+  days_left: number;
+};
+
+export function buildSubscriberExpiryTeacherReminder(params: {
+  teacherUserId: string;
+  expertSlug?: string | null;
+  items: SubscriberExpiryItem[];
+}): NotificationRow {
+  const items = params.items || [];
+  const count = items.length;
+  const preview = items.slice(0, 3).map((i) => {
+    const when = i.days_left <= 0 ? '今日到期' : `剩 ${i.days_left} 天`;
+    return `${i.display_name}（${i.plan_name || '訂閱方案'}・${i.expires_on}・${when}）`;
+  });
+  const more = count > 3 ? ` 等 ${count} 位` : '';
+  return buildNotificationRow({
+    userId: params.teacherUserId,
+    title: `${count} 位訂閱者將於 7 日內到期`,
+    body: `${preview.join('、')}${more}。建議在今天的週記中多一句關懷，提醒他們續訂。`,
+    type: 'subscriber_expiry_reminder',
+    link: adminSignalsUrl(params.expertSlug),
+  });
+}
