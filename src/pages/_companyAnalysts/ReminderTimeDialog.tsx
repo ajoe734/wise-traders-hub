@@ -70,12 +70,15 @@ export function ReminderTimeDialog({ expert, saving, onClose, onSave }: Props) {
             <Input id="reminder-tz" value={tz} onChange={(e) => setTz(e.target.value)} placeholder="Asia/Taipei" />
             {!tzOk && <p className="text-xs text-destructive">無效的時區名稱，例如 Asia/Taipei</p>}
           </div>
+          {saveError && (
+            <p data-testid="reminder-save-error" role="alert" className="text-xs text-destructive">{saveError}</p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>取消</Button>
           <Button
             disabled={saving || !timeOk || !tzOk || !expert}
-            onClick={() => expert && onSave(expert.id, { journal_reminder_time: time, journal_reminder_timezone: tz.trim() })}
+            onClick={handleSave}
           >
             {saving ? '儲存中…' : '儲存'}
           </Button>
