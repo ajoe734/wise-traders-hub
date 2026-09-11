@@ -13,6 +13,7 @@ import { CreateAnalystDialog } from '@/pages/_companyAnalysts/CreateAnalystDialo
 import { LineChannelDialog } from '@/pages/_companyAnalysts/LineChannelDialog';
 import { AccountCredentialsDialog } from '@/pages/_companyAnalysts/AccountCredentialsDialog';
 import { SubscribersDialog } from '@/pages/_companyAnalysts/SubscribersDialog';
+import { ReminderTimeDialog } from '@/pages/_companyAnalysts/ReminderTimeDialog';
 import { describeFunctionFailure, formatFailure } from '@/lib/functionError';
 
 const CompanyAnalysts = () => {
@@ -127,6 +128,24 @@ const CompanyAnalysts = () => {
   };
 
 
+  const [reminderExpert, setReminderExpert] = useState<any | null>(null);
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const saveReminder = async (expertId: string, values: { journal_reminder_time: string; journal_reminder_timezone: string }) => {
+    setReminderSaving(true);
+    try {
+      const { error } = await (supabase.from('experts') as any).update(values).eq('id', expertId);
+      if (error) throw error;
+      setExperts((prev) => prev.map((e) => (e.id === expertId ? { ...e, ...values } : e)));
+      await logAdminAction('update_journal_reminder_time', 'experts', expertId, values);
+      toast.success('已更新撰寫提醒時間');
+      setReminderExpert(null);
+    } catch (e: any) {
+      toast.error(e?.message || '更新失敗');
+    } finally {
+      setReminderSaving(false);
+    }
+  };
+
   const toggleStatus = async (id: string, currentStatus: string) => {
     let newStatus: string;
     const expert = experts.find(e => e.id === id);
@@ -183,6 +202,7 @@ const CompanyAnalysts = () => {
           onToggleStatus={toggleStatus}
           onOpenSubscribers={(exp) => setSubscribersExpert({ id: exp.id, name: exp.name })}
           onAdopt={handleAdopt}
+          onOpenReminder={(exp) => setReminderExpert(exp)}
         />
       </div>
 
@@ -190,6 +210,7 @@ const CompanyAnalysts = () => {
       <LineChannelDialog editor={lineEditor} />
       <AccountCredentialsDialog account={account} />
       <SubscribersDialog expert={subscribersExpert} onClose={() => setSubscribersExpert(null)} />
+      <ReminderTimeDialog expert={reminderExpert} saving={reminderSaving} onClose={() => setReminderExpert(null)} onSave={saveReminder} />
     </CompanyLayout>
   );
 };
