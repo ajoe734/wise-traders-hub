@@ -138,6 +138,7 @@ describe('ExpiringSubscribersBanner consumer', () => {
     fireEvent.click(screen.getByLabelText('今天先收起'));
     expect(screen.queryByTestId('expiring-subscribers-banner')).toBeNull();
     const saved = JSON.parse(window.localStorage.getItem('lf.expiringSubscribersBanner.v1') || '{}');
-    expect(saved.dismissed).toContain(dismissKey('e1', '2026-09-11'));
+    const dismissedList: string[] = saved?.data?.dismissed ?? saved?.dismissed ?? [];
+    expect(dismissedList).toContain(dismissKey('e1', row({}).local_date));
   });
 });
