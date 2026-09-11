@@ -31,17 +31,18 @@ vi.mock('@/hooks/useEffectiveUserId', () => ({
   useEffectiveUserId: () => ({ userId: 'u1', isViewAs: false }),
 }));
 
-const supabaseMock = {
-  rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
-  from: vi.fn(() => ({
-    select: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-    in: vi.fn().mockResolvedValue({ data: [], error: null }),
-  })),
-  functions: { invoke: vi.fn().mockResolvedValue({ data: null, error: null }) },
-};
-vi.mock('@/integrations/supabase/client', () => ({ supabase: supabaseMock }));
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+      in: vi.fn().mockResolvedValue({ data: [], error: null }),
+    })),
+    functions: { invoke: vi.fn().mockResolvedValue({ data: null, error: null }) },
+  },
+}));
 
 // banner marker: proves the page actually mounts the production consumer
 vi.mock('@/components/admin/ExpiringSubscribersBanner', () => ({
