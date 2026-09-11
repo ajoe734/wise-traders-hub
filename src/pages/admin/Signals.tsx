@@ -206,6 +206,7 @@ const AdminSignals = () => {
     <AdminLayout>
       <SEO title={`${expertSlug || ''} 訊號管理 | legendflow`} description={'發布與管理策略訊號。'} path={`/admin/${expertSlug || ''}/signals`} noindex />
       <div className="space-y-6">
+        <ExpiringSubscribersBanner expertId={expert?.id} expertSlug={expert?.slug} enabled={isOwner || isCompanyAdmin} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
