@@ -20,7 +20,7 @@ export interface ExpiringSubscribersSource {
 const productionSource: ExpiringSubscribersSource = {
   rpcName: EXPIRING_SUBSCRIBERS_RPC,
   fetch: async (expertId) => {
-    const { data, error } = await (supabase.rpc as any)(EXPIRING_SUBSCRIBERS_RPC, { _expert_id: expertId });
+    const { data, error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(EXPIRING_SUBSCRIBERS_RPC, { _expert_id: expertId });
     if (error) throw error;
     return (data || []) as ExpiringSubscriberRow[];
   },

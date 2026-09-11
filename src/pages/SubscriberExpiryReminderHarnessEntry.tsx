@@ -36,7 +36,7 @@ function HarnessBody({ scenario, viewer, store }: { scenario: Scenario; viewer: 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(0);
   const [, force] = useState(0);
-  const [dialogExpert, setDialogExpert] = useState<any | null>(null);
+  const [dialogExpert, setDialogExpert] = useState<Record<string, unknown> | null>(null);
   const [dialogSaved, setDialogSaved] = useState<string>('');
 
   // 與 banner 共用同一 query（react-query 同 key 只打一次），只為讀取 error 狀態呈現可理解錯誤
@@ -45,7 +45,6 @@ function HarnessBody({ scenario, viewer, store }: { scenario: Scenario; viewer: 
   // worker 模擬：dedupe scenario 跑兩次，其餘一次（同一 local_date）
   const worker = useMemo(
     () => emulateWorkerRuns(store.rows, scenario === 'dedupe' ? 2 : 1),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [scenario, store.rows],
   );
   const myNotifications = worker.notifications.filter((n) => n.user_id === expert.user_id);
@@ -70,10 +69,12 @@ function HarnessBody({ scenario, viewer, store }: { scenario: Scenario; viewer: 
     force((n) => n + 1);
   };
 
+  const errCode = String((error as { code?: string } | null)?.code || '');
+  const errText = String((error as { message?: string } | null)?.message || error || '');
   const errMessage = error
-    ? (String((error as any)?.code || '') === 'PGRST202' || /schema cache|does not exist/i.test(String((error as any)?.message || ''))
+    ? (errCode === 'PGRST202' || /schema cache|does not exist/i.test(errText)
       ? '尚未完成資料庫更新（找不到 expiring_subscriptions_for_expert），到期提醒暫時無法載入。'
-      : `載入到期提醒失敗：${String((error as any)?.message || error)}`)
+      : `載入到期提醒失敗：${errText}`)
     : '';
 
   const status = error ? 'error' : isFetching ? 'loading' : 'ok';
