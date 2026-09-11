@@ -99,9 +99,10 @@ END $$;
 UPDATE public.member_subscriptions SET expires_at='2026-10-14T04:00:00Z' WHERE id='50000000-0000-0000-0000-000000000003';
 SELECT pg_temp.chk('續訂後 3 天那筆移出', NOT EXISTS (SELECT 1 FROM public._expiring_subscriptions_by_expert((SELECT now_ts FROM t_ctx)) WHERE subscription_id='50000000-0000-0000-0000-000000000003'));
 UPDATE public.expert_plans SET expert_id='bbbbbbbb-0000-0000-0000-00000000000b' WHERE id='aaaaaaaa-2222-0000-0000-00000000000a';
-SELECT pg_temp.chk('改派老師後 A 名單為空、B 取得', 
+-- B 現在是 America/New_York：原「台北 9/19 00:30 = 8 天」在 NY 是 9/18 12:30 = 7 天 → 納入，故 B = 1 + 4 = 5
+SELECT pg_temp.chk('改派老師後 A 名單為空、B 取得（依 B 的時區重算 = 5）',
   NOT EXISTS (SELECT 1 FROM public._expiring_subscriptions_by_expert((SELECT now_ts FROM t_ctx)) WHERE expert_id='aaaaaaaa-0000-0000-0000-00000000000a')
-  AND (SELECT count(*)=4 FROM public._expiring_subscriptions_by_expert((SELECT now_ts FROM t_ctx)) WHERE expert_id='bbbbbbbb-0000-0000-0000-00000000000b'));
+  AND (SELECT count(*)=5 FROM public._expiring_subscriptions_by_expert((SELECT now_ts FROM t_ctx)) WHERE expert_id='bbbbbbbb-0000-0000-0000-00000000000b'));
 UPDATE public.expert_plans SET expert_id='aaaaaaaa-0000-0000-0000-00000000000a' WHERE id='aaaaaaaa-2222-0000-0000-00000000000a';
 
 -- T5 ownership：A 可讀 A；A 讀 B → 42501；匿名 → 42501；admin 可讀任一
