@@ -269,6 +269,13 @@ const AdminSignals = () => {
           </div>
         </div>
 
+        <PendingDraftsCard
+          drafts={pendingDrafts}
+          publishMomentLabel={publishMomentLabel}
+          isReadOnly={isReadOnly}
+          onEdit={(batchId) => navigate(`/admin/${expertSlug}/signals/edit/${batchId}`)}
+        />
+
         <PublicSampleDialog
           open={sampleDialogOpen}
           onOpenChange={setSampleDialogOpen}
