@@ -100,6 +100,7 @@ export interface SignalRowViewModel {
   actions: {
     canRepush: boolean;
     canEdit: boolean;
+    isPendingDraft: boolean;
     recallDisabled: boolean;
     recallReason: string | undefined;
   };
