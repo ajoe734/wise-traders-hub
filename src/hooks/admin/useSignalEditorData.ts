@@ -22,6 +22,10 @@ interface UseSignalEditorDataArgs {
     overallSummary: string;
     learningPoints: string;
     trades: TradeDraft[];
+    /** 這批次原本的時間，重存時沿用，避免週次漂移 */
+    publishedAt: string | null;
+    createdAt: string | null;
+    status: string | null;
   }) => void;
   onMissingBatch: () => void;
 }
