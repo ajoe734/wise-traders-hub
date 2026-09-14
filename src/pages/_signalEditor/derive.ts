@@ -495,6 +495,8 @@ export function buildPublishRows(args: {
       overall_summary: origIdx === 0 && isMentor ? sanitizeRichHtml(overallSummary) || null : null,
       learning_points: origIdx === 0 && isMentor ? sanitizeRichHtml(learningPoints) || null : null,
       status: status as any,
+      ...(publishedAt ? { published_at: publishedAt } : {}),
+      ...(createdAt ? { created_at: createdAt } : {}),
     } as any;
   });
 }
