@@ -196,6 +196,8 @@ export function buildSignalRowViewModel(input: ViewModelInput): SignalRowViewMod
     actions: {
       canRepush: isAdvisor && signal.status === 'published',
       canEdit: !!signal.batch_id,
+      /** 尚未公開的週記：公開時間前可無限次修改，入口要顯眼 */
+      isPendingDraft: isMentor && signal.status === 'pending',
       recallDisabled: !recall.ok,
       recallReason: recall.ok ? undefined : recall.reason,
     },
