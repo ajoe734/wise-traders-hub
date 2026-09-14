@@ -446,8 +446,11 @@ export function buildPublishRows(args: {
   overallSummary: string;
   learningPoints: string;
   trades: TradeDraft[];
+  /** 編輯既有批次時沿用原時間，避免重存讓週記換週 */
+  publishedAt?: string | null;
+  createdAt?: string | null;
 }) {
-  const { expertId, batchId, status, assetClass, isMentor, teachingTopic, overallSummary, learningPoints, trades } = args;
+  const { expertId, batchId, status, assetClass, isMentor, teachingTopic, overallSummary, learningPoints, trades, publishedAt, createdAt } = args;
   const safeAssetClass = assetClass || 'tw_stock';
   const order = executionOrder(trades);
   return order.map((origIdx) => {
