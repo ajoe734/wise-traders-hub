@@ -374,7 +374,13 @@ const SignalEditor = () => {
                 {isMentor ? '目前先存為待發布，仍可完成週記' : publishWindow.reason}
               </span>
             )}
-            <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (hasUnsavedChanges && !window.confirm('有尚未儲存的修改，離開就會消失，確定要離開嗎？')) return;
+                navigate(`/admin/${expertSlug}/signals`);
+              }}
+            >取消</Button>
             {isMentor && (
               <Button
                 type="button"
