@@ -18,6 +18,8 @@ import { SignalsTable } from '@/pages/_adminSignals/SignalsTable';
 import { SignalCreateDialog } from '@/pages/_adminSignals/SignalCreateDialog';
 import { EarlyPublishDialog } from '@/pages/_adminSignals/EarlyPublishDialog';
 import { PublicSampleDialog } from '@/pages/_adminSignals/PublicSampleDialog';
+import { PendingDraftsCard } from '@/pages/_adminSignals/PendingDraftsCard';
+import { computePendingDrafts } from '@/pages/_adminSignals/pendingDrafts';
 import {
   computeAddBuySignalIds, computeBatchInfo, computeHoldingSummary, filterSignals,
 } from '@/pages/_adminSignals/derive';
