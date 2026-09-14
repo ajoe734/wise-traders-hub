@@ -525,7 +525,7 @@ export function buildTeachingOnlyRow(args: {
     price_hint: null,
     quantity: null,
     quantity_unit: null,
-    executed_at: new Date().toISOString(),
+    executed_at: publishedAt || new Date().toISOString(),
     reason_summary: null,
     reason_detail: null,
     risk_notes: null,
@@ -533,6 +533,8 @@ export function buildTeachingOnlyRow(args: {
     overall_summary: sanitizeRichHtml(overallSummary) || null,
     learning_points: sanitizeRichHtml(learningPoints) || null,
     status: status as any,
+    ...(publishedAt ? { published_at: publishedAt } : {}),
+    ...(createdAt ? { created_at: createdAt } : {}),
   } as any];
 }
 
