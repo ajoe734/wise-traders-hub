@@ -106,12 +106,20 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async (text?: string) => {
+  const handleSend = async (text?: string, mode?: 'monthly_digest') => {
     const msg = (text ?? input).trim();
     if (!msg || isBusy) return;
     setInput('');
-    await sendMessage({ text: msg });
+    await sendMessage({ text: msg }, mode ? { body: { mode } } : undefined);
   };
+
+  const monthLabel = (() => {
+    const taipei = new Date(Date.now() + 8 * 3600_000);
+    return `${taipei.getUTCFullYear()}/${String(taipei.getUTCMonth() + 1).padStart(2, '0')}`;
+  })();
+
+  const handleMonthlyDigest = () => handleSend(`幫我做 ${monthLabel} 這月回報：本月週記重點與你的回應。`, 'monthly_digest');
+
 
   if (!accessGranted) {
     const isExpired = lockReason === 'expired';
