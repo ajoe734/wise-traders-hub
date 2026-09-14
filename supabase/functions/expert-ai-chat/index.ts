@@ -339,12 +339,31 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     `【示範 ${i + 1}】\n訂閱者問：${f.question}\n老師答：${f.answer}`
   ).join('\n\n');
 
+  const monthlySection = mode === 'monthly_digest'
+    ? [
+        `【本月回報任務】現在是台北 ${monthlyMeta?.month ?? ''}，以下是你本月已公開的全部週記原文（共 ${monthlyMeta?.count ?? 0} 篇）：`,
+        monthlyContext || '（本月尚未公開任何週記）',
+        '',
+        monthlyMeta && monthlyMeta.count > 0
+          ? [
+              '請用第一人稱做「這月回報」，格式固定：',
+              '1. 開頭一句話總結本月操作基調。',
+              '2.「本月重點」條列 3~5 點：每點寫出標的（代號／名稱）、做了什麼、為什麼。',
+              '3.「我的回應」2~3 段：對本月成果與失誤的檢討，以及下個月的觀察方向。',
+              '只能根據上面的本月週記內容作答，沒寫到的不要補。',
+            ].join('\n')
+          : '本月沒有已公開的週記，請直接誠實說明本月尚未發佈週記，並簡述你平常的觀察節奏，不要編造內容。',
+      ].join('\n')
+    : '';
+
   const systemPrompt = [
     personaSection,
     toneLine,
     forbiddenLine,
     disclaimerLine,
     '',
+    monthlySection,
+    monthlySection ? '' : '',
     '以下是老師過往週記／交易原文（作為知識依據，不要逐字複讀，用你自己的話講）：',
     ragContext || '（尚無檢索結果）',
     '',
