@@ -205,6 +205,20 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
             </span>
           )}
 
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleMonthlyDigest}
+            disabled={disableSend}
+            data-testid="monthly-digest-btn"
+            className="h-8 px-2.5 text-xs gap-1 border-mentor/40 text-mentor hover:bg-mentor/10"
+          >
+            <CalendarRange className="h-3.5 w-3.5" /> 這月回報
+          </Button>
+
+
+
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" onClick={clearConversation} className="text-muted-foreground">
               <Trash2 className="h-3.5 w-3.5 mr-1" /> 清空
