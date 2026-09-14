@@ -66,3 +66,29 @@ export function isInTaipeiWeek(d: Date, weekStart: string): boolean {
   const t = d.getTime();
   return t >= new Date(startIso).getTime() && t < new Date(endIso).getTime();
 }
+
+export interface TaipeiMonthRange {
+  /** 台北該月 1 日 00:00 對應的 UTC ISO 字串 */
+  startIso: string;
+  /** 次月 1 日 00:00（不含）對應的 UTC ISO 字串 */
+  endIso: string;
+  /** 台北曆下的 `YYYY-MM` */
+  month: string;
+}
+
+/**
+ * 取得 `d`（UTC）在 Asia/Taipei 曆法下所屬「當月」的 `[start, end)` UTC 區間。
+ * 供月度摘要查詢使用；呼叫端不得自行手算月界。
+ */
+export function taipeiMonthRangeUtc(d: Date = new Date()): TaipeiMonthRange {
+  const shifted = toTaipeiClock(d);
+  const y = shifted.getUTCFullYear();
+  const m = shifted.getUTCMonth();
+  const start = new Date(Date.UTC(y, m, 1) - TAIPEI_OFFSET_MS);
+  const end = new Date(Date.UTC(y, m + 1, 1) - TAIPEI_OFFSET_MS);
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    month: `${y}-${String(m + 1).padStart(2, '0')}`,
+  };
+}
