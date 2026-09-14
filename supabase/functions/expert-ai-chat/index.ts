@@ -11,6 +11,8 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
 import { estimateCostUsd } from '../_shared/ai-gateway-pricing.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
+import { taipeiMonthRangeUtc } from '../_shared/weekBoundary.ts';
+import { forMonthlyDigest } from '../_shared/journalRepository.ts';
 
 const MODEL = 'openai/gpt-5';
 
