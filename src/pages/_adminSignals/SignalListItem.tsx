@@ -132,9 +132,20 @@ export function SignalListItem({
         )}
         {vm.actions.canEdit && vm.batchId && (
           <PermissionTooltip disabled={isReadOnly}>
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-              onClick={() => onEdit(vm.batchId!)} disabled={isReadOnly} title="編輯整批">
-              編輯
+            <Button
+              size="sm"
+              variant={vm.actions.isPendingDraft ? 'default' : 'ghost'}
+              className={cn(
+                'h-7 text-xs gap-1',
+                vm.actions.isPendingDraft
+                  ? 'bg-mentor hover:bg-mentor/90'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => onEdit(vm.batchId!)}
+              disabled={isReadOnly}
+              title={vm.actions.isPendingDraft ? '尚未公開，可繼續修改' : '編輯整批'}
+            >
+              {vm.actions.isPendingDraft ? '繼續編輯' : '編輯'}
             </Button>
           </PermissionTooltip>
         )}
