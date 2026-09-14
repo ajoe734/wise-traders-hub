@@ -133,8 +133,21 @@ export function SignalRow(p: Props) {
             )}
             {vm.actions.canEdit && vm.batchId && (
               <PermissionTooltip disabled={p.isReadOnly}>
-                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                  onClick={() => p.onEdit(vm.batchId!)} disabled={p.isReadOnly} title="編輯整批">編輯</Button>
+                <Button
+                  size="sm"
+                  variant={vm.actions.isPendingDraft ? 'default' : 'ghost'}
+                  className={cn(
+                    'h-7 text-xs gap-1',
+                    vm.actions.isPendingDraft
+                      ? 'bg-mentor hover:bg-mentor/90'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => p.onEdit(vm.batchId!)}
+                  disabled={p.isReadOnly}
+                  title={vm.actions.isPendingDraft ? '尚未公開，可繼續修改' : '編輯整批'}
+                >
+                  {vm.actions.isPendingDraft ? '繼續編輯' : '編輯'}
+                </Button>
               </PermissionTooltip>
             )}
             <PermissionTooltip disabled={p.isReadOnly}>
