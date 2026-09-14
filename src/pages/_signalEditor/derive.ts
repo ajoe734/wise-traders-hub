@@ -446,8 +446,11 @@ export function buildPublishRows(args: {
   overallSummary: string;
   learningPoints: string;
   trades: TradeDraft[];
+  /** 編輯既有批次時沿用原時間，避免重存讓週記換週 */
+  publishedAt?: string | null;
+  createdAt?: string | null;
 }) {
-  const { expertId, batchId, status, assetClass, isMentor, teachingTopic, overallSummary, learningPoints, trades } = args;
+  const { expertId, batchId, status, assetClass, isMentor, teachingTopic, overallSummary, learningPoints, trades, publishedAt, createdAt } = args;
   const safeAssetClass = assetClass || 'tw_stock';
   const order = executionOrder(trades);
   return order.map((origIdx) => {
@@ -492,6 +495,8 @@ export function buildPublishRows(args: {
       overall_summary: origIdx === 0 && isMentor ? sanitizeRichHtml(overallSummary) || null : null,
       learning_points: origIdx === 0 && isMentor ? sanitizeRichHtml(learningPoints) || null : null,
       status: status as any,
+      ...(publishedAt ? { published_at: publishedAt } : {}),
+      ...(createdAt ? { created_at: createdAt } : {}),
     } as any;
   });
 }
@@ -507,8 +512,10 @@ export function buildTeachingOnlyRow(args: {
   teachingTopic: string;
   overallSummary: string;
   learningPoints: string;
+  publishedAt?: string | null;
+  createdAt?: string | null;
 }) {
-  const { expertId, batchId, status, teachingTopic, overallSummary, learningPoints } = args;
+  const { expertId, batchId, status, teachingTopic, overallSummary, learningPoints, publishedAt, createdAt } = args;
   return [{
     expert_id: expertId,
     plan_id: null,
@@ -518,7 +525,7 @@ export function buildTeachingOnlyRow(args: {
     price_hint: null,
     quantity: null,
     quantity_unit: null,
-    executed_at: new Date().toISOString(),
+    executed_at: publishedAt || new Date().toISOString(),
     reason_summary: null,
     reason_detail: null,
     risk_notes: null,
@@ -526,6 +533,8 @@ export function buildTeachingOnlyRow(args: {
     overall_summary: sanitizeRichHtml(overallSummary) || null,
     learning_points: sanitizeRichHtml(learningPoints) || null,
     status: status as any,
+    ...(publishedAt ? { published_at: publishedAt } : {}),
+    ...(createdAt ? { created_at: createdAt } : {}),
   } as any];
 }
 

@@ -22,6 +22,10 @@ interface UseSignalEditorDataArgs {
     overallSummary: string;
     learningPoints: string;
     trades: TradeDraft[];
+    /** 這批次原本的時間，重存時沿用，避免週次漂移 */
+    publishedAt: string | null;
+    createdAt: string | null;
+    status: string | null;
   }) => void;
   onMissingBatch: () => void;
 }
@@ -122,11 +126,20 @@ export function useSignalEditorData(args: UseSignalEditorDataArgs) {
           riskNotes: row.risk_notes || '',
         };
       });
+      const earliest = (key: 'published_at' | 'created_at') =>
+        (data as any[])
+          .map((r) => r?.[key])
+          .filter(Boolean)
+          .sort()[0] ?? null;
+
       onBatchLoadedRef.current({
         teachingTopic: first.teaching_topic || '',
         overallSummary: first.overall_summary || '',
         learningPoints: first.learning_points || '',
         trades: trades.length > 0 ? trades : [emptyTrade(assetClass)],
+        publishedAt: earliest('published_at'),
+        createdAt: earliest('created_at'),
+        status: first.status ?? null,
       });
     })();
     return () => { cancelled = true; };

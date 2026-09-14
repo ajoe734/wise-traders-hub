@@ -53,6 +53,15 @@ const SignalEditor = () => {
   /** mentor 本週類型：'trades' = 交易週記（預設）； 'teaching' = 純教學週記，無交易 */
   const [weekType, setWeekType] = useState<'trades' | 'teaching'>('trades');
   const [previewOpen, setPreviewOpen] = useState(false);
+  /** 編輯既有批次時：已載入的「已儲存版本」快照，用來判斷有沒有未儲存修改 */
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  const savedStateRef = useRef<{
+    teachingTopic: string; overallSummary: string; learningPoints: string; trades: TradeDraft[];
+  } | null>(null);
+  /** 這批次原本的時間，重存時沿用，避免週記被推到別週 */
+  const batchTimesRef = useRef<{ publishedAt: string | null; createdAt: string | null }>({
+    publishedAt: null, createdAt: null,
+  });
 
   // ── Data (expert / templates / open positions / capital) ──────────────
   const {
@@ -61,11 +70,14 @@ const SignalEditor = () => {
     expertSlug,
     editBatchId,
     isEditing,
-    onBatchLoaded: ({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts }) => {
+    onBatchLoaded: ({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts, publishedAt, createdAt }) => {
       setTeachingTopic(tt);
       setOverallSummary(os);
       setLearningPoints(lp);
       setTrades(ts);
+      batchTimesRef.current = { publishedAt, createdAt };
+      savedStateRef.current = { teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts };
+      setSavedSnapshot(JSON.stringify({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts }));
       // 編輯既有批次：若所有 trade 都是 teaching action，視為純教學週記
       if (ts.length > 0 && ts.every((t: any) => t.action === 'teaching')) {
         setWeekType('teaching');
@@ -117,7 +129,8 @@ const SignalEditor = () => {
   const stockCacheRef = useRef<Map<string, string>>(new Map());
 
   // ── Draft persistence ────────────────────────────────────────────────
-  const DRAFT_KEY = `signal-editor-${expertSlug}`;
+  // 編輯既有批次時，暫存 key 綁該篇週記，避免與「新增」或別篇互相覆蓋。
+  const DRAFT_KEY = isEditing ? `signal-editor-${expertSlug}-${editBatchId}` : `signal-editor-${expertSlug}`;
   const draftValue = useMemo(
     () => ({ teachingTopic, overallSummary, learningPoints, trades }),
     [teachingTopic, overallSummary, learningPoints, trades],
@@ -126,7 +139,6 @@ const SignalEditor = () => {
     DRAFT_KEY,
     draftValue,
     (saved) => {
-      if (isEditing) return;
       if (typeof saved.teachingTopic === 'string') setTeachingTopic(saved.teachingTopic);
       if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
       if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
@@ -137,8 +149,34 @@ const SignalEditor = () => {
         }));
       }
     },
-    { enabled: !isEditing },
+    // 編輯模式要等已儲存版本載入完成才開始暫存／還原，否則會被伺服器資料蓋掉
+    { enabled: !isEditing || savedSnapshot !== null },
   );
+
+  /** 編輯既有週記時，是否有尚未按「更新週記」的修改 */
+  const hasUnsavedChanges = isEditing && savedSnapshot !== null
+    && JSON.stringify(draftValue) !== savedSnapshot;
+
+  const revertToSaved = useCallback(() => {
+    const snap = savedStateRef.current;
+    if (!snap) return;
+    setTeachingTopic(snap.teachingTopic);
+    setOverallSummary(snap.overallSummary);
+    setLearningPoints(snap.learningPoints);
+    setTrades(snap.trades);
+    discardDraft();
+  }, [discardDraft]);
+
+  // 有未儲存修改時，離開頁面前提醒
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // ── Permission guard ─────────────────────────────────────────────────
   if (!loading && expert && !canEdit) {
@@ -247,14 +285,19 @@ const SignalEditor = () => {
       const batchId = isEditing ? (editBatchId as string) : crypto.randomUUID();
       const status = isMentor ? 'pending' : 'published';
 
+      // 重存既有週記：沿用原本的建立／發布時間，否則會被算成「這一刻」而換到別週。
+      const keepTimes = isEditing ? batchTimesRef.current : { publishedAt: null, createdAt: null };
+
       const rows = isTeachingOnly
         ? buildTeachingOnlyRow({
             expertId: expert.id, batchId, status,
             teachingTopic, overallSummary, learningPoints,
+            publishedAt: keepTimes.publishedAt, createdAt: keepTimes.createdAt,
           })
         : buildPublishRows({
             expertId: expert.id, batchId, status, assetClass, isMentor,
             teachingTopic, overallSummary, learningPoints, trades,
+            publishedAt: keepTimes.publishedAt, createdAt: keepTimes.createdAt,
           });
 
       // 原子化寫入：刪舊 trade_records / legs / signals + 插入新資料在同一交易內完成，
@@ -331,7 +374,13 @@ const SignalEditor = () => {
                 {isMentor ? '目前先存為待發布，仍可完成週記' : publishWindow.reason}
               </span>
             )}
-            <Button variant="outline" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>取消</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (hasUnsavedChanges && !window.confirm('有尚未儲存的修改，離開就會消失，確定要離開嗎？')) return;
+                navigate(`/admin/${expertSlug}/signals`);
+              }}
+            >取消</Button>
             {isMentor && (
               <Button
                 type="button"
@@ -348,10 +397,25 @@ const SignalEditor = () => {
               className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {isEditing ? '更新' : (isMentor ? '儲存週記' : '立即發布')}
+              {isEditing ? (isMentor ? '更新週記' : '更新') : (isMentor ? '儲存週記' : '立即發布')}
             </Button>
           </div>
         </div>
+
+        {hasUnsavedChanges && (
+          <div
+            data-testid="unsaved-changes-bar"
+            className="flex items-center justify-between gap-3 flex-wrap rounded-md border border-mentor/50 bg-mentor/5 px-3 py-2"
+          >
+            <p className="text-xs text-foreground">
+              有尚未儲存的修改 — 按「{isMentor ? '更新週記' : '更新'}」才會正式寫入。內容會暫存在這台裝置上。
+            </p>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={revertToSaved}>
+              還原成已儲存版本
+            </Button>
+          </div>
+        )}
+
 
         {isMentor && (
           <Card>
