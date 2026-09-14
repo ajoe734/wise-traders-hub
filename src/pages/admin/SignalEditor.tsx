@@ -129,7 +129,8 @@ const SignalEditor = () => {
   const stockCacheRef = useRef<Map<string, string>>(new Map());
 
   // ── Draft persistence ────────────────────────────────────────────────
-  const DRAFT_KEY = `signal-editor-${expertSlug}`;
+  // 編輯既有批次時，暫存 key 綁該篇週記，避免與「新增」或別篇互相覆蓋。
+  const DRAFT_KEY = isEditing ? `signal-editor-${expertSlug}-${editBatchId}` : `signal-editor-${expertSlug}`;
   const draftValue = useMemo(
     () => ({ teachingTopic, overallSummary, learningPoints, trades }),
     [teachingTopic, overallSummary, learningPoints, trades],
@@ -138,7 +139,6 @@ const SignalEditor = () => {
     DRAFT_KEY,
     draftValue,
     (saved) => {
-      if (isEditing) return;
       if (typeof saved.teachingTopic === 'string') setTeachingTopic(saved.teachingTopic);
       if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
       if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
@@ -149,8 +149,34 @@ const SignalEditor = () => {
         }));
       }
     },
-    { enabled: !isEditing },
+    // 編輯模式要等已儲存版本載入完成才開始暫存／還原，否則會被伺服器資料蓋掉
+    { enabled: !isEditing || savedSnapshot !== null },
   );
+
+  /** 編輯既有週記時，是否有尚未按「更新週記」的修改 */
+  const hasUnsavedChanges = isEditing && savedSnapshot !== null
+    && JSON.stringify(draftValue) !== savedSnapshot;
+
+  const revertToSaved = useCallback(() => {
+    const snap = savedStateRef.current;
+    if (!snap) return;
+    setTeachingTopic(snap.teachingTopic);
+    setOverallSummary(snap.overallSummary);
+    setLearningPoints(snap.learningPoints);
+    setTrades(snap.trades);
+    discardDraft();
+  }, [discardDraft]);
+
+  // 有未儲存修改時，離開頁面前提醒
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // ── Permission guard ─────────────────────────────────────────────────
   if (!loading && expert && !canEdit) {
