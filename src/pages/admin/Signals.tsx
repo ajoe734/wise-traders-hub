@@ -68,6 +68,11 @@ const AdminSignals = () => {
     [signals, isMentor],
   );
 
+  const pendingDrafts = useMemo(
+    () => (isMentor ? computePendingDrafts(signals) : []),
+    [signals, isMentor],
+  );
+
   useEffect(() => {
     if (promptedPendingRef.current || isReadOnly || !isMentor) return;
     if (!shouldPromptPendingJournalPublish(assetClass, pendingCount)) return;
