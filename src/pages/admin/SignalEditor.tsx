@@ -53,6 +53,15 @@ const SignalEditor = () => {
   /** mentor 本週類型：'trades' = 交易週記（預設）； 'teaching' = 純教學週記，無交易 */
   const [weekType, setWeekType] = useState<'trades' | 'teaching'>('trades');
   const [previewOpen, setPreviewOpen] = useState(false);
+  /** 編輯既有批次時：已載入的「已儲存版本」快照，用來判斷有沒有未儲存修改 */
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  const savedStateRef = useRef<{
+    teachingTopic: string; overallSummary: string; learningPoints: string; trades: TradeDraft[];
+  } | null>(null);
+  /** 這批次原本的時間，重存時沿用，避免週記被推到別週 */
+  const batchTimesRef = useRef<{ publishedAt: string | null; createdAt: string | null }>({
+    publishedAt: null, createdAt: null,
+  });
 
   // ── Data (expert / templates / open positions / capital) ──────────────
   const {
