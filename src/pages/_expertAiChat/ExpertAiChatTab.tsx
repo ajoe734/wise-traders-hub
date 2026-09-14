@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw, Square, CheckCircle2, XCircle, Clock, Check, X } from 'lucide-react';
+import { Loader2, Send, Trash2, Lock, Shield, MessageCircle, AlertTriangle, RefreshCw, Square, CheckCircle2, XCircle, Clock, Check, X, CalendarRange } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -106,12 +106,20 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async (text?: string) => {
+  const handleSend = async (text?: string, mode?: 'monthly_digest') => {
     const msg = (text ?? input).trim();
     if (!msg || isBusy) return;
     setInput('');
-    await sendMessage({ text: msg });
+    await sendMessage({ text: msg }, mode ? { body: { mode } } : undefined);
   };
+
+  const monthLabel = (() => {
+    const taipei = new Date(Date.now() + 8 * 3600_000);
+    return `${taipei.getUTCFullYear()}/${String(taipei.getUTCMonth() + 1).padStart(2, '0')}`;
+  })();
+
+  const handleMonthlyDigest = () => handleSend(`幫我做 ${monthLabel} 這月回報：本月週記重點與你的回應。`, 'monthly_digest');
+
 
   if (!accessGranted) {
     const isExpired = lockReason === 'expired';
@@ -197,6 +205,20 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
             </span>
           )}
 
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleMonthlyDigest}
+            disabled={disableSend}
+            data-testid="monthly-digest-btn"
+            className="h-8 px-2.5 text-xs gap-1 border-mentor/40 text-mentor hover:bg-mentor/10"
+          >
+            <CalendarRange className="h-3.5 w-3.5" /> 這月回報
+          </Button>
+
+
+
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" onClick={clearConversation} className="text-muted-foreground">
               <Trash2 className="h-3.5 w-3.5 mr-1" /> 清空
@@ -257,7 +279,18 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
         )}
         {!loadingHistory && messages.length === 0 && (
           <div className="space-y-3 py-4">
-            <p className="text-sm text-muted-foreground text-center">試試這些問題：</p>
+            <button
+              onClick={handleMonthlyDigest}
+              disabled={disableSend}
+              data-testid="monthly-digest-empty-cta"
+              className="w-full text-left p-3 rounded-lg border border-mentor/30 bg-mentor/5 hover:bg-mentor/10 transition-colors disabled:opacity-50"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-mentor">
+                <CalendarRange className="h-4 w-4" /> 這月回報（{monthLabel}）
+              </span>
+              <span className="block text-xs text-muted-foreground mt-1">一次看完本月週記重點與老師的回應，不用翻整篇。</span>
+            </button>
+            <p className="text-sm text-muted-foreground text-center">或試試這些問題：</p>
             <div className="flex flex-col gap-2">
               {SUGGESTIONS.map((s) => (
                 <button

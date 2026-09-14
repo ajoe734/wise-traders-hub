@@ -11,6 +11,8 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 import { createLovableAiGatewayProvider, embedText } from '../_shared/ai-gateway.ts';
 import { estimateCostUsd } from '../_shared/ai-gateway-pricing.ts';
 import { getExpertAiQuota } from '../_shared/expert-ai-quota.ts';
+import { taipeiMonthRangeUtc } from '../_shared/weekBoundary.ts';
+import { forMonthlyDigest } from '../_shared/journalRepository.ts';
 
 const MODEL = 'openai/gpt-5';
 
@@ -42,6 +44,7 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   const body = await req.json().catch(() => ({}));
   const expertId = body.expert_id as string | undefined;
   const uiMessages = body.messages as UIMessage[] | undefined;
+  const mode = body.mode === 'monthly_digest' ? 'monthly_digest' : 'chat';
   if (!expertId || !Array.isArray(uiMessages) || uiMessages.length === 0) {
     return errorResponse('expert_id and messages required', 400);
   }
@@ -261,6 +264,41 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     }
   }
 
+  // 4.5) 「這月回報」：以台北月界抓該導師本月已公開週記原文（不靠向量檢索，確保不漏篇）
+  let monthlyContext = '';
+  let monthlyMeta: { month: string; count: number } | null = null;
+  if (mode === 'monthly_digest') {
+    const { startIso, endIso, month } = taipeiMonthRangeUtc(new Date());
+    const { rows, error: mErr } = await forMonthlyDigest<any>(admin as any, {
+      expertId,
+      startIso,
+      endIso,
+    });
+    if (mErr) log.warn('monthly_digest_fetch_failed', { err: mErr });
+    monthlyMeta = { month, count: rows.length };
+    const strip = (s: unknown) => String(s ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    monthlyContext = rows
+      .map((r, i) => {
+        const date = r.published_at ? String(r.published_at).slice(0, 10) : '';
+        const parts = [
+          `[本月週記 ${i + 1}｜${date}｜${r.instrument ?? ''}｜${r.action ?? ''}]`,
+          strip(r.reason_summary),
+          strip(r.reason_detail).slice(0, 800),
+          Array.isArray(r.learning_points) && r.learning_points.length
+            ? `學習重點：${r.learning_points.map(strip).join('；')}`
+            : '',
+          Array.isArray(r.risk_notes) && r.risk_notes.length
+            ? `風險提醒：${r.risk_notes.map(strip).join('；')}`
+            : '',
+        ].filter(Boolean);
+        return parts.join('\n');
+      })
+      .join('\n\n');
+    log.info('monthly_digest', { month, count: rows.length });
+  }
+
+
+
   // 5) 寫入 user 訊息
   if (lastUserText) {
     await admin.from('expert_ai_messages').insert({
@@ -301,12 +339,31 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     `【示範 ${i + 1}】\n訂閱者問：${f.question}\n老師答：${f.answer}`
   ).join('\n\n');
 
+  const monthlySection = mode === 'monthly_digest'
+    ? [
+        `【本月回報任務】現在是台北 ${monthlyMeta?.month ?? ''}，以下是你本月已公開的全部週記原文（共 ${monthlyMeta?.count ?? 0} 篇）：`,
+        monthlyContext || '（本月尚未公開任何週記）',
+        '',
+        monthlyMeta && monthlyMeta.count > 0
+          ? [
+              '請用第一人稱做「這月回報」，格式固定：',
+              '1. 開頭一句話總結本月操作基調。',
+              '2.「本月重點」條列 3~5 點：每點寫出標的（代號／名稱）、做了什麼、為什麼。',
+              '3.「我的回應」2~3 段：對本月成果與失誤的檢討，以及下個月的觀察方向。',
+              '只能根據上面的本月週記內容作答，沒寫到的不要補。',
+            ].join('\n')
+          : '本月沒有已公開的週記，請直接誠實說明本月尚未發佈週記，並簡述你平常的觀察節奏，不要編造內容。',
+      ].join('\n')
+    : '';
+
   const systemPrompt = [
     personaSection,
     toneLine,
     forbiddenLine,
     disclaimerLine,
     '',
+    monthlySection,
+    monthlySection ? '' : '',
     '以下是老師過往週記／交易原文（作為知識依據，不要逐字複讀，用你自己的話講）：',
     ragContext || '（尚無檢索結果）',
     '',

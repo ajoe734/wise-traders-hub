@@ -206,6 +206,28 @@ export async function forExport<T = any>(
   return { rows: (data ?? []) as T[], error: error?.message ?? null };
 }
 
+/**
+ * 單一導師某個區間（月）的已公開週記 — 供「這月回報」AI 摘要使用。
+ * 與匯出共用 select 契約，但只取單一 expert，且固定 published_at 升冪。
+ */
+export async function forMonthlyDigest<T = any>(
+  db: JournalDb,
+  opts: { expertId: string; startIso: string; endIso: string; limit?: number },
+): Promise<{ rows: T[]; error: string | null }> {
+  const { data, error } = await db
+    .from('expert_signals')
+    .select(JOURNAL_EXPORT_SELECT)
+    .eq('expert_id', opts.expertId)
+    .eq('status', 'published')
+    .gte('published_at', opts.startIso)
+    .lt('published_at', opts.endIso)
+    .order('published_at', { ascending: true })
+    .limit(opts.limit ?? 60);
+  return { rows: (data ?? []) as T[], error: error?.message ?? null };
+}
+
+
+
 /** LINE 推播：單篇。 */
 export async function forPush<T = any>(
   db: JournalDb,
