@@ -285,14 +285,19 @@ const SignalEditor = () => {
       const batchId = isEditing ? (editBatchId as string) : crypto.randomUUID();
       const status = isMentor ? 'pending' : 'published';
 
+      // 重存既有週記：沿用原本的建立／發布時間，否則會被算成「這一刻」而換到別週。
+      const keepTimes = isEditing ? batchTimesRef.current : { publishedAt: null, createdAt: null };
+
       const rows = isTeachingOnly
         ? buildTeachingOnlyRow({
             expertId: expert.id, batchId, status,
             teachingTopic, overallSummary, learningPoints,
+            publishedAt: keepTimes.publishedAt, createdAt: keepTimes.createdAt,
           })
         : buildPublishRows({
             expertId: expert.id, batchId, status, assetClass, isMentor,
             teachingTopic, overallSummary, learningPoints, trades,
+            publishedAt: keepTimes.publishedAt, createdAt: keepTimes.createdAt,
           });
 
       // 原子化寫入：刪舊 trade_records / legs / signals + 插入新資料在同一交易內完成，
