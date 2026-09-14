@@ -42,6 +42,7 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
   const body = await req.json().catch(() => ({}));
   const expertId = body.expert_id as string | undefined;
   const uiMessages = body.messages as UIMessage[] | undefined;
+  const mode = body.mode === 'monthly_digest' ? 'monthly_digest' : 'chat';
   if (!expertId || !Array.isArray(uiMessages) || uiMessages.length === 0) {
     return errorResponse('expert_id and messages required', 400);
   }
