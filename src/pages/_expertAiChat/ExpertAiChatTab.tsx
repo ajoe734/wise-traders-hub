@@ -279,7 +279,18 @@ export function ExpertAiChatTab({ expertId, expertName, isSubscribed, subscribed
         )}
         {!loadingHistory && messages.length === 0 && (
           <div className="space-y-3 py-4">
-            <p className="text-sm text-muted-foreground text-center">試試這些問題：</p>
+            <button
+              onClick={handleMonthlyDigest}
+              disabled={disableSend}
+              data-testid="monthly-digest-empty-cta"
+              className="w-full text-left p-3 rounded-lg border border-mentor/30 bg-mentor/5 hover:bg-mentor/10 transition-colors disabled:opacity-50"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-mentor">
+                <CalendarRange className="h-4 w-4" /> 這月回報（{monthLabel}）
+              </span>
+              <span className="block text-xs text-muted-foreground mt-1">一次看完本月週記重點與老師的回應，不用翻整篇。</span>
+            </button>
+            <p className="text-sm text-muted-foreground text-center">或試試這些問題：</p>
             <div className="flex flex-col gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
