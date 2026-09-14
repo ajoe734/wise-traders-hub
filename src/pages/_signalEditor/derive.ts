@@ -512,8 +512,10 @@ export function buildTeachingOnlyRow(args: {
   teachingTopic: string;
   overallSummary: string;
   learningPoints: string;
+  publishedAt?: string | null;
+  createdAt?: string | null;
 }) {
-  const { expertId, batchId, status, teachingTopic, overallSummary, learningPoints } = args;
+  const { expertId, batchId, status, teachingTopic, overallSummary, learningPoints, publishedAt, createdAt } = args;
   return [{
     expert_id: expertId,
     plan_id: null,
