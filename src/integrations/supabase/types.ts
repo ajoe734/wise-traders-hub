@@ -2594,6 +2594,8 @@ export type Database = {
           currency: string
           description: string | null
           id: string
+          journal_reminder_time: string
+          journal_reminder_timezone: string
           markets: string[] | null
           name: string
           operation_cycle: string | null
@@ -2619,6 +2621,8 @@ export type Database = {
           currency?: string
           description?: string | null
           id?: string
+          journal_reminder_time?: string
+          journal_reminder_timezone?: string
           markets?: string[] | null
           name: string
           operation_cycle?: string | null
@@ -2644,6 +2648,8 @@ export type Database = {
           currency?: string
           description?: string | null
           id?: string
+          journal_reminder_time?: string
+          journal_reminder_timezone?: string
           markets?: string[] | null
           name?: string
           operation_cycle?: string | null
@@ -4578,6 +4584,64 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriber_expiry_reminders: {
+        Row: {
+          created_at: string
+          expert_id: string
+          id: string
+          local_date: string
+          notification_id: string | null
+          payload: Json
+          reminder_type: string
+          subscription_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expert_id: string
+          id?: string
+          local_date: string
+          notification_id?: string | null
+          payload?: Json
+          reminder_type?: string
+          subscription_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expert_id?: string
+          id?: string
+          local_date?: string
+          notification_id?: string | null
+          payload?: Json
+          reminder_type?: string
+          subscription_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriber_expiry_reminders_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriber_expiry_reminders_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriber_expiry_reminders_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+        ]
+      }
       system_alerts: {
         Row: {
           detail: Json
@@ -6207,6 +6271,26 @@ export type Database = {
       }
     }
     Functions: {
+      _expiring_subscriptions_by_expert: {
+        Args: { _now?: string }
+        Returns: {
+          days_left: number
+          display_name: string
+          expert_id: string
+          expert_name: string
+          expert_slug: string
+          expert_user_id: string
+          expires_at: string
+          expires_on: string
+          local_date: string
+          plan_name: string
+          plan_type: string
+          reminder_time: string
+          reminder_timezone: string
+          subscriber_user_id: string
+          subscription_id: string
+        }[]
+      }
       admin_apply_fix_proposal: {
         Args: { p_confirm: boolean; p_id: string }
         Returns: Json
@@ -6624,6 +6708,10 @@ export type Database = {
           stock_id: string
         }[]
       }
+      claim_subscriber_expiry_reminders: {
+        Args: { _now?: string }
+        Returns: Json
+      }
       cleanup_account_link_codes: { Args: never; Returns: undefined }
       cleanup_line_oauth_states: { Args: never; Returns: undefined }
       cleanup_old_announcements: { Args: never; Returns: undefined }
@@ -6739,6 +6827,19 @@ export type Database = {
         Returns: Json
       }
       expected_latest_bsr_date: { Args: never; Returns: string }
+      expiring_subscriptions_for_expert: {
+        Args: { _expert_id: string }
+        Returns: {
+          days_left: number
+          display_name: string
+          expires_at: string
+          expires_on: string
+          local_date: string
+          plan_name: string
+          plan_type: string
+          subscription_id: string
+        }[]
+      }
       finmind_admit: {
         Args: {
           _cost?: number
