@@ -397,10 +397,25 @@ const SignalEditor = () => {
               className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {isEditing ? '更新' : (isMentor ? '儲存週記' : '立即發布')}
+              {isEditing ? (isMentor ? '更新週記' : '更新') : (isMentor ? '儲存週記' : '立即發布')}
             </Button>
           </div>
         </div>
+
+        {hasUnsavedChanges && (
+          <div
+            data-testid="unsaved-changes-bar"
+            className="flex items-center justify-between gap-3 flex-wrap rounded-md border border-mentor/50 bg-mentor/5 px-3 py-2"
+          >
+            <p className="text-xs text-foreground">
+              有尚未儲存的修改 — 按「{isMentor ? '更新週記' : '更新'}」才會正式寫入。內容會暫存在這台裝置上。
+            </p>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={revertToSaved}>
+              還原成已儲存版本
+            </Button>
+          </div>
+        )}
+
 
         {isMentor && (
           <Card>
