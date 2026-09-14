@@ -262,6 +262,41 @@ Deno.serve(withLogging('expert-ai-chat', async (req, log) => {
     }
   }
 
+  // 4.5) 「這月回報」：以台北月界抓該導師本月已公開週記原文（不靠向量檢索，確保不漏篇）
+  let monthlyContext = '';
+  let monthlyMeta: { month: string; count: number } | null = null;
+  if (mode === 'monthly_digest') {
+    const { startIso, endIso, month } = taipeiMonthRangeUtc(new Date());
+    const { rows, error: mErr } = await forMonthlyDigest<any>(admin as any, {
+      expertId,
+      startIso,
+      endIso,
+    });
+    if (mErr) log.warn('monthly_digest_fetch_failed', { err: mErr });
+    monthlyMeta = { month, count: rows.length };
+    const strip = (s: unknown) => String(s ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    monthlyContext = rows
+      .map((r, i) => {
+        const date = r.published_at ? String(r.published_at).slice(0, 10) : '';
+        const parts = [
+          `[本月週記 ${i + 1}｜${date}｜${r.instrument ?? ''}｜${r.action ?? ''}]`,
+          strip(r.reason_summary),
+          strip(r.reason_detail).slice(0, 800),
+          Array.isArray(r.learning_points) && r.learning_points.length
+            ? `學習重點：${r.learning_points.map(strip).join('；')}`
+            : '',
+          Array.isArray(r.risk_notes) && r.risk_notes.length
+            ? `風險提醒：${r.risk_notes.map(strip).join('；')}`
+            : '',
+        ].filter(Boolean);
+        return parts.join('\n');
+      })
+      .join('\n\n');
+    log.info('monthly_digest', { month, count: rows.length });
+  }
+
+
+
   // 5) 寫入 user 訊息
   if (lastUserText) {
     await admin.from('expert_ai_messages').insert({
