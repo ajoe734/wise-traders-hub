@@ -70,11 +70,14 @@ const SignalEditor = () => {
     expertSlug,
     editBatchId,
     isEditing,
-    onBatchLoaded: ({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts }) => {
+    onBatchLoaded: ({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts, publishedAt, createdAt }) => {
       setTeachingTopic(tt);
       setOverallSummary(os);
       setLearningPoints(lp);
       setTrades(ts);
+      batchTimesRef.current = { publishedAt, createdAt };
+      savedStateRef.current = { teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts };
+      setSavedSnapshot(JSON.stringify({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts }));
       // 編輯既有批次：若所有 trade 都是 teaching action，視為純教學週記
       if (ts.length > 0 && ts.every((t: any) => t.action === 'teaching')) {
         setWeekType('teaching');
