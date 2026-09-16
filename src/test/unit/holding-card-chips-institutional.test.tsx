@@ -45,7 +45,7 @@ describe('HoldingCardBsr · 法人 primary', () => {
     expect(el.getAttribute('data-chips-kind')).toBe('institutional');
     expect(el.getAttribute('data-chips-as-of')).toBe('2026/09/07');
     expect(screen.getByTestId('holding-card-chips-primary').textContent).toContain('外資 −425');
-    expect(screen.getByTestId('holding-card-chips-secondary').textContent).toContain('券商分點資料源需授權');
+    expect(screen.getByTestId('holding-card-chips-secondary').textContent).toContain('券商分點更新暫停');
     expect(screen.getByTestId('holding-card-chips-secondary').textContent).toContain('2026/08/14');
     expect(el.textContent).not.toContain('籌碼資料暫時無法取得');
   });

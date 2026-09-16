@@ -17,13 +17,21 @@ import {
   resolveCardBsrState,
   bsrStateText,
   formatBsrAsOf,
-  isTerminalUnavailable,
   type BsrUiState,
   type BsrBatchStatusLike,
 } from '@/checkup/lib/bsrCanonicalCodes';
+import {
+  bsrCardPausedLine,
+  isEntitlementBlocked,
+  BSR_TEXT_PAUSED,
+} from '@/checkup/lib/bsrProviderPresentation';
 
-/** 券商分點 secondary 文案（唯一定義處）：不指名上游、不承諾時間。 */
-export const BSR_TEXT_ENTITLEMENT = '券商分點資料源需授權';
+/**
+ * 券商分點 secondary 文案：授權缺口時只說「更新暫停 + 最後成功日」，
+ * 授權名稱留給抽屜診斷段，避免卡片與段落標題疊字。
+ * 唯一定義處在 `bsrProviderPresentation`，此處只 re-export 供既有 consumer 使用。
+ */
+export const BSR_TEXT_ENTITLEMENT = BSR_TEXT_PAUSED;
 
 export type CardChipsKind = 'loading' | 'institutional' | 'bsr_status' | 'not_applicable';
 
@@ -131,13 +139,12 @@ function buildBsrSecondary(
   bsrState: BsrUiState,
   bsrAsOf: string | null,
 ): string | null {
-  const terminal = isTerminalUnavailable({
+  const terminal = isEntitlementBlocked({
     providerState: payload?.bsr_provider_state ?? payload?.bsr_sync_status?.provider_state ?? null,
     providerCode: payload?.bsr_provider_code ?? payload?.bsr_sync_status?.provider_code ?? null,
   });
-  const d = formatBsrAsOf(bsrAsOf);
   if (terminal || bsrState === 'unavailable_unsupported') {
-    return d ? `${BSR_TEXT_ENTITLEMENT} · 最後可得 ${d}` : BSR_TEXT_ENTITLEMENT;
+    return bsrCardPausedLine(bsrAsOf);
   }
   const t = bsrStateText(bsrState, bsrAsOf);
   return t || null;
