@@ -30,6 +30,13 @@ import {
   validateJournalContentFields, buildPendingContentRows,
 } from '@/pages/_signalEditor/derive';
 import { evaluatePublishGate } from '@/pages/_signalEditor/publishGate';
+import {
+  submitPendingMentorEdit, type PendingMentorRpc,
+} from '@/pages/_signalEditor/pendingMentorSubmit';
+
+/** production RPC adapter：pending mentor 內容更新唯一的真實出口。 */
+const supabasePendingMentorRpc: PendingMentorRpc = (args) =>
+  (supabase as any).rpc('update_pending_mentor_journal_batch', args);
 
 import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 import { getAssetSpec, resolveAssetClass, sanitizeAssetQuantityUnit } from '@/lib/asset';
