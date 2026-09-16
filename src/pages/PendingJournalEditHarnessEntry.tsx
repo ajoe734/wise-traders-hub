@@ -92,6 +92,27 @@ const BASE_TRADE: TradeDraft = {
 const EXPERT = { id: 'expert-fixture-1', asset_class: 'tw_stock', role: 'mentor', slug: 'harness-mentor' };
 const BATCH_ID = 'batch-fixture-1';
 
+/** 五組帳本指紋群組（此 schema 無 per-expert positions / capital ledger / realized_pnl 表）。 */
+export const LEDGER_GROUPS = [
+  'trade_records',
+  'user_performances',
+  'holdings',
+  'starting_capital',
+  'meta',
+] as const;
+
+type LedgerGroup = (typeof LEDGER_GROUPS)[number];
+
+function groupHashes(): Record<LedgerGroup, string> {
+  return {
+    trade_records: fixtureHash(FIXTURE_LEDGER.trade_records),
+    user_performances: fixtureHash(FIXTURE_LEDGER.user_performances),
+    holdings: fixtureHash(FIXTURE_LEDGER.holdings),
+    starting_capital: fixtureHash(FIXTURE_LEDGER.starting_capital),
+    meta: fixtureHash(FIXTURE_LEDGER.meta),
+  };
+}
+
 interface RunResult {
   saveStatus: 'ok' | 'blocked' | 'error';
   message: string;
@@ -99,6 +120,8 @@ interface RunResult {
   rpcCalls: number;
   hashBefore: string;
   hashAfter: string;
+  groupsBefore: Record<LedgerGroup, string>;
+  groupsAfter: Record<LedgerGroup, string>;
 }
 
 export default function PendingJournalEditHarnessEntry() {
@@ -134,6 +157,7 @@ export default function PendingJournalEditHarnessEntry() {
 
   const run = async () => {
     const hashBefore = fixtureHash(FIXTURE_LEDGER);
+    const groupsBefore = groupHashes();
     let rpcCalls = 0;
     let mutationCalls = 0;
 
@@ -146,6 +170,8 @@ export default function PendingJournalEditHarnessEntry() {
         rpcCalls: 0,
         hashBefore,
         hashAfter: fixtureHash(FIXTURE_LEDGER),
+        groupsBefore,
+        groupsAfter: groupHashes(),
       });
       return;
     }
@@ -165,6 +191,8 @@ export default function PendingJournalEditHarnessEntry() {
         rpcCalls: 0,
         hashBefore,
         hashAfter: fixtureHash(FIXTURE_LEDGER),
+        groupsBefore,
+        groupsAfter: groupHashes(),
       });
       return;
     }
@@ -196,6 +224,8 @@ export default function PendingJournalEditHarnessEntry() {
       rpcCalls,
       hashBefore,
       hashAfter: fixtureHash(FIXTURE_LEDGER),
+      groupsBefore,
+      groupsAfter: groupHashes(),
     });
   };
 
@@ -256,6 +286,12 @@ export default function PendingJournalEditHarnessEntry() {
         <div data-testid="ledger-hash-before">{result?.hashBefore ?? ''}</div>
         <div data-testid="ledger-hash-after">{result?.hashAfter ?? ''}</div>
         <div data-testid="ledger-same">{ledgerSame}</div>
+        {LEDGER_GROUPS.map((g) => (
+          <div key={g}>
+            <span data-testid={`fp-${g}-before`}>{result?.groupsBefore[g] ?? ''}</span>
+            <span data-testid={`fp-${g}-after`}>{result?.groupsAfter[g] ?? ''}</span>
+          </div>
+        ))}
         <div data-testid="blocked-network-calls">{blockedNetwork}</div>
       </div>
     </div>
