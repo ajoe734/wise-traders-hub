@@ -594,6 +594,76 @@ export function buildComboLegRows(rows: any[], trades: TradeDraft[]) {
   });
   return out;
 }
+/**
+ * P0_UNPUBLISHED_JOURNAL_EDIT_ISOLATION_V1
+ *
+ * 「尚未公開週記」的內容版本更新 payload。
+ * 與 `buildPublishRows` 的差別：
+ *   - 帶既有 expert_signals.id（TradeDraft.uid 於載入批次時就是 row id），
+ *     讓後端可以就地 UPDATE，不需要 DELETE + INSERT
+ *   - 不含 status / batch_id / published_at / created_at —— 這些一律由後端保留
+ *   - 不含 combo 欄位：內容更新不改變組合結構
+ */
+export function buildPendingContentRows(args: {
+  assetClass?: AssetClass | string | null;
+  isMentor: boolean;
+  teachingOnly?: boolean;
+  teachingTopic: string;
+  overallSummary: string;
+  learningPoints: string;
+  trades: TradeDraft[];
+}) {
+  const {
+    assetClass, isMentor, teachingOnly, teachingTopic, overallSummary, learningPoints, trades,
+  } = args;
+  const safeAssetClass = assetClass || 'tw_stock';
+
+  if (teachingOnly) {
+    const first = trades[0];
+    return [{
+      id: first?.uid,
+      instrument: '',
+      action: 'teaching',
+      price_hint: null,
+      quantity: null,
+      quantity_unit: null,
+      executed_at: null,
+      reason_summary: null,
+      reason_detail: null,
+      risk_notes: null,
+      teaching_topic: teachingTopic || null,
+      overall_summary: sanitizeRichHtml(overallSummary) || null,
+      learning_points: sanitizeRichHtml(learningPoints) || null,
+    } as any];
+  }
+
+  return trades.map((t, origIdx) => {
+    const isHold = t.action === 'hold';
+    const priceHint = t.priceHint && parseFloat(t.priceHint) > 0 ? parseFloat(t.priceHint) : null;
+    const quantity = t.quantity && parseInt(t.quantity, 10) > 0 ? parseInt(t.quantity, 10) : null;
+    const instrument = t.isCombo
+      ? formatComboLabel(t.legs as ComboLeg[])
+      : (t.stockName.trim() ? `${t.stockCode.trim()} ${t.stockName.trim()}` : t.stockCode.trim());
+    const quantityUnit = t.isCombo
+      ? ('組' as const)
+      : sanitizeAssetQuantityUnit(t.quantityUnit, safeAssetClass);
+    return {
+      id: t.uid,
+      instrument,
+      action: t.action,
+      price_hint: priceHint,
+      quantity,
+      quantity_unit: isHold && !quantity ? null : quantityUnit,
+      executed_at: t.executedAt ? new Date(t.executedAt).toISOString() : null,
+      reason_summary: sanitizeRichHtml(t.reasonSummary),
+      reason_detail: sanitizeRichHtml(t.reasonDetail),
+      risk_notes: sanitizeRichHtml(t.riskNotes),
+      teaching_topic: origIdx === 0 && isMentor ? teachingTopic || null : null,
+      overall_summary: origIdx === 0 && isMentor ? sanitizeRichHtml(overallSummary) || null : null,
+      learning_points: origIdx === 0 && isMentor ? sanitizeRichHtml(learningPoints) || null : null,
+    } as any;
+  });
+}
 
 // 保留 OpenPosition 型別引用以避免未使用警告
 export type { OpenPosition };
