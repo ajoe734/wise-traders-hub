@@ -42,6 +42,12 @@ export function isPreviewHost(hostname: string): boolean {
   return PREVIEW_HOST_RE.test(h) || LOVABLEPROJECT_HOST_RE.test(h);
 }
 
+/** 純函式判定：localhost 或合法 preview host 才允許 harness。 */
+export function isHarnessHostAllowed(hostname: string | null | undefined): boolean {
+  if (!hostname) return false;
+  return isLocalHost(hostname) || isPreviewHost(hostname);
+}
+
 /**
  * Runtime gate（route 掛載用）。
  * 刻意**不是** build-time literal，Rollup 因此不會 tree-shake 掉 preview-host 這條路徑。
