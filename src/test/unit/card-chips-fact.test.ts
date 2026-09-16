@@ -40,7 +40,7 @@ describe('resolveCardChipsFact', () => {
     expect(f.text).toContain('自營 +5.9');
     expect(f.text).toContain('張');
     expect(f.text).not.toContain('無法取得');
-    expect(f.secondaryText).toBe(`${BSR_TEXT_ENTITLEMENT} · 最後可得 2026/08/14`);
+    expect(f.secondaryText).toBe(`${BSR_TEXT_ENTITLEMENT} · 最後成功 2026/08/14`);
     expect(f.bsrAsOf).toBe('2026-08-14');
   });
 

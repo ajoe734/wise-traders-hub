@@ -15,16 +15,19 @@ import {
   isTerminalUnavailable,
   mapProviderState,
 } from '@/checkup/lib/bsrCanonicalCodes';
-import { BSR_TEXT_ENTITLEMENT } from '@/checkup/lib/cardChipsFact';
+import { bsrDrawerEntitlementLine } from '@/checkup/lib/bsrProviderPresentation';
 
 /** terminal／不可用共用文案：不指名上游、不承諾時間、不露內部 code。 */
 function unavailableText(asOf: string | null): string {
   return asOf ? `${BSR_TEXT_UNAVAILABLE} · 顯示最後可得資料 ${asOf}` : BSR_TEXT_UNAVAILABLE;
 }
 
-/** 上游授權缺口（terminal）：券商分點專用，明說需授權且給最後可得日期。 */
+/**
+ * 上游授權缺口（terminal）：抽屜是診斷語境，明講缺的是哪一種授權與最後成功日。
+ * 文案唯一定義處在 `bsrProviderPresentation`。
+ */
 function entitlementText(asOf: string | null): string {
-  return asOf ? `${BSR_TEXT_ENTITLEMENT} · 最後可得 ${asOf}` : BSR_TEXT_ENTITLEMENT;
+  return bsrDrawerEntitlementLine(asOf);
 }
 
 export type SegmentTone = 'ok' | 'warn' | 'error' | 'muted';

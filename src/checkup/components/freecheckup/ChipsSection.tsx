@@ -8,6 +8,7 @@ import ChipsTrendChart from './ChipsTrendChart';
 import { bsrHeaderLabel } from './bsrHeaderLabel';
 import { buildFreshnessSegments, segmentColor } from './chipsFreshnessSegments';
 import { BSR_TEXT_UNAVAILABLE } from '@/checkup/lib/bsrCanonicalCodes';
+import { resolveBsrRetryNote } from '@/checkup/lib/bsrProviderPresentation';
 
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
@@ -657,16 +658,22 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
               ) : (
                 <>此代號尚無成功紀錄；</>
               )}
-              已嘗試回推：
-              <b style={{ color: '#5c3d10' }}>
-                {data.bsr_last_failure.lookback_to && data.bsr_last_failure.lookback_from
-                  ? `${data.bsr_last_failure.lookback_to.replaceAll('-', '/')} ~ ${data.bsr_last_failure.lookback_from.replaceAll('-', '/')}`
-                  : data.bsr_last_failure.trade_date.replaceAll('-', '/')}
-              </b>
-              {data.bsr_last_failure.lookback_days && data.bsr_last_failure.lookback_days > 1
-                ? `（共 ${data.bsr_last_failure.lookback_days} 個日期）`
-                : ''}
-              。
+              {(() => {
+                const note = resolveBsrRetryNote({
+                  terminal: !!isTerminalProvider,
+                  lookbackFrom: data.bsr_last_failure!.lookback_from ?? null,
+                  lookbackTo: data.bsr_last_failure!.lookback_to ?? null,
+                  lookbackDays: data.bsr_last_failure!.lookback_days ?? null,
+                  tradeDate: data.bsr_last_failure!.trade_date ?? null,
+                });
+                return (
+                  <span data-testid="chips-bsr-retry-note" data-retry-kind={note.kind}>
+                    {note.kind === 'none_since_entitlement' ? '' : '已嘗試回推：'}
+                    <b style={{ color: '#5c3d10' }}>{note.text}</b>
+                    。
+                  </span>
+                );
+              })()}
             </div>
             <div>
               失敗原因：
