@@ -229,7 +229,10 @@ BEGIN
   DELETE FROM public.trade_records WHERE expert_id = sharkgu;
   INSERT INTO public.expert_signals (id, expert_id, batch_id, instrument, action, market, status, price_hint, quantity, quantity_unit, teaching_topic, executed_at)
   VALUES (fresh_s, sharkgu, fresh_b, '2330', 'teaching', 'tw_stock', 'pending', 10, 1, '張', 'S2_BEFORE', now());
-  SELECT count(*) INTO hold_cnt FROM public.v_active_tw_holdings h WHERE h.expert_id = sharkgu;
+  -- 此 schema 無 per-expert positions 表；v_active_tw_holdings 是全域 stock_id projection
+  -- （只有 stock_id 一欄），無法 per-expert 查詢。改以「該 expert 交易數=0」作為
+  -- 無交易／無可推導持倉的 setup 證據；全域 view 仍由 pg_temp.fp() 做 before/after hash。
+  SELECT count(*) INTO hold_cnt FROM public.trade_records WHERE expert_id = sharkgu;
   fp0 := pg_temp.fp(); m0 := pg_temp.meta_fp(fresh_b);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', sharkgu_u, 'role','authenticated')::text, true);
   SELECT public.update_pending_mentor_journal_batch(sharkgu, fresh_b,
