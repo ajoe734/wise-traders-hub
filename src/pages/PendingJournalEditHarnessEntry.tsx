@@ -157,6 +157,7 @@ export default function PendingJournalEditHarnessEntry() {
 
   const run = async () => {
     const hashBefore = fixtureHash(FIXTURE_LEDGER);
+    const groupsBefore = groupHashes();
     let rpcCalls = 0;
     let mutationCalls = 0;
 
