@@ -286,6 +286,12 @@ export default function PendingJournalEditHarnessEntry() {
         <div data-testid="ledger-hash-before">{result?.hashBefore ?? ''}</div>
         <div data-testid="ledger-hash-after">{result?.hashAfter ?? ''}</div>
         <div data-testid="ledger-same">{ledgerSame}</div>
+        {LEDGER_GROUPS.map((g) => (
+          <div key={g}>
+            <span data-testid={`fp-${g}-before`}>{result?.groupsBefore[g] ?? ''}</span>
+            <span data-testid={`fp-${g}-after`}>{result?.groupsAfter[g] ?? ''}</span>
+          </div>
+        ))}
         <div data-testid="blocked-network-calls">{blockedNetwork}</div>
       </div>
     </div>
