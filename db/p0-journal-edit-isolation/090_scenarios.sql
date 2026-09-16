@@ -5,9 +5,10 @@
 --
 -- Fingerprint 覆蓋（存在的表/視圖）：
 --   trade_records（權威交易帳本）、user_performances（績效/已實現）、
---   v_active_tw_holdings（持倉 projection view）、experts.starting_capital（資金基準）、
+--   v_active_tw_holdings（全域 active symbol view，僅有 stock_id 一欄，無 expert_id，
+--     不可 per-expert 查詢；僅做全域 before/after hash）、experts.starting_capital（資金基準）、
 --   expert_signals meta（id/batch_id/status/created_at/published_at）
--- NOT PRESENT：沒有獨立的 positions 表、沒有 capital/cash ledger 表、沒有 realized_pnl 表
+-- NOT PRESENT：沒有 per-expert positions 表、沒有 capital/cash ledger 表、沒有 realized_pnl 表
 --   （available_cash 由 starting_capital + trade_records 推導）。
 --
 -- 下方 CREATE OR REPLACE FUNCTION 為 supabase/migrations/20260916093500_update_pending_mentor_journal_batch.sql
@@ -229,14 +230,17 @@ BEGIN
   DELETE FROM public.trade_records WHERE expert_id = sharkgu;
   INSERT INTO public.expert_signals (id, expert_id, batch_id, instrument, action, market, status, price_hint, quantity, quantity_unit, teaching_topic, executed_at)
   VALUES (fresh_s, sharkgu, fresh_b, '2330', 'teaching', 'tw_stock', 'pending', 10, 1, '張', 'S2_BEFORE', now());
-  SELECT count(*) INTO hold_cnt FROM public.v_active_tw_holdings h WHERE h.expert_id = sharkgu;
+  -- 此 schema 無 per-expert positions 表；v_active_tw_holdings 是全域 stock_id projection
+  -- （只有 stock_id 一欄），無法 per-expert 查詢。改以「該 expert 交易數=0」作為
+  -- 無交易／無可推導持倉的 setup 證據；全域 view 仍由 pg_temp.fp() 做 before/after hash。
+  SELECT count(*) INTO hold_cnt FROM public.trade_records WHERE expert_id = sharkgu;
   fp0 := pg_temp.fp(); m0 := pg_temp.meta_fp(fresh_b);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', sharkgu_u, 'role','authenticated')::text, true);
   SELECT public.update_pending_mentor_journal_batch(sharkgu, fresh_b,
          pg_temp.mk_rows(fresh_b, sharkgu, 'S2_TOPIC', 222.5)) INTO n;
   SELECT max(teaching_topic), max(price_hint) INTO tv, pv FROM public.expert_signals WHERE batch_id = fresh_b;
   fp1 := pg_temp.fp(); m1 := pg_temp.meta_fp(fresh_b);
-  rep := rep || format(E'S2 cash0_no_holdings updated=%s topic=%s price=%s holdings_for_expert=%s ledger_same=%s meta_same=%s\n',
+  rep := rep || format(E'S2 cash0_no_holdings updated=%s topic=%s price=%s trade_records_for_expert=%s ledger_same=%s meta_same=%s\n',
     n, tv, pv, hold_cnt, fp0 = fp1, m0 = m1);
   rep := rep || format(E'   S2 fp_before=%s\n   S2 fp_after =%s\n', md5(fp0), md5(fp1));
 
