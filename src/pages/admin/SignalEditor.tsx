@@ -268,6 +268,13 @@ const SignalEditor = () => {
   // ── Publish ──────────────────────────────────────────────────────────
   const isTeachingOnly = isMentor && weekType === 'teaching';
 
+  /**
+   * P0_UNPUBLISHED_JOURNAL_EDIT_ISOLATION_V1
+   * 只有「編輯 + 週記老師 + 整批仍是 pending」才屬於內容版本更新：
+   * 不重跑資金／持倉驗證，也不走會重建交易帳本的 save_signal_batch。
+   */
+  const isPendingMentorEdit = isEditing && isMentor && batchStatus === 'pending';
+
   const handlePublish = async () => {
     // P8：守門順序由 evaluatePublishGate 這個純函式決定（可單測），元件只負責顯示。
     const gate = evaluatePublishGate({
@@ -275,7 +282,9 @@ const SignalEditor = () => {
       assetClass: expert?.asset_class,
       isTeachingOnly,
       teachingTopic,
-      validateBatch: () => validateSignalBatch({ expert, trades, openPositions, capital }),
+      validateBatch: () => (isPendingMentorEdit
+        ? validateJournalContentFields({ expert, trades })
+        : validateSignalBatch({ expert, trades, openPositions, capital })),
     });
     if (gate.blocked) {
       if (!gate.silent && gate.reason) toast.error(gate.reason);
@@ -283,6 +292,45 @@ const SignalEditor = () => {
     }
     if (!expert) return;
 
+    // ── 尚未公開週記：純內容更新，完全不碰交易帳本／資金 ──
+    if (isPendingMentorEdit) {
+      setSubmitting(true);
+      try {
+        const contentRows = buildPendingContentRows({
+          assetClass, isMentor, teachingOnly: isTeachingOnly,
+          teachingTopic, overallSummary, learningPoints, trades,
+        });
+        const { error } = await (supabase as any).rpc('update_pending_mentor_journal_batch', {
+          _expert_id: expert.id,
+          _batch_id: editBatchId as string,
+          _rows: contentRows as any,
+        });
+        if (error) {
+          const msg: string = (error as any)?.message || '';
+          const code: string = (error as any)?.code || '';
+          const notFound = code === 'PGRST202'
+            || msg.includes('Could not find the function')
+            || msg.includes('does not exist');
+          toast.error(
+            notFound ? '更新功能尚未啟用（伺服器程序尚未上線），本次沒有任何變更寫入'
+              : msg.includes('forbidden') || msg.includes('unauthenticated') ? '沒有權限修改這位老師的週記'
+              : msg.includes('not_mentor') ? '這個帳號不是週記老師，無法用這種方式修改'
+              : msg.includes('not_pending') ? '這篇週記已經公開，不能再用「未公開內容更新」修改'
+              : msg.includes('row_set_change_unsupported') ? '未公開週記目前只能修改內容，不能新增或刪除股票列'
+              : msg.includes('batch_mismatch') ? '找不到這篇週記，請重新整理後再試'
+              : msg.includes('empty_rows') ? '沒有可儲存的內容'
+              : msg || '更新失敗',
+          );
+          return;
+        }
+        toast.success(`已更新 ${contentRows.length} 檔週記`);
+        discardDraft();
+        navigate(`/admin/${expertSlug}/signals`);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
     setSubmitting(true);
     try {
