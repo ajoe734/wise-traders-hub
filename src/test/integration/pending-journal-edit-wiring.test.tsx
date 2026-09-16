@@ -141,7 +141,13 @@ function renderEditor(editing: boolean) {
 
 const topicInput = () => screen.getByPlaceholderText(/本週主題/) as HTMLInputElement;
 const priceInput = () => screen.getByPlaceholderText('890') as HTMLInputElement;
-const submit = () => screen.getByRole('button', { name: /更新週記|更新|儲存週記|立即發布/ });
+const SUBMIT_LABELS = ['更新週記', '更新', '儲存週記', '立即發布'];
+const submit = () => {
+  const btns = screen.getAllByRole('button')
+    .filter((b) => SUBMIT_LABELS.includes((b.textContent || '').trim()));
+  if (btns.length === 0) throw new Error('找不到送出按鈕');
+  return btns[0];
+};
 
 beforeEach(() => {
   rpc.mockReset().mockResolvedValue({ error: null });
