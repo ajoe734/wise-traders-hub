@@ -73,7 +73,8 @@ const SignalEditor = () => {
     expertSlug,
     editBatchId,
     isEditing,
-    onBatchLoaded: ({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts, publishedAt, createdAt }) => {
+    onBatchLoaded: ({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts, publishedAt, createdAt, status: st }) => {
+      setBatchStatus(st);
       setTeachingTopic(tt);
       setOverallSummary(os);
       setLearningPoints(lp);
