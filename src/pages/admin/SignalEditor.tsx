@@ -27,6 +27,7 @@ import {
   buildPublishRows, buildTeachingOnlyRow, buildSimulatedPositions, computeCashSim, validateSignalBatch,
   collectTradeIssues,
   buildComboLegRows,
+  validateJournalContentFields, buildPendingContentRows,
 } from '@/pages/_signalEditor/derive';
 import { evaluatePublishGate } from '@/pages/_signalEditor/publishGate';
 
