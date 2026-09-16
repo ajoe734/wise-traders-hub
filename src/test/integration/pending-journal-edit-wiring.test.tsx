@@ -60,7 +60,11 @@ let fixture: {
   role: 'mentor' | 'advisor';
   status: string | null;
   isEditing: boolean;
+  availableCash: number;
 };
+/** 每個案例用不同 batchId，避免上一案的 localStorage 草稿殘留 */
+let batchSeq = 0;
+let currentBatchId = '';
 
 const ROW_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -109,7 +113,7 @@ vi.mock('@/hooks/admin/useSignalEditorData', () => ({
         open_cost_value: 0,
         open_market_value: 0,
         unrealized_pnl_amount: 0,
-        available_cash: 0,
+        available_cash: fixture.availableCash,
         open_positions: [],
         recent_trades: [],
       },
@@ -125,8 +129,10 @@ vi.mock('@/hooks/admin/useSignalEditorData', () => ({
 import SignalEditor from '@/pages/admin/SignalEditor';
 
 function renderEditor(editing: boolean) {
+  batchSeq += 1;
+  currentBatchId = `22222222-2222-4222-8222-${String(batchSeq).padStart(12, '0')}`;
   const path = editing
-    ? '/admin/sharkgu/signals/edit/22222222-2222-4222-8222-222222222222'
+    ? `/admin/sharkgu/signals/edit/${currentBatchId}`
     : '/admin/sharkgu/signals/new';
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -156,7 +162,7 @@ beforeEach(() => {
   toastError.mockReset();
   toastSuccess.mockReset();
   localStorage.clear();
-  fixture = { role: 'mentor', status: 'pending', isEditing: true };
+  fixture = { role: 'mentor', status: 'pending', isEditing: true, availableCash: 0 };
 });
 
 describe('A. pending mentor 內容更新', () => {
@@ -174,7 +180,7 @@ describe('A. pending mentor 內容更新', () => {
     const [fn, payload] = rpc.mock.calls[0];
     expect(fn).toBe('update_pending_mentor_journal_batch');
     expect(payload._expert_id).toBe('e1');
-    expect(payload._batch_id).toBe('22222222-2222-4222-8222-222222222222');
+    expect(payload._batch_id).toBe(currentBatchId);
     expect(payload._rows).toHaveLength(1);
     expect(payload._rows[0].id).toBe(ROW_ID);
     expect(payload._rows[0].teaching_topic).toBe('新標題 — 停利紀律');
@@ -210,7 +216,7 @@ describe('B. 內容驗證仍生效', () => {
 
 describe('C. published mentor batch 不得走 content-only', () => {
   it('published 狀態仍走 save_signal_batch 原流程', async () => {
-    fixture = { role: 'mentor', status: 'published', isEditing: true };
+    fixture = { role: 'mentor', status: 'published', isEditing: true, availableCash: 5_000_000 };
     renderEditor(true);
     await waitFor(() => expect(topicInput().value).toBe('舊標題'));
     fireEvent.change(topicInput(), { target: { value: '改標題' } });
@@ -223,7 +229,7 @@ describe('C. published mentor batch 不得走 content-only', () => {
 
 describe('D. 其他路徑回歸', () => {
   it('新建 mentor 週記走 save_signal_batch', async () => {
-    fixture = { role: 'mentor', status: null, isEditing: false };
+    fixture = { role: 'mentor', status: null, isEditing: false, availableCash: 5_000_000 };
     renderEditor(false);
     fireEvent.change(topicInput(), { target: { value: '本週主題' } });
     const code = screen.getAllByPlaceholderText(/2330|代碼|例/)[0];
@@ -235,7 +241,7 @@ describe('D. 其他路徑回歸', () => {
   });
 
   it('advisor 編輯走 save_signal_batch', async () => {
-    fixture = { role: 'advisor', status: 'published', isEditing: true };
+    fixture = { role: 'advisor', status: 'published', isEditing: true, availableCash: 5_000_000 };
     renderEditor(true);
     await waitFor(() => expect(screen.getByDisplayValue('2330')).toBeInTheDocument());
     fireEvent.click(submit());
