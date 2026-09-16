@@ -162,6 +162,7 @@ beforeEach(() => {
   toastError.mockReset();
   toastSuccess.mockReset();
   localStorage.clear();
+  sessionStorage.clear();
   fixture = { role: 'mentor', status: 'pending', isEditing: true, availableCash: 0 };
 });
 
@@ -230,14 +231,19 @@ describe('C. published mentor batch 不得走 content-only', () => {
 describe('D. 其他路徑回歸', () => {
   it('新建 mentor 週記走 save_signal_batch', async () => {
     fixture = { role: 'mentor', status: null, isEditing: false, availableCash: 5_000_000 };
+    // 新建路徑沒有伺服器 hydrate；用草稿還原把整張卡片填好（Radix Select 在 jsdom 難操作）
+    sessionStorage.setItem('signal-editor-sharkgu', JSON.stringify({
+      teachingTopic: '新的一週',
+      overallSummary: '',
+      learningPoints: '',
+      trades: [{ ...makeTrade(), uid: 'new-1' }],
+    }));
     renderEditor(false);
-    fireEvent.change(topicInput(), { target: { value: '本週主題' } });
-    const code = screen.getAllByPlaceholderText(/2330|代碼|例/)[0];
-    fireEvent.change(code, { target: { value: '2330' } });
-    fireEvent.change(priceInput(), { target: { value: '500' } });
+    await waitFor(() => expect(screen.getByDisplayValue('2330')).toBeInTheDocument());
     fireEvent.click(submit());
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     expect(rpc.mock.calls[0][0]).toBe('save_signal_batch');
+    expect(rpc.mock.calls.some(([n]) => n === 'update_pending_mentor_journal_batch')).toBe(false);
   });
 
   it('advisor 編輯走 save_signal_batch', async () => {
