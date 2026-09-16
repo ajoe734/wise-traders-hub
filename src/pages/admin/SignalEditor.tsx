@@ -56,6 +56,8 @@ const SignalEditor = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   /** 編輯既有批次時：已載入的「已儲存版本」快照，用來判斷有沒有未儲存修改 */
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  /** 編輯既有批次時：這批週記在伺服器上的狀態（pending = 尚未公開） */
+  const [batchStatus, setBatchStatus] = useState<string | null>(null);
   const savedStateRef = useRef<{
     teachingTopic: string; overallSummary: string; learningPoints: string; trades: TradeDraft[];
   } | null>(null);
