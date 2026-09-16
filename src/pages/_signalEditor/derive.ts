@@ -218,22 +218,25 @@ export function buildSimulatedPositions(
  * 與 `computeCashSim`，避免三份模擬各走各的。錯誤訊息中的「第 N 檔」
  * 沿用**原始 UI index**，讓分析師能在卡片上找到對應那張。
  */
-export function validateSignalBatch(args: {
+/**
+ * 欄位完整性／格式檢查（**不看**目前可用現金與目前持倉）。
+ *
+ * P0_UNPUBLISHED_JOURNAL_EDIT_ISOLATION_V1：
+ * 修改「尚未公開的週記」屬於內容版本更新，不是重新執行交易，
+ * 因此不得拿「現在」的 available_cash / openPositions 去擋歷史週記。
+ * 但必填欄位、標的格式、單位、價格 > 0 等仍必須守住。
+ */
+export function validateJournalContentFields(args: {
   expert: any;
   trades: TradeDraft[];
-  openPositions: { symbol: string; quantity: number }[];
-  capital: CapitalStatus | null;
 }): string | null {
-  const { expert, trades, capital } = args;
+  const { expert, trades } = args;
   if (!expert) return '找不到分析師資料';
   if (trades.length === 0) return '至少要有一檔股票';
 
   const assetClass = resolveAssetClass(expert);
   const spec = getAssetSpec(assetClass);
-  const currency: Currency = spec.currency;
-  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
 
-  // ── 先做欄位完整性檢查（依原始 UI 順序，先填好再排序執行） ──
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i];
     const tag = `第 ${i + 1} 檔`;
@@ -261,6 +264,26 @@ export function validateSignalBatch(args: {
       if (!price || price <= 0) return `${tag}：請填參考價格`;
     }
   }
+  return null;
+}
+
+export function validateSignalBatch(args: {
+  expert: any;
+  trades: TradeDraft[];
+  openPositions: { symbol: string; quantity: number }[];
+  capital: CapitalStatus | null;
+}): string | null {
+  const { expert, trades, capital } = args;
+
+  // ── 先做欄位完整性檢查（依原始 UI 順序，先填好再排序執行） ──
+  const fieldError = validateJournalContentFields({ expert, trades });
+  if (fieldError) return fieldError;
+
+  const assetClass = resolveAssetClass(expert);
+  const spec = getAssetSpec(assetClass);
+  const currency: Currency = spec.currency;
+  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
+
 
   // ── C8：統一模擬狀態源 ──
   const { perTradeBefore } = buildStepStates(trades, capital);
@@ -570,6 +593,76 @@ export function buildComboLegRows(rows: any[], trades: TradeDraft[]) {
     });
   });
   return out;
+}
+/**
+ * P0_UNPUBLISHED_JOURNAL_EDIT_ISOLATION_V1
+ *
+ * 「尚未公開週記」的內容版本更新 payload。
+ * 與 `buildPublishRows` 的差別：
+ *   - 帶既有 expert_signals.id（TradeDraft.uid 於載入批次時就是 row id），
+ *     讓後端可以就地 UPDATE，不需要 DELETE + INSERT
+ *   - 不含 status / batch_id / published_at / created_at —— 這些一律由後端保留
+ *   - 不含 combo 欄位：內容更新不改變組合結構
+ */
+export function buildPendingContentRows(args: {
+  assetClass?: AssetClass | string | null;
+  isMentor: boolean;
+  teachingOnly?: boolean;
+  teachingTopic: string;
+  overallSummary: string;
+  learningPoints: string;
+  trades: TradeDraft[];
+}) {
+  const {
+    assetClass, isMentor, teachingOnly, teachingTopic, overallSummary, learningPoints, trades,
+  } = args;
+  const safeAssetClass = assetClass || 'tw_stock';
+
+  if (teachingOnly) {
+    const first = trades[0];
+    return [{
+      id: first?.uid,
+      instrument: '',
+      action: 'teaching',
+      price_hint: null,
+      quantity: null,
+      quantity_unit: null,
+      executed_at: null,
+      reason_summary: null,
+      reason_detail: null,
+      risk_notes: null,
+      teaching_topic: teachingTopic || null,
+      overall_summary: sanitizeRichHtml(overallSummary) || null,
+      learning_points: sanitizeRichHtml(learningPoints) || null,
+    } as any];
+  }
+
+  return trades.map((t, origIdx) => {
+    const isHold = t.action === 'hold';
+    const priceHint = t.priceHint && parseFloat(t.priceHint) > 0 ? parseFloat(t.priceHint) : null;
+    const quantity = t.quantity && parseInt(t.quantity, 10) > 0 ? parseInt(t.quantity, 10) : null;
+    const instrument = t.isCombo
+      ? formatComboLabel(t.legs as ComboLeg[])
+      : (t.stockName.trim() ? `${t.stockCode.trim()} ${t.stockName.trim()}` : t.stockCode.trim());
+    const quantityUnit = t.isCombo
+      ? ('組' as const)
+      : sanitizeAssetQuantityUnit(t.quantityUnit, safeAssetClass);
+    return {
+      id: t.uid,
+      instrument,
+      action: t.action,
+      price_hint: priceHint,
+      quantity,
+      quantity_unit: isHold && !quantity ? null : quantityUnit,
+      executed_at: t.executedAt ? new Date(t.executedAt).toISOString() : null,
+      reason_summary: sanitizeRichHtml(t.reasonSummary),
+      reason_detail: sanitizeRichHtml(t.reasonDetail),
+      risk_notes: sanitizeRichHtml(t.riskNotes),
+      teaching_topic: origIdx === 0 && isMentor ? teachingTopic || null : null,
+      overall_summary: origIdx === 0 && isMentor ? sanitizeRichHtml(overallSummary) || null : null,
+      learning_points: origIdx === 0 && isMentor ? sanitizeRichHtml(learningPoints) || null : null,
+    } as any;
+  });
 }
 
 // 保留 OpenPosition 型別引用以避免未使用警告
