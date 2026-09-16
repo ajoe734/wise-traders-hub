@@ -170,6 +170,8 @@ export default function PendingJournalEditHarnessEntry() {
         rpcCalls: 0,
         hashBefore,
         hashAfter: fixtureHash(FIXTURE_LEDGER),
+        groupsBefore,
+        groupsAfter: groupHashes(),
       });
       return;
     }
