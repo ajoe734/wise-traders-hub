@@ -28,6 +28,8 @@ const ALLOW = [
   '127.0.0.1',
   'preview--wise-traders-hub.lovable.app',
   'preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
+  // 實際派發的 Hosted Preview host：`<project-id>.lovableproject.com`
+  '0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com',
 ];
 
 const DENY = [
@@ -40,6 +42,13 @@ const DENY = [
   '[::1]',
   'dev.localhost',
   'id-preview--0f5bdae6.lovable.app', // 非 preview-- 開頭
+  // lovableproject.com lookalike / suffix 注入
+  'id-preview--0f5bdae6.lovableproject.com', // 非純 project-id 前綴
+  'x0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com', // 非 hex 字元
+  '0f5bdae6.lovableproject.com.evil.com',
+  'sub.0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com',
+  '0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com.',
+  '0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.notlovableproject.com',
   // lookalike / suffix 注入
   'preview--x.lovable.app.evil.com',
   'evil.com/preview--x.lovable.app',

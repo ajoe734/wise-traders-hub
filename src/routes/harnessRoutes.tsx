@@ -16,8 +16,10 @@
  * module-top-level pre-evaluation in production-like unpublished Preview builds.
  *
  * The gate is now a RUNTIME check with a closed allow-list
- * (`src/routes/harnessHostGate.ts`): local dev/localhost, or a hostname that
- * exactly matches `preview--<slug>.lovable.app`. Custom domains
+ * (`src/routes/harnessHostGate.ts`): local dev/localhost, a hostname that
+ * exactly matches `preview--<slug>.lovable.app`, or the actual Lovable Hosted
+ * Preview form `<project-id>.lovableproject.com` (hex/hyphen id only).
+ * Custom domains
  * (legendflow.tw / www.legendflow.tw), published production and any lookalike
  * host stay 404. The query string never grants access, and every harness page
  * renders fake-gateway fixtures only — no real user data, no live DB/Edge call.

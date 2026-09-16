@@ -22,6 +22,13 @@
 /** unpublished Hosted Preview：`preview--<slug>.lovable.app`，完全錨定。 */
 export const PREVIEW_HOST_RE = /^preview--[a-z0-9-]+\.lovable\.app$/;
 
+/**
+ * Lovable 實際派發的 Preview host：`<project-id>.lovableproject.com`。
+ * project-id 僅允許十六進位 + 連字號（UUID 形式），完全錨定；
+ * `id-preview--...`、`x<uuid>...` 等 lookalike 一律 false。
+ */
+export const LOVABLEPROJECT_HOST_RE = /^[0-9a-f-]+\.lovableproject\.com$/;
+
 /** Harness runtime allow-list 僅接受明確的本機 hostname。 */
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
 
@@ -31,7 +38,8 @@ export function isLocalHost(hostname: string): boolean {
 }
 
 export function isPreviewHost(hostname: string): boolean {
-  return PREVIEW_HOST_RE.test(String(hostname || '').toLowerCase());
+  const h = String(hostname || '').toLowerCase();
+  return PREVIEW_HOST_RE.test(h) || LOVABLEPROJECT_HOST_RE.test(h);
 }
 
 /** 純函式判定：localhost 或合法 preview host 才允許 harness。 */
