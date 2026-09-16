@@ -240,7 +240,7 @@ BEGIN
          pg_temp.mk_rows(fresh_b, sharkgu, 'S2_TOPIC', 222.5)) INTO n;
   SELECT max(teaching_topic), max(price_hint) INTO tv, pv FROM public.expert_signals WHERE batch_id = fresh_b;
   fp1 := pg_temp.fp(); m1 := pg_temp.meta_fp(fresh_b);
-  rep := rep || format(E'S2 cash0_no_holdings updated=%s topic=%s price=%s holdings_for_expert=%s ledger_same=%s meta_same=%s\n',
+  rep := rep || format(E'S2 cash0_no_holdings updated=%s topic=%s price=%s trade_records_for_expert=%s ledger_same=%s meta_same=%s\n',
     n, tv, pv, hold_cnt, fp0 = fp1, m0 = m1);
   rep := rep || format(E'   S2 fp_before=%s\n   S2 fp_after =%s\n', md5(fp0), md5(fp1));
 
