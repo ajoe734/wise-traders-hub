@@ -92,6 +92,27 @@ const BASE_TRADE: TradeDraft = {
 const EXPERT = { id: 'expert-fixture-1', asset_class: 'tw_stock', role: 'mentor', slug: 'harness-mentor' };
 const BATCH_ID = 'batch-fixture-1';
 
+/** 五組帳本指紋群組（此 schema 無 per-expert positions / capital ledger / realized_pnl 表）。 */
+export const LEDGER_GROUPS = [
+  'trade_records',
+  'user_performances',
+  'holdings',
+  'starting_capital',
+  'meta',
+] as const;
+
+type LedgerGroup = (typeof LEDGER_GROUPS)[number];
+
+function groupHashes(): Record<LedgerGroup, string> {
+  return {
+    trade_records: fixtureHash(FIXTURE_LEDGER.trade_records),
+    user_performances: fixtureHash(FIXTURE_LEDGER.user_performances),
+    holdings: fixtureHash(FIXTURE_LEDGER.holdings),
+    starting_capital: fixtureHash(FIXTURE_LEDGER.starting_capital),
+    meta: fixtureHash(FIXTURE_LEDGER.meta),
+  };
+}
+
 interface RunResult {
   saveStatus: 'ok' | 'blocked' | 'error';
   message: string;
@@ -99,6 +120,8 @@ interface RunResult {
   rpcCalls: number;
   hashBefore: string;
   hashAfter: string;
+  groupsBefore: Record<LedgerGroup, string>;
+  groupsAfter: Record<LedgerGroup, string>;
 }
 
 export default function PendingJournalEditHarnessEntry() {
