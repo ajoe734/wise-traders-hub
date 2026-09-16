@@ -38,13 +38,8 @@ export function isLocalHost(hostname: string): boolean {
 }
 
 export function isPreviewHost(hostname: string): boolean {
-  return PREVIEW_HOST_RE.test(String(hostname || '').toLowerCase());
-}
-
-/** 純函式判定：localhost 或合法 preview host 才允許 harness。 */
-export function isHarnessHostAllowed(hostname: string | null | undefined): boolean {
-  if (!hostname) return false;
-  return isLocalHost(hostname) || isPreviewHost(hostname);
+  const h = String(hostname || '').toLowerCase();
+  return PREVIEW_HOST_RE.test(h) || LOVABLEPROJECT_HOST_RE.test(h);
 }
 
 /**
