@@ -313,7 +313,7 @@ const SignalEditor = () => {
           rows: contentRows,
           rpc: supabasePendingMentorRpc,
         });
-        if (!result.ok) {
+        if (result.ok === false) {
           toast.error(result.message);
           return;
         }
