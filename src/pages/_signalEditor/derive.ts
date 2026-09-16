@@ -218,22 +218,25 @@ export function buildSimulatedPositions(
  * 與 `computeCashSim`，避免三份模擬各走各的。錯誤訊息中的「第 N 檔」
  * 沿用**原始 UI index**，讓分析師能在卡片上找到對應那張。
  */
-export function validateSignalBatch(args: {
+/**
+ * 欄位完整性／格式檢查（**不看**目前可用現金與目前持倉）。
+ *
+ * P0_UNPUBLISHED_JOURNAL_EDIT_ISOLATION_V1：
+ * 修改「尚未公開的週記」屬於內容版本更新，不是重新執行交易，
+ * 因此不得拿「現在」的 available_cash / openPositions 去擋歷史週記。
+ * 但必填欄位、標的格式、單位、價格 > 0 等仍必須守住。
+ */
+export function validateJournalContentFields(args: {
   expert: any;
   trades: TradeDraft[];
-  openPositions: { symbol: string; quantity: number }[];
-  capital: CapitalStatus | null;
 }): string | null {
-  const { expert, trades, capital } = args;
+  const { expert, trades } = args;
   if (!expert) return '找不到分析師資料';
   if (trades.length === 0) return '至少要有一檔股票';
 
   const assetClass = resolveAssetClass(expert);
   const spec = getAssetSpec(assetClass);
-  const currency: Currency = spec.currency;
-  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
 
-  // ── 先做欄位完整性檢查（依原始 UI 順序，先填好再排序執行） ──
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i];
     const tag = `第 ${i + 1} 檔`;
@@ -261,6 +264,26 @@ export function validateSignalBatch(args: {
       if (!price || price <= 0) return `${tag}：請填參考價格`;
     }
   }
+  return null;
+}
+
+export function validateSignalBatch(args: {
+  expert: any;
+  trades: TradeDraft[];
+  openPositions: { symbol: string; quantity: number }[];
+  capital: CapitalStatus | null;
+}): string | null {
+  const { expert, trades, capital } = args;
+
+  // ── 先做欄位完整性檢查（依原始 UI 順序，先填好再排序執行） ──
+  const fieldError = validateJournalContentFields({ expert, trades });
+  if (fieldError) return fieldError;
+
+  const assetClass = resolveAssetClass(expert);
+  const spec = getAssetSpec(assetClass);
+  const currency: Currency = spec.currency;
+  const fmt = (n: number) => formatMoneyByCurrency(n, currency);
+
 
   // ── C8：統一模擬狀態源 ──
   const { perTradeBefore } = buildStepStates(trades, capital);
