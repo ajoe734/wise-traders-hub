@@ -300,30 +300,17 @@ const SignalEditor = () => {
           assetClass, isMentor, teachingOnly: isTeachingOnly,
           teachingTopic, overallSummary, learningPoints, trades,
         });
-        const { error } = await (supabase as any).rpc('update_pending_mentor_journal_batch', {
-          _expert_id: expert.id,
-          _batch_id: editBatchId as string,
-          _rows: contentRows as any,
+        const result = await submitPendingMentorEdit({
+          expertId: expert.id,
+          batchId: editBatchId as string,
+          rows: contentRows,
+          rpc: supabasePendingMentorRpc,
         });
-        if (error) {
-          const msg: string = (error as any)?.message || '';
-          const code: string = (error as any)?.code || '';
-          const notFound = code === 'PGRST202'
-            || msg.includes('Could not find the function')
-            || msg.includes('does not exist');
-          toast.error(
-            notFound ? '更新功能尚未啟用（伺服器程序尚未上線），本次沒有任何變更寫入'
-              : msg.includes('forbidden') || msg.includes('unauthenticated') ? '沒有權限修改這位老師的週記'
-              : msg.includes('not_mentor') ? '這個帳號不是週記老師，無法用這種方式修改'
-              : msg.includes('not_pending') ? '這篇週記已經公開，不能再用「未公開內容更新」修改'
-              : msg.includes('row_set_change_unsupported') ? '未公開週記目前只能修改內容，不能新增或刪除股票列'
-              : msg.includes('batch_mismatch') ? '找不到這篇週記，請重新整理後再試'
-              : msg.includes('empty_rows') ? '沒有可儲存的內容'
-              : msg || '更新失敗',
-          );
+        if (!result.ok) {
+          toast.error(result.message);
           return;
         }
-        toast.success(`已更新 ${contentRows.length} 檔週記`);
+        toast.success(`已更新 ${result.count} 檔週記`);
         discardDraft();
         navigate(`/admin/${expertSlug}/signals`);
       } finally {
