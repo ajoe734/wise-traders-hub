@@ -224,6 +224,8 @@ export default function PendingJournalEditHarnessEntry() {
       rpcCalls,
       hashBefore,
       hashAfter: fixtureHash(FIXTURE_LEDGER),
+      groupsBefore,
+      groupsAfter: groupHashes(),
     });
   };
 
