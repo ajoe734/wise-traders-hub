@@ -51,6 +51,7 @@ const ChipsBatchHarnessEntry = lazy(() => import("../pages/ChipsBatchHarnessEntr
 const JournalAuthoringHarnessEntry = lazy(() => import("../pages/JournalAuthoringHarnessEntry"));
 const ShellEventBusHarnessEntry = lazy(() => import("../pages/ShellEventBusHarnessEntry"));
 const SubscriberExpiryReminderHarnessEntry = lazy(() => import("../pages/SubscriberExpiryReminderHarnessEntry"));
+const PendingJournalEditHarnessEntry = lazy(() => import("../pages/PendingJournalEditHarnessEntry"));
 
 interface HarnessRouteGuardProps {
   children?: ReactNode;
