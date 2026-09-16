@@ -8,7 +8,7 @@
 --   v_active_tw_holdings（全域 active symbol view，僅有 stock_id 一欄，無 expert_id，
 --     不可 per-expert 查詢；僅做全域 before/after hash）、experts.starting_capital（資金基準）、
 --   expert_signals meta（id/batch_id/status/created_at/published_at）
--- NOT PRESENT：沒有獨立的 positions 表、沒有 capital/cash ledger 表、沒有 realized_pnl 表
+-- NOT PRESENT：沒有 per-expert positions 表、沒有 capital/cash ledger 表、沒有 realized_pnl 表
 --   （available_cash 由 starting_capital + trade_records 推導）。
 --
 -- 下方 CREATE OR REPLACE FUNCTION 為 supabase/migrations/20260916093500_update_pending_mentor_journal_batch.sql
