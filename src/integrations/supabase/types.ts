@@ -6481,6 +6481,7 @@ export type Database = {
           tier_used: number
         }[]
       }
+      bsr_daily_autoheal: { Args: never; Returns: Json }
       bsr_force_recycle_reservation: {
         Args: { _reason?: string; _reservation_id: number }
         Returns: boolean
