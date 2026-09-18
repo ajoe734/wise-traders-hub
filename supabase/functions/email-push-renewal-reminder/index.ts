@@ -9,7 +9,8 @@ import { renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 
-const REMINDER_DAYS = [7, 3, 1, -1] as const;
+// 與 LINE 提醒、src/lib/renewalReminderStatus.ts 對齊：T-7 / T-3 / T-1 / 到期當日 / 過期後 24h
+const REMINDER_DAYS = [7, 3, 1, 0, -1] as const;
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function headerFor(daysLeft: number) {
