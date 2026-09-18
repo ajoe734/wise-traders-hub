@@ -11,7 +11,10 @@
 
 export const RENEWAL_EMAIL_ACTION = 'subscription.renewal_email_sent';
 export const RENEWAL_LINE_ACTION = 'subscription.renewal_reminder_sent';
-export const RENEWAL_REMINDER_ACTIONS = [RENEWAL_EMAIL_ACTION, RENEWAL_LINE_ACTION] as const;
+export const RENEWAL_EMAIL_FAILED_ACTION = 'subscription.renewal_email_failed';
+export const RENEWAL_REMINDER_ACTIONS = [
+  RENEWAL_EMAIL_ACTION, RENEWAL_LINE_ACTION, RENEWAL_EMAIL_FAILED_ACTION,
+] as const;
 
 /** 與 edge function `email-push-renewal-reminder` 的 REMINDER_DAYS 對齊。 */
 export const REMINDER_DAYS = [7, 3, 1, 0, -1] as const;
