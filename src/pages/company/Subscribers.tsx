@@ -506,7 +506,7 @@ const CompanySubscribers = () => {
                         </tr>
                         {open && (
                           <tr className="border-b last:border-0 bg-muted/30">
-                            <td colSpan={12} className="px-12 py-3">
+                            <td colSpan={13} className="px-12 py-3">
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="text-muted-foreground text-left">
@@ -514,19 +514,28 @@ const CompanySubscribers = () => {
                                     <th className="py-1 pr-6">方案</th>
                                     <th className="py-1 pr-6">開始日</th>
                                     <th className="py-1 pr-6">到期日</th>
-                                    <th className="py-1">原始狀態</th>
+                                    <th className="py-1 pr-6">原始狀態</th>
+                                    <th className="py-1">到期提醒</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {g.spells.map((s, i) => (
+                                  {g.spells.map((s, i) => {
+                                    const sum = summaryFor(reminderIndex, s.id);
+                                    return (
                                     <tr key={s.id}>
                                       <td className="py-1 pr-6">第 {g.spells.length - i} 期</td>
                                       <td className="py-1 pr-6">{s.plan_name}</td>
                                       <td className="py-1 pr-6">{formatTaipeiYMD(s.started_at) || '-'}</td>
                                       <td className="py-1 pr-6">{formatTaipeiYMD(s.expires_at) || '-'}</td>
-                                      <td className="py-1">{s.status}</td>
+                                      <td className="py-1 pr-6">{s.status}</td>
+                                      <td className="py-1 text-muted-foreground">
+                                        {sum.events.length
+                                          ? sum.events.map((e) => `${formatTaipeiYMD(e.created_at)} ${e.channel === 'email' ? 'Email' : 'LINE'}`).join('、')
+                                          : '—'}
+                                      </td>
                                     </tr>
-                                  ))}
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </td>
