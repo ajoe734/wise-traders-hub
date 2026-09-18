@@ -482,6 +482,14 @@ const CompanySubscribers = () => {
                               {STATUS_LABEL[g.status]}
                             </Badge>
                           </td>
+                          <td className="p-4" title={reminder.title}>
+                            <span
+                              data-testid="reminder-cell"
+                              className={`text-xs ${reminder.tone === 'sent' ? 'text-green-600' : reminder.tone === 'pending' ? 'text-yellow-600 font-medium' : 'text-muted-foreground'}`}
+                            >
+                              {reminder.label}
+                            </span>
+                          </td>
                           <td className="p-4 text-right">
                             <div className="inline-flex flex-col items-end gap-1">
                               <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => launchViewAs(g.user_id)} title="以此會員身分模擬登入（新分頁、唯讀視角）">
