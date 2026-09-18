@@ -27,6 +27,10 @@ import {
   groupSubscriberSpells, calcRenewalRate, calcActiveShare, parseSearch,
   RENEWAL_WINDOW_DAYS, type SpellRow, type SubscriberGroup, type GroupStatus,
 } from '@/lib/subscriberAggregation';
+import {
+  buildReminderIndex, summaryFor, reminderBadge,
+  RENEWAL_REMINDER_ACTIONS, type ReminderLogRow,
+} from '@/lib/renewalReminderStatus';
 
 const PAGE_SIZE = 50;
 
@@ -92,6 +96,25 @@ const CompanySubscribers = () => {
   const userIds = useMemo(() => [...new Set(rows.map((r) => r.user_id).filter(Boolean))], [rows]);
   const { identities } = useUserIdentities(userIds);
   const loading = isFetching && !data;
+
+  // 自動續訂提醒（Email／LINE 排程）的寄送紀錄，用來在表格標記，不用人工追蹤
+  const { data: reminderLogs } = useQuery({
+    queryKey: ['company', 'subscribers', 'reminder-logs'],
+    queryFn: async (): Promise<ReminderLogRow[]> => {
+      const since = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: logs, error } = await supabase
+        .from('audit_logs')
+        .select('action, target_id, created_at, detail')
+        .in('action', [...RENEWAL_REMINDER_ACTIONS])
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (logs || []) as ReminderLogRow[];
+    },
+    staleTime: 60_000,
+  });
+  const reminderIndex = useMemo(() => buildReminderIndex(reminderLogs || []), [reminderLogs]);
 
   const nowMs = Date.now();
   const groups = useMemo(() => groupSubscriberSpells(rows, nowMs), [rows]);
