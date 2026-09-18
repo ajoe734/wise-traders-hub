@@ -44,7 +44,7 @@ describe('BSR provider state harness', () => {
     pick('terminal_provider_rejected');
     const secondary = txt('card-secondary');
     expect(secondary).toBe('券商分點更新暫停 · 最後成功 2026/08/14');
-    expect(secondary).not.toContain('券商分點資料源需授權');
+    expect(secondary).not.toMatch(/FinMind|Sponsor|授權/);
     // 整行（主要＋次要）只能出現一次「券商分點」
     const line = `${txt('card-primary')} · ${secondary}`;
     expect(line.split('券商分點').length - 1).toBe(1);
