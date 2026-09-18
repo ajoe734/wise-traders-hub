@@ -68,7 +68,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     id: 'terminal_provider_rejected',
-    label: 'terminal_provider_rejected（授權未開通）',
+    label: 'terminal_provider_rejected（更新暫停）',
     code: '2478',
     payload: {
       stock_id: '2478',
@@ -275,7 +275,7 @@ export function BsrProviderStateHarnessEntry() {
       </section>
 
       <p style={{ marginTop: 16, fontSize: 12, color: '#6b655c' }}>
-        本頁為 fixture 驗收頁：不代表真實資料已更新。券商分點恢復的唯一外部 blocker 仍是 FinMind Sponsor 授權。
+        本頁為 fixture 驗收頁，不代表真實資料已更新。
       </p>
     </main>
   );

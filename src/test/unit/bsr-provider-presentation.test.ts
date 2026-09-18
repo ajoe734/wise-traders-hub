@@ -15,9 +15,10 @@ describe('bsrProviderPresentation', () => {
     expect(bsrCardPausedLine('2026-08-14')).not.toContain('需授權');
   });
 
-  it('抽屜列明講 FinMind Sponsor 授權未開通', () => {
-    expect(bsrDrawerEntitlementLine('2026-08-14')).toBe('FinMind Sponsor 授權未開通 · 最後成功 2026/08/14');
-    expect(bsrDrawerEntitlementLine(null)).toBe('FinMind Sponsor 授權未開通');
+  it('抽屜列只說更新暫停，不暴露 provider 或授權資訊', () => {
+    expect(bsrDrawerEntitlementLine('2026-08-14')).toBe('券商分點更新暫停 · 最後成功 2026/08/14');
+    expect(bsrDrawerEntitlementLine(null)).toBe('券商分點更新暫停');
+    expect(bsrDrawerEntitlementLine('2026-08-14')).not.toMatch(/FinMind|Sponsor|授權/);
   });
 
   it('terminal 判定收斂 provider state 與 code', () => {
@@ -36,7 +37,8 @@ describe('bsrProviderPresentation', () => {
       tradeDate: '2026-08-17',
     });
     expect(note.kind).toBe('none_since_entitlement');
-    expect(note.text).toBe('授權中止後未再嘗試');
+    expect(note.text).toBe('更新暫停期間未再嘗試');
+    expect(note.text).not.toContain('授權');
   });
 
   it('transient 有 from/to 顯示真實區間；只有單日則顯示單日；皆無則 —', () => {

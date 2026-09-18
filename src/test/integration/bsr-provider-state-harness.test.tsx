@@ -51,17 +51,19 @@ describe('BSR provider state harness', () => {
     assertNoNetwork();
   });
 
-  it('terminal：抽屜 provider 段明講 FinMind Sponsor 授權未開通 + 最後成功日', () => {
+  it('terminal：抽屜只顯示更新暫停與最後成功日，不暴露授權資訊', () => {
     pick('terminal_provider_rejected');
     expect(txt('seg-bsr-state')).toBe('unavailable_unsupported');
-    expect(txt('seg-bsr-text')).toBe('FinMind Sponsor 授權未開通 · 最後成功 2026/08/14');
+    expect(txt('seg-bsr-text')).toBe('券商分點更新暫停 · 最後成功 2026/08/14');
+    expect(txt('seg-bsr-text')).not.toMatch(/FinMind|Sponsor|授權/);
     expect(txt('seg-bsr-as-of')).toBe('2026/08/14');
   });
 
-  it('terminal：不得顯示假的回推區間，改為「授權中止後未再嘗試」', () => {
+  it('terminal：不得顯示假的回推區間或授權資訊', () => {
     pick('terminal_provider_rejected');
     expect(txt('retry-note-kind')).toBe('none_since_entitlement');
-    expect(txt('retry-note-text')).toBe('授權中止後未再嘗試');
+    expect(txt('retry-note-text')).toBe('更新暫停期間未再嘗試');
+    expect(txt('retry-note-text')).not.toContain('授權');
     expect(txt('retry-note-text')).not.toContain('~');
     expect(txt('retry-note-text')).not.toContain('2026/08/17');
   });

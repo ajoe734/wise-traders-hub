@@ -23,7 +23,7 @@ function unavailableText(asOf: string | null): string {
 }
 
 /**
- * 上游授權缺口（terminal）：抽屜是診斷語境，明講缺的是哪一種授權與最後成功日。
+ * 上游不可用（terminal）：抽屜只顯示更新暫停與最後成功日，不暴露 provider／授權細節。
  * 文案唯一定義處在 `bsrProviderPresentation`。
  */
 function entitlementText(asOf: string | null): string {
@@ -101,7 +101,7 @@ export function buildBsrSegment(data: TwChipsPayload | null): FreshnessSegment {
     key: 'bsr' as const,
     label: '券商分點',
     asOf,
-    title: '券商分點（BSR）資料來源與三大法人不同；目前無授權可用的官方全市場來源，可能長時間停留在舊日期',
+    title: '券商分點資料來源與三大法人不同；若更新暫停，將保留最後可得資料日期',
   };
 
   // Plan v2：provider_state 優先於 queue 導出的 freshness。
