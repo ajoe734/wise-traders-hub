@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildReminderIndex, summaryFor, reminderBadge,
-  RENEWAL_EMAIL_ACTION, RENEWAL_LINE_ACTION, REMINDER_DAYS,
+  RENEWAL_EMAIL_ACTION, RENEWAL_LINE_ACTION, RENEWAL_EMAIL_FAILED_ACTION, REMINDER_DAYS,
 } from '@/lib/renewalReminderStatus';
 
 const fmt = (iso: string) => iso.slice(0, 10).replace(/-/g, '/');
@@ -64,5 +64,36 @@ describe('renewalReminderStatus', () => {
 
   it('mirrors the edge function reminder windows', () => {
     expect([...REMINDER_DAYS]).toEqual([7, 3, 1, 0, -1]);
+  });
+});
+
+describe('renewalReminderStatus failures', () => {
+  it('badge: failure newer than success → 寄送失敗 with provider error in tooltip', () => {
+    const idx = buildReminderIndex([
+      { action: RENEWAL_EMAIL_ACTION, target_id: 's1', created_at: '2026-09-11T01:10:00Z', detail: { days_left: 7 } },
+      { action: RENEWAL_EMAIL_FAILED_ACTION, target_id: 's1', created_at: '2026-09-18T01:10:00Z', detail: { days_left: 0, error: 'API key is invalid' } },
+    ]);
+    const s = summaryFor(idx, 's1');
+    expect(s.events.length).toBe(1);
+    expect(s.failures.length).toBe(1);
+    const b = reminderBadge({ summary: s, status: 'expiring', remainingDays: 0, formatDate: fmt });
+    expect(b.tone).toBe('failed');
+    expect(b.label).toBe('寄送失敗 2026/09/18 · 到期當日');
+    expect(b.title).toContain('API key is invalid');
+  });
+
+  it('badge: a later success supersedes an earlier failure', () => {
+    const idx = buildReminderIndex([
+      { action: RENEWAL_EMAIL_FAILED_ACTION, target_id: 's1', created_at: '2026-09-11T01:10:00Z', detail: { days_left: 7 } },
+      { action: RENEWAL_EMAIL_ACTION, target_id: 's1', created_at: '2026-09-15T01:10:00Z', detail: { days_left: 3 } },
+    ]);
+    expect(reminderBadge({ summary: summaryFor(idx, 's1'), status: 'expiring', remainingDays: 3, formatDate: fmt }).tone).toBe('sent');
+  });
+
+  it('failed logs are not counted as sent channels', () => {
+    const idx = buildReminderIndex([
+      { action: RENEWAL_EMAIL_FAILED_ACTION, target_id: 's1', created_at: '2026-09-18T01:10:00Z', detail: {} },
+    ]);
+    expect(summaryFor(idx, 's1').channels).toEqual([]);
   });
 });
