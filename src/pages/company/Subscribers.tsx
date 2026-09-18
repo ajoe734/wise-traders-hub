@@ -415,14 +415,15 @@ const CompanySubscribers = () => {
                   <SortHead k="remaining">剩餘天數</SortHead>
                   <SortHead k="cycles">期數</SortHead>
                   <th className="p-4">狀態</th>
+                  <th className="p-4" title="到期提醒由排程每日 09:10（台北）自動寄出，這裡標記最近一次寄送">到期提醒</th>
                   <th className="p-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={12} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={13} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : pageRows.length === 0 ? (
-                  <tr><td colSpan={12} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={13} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   pageRows.map((g) => {
                     const id = identities[g.user_id];
