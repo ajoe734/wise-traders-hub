@@ -96,7 +96,7 @@ export function summaryFor(index: Record<string, ReminderSummary>, subscriptionI
   return (subscriptionId && index[subscriptionId]) || EMPTY;
 }
 
-export type ReminderTone = 'sent' | 'pending' | 'none';
+export type ReminderTone = 'sent' | 'pending' | 'failed' | 'none';
 
 export interface ReminderBadge {
   tone: ReminderTone;
@@ -115,6 +115,7 @@ function windowLabel(daysLeft: number | null): string {
 
 /**
  * 表格「提醒」欄位：
+ * - 最近一次寄送失敗（且之後沒有成功）→ 寄送失敗（要處理寄信服務金鑰）
  * - 已寄過 → 顯示最近一次通道與窗口
  * - 即將到期但未寄 → 待寄（排程每日 09:10 自動處理）
  * - 其他狀態（已流失／取消／還很久） → 無需提醒
@@ -126,14 +127,24 @@ export function reminderBadge(params: {
   formatDate: (iso: string) => string;
 }): ReminderBadge {
   const { summary, status, remainingDays, formatDate } = params;
-  if (summary.last) {
+  const fail = summary.lastFailure;
+  const ok = summary.last;
+  if (fail && (!ok || new Date(fail.created_at).getTime() > new Date(ok.created_at).getTime())) {
+    const w = windowLabel(fail.days_left);
+    return {
+      tone: 'failed',
+      label: `寄送失敗 ${formatDate(fail.created_at)}${w ? ` · ${w}` : ''}`,
+      title: `最近一次寄送失敗：${formatDate(fail.created_at)}${fail.error ? `\n${fail.error}` : ''}`,
+    };
+  }
+  if (ok) {
     const all = summary.events
       .map((e) => `${formatDate(e.created_at)} ${CHANNEL_LABEL[e.channel]} ${windowLabel(e.days_left)}`.trim())
       .join('\n');
-    const w = windowLabel(summary.last.days_left);
+    const w = windowLabel(ok.days_left);
     return {
       tone: 'sent',
-      label: `已寄 ${formatDate(summary.last.created_at)}${w ? ` · ${w}` : ''}`,
+      label: `已寄 ${formatDate(ok.created_at)}${w ? ` · ${w}` : ''}`,
       title: `提醒紀錄（新到舊）：\n${all}`,
     };
   }
