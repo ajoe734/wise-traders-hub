@@ -210,6 +210,13 @@ const CompanySubscribers = () => {
   };
   const stamp = new Date().toISOString().slice(0, 10);
 
+  const badgeFor = (g: SubscriberGroup) => reminderBadge({
+    summary: summaryFor(reminderIndex, g.latest.id),
+    status: g.status,
+    remainingDays: g.remaining_days,
+    formatDate: (iso) => formatTaipeiYMD(iso) || '-',
+  });
+
   const exportSummary = () => {
     downloadCsv(`subscribers-summary-${stamp}.csv`, [
       ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '老師', '最新方案', '首次訂閱日', '最新到期日', '累計期數', '狀態', '到期提醒'],
