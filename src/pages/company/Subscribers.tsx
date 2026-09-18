@@ -485,7 +485,7 @@ const CompanySubscribers = () => {
                           <td className="p-4" title={reminder.title}>
                             <span
                               data-testid="reminder-cell"
-                              className={`text-xs ${reminder.tone === 'sent' ? 'text-green-600' : reminder.tone === 'pending' ? 'text-yellow-600 font-medium' : 'text-muted-foreground'}`}
+                              className={`text-xs ${reminder.tone === 'sent' ? 'text-green-600' : reminder.tone === 'failed' ? 'text-destructive font-medium' : reminder.tone === 'pending' ? 'text-yellow-600 font-medium' : 'text-muted-foreground'}`}
                             >
                               {reminder.label}
                             </span>
