@@ -47,9 +47,10 @@ describe('groupSubscriberSpells', () => {
 
   it('7 天內到期標記為 expiring，已取消為 canceled，到期未續為 churned', () => {
     const [expiring] = groupSubscriberSpells([
-      row({ id: 'a', user_id: 'x', status: 'active', started_at: d('2026-09-01'), expires_at: d('2026-09-22') }),
+      row({ id: 'a', user_id: 'x', status: 'active', started_at: d('2026-09-01'), expires_at: d('2026-09-30') }),
     ], NOW);
     expect(expiring.status).toBe('live');
+
     const [soon] = groupSubscriberSpells([
       row({ id: 'b', user_id: 'y', status: 'active', started_at: d('2026-09-01'), expires_at: d('2026-09-21') }),
     ], NOW);
