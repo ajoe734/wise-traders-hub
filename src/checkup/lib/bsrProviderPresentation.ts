@@ -3,26 +3,24 @@
  *
  * 為什麼存在：授權缺口（terminal_provider_rejected）過去在三個地方各自拼字串：
  * 卡片 secondary、抽屜分段新鮮度、抽屜失敗診斷 banner。結果是
- *   1. 卡片出現「券商分點 … 券商分點資料源需授權」的重複感；
+ *   1. 卡片曾出現重複且不必要的授權提示；
  *   2. 授權中止後 worker 早就停了，banner 卻仍印「已嘗試回推 8/17 ~ 8/17」，
  *      讓使用者以為系統還在重試；
- *   3. 沒有任何地方能一眼看出「缺的是哪一種授權」。
+ *   3. provider 與授權細節不應暴露給一般使用者。
  *
  * 憲法：
  *   - 純函式：不打 API、不碰 DOM、不寫狀態。
  *   - terminal 與 transient 是**兩種不同事實**，不得共用文案或共用回推區間。
- *   - 卡片列文案不得再自帶「券商分點資料源需授權」；卡片說的是「更新暫停 + 最後成功日」。
- *   - 抽屜 provider 段才明講缺的授權名稱（FinMind Sponsor），因為那裡是診斷語境。
+ *   - 卡片與抽屜只說「更新暫停 + 最後成功日」，不揭露授權資訊。
+ *   - 抽屜只呈現「更新暫停 + 最後成功日」，不得顯示 provider 或授權方案名稱。
  *   - 三大法人的新鮮度與本模組完全無關，不得由 BSR 狀態推導。
  */
 import { isTerminalUnavailable } from '@/checkup/lib/bsrCanonicalCodes';
 
 /** 卡片列：券商分點停更（不重複「需授權」字樣，避免與段落標題疊字）。 */
 export const BSR_TEXT_PAUSED = '券商分點更新暫停';
-/** 抽屜 provider 段：明講缺的授權。 */
-export const BSR_TEXT_ENTITLEMENT_PENDING = 'FinMind Sponsor 授權未開通';
-/** terminal 時的回推說明：授權中止後 worker 已停，沒有任何新嘗試。 */
-export const BSR_TEXT_NO_RETRY_SINCE_ENTITLEMENT = '授權中止後未再嘗試';
+/** terminal 時的回推說明：更新暫停後 worker 已停，沒有任何新嘗試。 */
+export const BSR_TEXT_NO_RETRY_SINCE_ENTITLEMENT = '更新暫停期間未再嘗試';
 /** CAPTCHA/OCR 舊路徑被 production selector 拒絕的唯一理由字串（機器可讀）。 */
 export const CAPTCHA_FALLBACK_BLOCKED_REASON = 'captcha_fallback_disabled';
 
@@ -50,10 +48,9 @@ export function bsrCardPausedLine(asOf: string | null | undefined): string {
   return d ? `${BSR_TEXT_PAUSED} · 最後成功 ${d}` : BSR_TEXT_PAUSED;
 }
 
-/** 抽屜 provider 段：`FinMind Sponsor 授權未開通 · 最後成功 2026/08/14`。 */
+/** 抽屜 provider 段：`券商分點更新暫停 · 最後成功 2026/08/14`。 */
 export function bsrDrawerEntitlementLine(asOf: string | null | undefined): string {
-  const d = formatSourceDate(asOf);
-  return d ? `${BSR_TEXT_ENTITLEMENT_PENDING} · 最後成功 ${d}` : BSR_TEXT_ENTITLEMENT_PENDING;
+  return bsrCardPausedLine(asOf);
 }
 
 export type BsrRetryNoteKind = 'none_since_entitlement' | 'range' | 'single' | 'unknown';

@@ -52,7 +52,8 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     const bsr = page.getByTestId('chips-seg-bsr');
     await expect(bsr, 'RED: 分段狀態未支援 unavailable_unsupported')
       .toHaveAttribute('data-seg-state', 'unavailable_unsupported');
-    await expect(bsr).toContainText('券商分點資料源需授權');
+    await expect(bsr).toContainText('券商分點更新暫停');
+    await expect(bsr).not.toContainText(/FinMind|Sponsor|授權/);
     await expect(bsr, 'RED: terminal 時必須仍顯示最後可得日期 2026/08/14').toContainText('2026/08/14');
 
     // 三大法人的新鮮度不得被借用
@@ -81,7 +82,8 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     await expect(node).toHaveAttribute('data-chips-kind', 'institutional');
     await expect(node).toHaveAttribute('data-chips-as-of', '2026/08/21');
     await expect(node).toContainText('外資 +100');
-    await expect(node).toContainText('券商分點資料源需授權');
+    await expect(node).toContainText('券商分點更新暫停');
+    await expect(node).not.toContainText(/FinMind|Sponsor|授權/);
     await expect(node).not.toContainText('籌碼資料暫時無法取得');
     await expect(node).toHaveAttribute('data-bsr-as-of', '2026-08-14');
   });
@@ -197,7 +199,8 @@ test.describe('Stage D · BSR 不支援的誠實降級', () => {
     await page.goto(`/e2e/holding-card-harness?code=%2000637l%20`);
     const bsr = page.getByTestId('holding-card-bsr');
     await expect(bsr).toHaveAttribute('data-bsr-state', 'unavailable_unsupported', { timeout: 15000 });
-    await expect(bsr).toContainText('券商分點資料源需授權');
+    await expect(bsr).toContainText('券商分點更新暫停');
+    await expect(bsr).not.toContainText(/FinMind|Sponsor|授權/);
     expect(bodies[0], 'RED: 卡片送出的 body 未正規化為 00637L').toEqual(['00637L']);
 
     // v4.4 §S1：fixture 為 qty 1000 / cost 100 / price 110 → 成本 100、現價 110、損益 +10,000 (10.00%)
