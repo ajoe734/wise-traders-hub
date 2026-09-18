@@ -431,6 +431,7 @@ const CompanySubscribers = () => {
                     const checked = selectedUserIds.has(g.user_id);
                     const open = expanded.has(g.key);
                     const rd = g.remaining_days;
+                    const reminder = badgeFor(g);
                     return (
                       <Fragment key={g.key}>
                         <tr className="border-b last:border-0">
