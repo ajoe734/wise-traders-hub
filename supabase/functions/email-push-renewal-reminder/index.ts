@@ -9,7 +9,8 @@ import { renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 
-const REMINDER_DAYS = [7, 3, 1, -1] as const;
+// 與 LINE 提醒、src/lib/renewalReminderStatus.ts 對齊：T-7 / T-3 / T-1 / 到期當日 / 過期後 24h
+const REMINDER_DAYS = [7, 3, 1, 0, -1] as const;
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function headerFor(daysLeft: number) {
@@ -225,6 +226,17 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
     } else {
       const errBody = await er.text();
       console.error('resend_failed', er.status, errBody);
+      // 寄送失敗也要留痕，管理頁才看得到「寄送失敗」而不是一直顯示待寄
+      await supabaseAdmin.from('audit_logs').insert({
+        actor_id: t.sub.user_id,
+        action: 'subscription.renewal_email_failed',
+        target_type: 'member_subscription',
+        target_id: t.sub.id,
+        detail: {
+          days_left: t.daysLeft, expert_id: t.expertId, plan_id: t.planId,
+          status: er.status, error: errBody.slice(0, 500),
+        },
+      });
       results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'failed', error: errBody });
     }
   }

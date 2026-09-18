@@ -27,6 +27,10 @@ import {
   groupSubscriberSpells, calcRenewalRate, calcActiveShare, parseSearch,
   RENEWAL_WINDOW_DAYS, type SpellRow, type SubscriberGroup, type GroupStatus,
 } from '@/lib/subscriberAggregation';
+import {
+  buildReminderIndex, summaryFor, reminderBadge,
+  RENEWAL_REMINDER_ACTIONS, type ReminderLogRow,
+} from '@/lib/renewalReminderStatus';
 
 const PAGE_SIZE = 50;
 
@@ -92,6 +96,25 @@ const CompanySubscribers = () => {
   const userIds = useMemo(() => [...new Set(rows.map((r) => r.user_id).filter(Boolean))], [rows]);
   const { identities } = useUserIdentities(userIds);
   const loading = isFetching && !data;
+
+  // 自動續訂提醒（Email／LINE 排程）的寄送紀錄，用來在表格標記，不用人工追蹤
+  const { data: reminderLogs } = useQuery({
+    queryKey: ['company', 'subscribers', 'reminder-logs'],
+    queryFn: async (): Promise<ReminderLogRow[]> => {
+      const since = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: logs, error } = await supabase
+        .from('audit_logs')
+        .select('action, target_id, created_at, detail')
+        .in('action', [...RENEWAL_REMINDER_ACTIONS])
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (logs || []) as ReminderLogRow[];
+    },
+    staleTime: 60_000,
+  });
+  const reminderIndex = useMemo(() => buildReminderIndex(reminderLogs || []), [reminderLogs]);
 
   const nowMs = Date.now();
   const groups = useMemo(() => groupSubscriberSpells(rows, nowMs), [rows]);
@@ -187,9 +210,16 @@ const CompanySubscribers = () => {
   };
   const stamp = new Date().toISOString().slice(0, 10);
 
+  const badgeFor = (g: SubscriberGroup) => reminderBadge({
+    summary: summaryFor(reminderIndex, g.latest.id),
+    status: g.status,
+    remainingDays: g.remaining_days,
+    formatDate: (iso) => formatTaipeiYMD(iso) || '-',
+  });
+
   const exportSummary = () => {
     downloadCsv(`subscribers-summary-${stamp}.csv`, [
-      ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '老師', '最新方案', '首次訂閱日', '最新到期日', '累計期數', '狀態'],
+      ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '老師', '最新方案', '首次訂閱日', '最新到期日', '累計期數', '狀態', '到期提醒'],
       ...filtered.map((g) => {
         const id = identities[g.user_id];
         return [
@@ -205,6 +235,7 @@ const CompanySubscribers = () => {
           formatTaipeiYMD(g.expires_at) || '-',
           String(g.cycles),
           STATUS_LABEL[g.status],
+          badgeFor(g).label,
         ];
       }),
     ]);
@@ -384,14 +415,15 @@ const CompanySubscribers = () => {
                   <SortHead k="remaining">剩餘天數</SortHead>
                   <SortHead k="cycles">期數</SortHead>
                   <th className="p-4">狀態</th>
+                  <th className="p-4" title="到期提醒由排程每日 09:10（台北）自動寄出，這裡標記最近一次寄送">到期提醒</th>
                   <th className="p-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={12} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={13} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : pageRows.length === 0 ? (
-                  <tr><td colSpan={12} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={13} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   pageRows.map((g) => {
                     const id = identities[g.user_id];
@@ -399,6 +431,7 @@ const CompanySubscribers = () => {
                     const checked = selectedUserIds.has(g.user_id);
                     const open = expanded.has(g.key);
                     const rd = g.remaining_days;
+                    const reminder = badgeFor(g);
                     return (
                       <Fragment key={g.key}>
                         <tr className="border-b last:border-0">
@@ -449,6 +482,14 @@ const CompanySubscribers = () => {
                               {STATUS_LABEL[g.status]}
                             </Badge>
                           </td>
+                          <td className="p-4" title={reminder.title}>
+                            <span
+                              data-testid="reminder-cell"
+                              className={`text-xs ${reminder.tone === 'sent' ? 'text-green-600' : reminder.tone === 'failed' ? 'text-destructive font-medium' : reminder.tone === 'pending' ? 'text-yellow-600 font-medium' : 'text-muted-foreground'}`}
+                            >
+                              {reminder.label}
+                            </span>
+                          </td>
                           <td className="p-4 text-right">
                             <div className="inline-flex flex-col items-end gap-1">
                               <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => launchViewAs(g.user_id)} title="以此會員身分模擬登入（新分頁、唯讀視角）">
@@ -465,7 +506,7 @@ const CompanySubscribers = () => {
                         </tr>
                         {open && (
                           <tr className="border-b last:border-0 bg-muted/30">
-                            <td colSpan={12} className="px-12 py-3">
+                            <td colSpan={13} className="px-12 py-3">
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="text-muted-foreground text-left">
@@ -473,19 +514,28 @@ const CompanySubscribers = () => {
                                     <th className="py-1 pr-6">方案</th>
                                     <th className="py-1 pr-6">開始日</th>
                                     <th className="py-1 pr-6">到期日</th>
-                                    <th className="py-1">原始狀態</th>
+                                    <th className="py-1 pr-6">原始狀態</th>
+                                    <th className="py-1">到期提醒</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {g.spells.map((s, i) => (
+                                  {g.spells.map((s, i) => {
+                                    const sum = summaryFor(reminderIndex, s.id);
+                                    return (
                                     <tr key={s.id}>
                                       <td className="py-1 pr-6">第 {g.spells.length - i} 期</td>
                                       <td className="py-1 pr-6">{s.plan_name}</td>
                                       <td className="py-1 pr-6">{formatTaipeiYMD(s.started_at) || '-'}</td>
                                       <td className="py-1 pr-6">{formatTaipeiYMD(s.expires_at) || '-'}</td>
-                                      <td className="py-1">{s.status}</td>
+                                      <td className="py-1 pr-6">{s.status}</td>
+                                      <td className="py-1 text-muted-foreground">
+                                        {sum.events.length
+                                          ? sum.events.map((e) => `${formatTaipeiYMD(e.created_at)} ${e.channel === 'email' ? 'Email' : 'LINE'}`).join('、')
+                                          : '—'}
+                                      </td>
                                     </tr>
-                                  ))}
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </td>
