@@ -32,15 +32,19 @@ export interface ReminderEvent {
   channel: ReminderChannel;
   days_left: number | null;
   created_at: string;
+  failed?: boolean;
+  error?: string;
 }
 
 export interface ReminderSummary {
-  events: ReminderEvent[];      // 新到舊
+  events: ReminderEvent[];      // 新到舊（僅成功）
+  failures: ReminderEvent[];    // 新到舊（寄送失敗）
   last?: ReminderEvent;
+  lastFailure?: ReminderEvent;
   channels: ReminderChannel[];  // 去重
 }
 
-const EMPTY: ReminderSummary = { events: [], channels: [] };
+const EMPTY: ReminderSummary = { events: [], failures: [], channels: [] };
 
 function daysLeftOf(detail: unknown): number | null {
   if (detail && typeof detail === 'object' && 'days_left' in (detail as Record<string, unknown>)) {
@@ -50,20 +54,39 @@ function daysLeftOf(detail: unknown): number | null {
   return null;
 }
 
+function errorOf(detail: unknown): string | undefined {
+  if (detail && typeof detail === 'object' && 'error' in (detail as Record<string, unknown>)) {
+    const v = (detail as Record<string, unknown>).error;
+    return typeof v === 'string' ? v : undefined;
+  }
+  return undefined;
+}
+
+const byNewest = (a: ReminderEvent, b: ReminderEvent) =>
+  new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+
 /** 依 subscription id 收斂成摘要。 */
 export function buildReminderIndex(logs: ReminderLogRow[]): Record<string, ReminderSummary> {
   const out: Record<string, ReminderSummary> = {};
   for (const l of logs) {
     if (!l.target_id) continue;
+    const failed = l.action === RENEWAL_EMAIL_FAILED_ACTION;
     const channel: ReminderChannel | null =
-      l.action === RENEWAL_EMAIL_ACTION ? 'email' : l.action === RENEWAL_LINE_ACTION ? 'line' : null;
+      l.action === RENEWAL_EMAIL_ACTION || failed ? 'email' : l.action === RENEWAL_LINE_ACTION ? 'line' : null;
     if (!channel) continue;
-    const bucket = out[l.target_id] || (out[l.target_id] = { events: [], channels: [] });
-    bucket.events.push({ channel, days_left: daysLeftOf(l.detail), created_at: l.created_at });
+    const bucket = out[l.target_id] || (out[l.target_id] = { events: [], failures: [], channels: [] });
+    const ev: ReminderEvent = {
+      channel, days_left: daysLeftOf(l.detail), created_at: l.created_at,
+      ...(failed ? { failed: true, error: errorOf(l.detail) } : {}),
+    };
+    if (failed) bucket.failures.push(ev);
+    else bucket.events.push(ev);
   }
   for (const s of Object.values(out)) {
-    s.events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    s.events.sort(byNewest);
+    s.failures.sort(byNewest);
     s.last = s.events[0];
+    s.lastFailure = s.failures[0];
     s.channels = [...new Set(s.events.map((e) => e.channel))];
   }
   return out;
