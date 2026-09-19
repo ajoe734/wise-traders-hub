@@ -1,0 +1,90 @@
+{
+  "version": "SIGNAL_MATH_CONTRACT_V1",
+  "description": "週記算數 canonical contract vectors。TS（src/lib/signalTradeLogic.ts）與 SQL（signal_math_* 函式）必須各自實作並對同一組向量產生逐值一致的結果。單位：內部一律股；張→股換算只在入口發生一次（×1000）。現金口徑：buy/add 扣 成交價×股數；sell/trim/exit 一律以實際成交價×實際股數回收（含已實現損益），不得用成本價。金額取 ROUND(...,2)。",
+  "vectors": [
+    {
+      "id": "v1-buy-2-lots-00708L",
+      "note": "00708L 反例：signal 2 張 @77.7 → 2000 股，成本 155400；絕不得再乘一次 1000",
+      "action": "buy", "price": 77.7, "quantity": 2, "unit": "張",
+      "priorQtyShares": 0, "priorAvg": 0,
+      "expected": { "shares": 2000, "cashDelta": -155400, "newQty": 2000, "newAvg": 77.7, "positionCost": 155400 }
+    },
+    {
+      "id": "v2-buy-1-lot-6706",
+      "note": "6706 買進 1 張 @123",
+      "action": "buy", "price": 123, "quantity": 1, "unit": "張",
+      "priorQtyShares": 0, "priorAvg": 0,
+      "expected": { "shares": 1000, "cashDelta": -123000, "newQty": 1000, "newAvg": 123, "positionCost": 123000 }
+    },
+    {
+      "id": "v3-sell-1-lot-6706-realized",
+      "note": "6706 賣出 1 張 @143：現金回收 143000（成交價），已實現損益 +20000，報酬率 16.26%",
+      "action": "sell", "price": 143, "quantity": 1, "unit": "張",
+      "priorQtyShares": 1000, "priorAvg": 123,
+      "expected": { "shares": 1000, "cashDelta": 143000, "newQty": 0, "newAvg": 0, "realizedPnl": 20000, "pnlPercent": 16.26 }
+    },
+    {
+      "id": "v4-exit-uses-exit-price-not-cost",
+      "note": "exit 平倉必須以實際出場價回收現金（150×1000=150000），不得用成本 100×1000",
+      "action": "exit", "price": 150, "quantity": 1000, "unit": "股",
+      "priorQtyShares": 1000, "priorAvg": 100,
+      "expected": { "shares": 1000, "cashDelta": 150000, "newQty": 0, "newAvg": 0, "realizedPnl": 50000, "pnlPercent": 50 }
+    },
+    {
+      "id": "v5-partial-sell-keeps-avg",
+      "note": "部分賣出：2000 股 @50 均價，賣 500 股 @60 → 回收 30000，剩 1500 股均價仍 50，已實現 +5000",
+      "action": "sell", "price": 60, "quantity": 500, "unit": "股",
+      "priorQtyShares": 2000, "priorAvg": 50,
+      "expected": { "shares": 500, "cashDelta": 30000, "newQty": 1500, "newAvg": 50, "realizedPnl": 5000, "pnlPercent": 20 }
+    },
+    {
+      "id": "v6-add-weighted-avg",
+      "note": "加碼：已有 1000 股 @100，加 1 張 @120 → 2000 股加權均價 110，扣款 120000",
+      "action": "add", "price": 120, "quantity": 1, "unit": "張",
+      "priorQtyShares": 1000, "priorAvg": 100,
+      "expected": { "shares": 1000, "cashDelta": -120000, "newQty": 2000, "newAvg": 110, "positionCost": 220000 }
+    },
+    {
+      "id": "v7-orphan-3006-pnl",
+      "note": "orphan 反例：3006 晶豪科 174→238 1 張，正確已實現損益 +64000",
+      "action": "sell", "price": 238, "quantity": 1, "unit": "張",
+      "priorQtyShares": 1000, "priorAvg": 174,
+      "expected": { "shares": 1000, "cashDelta": 238000, "newQty": 0, "newAvg": 0, "realizedPnl": 64000, "pnlPercent": 36.78 }
+    },
+    {
+      "id": "v8-orphan-6526-pnl",
+      "note": "orphan 反例：6526 達發 585→752 500 股，正確已實現損益 +83500",
+      "action": "sell", "price": 752, "quantity": 500, "unit": "股",
+      "priorQtyShares": 500, "priorAvg": 585,
+      "expected": { "shares": 500, "cashDelta": 376000, "newQty": 0, "newAvg": 0, "realizedPnl": 83500, "pnlPercent": 28.63 }
+    },
+    {
+      "id": "v9-orphan-3035-pnl",
+      "note": "orphan 反例：3035 智原 169→207.5 1 張，正確已實現損益 +38500",
+      "action": "sell", "price": 207.5, "quantity": 1, "unit": "張",
+      "priorQtyShares": 1000, "priorAvg": 169,
+      "expected": { "shares": 1000, "cashDelta": 207500, "newQty": 0, "newAvg": 0, "realizedPnl": 38500, "pnlPercent": 22.78 }
+    },
+    {
+      "id": "v10-zero-quantity-noop",
+      "note": "數量 0/空值：不產生現金流、不動部位",
+      "action": "buy", "price": 100, "quantity": 0, "unit": "股",
+      "priorQtyShares": 1000, "priorAvg": 90,
+      "expected": { "shares": 0, "cashDelta": 0, "newQty": 1000, "newAvg": 90 }
+    },
+    {
+      "id": "v11-sell-caps-at-holding",
+      "note": "賣出數量超過持有：以持有量為上限（calcSellQty），1000 股持有賣 2 張 → 只賣 1000 股",
+      "action": "sell", "price": 200, "quantity": 2, "unit": "張",
+      "priorQtyShares": 1000, "priorAvg": 180,
+      "expected": { "shares": 2000, "effectiveSellShares": 1000, "cashDelta": 200000, "newQty": 0, "newAvg": 0, "realizedPnl": 20000, "pnlPercent": 11.11 }
+    },
+    {
+      "id": "v12-rounding-half",
+      "note": "四捨五入到小數第 2 位：33.335 → 33.34 口徑；buy 3 股 @33.335 → 成本 100.01",
+      "action": "buy", "price": 33.335, "quantity": 3, "unit": "股",
+      "priorQtyShares": 0, "priorAvg": 0,
+      "expected": { "shares": 3, "cashDelta": -100.01, "newQty": 3, "newAvg": 33.34, "positionCost": 100.01 }
+    }
+  ]
+}
