@@ -317,7 +317,10 @@ export function useFreeCheckupBootstrap({
       // checkup_trade_memos 是交易權威；先用 logs 證明 seed-code 也是真實持倉，
       // 再清除沒有任何交易／使用者來源證據的 demo 污染。
       const rawHoldings = Array.isArray(h) ? h : [];
-      const reconciledHoldings = stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(rawHoldings, l));
+      const reconciledHoldings = applyHoldingExclusions(
+        stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(rawHoldings, l)),
+        readLocalExclusions(),
+      );
       const removedDemoSeedCount = rawHoldings.length - reconciledHoldings.filter((row) =>
         rawHoldings.some((prior) => String(prior?.code || '').trim() === String(row?.code || '').trim())
       ).length;
