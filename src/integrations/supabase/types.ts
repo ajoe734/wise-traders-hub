@@ -3657,13 +3657,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_member_subscriptions_provider"
-            columns: ["provider_id"]
-            isOneToOne: false
-            referencedRelation: "payment_providers_safe"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "member_subscriptions_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
@@ -3919,13 +3912,6 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "payment_providers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_transactions_provider_id_fkey"
-            columns: ["provider_id"]
-            isOneToOne: false
-            referencedRelation: "payment_providers_safe"
             referencedColumns: ["id"]
           },
           {
@@ -6272,36 +6258,6 @@ export type Database = {
           },
         ]
       }
-      payment_providers_safe: {
-        Row: {
-          created_at: string | null
-          display_name: string | null
-          env: string | null
-          id: string | null
-          is_active: boolean | null
-          is_default: boolean | null
-          provider_type: Database["public"]["Enums"]["provider_type"] | null
-        }
-        Insert: {
-          created_at?: string | null
-          display_name?: string | null
-          env?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_default?: boolean | null
-          provider_type?: Database["public"]["Enums"]["provider_type"] | null
-        }
-        Update: {
-          created_at?: string | null
-          display_name?: string | null
-          env?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          is_default?: boolean | null
-          provider_type?: Database["public"]["Enums"]["provider_type"] | null
-        }
-        Relationships: []
-      }
       payment_settings_safe: {
         Row: {
           id: string | null
@@ -7327,6 +7283,18 @@ export type Database = {
         Returns: {
           shares: number
           unit: string
+        }[]
+      }
+      payment_providers_safe_list: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          env: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          provider_type: Database["public"]["Enums"]["provider_type"]
         }[]
       }
       preview_expert_public_sample: {
