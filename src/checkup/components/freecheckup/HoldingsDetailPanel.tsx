@@ -35,6 +35,7 @@ import {
   LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
   resolveTrackMetrics, toCompactRow,
 } from '@/checkup/lib/priceAxisLabel';
+import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 
 
 /**
@@ -255,6 +256,19 @@ function HoldingsDetailPanelImpl({
           <TextBtn WB={WB} onClick={() => setExpandedDecision(null)} label="關閉">×</TextBtn>
         </div>
       </div>
+
+      {onDeleteHolding && h.code && (
+        <HoldingDeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          code={String(h.code)}
+          name={h.name ? String(h.name) : undefined}
+          onConfirm={async () => {
+            const result = await onDeleteHolding(h.code);
+            if (result?.ok !== false) setExpandedDecision(null);
+          }}
+        />
+      )}
 
       {/* 窄螢幕提示帶（≥1024px 隱藏，由 holdingsDetailPanel.css 控制） */}
       <div
