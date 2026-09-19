@@ -66,10 +66,9 @@ export function useCheckoutData(params: {
           .select('id, name, plan_type, price_monthly, price_yearly, description, features, expert_id')
           .eq('id', planId)
           .single(),
+        // 安全來源：payment_providers_safe_list()（SECURITY DEFINER 函式，只回非敏感欄位）
         supabase
-          .from('payment_providers_safe')
-          .select('id, display_name, provider_type, is_active, is_default, env')
-          .eq('is_active', true)
+          .rpc('payment_providers_safe_list')
           .order('is_default', { ascending: false }),
         userId
           ? supabase
