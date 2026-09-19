@@ -11,6 +11,7 @@ import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useHoldingDetailViewModel } from '@/checkup/hooks/useHoldingDetailViewModel';
 import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
+import ValuationRulers from './ValuationRulers';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
@@ -462,6 +463,9 @@ function HoldingsDetailPanelImpl({
 
         {/* 8) 決策履歷 */}
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
+
+        {/* 8.4) 估值三把尺（本益比 / 股價淨值比 / 現金殖利率）＋ 同業中位數 */}
+        <ValuationRulers WB={WB} stockCode={h.code} />
 
         {/* 8.5) 籌碼面（僅台股） */}
         <ChipsSection WB={WB} stockCode={h.code} />
