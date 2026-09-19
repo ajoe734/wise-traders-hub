@@ -7,6 +7,9 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
 import { reconcileHoldingsWithTradeLog } from "@/checkup/lib/tradeLogOps.js";
+// C 階段：使用者手動刪除的個股不得被 trade replay 復活。
+import { applyHoldingExclusions } from "@/checkup/lib/holdingExclusions";
+import { readLocalExclusions } from "@/checkup/lib/holdingExclusionsStorage";
 
 // P0-3: demoData lazy — 15.3 KB chunk only loads when isDemo branch hits
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
