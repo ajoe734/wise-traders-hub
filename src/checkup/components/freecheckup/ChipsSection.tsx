@@ -373,7 +373,7 @@ export default function ChipsSection({
 
 
       {/* 稀疏資料：手動回補過去 60 日 */}
-      {sparse && !error && !isTerminalProvider && (
+      {sparse && !error && !isTerminalProvider && showBsr && (
         <div
           data-testid="chips-backfill-hint"
           style={{
