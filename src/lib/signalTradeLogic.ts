@@ -69,6 +69,91 @@ export function calcSellQty(signalQty: number | null, existingQty: number): numb
 
 export { normalizeQuantityToBaseUnits as normalizeSignalQuantityToShares } from '@/lib/positionQuantity';
 
+import { lotsToShares } from '@/lib/lotSize';
+
+// ---------------------------------------------------------------------------
+// SIGNAL_MATH_CONTRACT_V1 — canonical calculator（contract vectors 的 TS 端）
+// ---------------------------------------------------------------------------
+
+export interface SignalMathInput {
+  action: 'buy' | 'sell' | 'add' | 'trim' | 'exit' | string;
+  /** 實際成交／參考價。 */
+  price: number;
+  /** 使用者輸入數量（搭配 unit）。 */
+  quantity: number;
+  /** '張' 或 '股'；換算只在此入口發生一次。 */
+  unit: string;
+  /** 執行前持有股數（base unit）。 */
+  priorQtyShares: number;
+  /** 執行前加權平均成本。 */
+  priorAvg: number;
+}
+
+export interface SignalMathResult {
+  /** 入口換算後的股數。 */
+  shares: number;
+  /** 實際成交股數（sell/trim 以持有量為上限；exit 為全部持有）。 */
+  effectiveShares: number;
+  /** 現金變化（負=扣款、正=回收），ROUND 2。 */
+  cashDelta: number;
+  newQty: number;
+  newAvg: number;
+  /** buy/add 後的部位成本（newQty × newAvg，ROUND 2）。 */
+  positionCost?: number;
+  /** sell/trim/exit 的已實現損益（(成交價−均價)×實際股數，ROUND 2）。 */
+  realizedPnl?: number;
+  pnlPercent?: number;
+}
+
+/**
+ * 單筆交易的 canonical 結果。SQL 端 `signal_math_apply` 必須逐值一致，
+ * 由 `src/lib/signalMath.contract.json` 的 vectors 雙端驗證。
+ */
+export function applySignalMathVector(input: SignalMathInput): SignalMathResult {
+  const price = Number(input.price) || 0;
+  const qtyRaw = Number(input.quantity) || 0;
+  const shares = qtyRaw > 0
+    ? (input.unit === '張' ? lotsToShares(Math.floor(qtyRaw)) : Math.floor(qtyRaw))
+    : 0;
+  const priorQty = Math.max(0, Number(input.priorQtyShares) || 0);
+  const priorAvg = Number(input.priorAvg) || 0;
+  const action = input.action;
+
+  if (action === 'buy' || action === 'add') {
+    const cashDelta = -r2(price * shares);
+    const newQty = priorQty + shares;
+    const newAvg = priorQty > 0
+      ? calcWeightedAvgPrice(priorQty, priorAvg, shares, price)
+      : r2(price);
+    return {
+      shares, effectiveShares: shares, cashDelta, newQty, newAvg,
+      positionCost: r2(newQty * newAvg),
+    };
+  }
+
+  if (action === 'sell' || action === 'trim' || action === 'exit') {
+    // 實際成交股數：sell/trim 以持有量為上限；exit 為全部持有。
+    const effective = action === 'exit'
+      ? priorQty
+      : Math.min(shares, priorQty);
+    // 現金回收一律用「實際成交價 × 實際股數」（含已實現損益），不用成本價。
+    const cashDelta = r2(price * effective);
+    const newQty = priorQty - effective;
+    const newAvg = newQty > 0 ? priorAvg : 0;
+    const realizedPnl = r2((price - priorAvg) * effective);
+    const pnlPercent = calcPnlPercent(priorAvg, price);
+    return {
+      shares, effectiveShares: effective, cashDelta, newQty, newAvg,
+      realizedPnl, pnlPercent,
+    };
+  }
+
+  // hold / teaching / 未知：不產生現金流、不動部位。
+  return {
+    shares, effectiveShares: 0, cashDelta: 0, newQty: priorQty, newAvg: priorAvg,
+  };
+}
+
 export interface CashSimTrade {
   action: 'buy' | 'sell' | 'add' | 'trim' | 'exit' | string;
   price: number;
