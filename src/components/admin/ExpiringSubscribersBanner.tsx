@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { CalendarClock, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { createPrefsStore } from '@/checkup/lib/prefsStore';
-import { useExpiringSubscribers, EXPIRING_SUBSCRIBERS_QUERY_KEY } from '@/hooks/useExpiringSubscribers';
+import { useExpiringSubscribers, useExpiringSubscribersSource, EXPIRING_SUBSCRIBERS_QUERY_KEY } from '@/hooks/useExpiringSubscribers';
+
 import {
   bannerTitle,
   daysLeftLabel,
