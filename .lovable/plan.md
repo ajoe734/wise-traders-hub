@@ -1,44 +1,41 @@
-# 券商分點進度儀表板
+# 券商分點資料可見性設定
 
-在管理後台新增一頁 `/company/bsr-progress`，一眼看完「今天抓到哪、還剩多少、上游有沒有掛」，每小時自動更新。
+讓你在後台決定籌碼資料的各個區塊要不要顯示、以及資料落後幾天之後該怎麼處理，避免畫面出現空白區塊。
 
-## 頁面內容
+## 你會看到什麼
 
-### 1. 頂部四張狀態卡
+**後台新增「籌碼資料顯示設定」（放在券商分點回補進度頁最上方）**
 
-- **最新交易日進度**：例如「2026/09/18 · 105 / 106 檔 · 99%」，含進度條。分母是當日實際掛單的個股母體，不是猜的。
-- **待處理筆數**：佇列 pending / running / failed 各多少，並標出其中「重試超過上限」的殭屍筆數。
-- **熔斷狀態**：券商分點上游（`finmind_bsr`）目前 closed / half-open / open、連續失敗次數、最後成功時間；同時顯示另外三個相關上游（法人、報價、TPEx）的狀態燈。
-- **今日額度**：三個抓取額度池（互動 / 保溫 / 歷史回補）的已用 / 上限與百分比，台北 00:00 歸零時間。
+一張設定卡，四個區塊各一列開關：
 
-### 2. 每日抓取趨勢（近 15 個交易日）
+- 三大法人
+- 券商分點（買賣超前三名）
+- 融資融券／借券（若該區塊有資料）
+- 分點明細抽屜
 
-長條圖 + 表格並列，每一列顯示：交易日、抓到檔數、母體檔數、進度百分比、資料筆數、該日仍在佇列的待處理數。未達 100% 的日期用醒目色標出，讓「哪一天沒補完」一眼看到。
+每列可設定：
 
-### 3. 待處理明細
+| 設定 | 說明 |
+| --- | --- |
+| 顯示 | 開／關。關閉時該區塊在前台與管理頁都不出現 |
+| 落後容忍天數 | 預設 3 個交易日 |
+| 超過容忍時 | 「照常顯示並標註資料截至日」（預設）或「整塊隱藏」 |
 
-佇列中尚未完成的任務清單：個股、交易日、狀態、已重試次數 / 上限、最後錯誤、下次執行時間。可依交易日或錯誤原因篩選，方便判斷是「上游查無資料」還是「額度不足」。
+卡片底部即時顯示每個區塊目前的實際資料日期與落後天數，讓你調設定時看得到後果。
 
-### 4. 更新機制
+**前台持倉看板**
 
-- 每小時自動重新抓一次，頁面右上顯示「資料更新於 HH:MM」與手動重新整理按鈕。
-- 切回分頁時也會重新抓，不會看到過期數字。
+- 關閉或判定隱藏的區塊：整塊不渲染，不留空框。
+- 判定顯示但已落後：照現行文案標註「資料截至 YYYY/MM/DD」，沿用既有的更新暫停說明，不改語氣、不揭露上游名稱。
+- 全部區塊都被隱藏時，籌碼區只留一行簡短說明，不出現空白卡。
 
-## 視覺與一致性
-
-沿用既有管理後台的卡片與表格樣式（與券商分點失敗、回補進度等頁一致），日期一律 `YYYY/MM/DD`，不新增配色。側邊選單「券商分點」群組加入這一頁的入口。
+預設值等同現在的行為，套用後畫面不會突然改變，除非你動設定。
 
 ## 技術細節
 
-- 新增 `public.bsr_progress_dashboard(_days int default 15)`，SECURITY DEFINER、固定 `search_path`、`REVOKE PUBLIC/anon`、`GRANT EXECUTE TO authenticated` 並在函式內以 `has_role(auth.uid(),'company_admin')` 把關，非管理員回 42501。回傳單一 JSON：
-  - `days[]`：`trade_date`、`stocks_done`、`stocks_expected`、`rows`、`queue_pending`
-  - `queue`：依 `status` 彙總，外加 `zombie`（`attempts >= max_attempts` 仍 pending）
-  - `pending[]`：未完成任務明細（上限 200 筆）
-  - `health[]`：`data_source_health` 中 `finmind_bsr`、`finmind_institutional`、`finmind_price`、`tpex_daily` 四列
-  - `quota[]`：`finmind_quota_pools` 三池
-  - `generated_at`
-  - 分母 `stocks_expected` 取「該日 `tw_bsr_sync_queue` 的 distinct 個股數」，若為 0 則退回近 10 個交易日的最大完成檔數。
-  - 每日彙總用 `count(distinct stock_id)` 走 `tw_bsr_daily (trade_date, stock_id)` 索引，只掃近 15 個交易日，不做全表掃描。
-- 純函式抽到 `src/lib/bsrProgress.ts`：`progressPct`、`progressTone`（ok / lagging / stalled）、`circuitTone`、`quotaTone`、`formatTradeDate`、`zombieCount`，並附 vitest 單元測試（含 0 分母、母體缺漏、half-open、額度滿載等邊界）。
-- 頁面 `src/pages/company/BsrProgress.tsx` + `App.tsx` 路由（`ProtectedRoute requiredRole="company_admin"`）+ `CompanyLayout` 選單項；資料層用 `useQuery` 搭 `refetchInterval: 3_600_000`、`refetchOnWindowFocus: true`。
-- 唯讀：頁面不提供任何觸發同步或改設定的按鈕，避免誤觸消耗額度。
+- 新表 `chips_visibility_settings`（single-row 或以 `section_key` 為主鍵）：`section_key`、`visible`、`stale_tolerance_days`、`stale_behavior`（`annotate` / `hide`）、`updated_by`、`updated_at`。建表同一 migration 附 GRANT：`anon`/`authenticated` 只給 SELECT，寫入僅 `company_admin`（`has_role`）與 `service_role`；啟用 RLS。
+- 純函式新模組 `src/checkup/lib/chipsVisibility.ts`：輸入（設定列、該區塊 as_of、今日交易日）→ 輸出 `{ render: boolean; annotate: boolean; asOfLabel: string | null }`。這是唯一決策點，元件不得自刻落後判斷。
+- `ChipsSection.tsx` 與 `chipsFreshnessSegments.ts` 只消費該函式結果；既有 `bsrProviderPresentation` 的 terminal／transient 文案規則不動，隱藏判定疊在其上（隱藏優先）。
+- 設定以 React Query 讀取並快取，失敗時 fallback 為「全部顯示 + annotate」，不因設定讀取失敗而讓畫面空白。
+- 後台設定卡放進 `src/pages/company/BsrBackfillProgress.tsx`，寫入走既有 supabase client，無需新 edge function。
+- 測試：`chipsVisibility` 單元測試涵蓋四區塊 ×（開/關）×（未落後/落後 annotate/落後 hide）×（無資料）全組合；`ChipsSection` 整合測試斷言隱藏時不渲染對應 `data-testid`、annotate 時出現資料截至日；管理頁測試涵蓋儲存成功／權限不足／讀取失敗 fallback。最後跑 tsgo、module-boundaries、build。
