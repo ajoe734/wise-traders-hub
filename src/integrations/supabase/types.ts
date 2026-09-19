@@ -3815,6 +3815,7 @@ export type Database = {
           config: Json | null
           created_at: string
           display_name: string
+          env: string | null
           id: string
           is_active: boolean
           is_default: boolean
@@ -3824,6 +3825,7 @@ export type Database = {
           config?: Json | null
           created_at?: string
           display_name: string
+          env?: string | null
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -3833,6 +3835,7 @@ export type Database = {
           config?: Json | null
           created_at?: string
           display_name?: string
+          env?: string | null
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -6282,7 +6285,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           display_name?: string | null
-          env?: never
+          env?: string | null
           id?: string | null
           is_active?: boolean | null
           is_default?: boolean | null
@@ -6291,7 +6294,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           display_name?: string | null
-          env?: never
+          env?: string | null
           id?: string | null
           is_active?: boolean | null
           is_default?: boolean | null
