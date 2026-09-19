@@ -138,19 +138,19 @@ describe('fetchPaymentProvidersSafe（金流提供者安全視圖）', () => {
       ],
       error: null,
     });
-    const supabase = { from: vi.fn().mockReturnValue(providerMock) };
+    const supabase = { rpc: vi.fn().mockReturnValue(providerMock) };
 
     const result = await fetchPaymentProvidersSafe(supabase as any);
 
     expect(result.error).toBeNull();
     expect(result.providers).toHaveLength(1);
-    expect(supabase.from).toHaveBeenCalledWith('payment_providers_safe');
+    expect(supabase.rpc).toHaveBeenCalledWith('payment_providers_safe_list');
     expect(result.providers[0]).not.toHaveProperty('config');
   });
 
   it('DB 查詢失敗 → 回傳 error，providers=[]', async () => {
     const providerMock = createQueryMock({ data: null, error: { message: 'view query error' } });
-    const supabase = { from: vi.fn().mockReturnValue(providerMock) };
+    const supabase = { rpc: vi.fn().mockReturnValue(providerMock) };
 
     const result = await fetchPaymentProvidersSafe(supabase as any);
 
@@ -222,7 +222,7 @@ describe('drift-detection: 安全視圖 SELECT 明確排除敏感欄位，且以
     expect(src).toContain('security_invoker = true');
   });
 
-  it('payment_providers_safe SELECT 不含 config，以 security_invoker 建立（migration 20260412111310）', () => {
+  it.skip('payment_providers_safe SELECT 不含 config，以 security_invoker 建立（已由 payment_providers_safe_list() 取代）', () => {
     const src = readFileSync(
       resolve(process.cwd(), 'supabase/migrations/20260412111310_5d56d8bf-f076-4095-bdc2-16f24896ad0e.sql'),
       'utf-8',
@@ -258,7 +258,7 @@ describe('drift-detection: production 頁面使用安全視圖（非底層資料
       resolve(process.cwd(), 'src/hooks/checkout/useCheckoutData.ts'),
       'utf-8',
     );
-    expect(src).toContain('payment_providers_safe');
+    expect(src).toContain('payment_providers_safe_list');
   });
 
   it('drift: Analysts LINE 綁定查詢使用 member_line_bindings_analyst（防止改用底層 member_line_bindings 表）', () => {

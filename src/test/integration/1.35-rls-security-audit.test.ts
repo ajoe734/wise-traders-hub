@@ -274,21 +274,22 @@ describe('G. payment_providers — config not leaked', () => {
     expect((data ?? []).length).toBe(0);
   });
 
-  it('payment_providers_safe 視圖回傳 ≥1 個 active provider（前台 checkout 必需）', async () => {
-    const { data, error } = await anon
-      .from('payment_providers_safe' as never)
-      .select('id, display_name, provider_type, is_active');
+  it('payment_providers_safe_list() 回傳 ≥1 個 active provider（前台 checkout 必需）', async () => {
+    const { data, error } = await anon.rpc('payment_providers_safe_list' as never);
     expect(error).toBeNull();
     expect((data ?? []).length).toBeGreaterThanOrEqual(1);
     expect((data ?? []).every((r: any) => r.is_active === true)).toBe(true);
   });
 
-  it('payment_providers_safe 不暴露 config 欄位', async () => {
-    const { error } = await anon
-      .from('payment_providers_safe' as never)
-      .select('config')
-      .limit(1);
-    // column doesn't exist on view → PostgREST returns error
+  it('payment_providers_safe_list() 不暴露 config 欄位', async () => {
+    const { data } = await anon.rpc('payment_providers_safe_list' as never);
+    for (const row of (data ?? []) as any[]) {
+      expect(row).not.toHaveProperty('config');
+    }
+  });
+
+  it('payment_providers_safe view 已移除（不得留 SECURITY DEFINER view）', async () => {
+    const { error } = await anon.from('payment_providers_safe' as never).select('id').limit(1);
     expect(error).not.toBeNull();
   });
 });
