@@ -35,6 +35,7 @@ import {
   LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
   resolveTrackMetrics, toCompactRow,
 } from '@/checkup/lib/priceAxisLabel';
+import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 
 
 /**
@@ -91,8 +92,11 @@ function HoldingsDetailPanelImpl({
   targetPriceHistory: targetPriceHistoryProp,
   thesisTracking: thesisTrackingProp,
   onReportMeta,
+  // C 階段：單檔刪除。未注入時完全不顯示刪除入口（例如 harness / 唯讀情境）。
+  onDeleteHolding,
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
   const setExportPrefs = useCallback((updater) => {
     setExportPrefsRaw((prev) => {
@@ -227,6 +231,18 @@ function HoldingsDetailPanelImpl({
               }}
             >回報</button>
           )}
+          {onDeleteHolding && h.code && (
+            <button
+              type="button"
+              data-testid="holding-delete-trigger"
+              aria-label={`刪除持倉 ${h.code}`}
+              onClick={(e) => { e.stopPropagation(); setDeleteOpen(true); }}
+              style={{
+                background: 'transparent', border: 'none', padding: '4px 6px',
+                fontSize: 12, color: WB.inkSub, cursor: 'pointer', letterSpacing: '0.04em',
+              }}
+            >刪除</button>
+          )}
           <SortMenu WB={WB} sortBy={sortBy} sortDir={sortDir} setSortBy={setSortBy} setSortDir={setSortDir} />
           <PrefsMenu WB={WB} prefs={prefs} setPrefs={setPrefs} />
           <ExportMenu
@@ -240,6 +256,19 @@ function HoldingsDetailPanelImpl({
           <TextBtn WB={WB} onClick={() => setExpandedDecision(null)} label="關閉">×</TextBtn>
         </div>
       </div>
+
+      {onDeleteHolding && h.code && (
+        <HoldingDeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          code={String(h.code)}
+          name={h.name ? String(h.name) : undefined}
+          onConfirm={async () => {
+            const result = await onDeleteHolding(h.code);
+            if (result?.ok !== false) setExpandedDecision(null);
+          }}
+        />
+      )}
 
       {/* 窄螢幕提示帶（≥1024px 隱藏，由 holdingsDetailPanel.css 控制） */}
       <div
