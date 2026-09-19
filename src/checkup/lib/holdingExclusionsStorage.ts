@@ -27,3 +27,14 @@ export function writeLocalExclusions(rows: HoldingExclusion[]): void {
     /* noop */
   }
 }
+
+/**
+ * 手動重新加入同一檔 → 清除該檔排除標記（本機唯一入口）。
+ * 回傳是否真的清掉，供 UI 決定要不要提示使用者。
+ */
+export function clearLocalExclusion(code: unknown): boolean {
+  const plan = planManualReAdd({ exclusions: readLocalExclusions(), code });
+  if (!plan.cleared) return false;
+  writeLocalExclusions(plan.nextExclusions);
+  return true;
+}
