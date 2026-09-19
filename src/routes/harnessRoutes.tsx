@@ -93,6 +93,7 @@ export const harnessRoutes = () => [
   <Route key="e2e-subscriber-expiry" path="/e2e/subscriber-expiry-reminder-harness" element={guarded(<SubscriberExpiryReminderHarnessEntry />)} />,
   <Route key="e2e-pending-journal-edit" path="/e2e/pending-journal-edit-harness" element={guarded(<PendingJournalEditHarnessEntry />)} />,
   <Route key="e2e-bsr-provider-state" path="/e2e/bsr-provider-state-harness" element={guarded(<BsrProviderStateHarnessEntry />)} />,
+  <Route key="e2e-signal-arithmetic" path="/e2e/signal-arithmetic-harness" element={guarded(<SignalArithmeticHarnessEntry />)} />,
 ];
 
 /** Nested harness route. Always registered; runtime-host guarded. */
