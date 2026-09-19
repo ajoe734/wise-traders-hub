@@ -37,11 +37,16 @@ const PAD_B = 22;
 export default function ChipsTrendChart({
   WB,
   data,
+  showBsr = true,
 }: {
   WB: any;
   data: TwChipsPayload | null;
+  /** 持倉抽屜已完全移除分點 surface；false 時不得渲染分點集中度模式。 */
+  showBsr?: boolean;
 }) {
-  const [mode, setMode] = useState<Mode>('inst');
+  const [mode, setModeState] = useState<Mode>('inst');
+  const mode: Mode = showBsr ? modeState : 'inst';
+  const setMode = setModeState;
   const [win, setWin] = useState<Window>(1);
   const [idx, setIdx] = useState<number>(-1); // -1 = latest
   const wrapRef = useRef<HTMLDivElement | null>(null);
