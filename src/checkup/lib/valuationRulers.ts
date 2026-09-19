@@ -294,7 +294,8 @@ export function nearestPeers(selfPe: number | null, rows: PeerRow[], limit = 3):
 export function formatPremium(premium: number | null): string {
   if (premium == null) return '—';
   const pct = premium * 100;
-  const rounded = Math.round(pct * 10) / 10;
+  // 對稱四捨五入：正負一律看絕對值，避免 -23.45 被進位成 -23.4 而與 +23.45 不對稱
+  const rounded = Math.sign(pct) * (Math.round(Math.abs(pct) * 10) / 10);
   if (Math.abs(rounded) < 0.05) return '與同業中位數相當';
   return rounded > 0 ? `較同業中位數溢價 ${rounded.toFixed(1)}%` : `較同業中位數折價 ${Math.abs(rounded).toFixed(1)}%`;
 }
