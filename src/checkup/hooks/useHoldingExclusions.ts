@@ -12,7 +12,7 @@
  * 不建立賣出交易、不改交易紀錄、不動資金。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getCheckupGateway } from '@/checkup/lib/gateway';
 import {
   HOLDING_EXCLUSIONS_KEY,
   applyHoldingExclusions,
@@ -52,8 +52,8 @@ export function createCheckupStorageGateway({
   const upsert = async (key: string, data: unknown) => {
     const uid = getUserId();
     if (!uid) return;
-    const { error } = await supabase
-      .from('checkup_storage')
+    const { error } = await getCheckupGateway()
+      .db.from('checkup_storage')
       .upsert({ user_id: uid, key, data: (data ?? {}) as never, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
     if (error) throw error;
   };
@@ -95,8 +95,8 @@ export function useHoldingExclusions({
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase
-          .from('checkup_storage')
+        const { data } = await getCheckupGateway()
+          .db.from('checkup_storage')
           .select('data')
           .eq('user_id', uid)
           .eq('key', HOLDING_EXCLUSIONS_KEY)
