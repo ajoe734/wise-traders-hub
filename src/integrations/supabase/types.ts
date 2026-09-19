@@ -4584,8 +4584,62 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriber_expiry_acks: {
+        Row: {
+          acked_at: string
+          acked_by: string
+          expert_id: string
+          id: string
+          subscription_id: string
+        }
+        Insert: {
+          acked_at?: string
+          acked_by: string
+          expert_id: string
+          id?: string
+          subscription_id: string
+        }
+        Update: {
+          acked_at?: string
+          acked_by?: string
+          expert_id?: string
+          id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriber_expiry_acks_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriber_expiry_acks_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriber_expiry_acks_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+          {
+            foreignKeyName: "subscriber_expiry_acks_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "member_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriber_expiry_reminders: {
         Row: {
+          channels: Json
           created_at: string
           expert_id: string
           id: string
@@ -4597,6 +4651,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          channels?: Json
           created_at?: string
           expert_id: string
           id?: string
@@ -4608,6 +4663,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          channels?: Json
           created_at?: string
           expert_id?: string
           id?: string
@@ -6271,6 +6327,26 @@ export type Database = {
       }
     }
     Functions: {
+      _churned_subscriptions_by_expert: {
+        Args: { _now?: string }
+        Returns: {
+          days_left: number
+          display_name: string
+          expert_id: string
+          expert_name: string
+          expert_slug: string
+          expert_user_id: string
+          expires_at: string
+          expires_on: string
+          local_date: string
+          plan_name: string
+          plan_type: string
+          reminder_time: string
+          reminder_timezone: string
+          subscriber_user_id: string
+          subscription_id: string
+        }[]
+      }
       _expiring_subscriptions_by_expert: {
         Args: { _now?: string }
         Returns: {
@@ -6290,6 +6366,10 @@ export type Database = {
           subscriber_user_id: string
           subscription_id: string
         }[]
+      }
+      ack_subscriber_expiry: {
+        Args: { _ack?: boolean; _subscription_id: string }
+        Returns: boolean
       }
       admin_apply_fix_proposal: {
         Args: { p_confirm: boolean; p_id: string }

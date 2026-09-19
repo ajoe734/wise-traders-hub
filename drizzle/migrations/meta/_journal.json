@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789807753979,
+      "tag": "0000_subscriber_expiry_multichannel_and_ack",
+      "breakpoints": true
+    }
+  ]
+}
