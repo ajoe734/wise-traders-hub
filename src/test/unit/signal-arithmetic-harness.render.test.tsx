@@ -77,3 +77,40 @@ describe('SignalArithmeticHarnessEntry', () => {
     expect(() => navigator.sendBeacon('/any')).toThrow(/blocked network: sendBeacon/);
   });
 });
+
+describe('SignalArithmeticHarnessEntry · route + host gate', () => {
+  it('route 無條件註冊且以 guarded() 包裹', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const src = readFileSync(resolve(process.cwd(), 'src/routes/harnessRoutes.tsx'), 'utf8');
+    expect(src).toContain('path="/e2e/signal-arithmetic-harness"');
+    expect(src).toContain('element={guarded(<SignalArithmeticHarnessEntry />)}');
+    expect(src).toContain('lazy(() => import("../pages/SignalArithmeticHarnessEntry"))');
+  });
+
+  it('host gate：僅 local / preview host 可達，正式與 lookalike 一律拒絕', async () => {
+    const { isHarnessHostAllowed } = await import('@/routes/harnessHostGate');
+    for (const h of ['localhost', '127.0.0.1', 'preview--wise-traders-hub.lovable.app',
+      '0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com']) {
+      expect(isHarnessHostAllowed(h)).toBe(true);
+    }
+    for (const h of ['legendflow.tw', 'www.legendflow.tw', 'wise-traders-hub.lovable.app',
+      'preview--x.lovable.app.evil.com', 'sub.0f5bdae6.lovableproject.com', '']) {
+      expect(isHarnessHostAllowed(h)).toBe(false);
+    }
+  });
+
+  it('非白名單 host 下 guard 渲染 404，不載入 harness', async () => {
+    const { HarnessRouteGuard } = await import('@/routes/harnessRoutes');
+    const { MemoryRouter } = await import('react-router-dom');
+    render(
+      <MemoryRouter>
+        <HarnessRouteGuard hostname="legendflow.tw">
+          <div data-testid="harness-loaded">loaded</div>
+        </HarnessRouteGuard>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: '404' })).toBeInTheDocument();
+    expect(screen.queryByTestId('harness-loaded')).toBeNull();
+  });
+});
