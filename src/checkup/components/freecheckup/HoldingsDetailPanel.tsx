@@ -91,8 +91,11 @@ function HoldingsDetailPanelImpl({
   targetPriceHistory: targetPriceHistoryProp,
   thesisTracking: thesisTrackingProp,
   onReportMeta,
+  // C 階段：單檔刪除。未注入時完全不顯示刪除入口（例如 harness / 唯讀情境）。
+  onDeleteHolding,
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
   const setExportPrefs = useCallback((updater) => {
     setExportPrefsRaw((prev) => {
@@ -226,6 +229,18 @@ function HoldingsDetailPanelImpl({
                 fontSize: 12, color: WB.inkSub, cursor: 'pointer', letterSpacing: '0.04em',
               }}
             >回報</button>
+          )}
+          {onDeleteHolding && h.code && (
+            <button
+              type="button"
+              data-testid="holding-delete-trigger"
+              aria-label={`刪除持倉 ${h.code}`}
+              onClick={(e) => { e.stopPropagation(); setDeleteOpen(true); }}
+              style={{
+                background: 'transparent', border: 'none', padding: '4px 6px',
+                fontSize: 12, color: WB.inkSub, cursor: 'pointer', letterSpacing: '0.04em',
+              }}
+            >刪除</button>
           )}
           <SortMenu WB={WB} sortBy={sortBy} sortDir={sortDir} setSortBy={setSortBy} setSortDir={setSortDir} />
           <PrefsMenu WB={WB} prefs={prefs} setPrefs={setPrefs} />
