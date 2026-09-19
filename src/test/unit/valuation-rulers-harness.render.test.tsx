@@ -128,6 +128,7 @@ describe('ValuationRulersHarnessEntry · route + host gate', () => {
   it('host gate：僅 local / preview host 可達，正式與 lookalike 一律拒絕', async () => {
     const { isHarnessHostAllowed } = await import('@/routes/harnessHostGate');
     for (const h of ['localhost', '127.0.0.1', 'preview--wise-traders-hub.lovable.app',
+      'id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
       '0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com']) {
       expect(isHarnessHostAllowed(h)).toBe(true);
     }

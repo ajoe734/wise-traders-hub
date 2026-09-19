@@ -19,6 +19,7 @@ import {
   isPreviewHost,
   isLocalHost,
   harnessRoutesEnabled,
+  ID_PREVIEW_HOST_RE,
   PREVIEW_HOST_RE,
 } from '@/routes/harnessHostGate';
 import { HarnessRouteGuard } from '@/routes/harnessRoutes';
@@ -28,6 +29,7 @@ const ALLOW = [
   '127.0.0.1',
   'preview--wise-traders-hub.lovable.app',
   'preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
+  'id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
   // 實際派發的 Hosted Preview host：`<project-id>.lovableproject.com`
   '0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com',
 ];
@@ -41,7 +43,9 @@ const DENY = [
   '0.0.0.0',
   '[::1]',
   'dev.localhost',
-  'id-preview--0f5bdae6.lovable.app', // 非 preview-- 開頭
+  'id-preview--0f5bdae6.lovable.app', // UUID 不完整
+  'id-preview--x0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
+  'id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app.evil.com',
   // lovableproject.com lookalike / suffix 注入
   'id-preview--0f5bdae6.lovableproject.com', // 非純 project-id 前綴
   'x0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovableproject.com', // 非 hex 字元
@@ -81,6 +85,8 @@ describe('harness host gate · 純函式判定', () => {
   it('regex 完全錨定（前後皆不可延伸）', () => {
     expect(PREVIEW_HOST_RE.source.startsWith('^')).toBe(true);
     expect(PREVIEW_HOST_RE.source.endsWith('$')).toBe(true);
+    expect(ID_PREVIEW_HOST_RE.source.startsWith('^')).toBe(true);
+    expect(ID_PREVIEW_HOST_RE.source.endsWith('$')).toBe(true);
   });
 
   it('大小寫不敏感（瀏覽器 hostname 已小寫，仍防呆）', () => {
@@ -120,7 +126,8 @@ describe('harness host gate · runtime gate 行為', () => {
     },
   );
 
-  it.each(['localhost', '127.0.0.1', 'preview--wise-traders-hub.lovable.app'])(
+  it.each(['localhost', '127.0.0.1', 'preview--wise-traders-hub.lovable.app',
+    'id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app'])(
     'allowlisted runtime host 可載入 element: %s',
     (hostname) => {
       render(

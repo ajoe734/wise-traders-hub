@@ -9,7 +9,8 @@
  *
  * 安全邊界不變的理由：
  *   - 允許集合是**封閉列舉**：本機 dev/localhost，或 hostname 嚴格等於
- *     `preview--<slug>.lovable.app`（unpublished preview，僅 Lovable 帳號可達）。
+ *     `preview--<slug>.lovable.app` 或實際專案 Preview 使用的
+ *     `id-preview--<uuid>.lovable.app`（unpublished preview，僅 Lovable 帳號可達）。
  *   - 自訂網域（legendflow.tw / www.legendflow.tw）、已發布 production
  *     （wise-traders-hub.lovable.app）、以及任何 lookalike
  *     （`preview--x.lovable.app.evil.com`、`xpreview--a.lovable.app`）一律 false → 404。
@@ -21,6 +22,9 @@
 
 /** unpublished Hosted Preview：`preview--<slug>.lovable.app`，完全錨定。 */
 export const PREVIEW_HOST_RE = /^preview--[a-z0-9-]+\.lovable\.app$/;
+
+/** 專案 Preview URL：`id-preview--<uuid>.lovable.app`，UUID 格式完全錨定。 */
+export const ID_PREVIEW_HOST_RE = /^id-preview--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.lovable\.app$/;
 
 /**
  * Lovable 實際派發的 Preview host：`<project-id>.lovableproject.com`。
@@ -39,7 +43,7 @@ export function isLocalHost(hostname: string): boolean {
 
 export function isPreviewHost(hostname: string): boolean {
   const h = String(hostname || '').toLowerCase();
-  return PREVIEW_HOST_RE.test(h) || LOVABLEPROJECT_HOST_RE.test(h);
+  return PREVIEW_HOST_RE.test(h) || ID_PREVIEW_HOST_RE.test(h) || LOVABLEPROJECT_HOST_RE.test(h);
 }
 
 /** 純函式判定：localhost 或合法 preview host 才允許 harness。 */
