@@ -56,6 +56,7 @@ const SubscriberExpiryReminderHarnessEntry = lazy(() => import("../pages/Subscri
 const PendingJournalEditHarnessEntry = lazy(() => import("../pages/PendingJournalEditHarnessEntry"));
 const BsrProviderStateHarnessEntry = lazy(() => import("../pages/BsrProviderStateHarnessEntry"));
 const SignalArithmeticHarnessEntry = lazy(() => import("../pages/SignalArithmeticHarnessEntry"));
+const HoldingDeleteHarnessEntry = lazy(() => import("../pages/HoldingDeleteHarnessEntry"));
 
 interface HarnessRouteGuardProps {
   children?: ReactNode;
@@ -94,6 +95,7 @@ export const harnessRoutes = () => [
   <Route key="e2e-pending-journal-edit" path="/e2e/pending-journal-edit-harness" element={guarded(<PendingJournalEditHarnessEntry />)} />,
   <Route key="e2e-bsr-provider-state" path="/e2e/bsr-provider-state-harness" element={guarded(<BsrProviderStateHarnessEntry />)} />,
   <Route key="e2e-signal-arithmetic" path="/e2e/signal-arithmetic-harness" element={guarded(<SignalArithmeticHarnessEntry />)} />,
+  <Route key="e2e-holding-delete" path="/e2e/holding-delete-harness" element={guarded(<HoldingDeleteHarnessEntry />)} />,
 ];
 
 /** Nested harness route. Always registered; runtime-host guarded. */
