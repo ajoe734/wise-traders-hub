@@ -31,6 +31,9 @@ import {
   buildReminderIndex, summaryFor, reminderBadge,
   RENEWAL_REMINDER_ACTIONS, type ReminderLogRow,
 } from '@/lib/renewalReminderStatus';
+import {
+  buildDeliveryIndex, deliveryFor, deliveryBadge, type ExpiryReminderLedgerRow,
+} from '@/lib/subscriberExpiryDelivery';
 
 const PAGE_SIZE = 50;
 
