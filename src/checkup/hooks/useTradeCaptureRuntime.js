@@ -487,10 +487,13 @@ export function useTradeCaptureRuntime({
     })
 
     const remainingUploads = Math.max(tradeEditorState.uploads.length - 1, 0)
+    const skippedHint = importPlan.skipped.length > 0
+      ? `（已略過你先前刪除的 ${importPlan.skipped.join('、')}，要恢復請手動重新加入）`
+      : ''
     flashSaved(
       remainingUploads > 0
-        ? `✅ 已寫入 ${entries.length} 筆成交，還有 ${remainingUploads} 張待處理`
-        : `✅ 已寫入 ${entries.length} 筆成交（${Math.round(UNDO_WINDOW_MS / 1000)} 秒內可撤銷）`,
+        ? `✅ 已寫入 ${entries.length} 筆成交，還有 ${remainingUploads} 張待處理${skippedHint}`
+        : `✅ 已寫入 ${entries.length} 筆成交（${Math.round(UNDO_WINDOW_MS / 1000)} 秒內可撤銷）${skippedHint}`,
       3000
     )
 
