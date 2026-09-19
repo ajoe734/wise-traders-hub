@@ -535,9 +535,27 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         </div>
       )}
 
-      {/* BSR 分點 */}
+      {/* BSR 分點：預設收合成一行 data-quality badge */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, paddingTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          data-testid="chips-bsr-quality-badge"
+          data-bsr-open={bsrOpen ? 'true' : 'false'}
+          aria-expanded={bsrOpen}
+          onClick={() => setBsrOpen((v) => !v)}
+          style={{
+            display: 'flex', width: '100%', minWidth: 0, alignItems: 'baseline', justifyContent: 'space-between',
+            gap: 8, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer',
+            fontFamily: SERIF, fontSize: 11, color: WB.inkSub, textAlign: 'left',
+          }}
+        >
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            關鍵分點資料品質 · {bsrCompactText}
+          </span>
+          <span style={{ fontSize: 10, color: WB.inkMute, whiteSpace: 'nowrap' }}>{bsrOpen ? '收合' : '展開'}</span>
+        </button>
+        {bsrOpen && (<>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '8px 0', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>
               關鍵分點（近 {bsrWinDays} 日）
