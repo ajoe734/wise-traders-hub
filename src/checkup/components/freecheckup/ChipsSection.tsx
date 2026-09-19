@@ -811,11 +811,12 @@ export default function ChipsSection({
         )}
         </>)}
       </div>
+      )}
 
 
       {/* 趨勢圖 + 歷史回放 */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, marginTop: 12, paddingTop: 6 }}>
-        <ChipsTrendChart WB={WB} data={data} />
+        <ChipsTrendChart WB={WB} data={data} showBsr={showBsr} />
       </div>
 
       {/* 資料來源標示：三大法人與分點資料的官方來源是 TWSE（上市）與 TPEx
