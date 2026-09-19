@@ -17,6 +17,7 @@ import {
   adminSignalsUrl,
   expertDetailUrl,
 } from './routes.ts';
+import { advice, headline, itemLine } from './subscriberExpiryChannels.ts';
 
 export type NotificationRow = ReturnType<typeof buildNotificationRow>;
 
