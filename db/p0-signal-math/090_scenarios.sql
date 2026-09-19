@@ -153,7 +153,9 @@ BEGIN
   END LOOP;
 
   -- 一定 RAISE EXCEPTION：強制 ROLLBACK，順便把報告帶出來
-  RAISE EXCEPTION 'SIGNAL_MATH_CONTRACT_V1 REPORT (rollback, zero mutation)% pass=% fail=%%',
-    E'\n', _pass, _fail, E'\n' || _report;
+  RAISE EXCEPTION '%', format(
+    'SIGNAL_MATH_CONTRACT_V1 REPORT (rollback, zero mutation) pass=%s fail=%s%s%s',
+    _pass, _fail, E'\n', _report
+  );
 END;
 $$;
