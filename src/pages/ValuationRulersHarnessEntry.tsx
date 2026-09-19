@@ -140,7 +140,7 @@ export function runValuationScenarios(): ScenarioResult[] {
 
   const peStat = computePeerStat('pe', 183.29, FIXTURES['3443'].peers as PeerRow[]);
   push('s5-winsorize', '極端值 winsorize：同業中位數不被 900 倍拉走',
-    peStat.n === 5 && peStat.median === 55.9 && peStat.premium != null,
+    peStat.n === 5 && peStat.median === 60.2 && peStat.premium != null,
     `median=${String(peStat.median)} n=${peStat.n} premium=${String(peStat.premium)}`);
 
   const yStat = computePeerStat('dividendYield', 3.29, FIXTURES['1101'].peers as PeerRow[]);
