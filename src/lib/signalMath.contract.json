@@ -80,11 +80,11 @@
       "expected": { "shares": 2000, "effectiveSellShares": 1000, "cashDelta": 200000, "newQty": 0, "newAvg": 0, "realizedPnl": 20000, "pnlPercent": 11.11 }
     },
     {
-      "id": "v12-rounding-half",
-      "note": "四捨五入到小數第 2 位：33.335 → 33.34 口徑；buy 3 股 @33.335 → 成本 100.01",
-      "action": "buy", "price": 33.335, "quantity": 3, "unit": "股",
-      "priorQtyShares": 0, "priorAvg": 0,
-      "expected": { "shares": 3, "cashDelta": -100.01, "newQty": 3, "newAvg": 33.34, "positionCost": 100.01 }
+      "id": "v12-rounding-half-up",
+      "note": "金額一律 ROUND(x,2) half-up：1 股 @10 買進、@10.125 賣出 → 回收 10.13、已實現 0.13、報酬率 1.25%（TS 與 SQL 必須一致）",
+      "action": "sell", "price": 10.125, "quantity": 1, "unit": "股",
+      "priorQtyShares": 1, "priorAvg": 10,
+      "expected": { "shares": 1, "cashDelta": 10.13, "newQty": 0, "newAvg": 0, "realizedPnl": 0.13, "pnlPercent": 1.25 }
     }
   ]
 }
