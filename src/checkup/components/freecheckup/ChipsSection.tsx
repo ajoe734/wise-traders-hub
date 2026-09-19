@@ -551,7 +551,8 @@ export default function ChipsSection({
         </div>
       )}
 
-      {/* BSR 分點：預設收合成一行 data-quality badge */}
+      {/* BSR 分點 surface（持倉抽屜 showBsr=false 時完全不渲染，連容器與間距都不保留） */}
+      {showBsr && (
       <div style={{ borderTop: `1px dashed ${WB.hair}`, paddingTop: 12 }}>
         <button
           type="button"
