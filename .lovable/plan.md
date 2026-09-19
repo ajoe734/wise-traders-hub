@@ -1,64 +1,44 @@
-# 券商分點：9/18 已補完，剩下的是「永遠追不完」的殭屍任務
+# 券商分點進度儀表板
 
-## 先講結論：9/18 其實已經補完了
+在管理後台新增一頁 `/company/bsr-progress`，一眼看完「今天抓到哪、還剩多少、上游有沒有掛」，每小時自動更新。
 
-實際查資料庫（今天 17:00 台北）：
+## 頁面內容
 
-| 交易日 | 檔數 | 筆數 |
-| --- | --- | --- |
-| 2026/09/15 | 105 | 64,877 |
-| 2026/09/16 | 105 | 63,737 |
-| 2026/09/17 | 105 | 67,141 |
-| 2026/09/18 | 105 | 67,840 |
+### 1. 頂部四張狀態卡
 
-9/18 已經和前幾天同樣完整（105 檔），昨天講的「剩 50 檔」在凌晨額度歸零後已由排程自動補完。所以「明早開盤前補完」這件事不用再做。
+- **最新交易日進度**：例如「2026/09/18 · 105 / 106 檔 · 99%」，含進度條。分母是當日實際掛單的個股母體，不是猜的。
+- **待處理筆數**：佇列 pending / running / failed 各多少，並標出其中「重試超過上限」的殭屍筆數。
+- **熔斷狀態**：券商分點上游（`finmind_bsr`）目前 closed / half-open / open、連續失敗次數、最後成功時間；同時顯示另外三個相關上游（法人、報價、TPEx）的狀態燈。
+- **今日額度**：三個抓取額度池（互動 / 保溫 / 歷史回補）的已用 / 上限與百分比，台北 00:00 歸零時間。
 
-## 真正還在壞的事
+### 2. 每日抓取趨勢（近 15 個交易日）
 
-佇列剩 14 筆，永遠做不完，而且每天在吃 FinMind 額度：
+長條圖 + 表格並列，每一列顯示：交易日、抓到檔數、母體檔數、進度百分比、資料筆數、該日仍在佇列的待處理數。未達 100% 的日期用醒目色標出，讓「哪一天沒補完」一眼看到。
 
-- **5271（7 筆，9/10～9/18）**：上游從 9/10 起就查無這檔的分點資料（停牌或下市），重試 16～19 次全部回「查無資料」，再試一萬次也不會有。
-- **3152（5 筆，6/23～6/29）**：這些日期的資料**其實早就抓到了**（該區間已有 992 筆），佇列這幾筆是殘留沒被標完成，重試 9～11 次。
-- **2316（2 筆，6/19、7/10）**：同樣早就有資料，卡在「額度不足」狀態被反覆重排，重試 22 次。
+### 3. 待處理明細
 
-這三類共同的毛病：任務上限是 5 次，但實際 attempts 已經 9～22 次，代表每小時的自癒作業會把它們無條件重排，**上限形同虛設**。結果就是每天固定浪費額度在註定失敗的任務上，排擠真正要抓的新資料，這也是昨天 9/18 會塞車的原因之一。
+佇列中尚未完成的任務清單：個股、交易日、狀態、已重試次數 / 上限、最後錯誤、下次執行時間。可依交易日或錯誤原因篩選，方便判斷是「上游查無資料」還是「額度不足」。
 
-## 要做的事
+### 4. 更新機制
 
-### 1. 清掉這 14 筆殭屍任務（一次性）
+- 每小時自動重新抓一次，頁面右上顯示「資料更新於 HH:MM」與手動重新整理按鈕。
+- 切回分頁時也會重新抓，不會看到過期數字。
 
-- 已經有資料的（3152、2316 共 7 筆）→ 直接標完成。
-- 上游查無資料的（5271 共 7 筆）→ 標為「上游無資料」終止狀態，並記一筆原因，不再重試。
+## 視覺與一致性
 
-判定方式一律以資料庫實際有沒有該檔該日的資料為準，不憑猜測。
-
-### 2. 加上終止規則，杜絕再生
-
-在佇列處理邏輯加三條硬規則：
-
-- 任務開工前先檢查：該檔該日已有資料 → 直接標完成，不打上游。
-- 連續 3 次回「查無資料」且交易日已超過 5 天 → 標「上游無資料」終止，不再排。
-- 每日自癒重排時，只重排真正沒做完的任務，終止狀態一律跳過（目前是全部無差別重排）。
-
-### 3. 讓「追到最新」變成每天自動成立
-
-現有排程已經有：每日 15:30 掛單、每 10 分鐘跑工人、每小時自癒。再補一段覆蓋率檢查：
-
-- 每小時檢查「最近一個交易日」的檔數，低於既有天數的 95% 就自動補掛缺的個股。
-- 補掛只在額度允許範圍內（優先用互動池剩餘額度），不會為了補歷史把今天的抓取餓死。
-- 每次自癒的動作寫進降級事件表，管理端看得到「補了什麼、為什麼補」。
-
-### 4. 驗收
-
-- 佇列待處理歸零，或只剩當日正常任務。
-- 連續兩天觀察：最新交易日檔數自動達到 105 檔，不需手動介入。
-- FinMind 三個額度池的用量下降（目前 backfill 497/600、keepwarm 487/960、interactive 193/240，其中一部分是殭屍任務吃掉的）。
-- 抽屜與卡片顯示的「最後可得日」跟著推進，OUTAGE 徽章不出現。
+沿用既有管理後台的卡片與表格樣式（與券商分點失敗、回補進度等頁一致），日期一律 `YYYY/MM/DD`，不新增配色。側邊選單「券商分點」群組加入這一頁的入口。
 
 ## 技術細節
 
-- 一次性收斂用 `run_sql`：`tw_bsr_sync_queue` 依 `EXISTS (select 1 from tw_bsr_daily ...)` 分流成 `done` / 新終止狀態 `no_upstream_data`，並補 `finished_at`、`last_error`。
-- `tw_bsr_sync_queue.status` 目前的唯一索引 `tw_bsr_sync_queue_active_uniq` 涵蓋 `pending/running/failed/skipped`，新增的 `no_upstream_data` 不在其中，等同終止，不會擋住未來同鍵重新掛單。
-- 工人端（`tw-bsr-finmind-sync`）在 claim 之後、打 API 之前加 pre-check 與 empty 計數判定；`finmind_empty` 連續次數以 `tw_bsr_fetch_failures.consecutive_failures` 為準。
-- `bsr_daily_autoheal()` 修改重排條件：`status='pending' and attempts < max_attempts`，並排除終止狀態；新增覆蓋率檢查分支，呼叫既有 `enqueue_all_active_tw_holdings_bsr` 類函式補缺口，維持每 6 小時最多一次的節流。
-- 不新增 cron job，沿用 jobid 107（同步）與既有 autoheal。
+- 新增 `public.bsr_progress_dashboard(_days int default 15)`，SECURITY DEFINER、固定 `search_path`、`REVOKE PUBLIC/anon`、`GRANT EXECUTE TO authenticated` 並在函式內以 `has_role(auth.uid(),'company_admin')` 把關，非管理員回 42501。回傳單一 JSON：
+  - `days[]`：`trade_date`、`stocks_done`、`stocks_expected`、`rows`、`queue_pending`
+  - `queue`：依 `status` 彙總，外加 `zombie`（`attempts >= max_attempts` 仍 pending）
+  - `pending[]`：未完成任務明細（上限 200 筆）
+  - `health[]`：`data_source_health` 中 `finmind_bsr`、`finmind_institutional`、`finmind_price`、`tpex_daily` 四列
+  - `quota[]`：`finmind_quota_pools` 三池
+  - `generated_at`
+  - 分母 `stocks_expected` 取「該日 `tw_bsr_sync_queue` 的 distinct 個股數」，若為 0 則退回近 10 個交易日的最大完成檔數。
+  - 每日彙總用 `count(distinct stock_id)` 走 `tw_bsr_daily (trade_date, stock_id)` 索引，只掃近 15 個交易日，不做全表掃描。
+- 純函式抽到 `src/lib/bsrProgress.ts`：`progressPct`、`progressTone`（ok / lagging / stalled）、`circuitTone`、`quotaTone`、`formatTradeDate`、`zombieCount`，並附 vitest 單元測試（含 0 分母、母體缺漏、half-open、額度滿載等邊界）。
+- 頁面 `src/pages/company/BsrProgress.tsx` + `App.tsx` 路由（`ProtectedRoute requiredRole="company_admin"`）+ `CompanyLayout` 選單項；資料層用 `useQuery` 搭 `refetchInterval: 3_600_000`、`refetchOnWindowFocus: true`。
+- 唯讀：頁面不提供任何觸發同步或改設定的按鈕，避免誤觸消耗額度。
