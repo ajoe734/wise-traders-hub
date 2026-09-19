@@ -22,8 +22,18 @@ export function reminderTitle(count: number): string {
   return `${count} 位訂閱者將於 7 日內到期`;
 }
 
+/** 名單同時含「已過期未續訂」時的標題（挽回窗口也要顯示在同一張橫幅）。 */
+export function bannerTitle(rows: Pick<ExpiringSubscriberRow, 'days_left'>[]): string {
+  const churned = rows.filter((r) => r.days_left < 0).length;
+  const upcoming = rows.length - churned;
+  if (churned === 0) return reminderTitle(upcoming);
+  if (upcoming === 0) return `${churned} 位訂閱者已到期未續訂`;
+  return `${upcoming} 位訂閱者將於 7 日內到期、${churned} 位已到期未續訂`;
+}
+
 export function daysLeftLabel(daysLeft: number): string {
-  if (daysLeft <= 0) return '今日到期';
+  if (daysLeft < 0) return '已過期';
+  if (daysLeft === 0) return '今日到期';
   if (daysLeft === 1) return '明日到期';
   return `剩 ${daysLeft} 天`;
 }
