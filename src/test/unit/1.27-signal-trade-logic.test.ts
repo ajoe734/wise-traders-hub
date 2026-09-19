@@ -89,11 +89,12 @@ describe('1.27 signalTradeLogic', () => {
       expect(r.remaining).toBe(120_000);
     });
 
-    it('exit uses exitAvgPrice * exitShares when provided', () => {
+    it('exit uses actual exit price * exitShares (SIGNAL_MATH_CONTRACT_V1: 絕不得用成本價)', () => {
       const r = simulateCashAfterTrades(0, [
         { action: 'exit', price: 50, shares: 0, exitAvgPrice: 100, exitShares: 500 },
       ]);
-      expect(r.remaining).toBe(50_000);
+      // 出場價 50 × 500 股 = 25,000；成本價 100 × 500 = 50,000 為舊的錯誤口徑
+      expect(r.remaining).toBe(25_000);
     });
 
     it('exit falls back to price * shares when exit info missing', () => {

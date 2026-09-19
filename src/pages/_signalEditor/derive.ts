@@ -179,8 +179,9 @@ export function computeCashSim(
     } else if (t.action === 'sell' || t.action === 'trim') {
       remaining += price * shares;
     } else if (t.action === 'exit') {
-      // 平倉以執行前的模擬持倉與均價釋放現金
-      remaining += (before.avg || price) * before.qty;
+      // SIGNAL_MATH_CONTRACT_V1：平倉以「實際出場價 × 執行前模擬持倉」回收現金，
+      // 已實現損益必須進入可用現金；絕不得用成本價（before.avg）釋放。
+      remaining += price * before.qty;
     }
   }
   return { remaining, perTrade };
