@@ -349,7 +349,7 @@ export default function ChipsSection({
           fontFamily: SERIF,
         }}
       >
-        {buildFreshnessSegments(data).map((seg) => (
+        {buildFreshnessSegments(data).filter((seg) => showBsr || seg.key !== 'bsr').map((seg) => (
           <span
             key={seg.key}
             data-testid={`chips-seg-${seg.key}`}
