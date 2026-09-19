@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { CalendarClock, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { createPrefsStore } from '@/checkup/lib/prefsStore';
-import { useExpiringSubscribers, EXPIRING_SUBSCRIBERS_QUERY_KEY } from '@/hooks/useExpiringSubscribers';
+import { useExpiringSubscribers, useExpiringSubscribersSource, EXPIRING_SUBSCRIBERS_QUERY_KEY } from '@/hooks/useExpiringSubscribers';
+
 import {
   bannerTitle,
   daysLeftLabel,
@@ -35,24 +35,27 @@ interface Props {
  */
 export function ExpiringSubscribersBanner({ expertId, expertSlug, enabled = true }: Props) {
   const { data: rows, isLoading, error } = useExpiringSubscribers(expertId, enabled);
+  const source = useExpiringSubscribersSource();
   const [dismissed, setDismissed] = useState<string[]>(() => prefs.load().dismissed);
   const [expanded, setExpanded] = useState(false);
   const [ackError, setAckError] = useState<string | null>(null);
   const qc = useQueryClient();
 
-  // 「已聯繫」：標記後這位訂閱者就不再出現在橫幅與每日通知，續訂或標記前不會自動消失
+  // 「已聯繫」：DB 持久化（server-side owner 授權），標記後不再出現在橫幅與每日通知
   const ack = useMutation({
     mutationFn: async (subscriptionId: string) => {
-      const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ error: unknown }>;
-      const { error: e } = await rpc('ack_subscriber_expiry', { _subscription_id: subscriptionId, _ack: true });
-      if (e) throw e;
+      if (!source.ack) throw new Error('ack source unavailable');
+      await source.ack(subscriptionId, expertId);
     },
     onSuccess: () => {
       setAckError(null);
       qc.invalidateQueries({ queryKey: [EXPIRING_SUBSCRIBERS_QUERY_KEY] });
     },
-    onError: () => setAckError('標記失敗，請稍後再試'),
+    onError: (e) => setAckError(String((e as { code?: string })?.code || '') === '42501'
+      ? '沒有權限標記這位訂閱者'
+      : '標記失敗，請稍後再試'),
   });
+
 
   if (!enabled || isLoading || error || !shouldShowBanner({ rows, dismissed, expertId })) return null;
   const list = rows!;
