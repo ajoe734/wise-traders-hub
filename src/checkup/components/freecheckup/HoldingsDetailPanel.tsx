@@ -467,8 +467,8 @@ function HoldingsDetailPanelImpl({
         {/* 8.4) 估值三把尺（本益比 / 股價淨值比 / 現金殖利率）＋ 同業中位數 */}
         <ValuationRulers WB={WB} stockCode={h.code} />
 
-        {/* 8.5) 籌碼面（僅台股） */}
-        <ChipsSection WB={WB} stockCode={h.code} />
+        {/* 8.5) 籌碼面（僅台股）— 關鍵分點／BSR surface 已自持倉抽屜移除 */}
+        <ChipsSection WB={WB} stockCode={h.code} showBsr={false} />
 
 
         {/* 10) 論點引文 */}
