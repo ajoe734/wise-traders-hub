@@ -28,18 +28,7 @@ import {
   type HoldingPersistenceGateway,
 } from '@/checkup/lib/holdingDeleteService';
 
-export function readLocalExclusions(): HoldingExclusion[] {
-  try {
-    const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(HOLDING_EXCLUSIONS_KEY);
-    return raw ? parseExclusions(JSON.parse(raw)) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalExclusions(rows: HoldingExclusion[]) {
-  try { localStorage.setItem(HOLDING_EXCLUSIONS_KEY, JSON.stringify(rows)); } catch { /* noop */ }
-}
+export { readLocalExclusions } from '@/checkup/lib/holdingExclusionsStorage';
 
 export interface UseHoldingExclusionsArgs {
   holdings: HoldingLike[] | null | undefined;
