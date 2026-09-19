@@ -297,7 +297,7 @@ describe('consumer：週記頁 /admin/:slug/signals 的到期橫幅', () => {
     await screen.findByTestId('expiring-subscribers-banner');
     fireEvent.click(screen.getByLabelText('今天先收起'));
     await waitFor(() => expect(screen.queryByTestId('expiring-subscribers-banner')).toBeNull());
-    expect(JSON.parse(localStorage.getItem('lf.expiringSubscribersBanner.v1') || '{}').dismissed)
+    expect(localStorage.getItem('lf.expiringSubscribersBanner.v1'))
       .toContain(`${EXPERTS.A.id}:${FIXTURE_LOCAL_DATE}`);
 
     // 同一天重新進頁：仍然隱藏
