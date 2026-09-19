@@ -53,10 +53,10 @@
     },
     {
       "id": "v8-orphan-6526-pnl",
-      "note": "orphan 反例：6526 達發 585→752 500 股，正確已實現損益 +83500",
+      "note": "orphan 反例：6526 達發 585→752 500 股，正確已實現損益 +83500（報酬率 167/585=28.55%）",
       "action": "sell", "price": 752, "quantity": 500, "unit": "股",
       "priorQtyShares": 500, "priorAvg": 585,
-      "expected": { "shares": 500, "cashDelta": 376000, "newQty": 0, "newAvg": 0, "realizedPnl": 83500, "pnlPercent": 28.63 }
+      "expected": { "shares": 500, "cashDelta": 376000, "newQty": 0, "newAvg": 0, "realizedPnl": 83500, "pnlPercent": 28.55 }
     },
     {
       "id": "v9-orphan-3035-pnl",

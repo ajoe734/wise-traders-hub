@@ -81,8 +81,9 @@ describe('signal editor: mixed add/trim batch (執行語意排序)', () => {
     expect(err).toBeNull();
 
     const sim = computeCashSim(trades, capitalEmpty);
-    // 排序：exit 先 → +1,500,000；後 add → -100,000
-    expect(sim.remaining).toBe(100_000 + 1_500_000 - 100_000);
+    // 排序：exit 先 → SIGNAL_MATH_CONTRACT_V1 以實際出場價 520 × 3000 股 = +1,560,000
+    // （已實現損益進現金；舊口徑用成本 500 釋放 1,500,000 是錯的）；後 add → -100,000
+    expect(sim.remaining).toBe(100_000 + 1_560_000 - 100_000);
   });
 
   it('case C：trim 超過模擬持倉 → 仍 fail，並回報「原始 UI index」', () => {

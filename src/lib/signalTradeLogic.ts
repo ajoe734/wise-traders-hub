@@ -120,7 +120,7 @@ export function applySignalMathVector(input: SignalMathInput): SignalMathResult 
   const action = input.action;
 
   if (action === 'buy' || action === 'add') {
-    const cashDelta = -r2(price * shares);
+    const cashDelta = r2(-(price * shares));
     const newQty = priorQty + shares;
     const newAvg = priorQty > 0
       ? calcWeightedAvgPrice(priorQty, priorAvg, shares, price)

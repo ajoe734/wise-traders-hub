@@ -92,7 +92,7 @@ DECLARE
   {"id":"v7-orphan-3006-pnl","action":"sell","price":238,"quantity":1,"unit":"張","priorQtyShares":1000,"priorAvg":174,
    "expected":{"shares":1000,"cashDelta":238000,"newQty":0,"newAvg":0,"realizedPnl":64000,"pnlPercent":36.78}},
   {"id":"v8-orphan-6526-pnl","action":"sell","price":752,"quantity":500,"unit":"股","priorQtyShares":500,"priorAvg":585,
-   "expected":{"shares":500,"cashDelta":376000,"newQty":0,"newAvg":0,"realizedPnl":83500,"pnlPercent":28.63}},
+   "expected":{"shares":500,"cashDelta":376000,"newQty":0,"newAvg":0,"realizedPnl":83500,"pnlPercent":28.55}},
   {"id":"v9-orphan-3035-pnl","action":"sell","price":207.5,"quantity":1,"unit":"張","priorQtyShares":1000,"priorAvg":169,
    "expected":{"shares":1000,"cashDelta":207500,"newQty":0,"newAvg":0,"realizedPnl":38500,"pnlPercent":22.78}},
   {"id":"v10-zero-quantity-noop","action":"buy","price":100,"quantity":0,"unit":"股","priorQtyShares":1000,"priorAvg":90,
