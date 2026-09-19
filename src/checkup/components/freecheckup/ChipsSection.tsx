@@ -12,6 +12,7 @@ import { resolveBsrRetryNote } from '@/checkup/lib/bsrProviderPresentation';
 
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
+import { readinessCountLabel, windowCoverageText } from '@/checkup/lib/readinessLabel';
 
 // 過期自動重抓的狀態文案（單一資料源：useTwChipsDetail 的 AutoRefreshState）
 const AUTO_STATE_BADGE: Record<string, string> = {
@@ -206,6 +207,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   // VALUATION_THREE_RULERS_PLAN_V1 §F：分點細節降級成一行 data-quality badge，
   // 主要版面讓給估值三把尺。展開後內容與 testid 完全不變（e2e 合約不破）。
   const [bsrOpen, setBsrOpen] = React.useState(false);
+  // 視窗覆蓋計數一律走 readinessLabel（分子夾在分母內，杜絕 27/5）
+  const bsrPartialText = windowCoverageText(bsrWinReadiness, bsrWinDays);
   const bsrCompactText = data?.bsr_as_of
     ? `資料日 ${data.bsr_as_of.split('-').join('/')}${bsrLatest ? '' : '・本視窗無資料'}`
     : headerLabel?.text || '尚未同步';
@@ -560,13 +563,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
             <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>
               關鍵分點（近 {bsrWinDays} 日）
             </div>
-            {bsrSelected && bsrWinReadiness && bsrWinReadiness.have > 0 && bsrWinReadiness.have < bsrWinDays ? (
+            {bsrSelected && bsrPartialText ? (
               <span
                 data-testid="chips-bsr-partial"
-                data-bsr-have={bsrWinReadiness.have}
+                data-bsr-have={Math.min(bsrWinReadiness?.have ?? 0, bsrWinDays)}
                 style={{ fontSize: 10, color: WB.inkMute, border: `1px solid ${WB.hair}`, padding: '1px 6px', fontFamily: SERIF }}
               >
-                僅 {bsrWinReadiness.have}/{bsrWinDays} 個交易日
+                {bsrPartialText}
               </span>
             ) : null}
 
@@ -768,7 +771,10 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                       letterSpacing: '0.05em',
                     }}
                   >
-                    低品質・{Number(data?.bsr_broker_count ?? 0)}/5 分點
+                    低品質・{readinessCountLabel({
+                      have: Number(data?.bsr_broker_count ?? 0),
+                      need: Number(data?.bsr_low_quality_threshold ?? 5),
+                    })} 分點
                   </span>
                 )}
               </div>
@@ -777,7 +783,9 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         ) : (
           <div data-testid="chips-bsr-missing" data-bsr-window={bsrWin} style={{ fontSize: 12, color: WB.inkMute, lineHeight: 1.6 }}>
             {bsrWinReadiness && bsrWinReadiness.have > 0
-              ? `— 近 ${bsrWinDays} 日分點補齊中（已 ${bsrWinReadiness.have}/${bsrWinDays} 個交易日）`
+              ? (bsrPartialText
+                ? `— 近 ${bsrWinDays} 日分點補齊中（已 ${readinessCountLabel({ have: bsrWinReadiness.have, need: bsrWinDays })} 個交易日）`
+                : `— 近 ${bsrWinDays} 日分點資料已備齊，但此視窗尚未彙整出結果`)
               : '— 分點資料尚未同步（BSR 未同步）'}
             <div style={{ fontSize: 10, color: WB.inkMute }}>
               （僅交易日有新資料：週一～五 14:00–21:00 每 10 分鐘一輪自動抓取；

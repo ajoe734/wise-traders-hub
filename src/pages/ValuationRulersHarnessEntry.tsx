@@ -199,11 +199,11 @@ function LivePanel({ width, label, fixture }: { width: number; label: string; fi
   // 抽屜實際可用寬度約為 viewport 的 90%（≥640px 時上限 448px）
   const inner = Math.min(width >= 640 ? 448 : width, width) - 28;
   return (
-    <div data-testid={`live-${label}`} style={{ marginTop: 12 }}>
+    <div data-testid={`live-${label}`} style={{ marginTop: 12, maxWidth: '100%', overflowX: 'auto' }}>
       <div style={{ fontSize: 12, color: WB.inkSub }}>{label} · 內容寬度 {inner}px · fixture={fixture}</div>
       <div
         data-testid={`live-frame-${label}`}
-        style={{ width: inner, border: `1px solid ${WB.hair}`, padding: 14, background: '#fff', overflow: 'hidden' }}
+        style={{ width: inner, maxWidth: '100%', border: `1px solid ${WB.hair}`, padding: 14, background: '#fff', overflow: 'hidden', boxSizing: 'border-box' }}
       >
         <ValuationRulersView WB={WB} view={view} status={status} error={error} stale={stale} onRetry={refetch} />
       </div>
