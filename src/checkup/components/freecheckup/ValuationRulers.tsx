@@ -126,7 +126,7 @@ export function ValuationRulersView({
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>估值三把尺</div>
         <div data-testid="valuation-asof" style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
-          {view.asOf ? view.asOf.replaceAll('-', '/') : '無日期'} · 來源 {view.source || '未知'}
+          {view.asOf ? view.asOf.split('-').join('/') : '無日期'} · 來源 {view.source || '未知'}
           {stale ? ' · 資料較舊' : ''}
         </div>
       </div>
