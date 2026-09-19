@@ -787,7 +787,9 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
 
         )}
+        </>)}
       </div>
+
 
       {/* 趨勢圖 + 歷史回放 */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, marginTop: 12, paddingTop: 6 }}>
