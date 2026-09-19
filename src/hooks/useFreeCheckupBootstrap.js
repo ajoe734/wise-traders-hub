@@ -146,7 +146,10 @@ export function useAuthoritativeHoldingsReconciliation({
     if (!ready || isDemo || !Array.isArray(holdings) || !Array.isArray(tradeLog) || tradeLog.length === 0) return;
     setHoldings((current) => {
       const previous = Array.isArray(current) ? current : [];
-      const reconciled = stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(previous, tradeLog));
+      const reconciled = applyHoldingExclusions(
+        stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(previous, tradeLog)),
+        readLocalExclusions(),
+      );
       return JSON.stringify(previous) === JSON.stringify(reconciled) ? previous : reconciled;
     });
   }, [ready, isDemo, holdings, tradeLog, setHoldings]);
