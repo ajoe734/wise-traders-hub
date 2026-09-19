@@ -203,6 +203,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   // 依真實 status 渲染 BSR 標頭文案（單一來源：bsrHeaderLabel.ts）
   const headerLabel = bsrHeaderLabel(syncStatus, !!data?.bsr_as_of);
 
+  // VALUATION_THREE_RULERS_PLAN_V1 §F：分點細節降級成一行 data-quality badge，
+  // 主要版面讓給估值三把尺。展開後內容與 testid 完全不變（e2e 合約不破）。
+  const [bsrOpen, setBsrOpen] = React.useState(false);
+  const bsrCompactText = data?.bsr_as_of
+    ? `資料日 ${data.bsr_as_of.split('-').join('/')}${bsrLatest ? '' : '・本視窗無資料'}`
+    : headerLabel?.text || '尚未同步';
+
 
 
   return (
@@ -528,9 +535,27 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         </div>
       )}
 
-      {/* BSR 分點 */}
+      {/* BSR 分點：預設收合成一行 data-quality badge */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, paddingTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          data-testid="chips-bsr-quality-badge"
+          data-bsr-open={bsrOpen ? 'true' : 'false'}
+          aria-expanded={bsrOpen}
+          onClick={() => setBsrOpen((v) => !v)}
+          style={{
+            display: 'flex', width: '100%', minWidth: 0, alignItems: 'baseline', justifyContent: 'space-between',
+            gap: 8, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer',
+            fontFamily: SERIF, fontSize: 11, color: WB.inkSub, textAlign: 'left',
+          }}
+        >
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            關鍵分點資料品質 · {bsrCompactText}
+          </span>
+          <span style={{ fontSize: 10, color: WB.inkMute, whiteSpace: 'nowrap' }}>{bsrOpen ? '收合' : '展開'}</span>
+        </button>
+        {bsrOpen && (<>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '8px 0', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>
               關鍵分點（近 {bsrWinDays} 日）
@@ -762,7 +787,9 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
 
         )}
+        </>)}
       </div>
+
 
       {/* 趨勢圖 + 歷史回放 */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, marginTop: 12, paddingTop: 6 }}>

@@ -1,0 +1,60 @@
+{
+  "contract": "VALUATION_RULERS_V1",
+  "note": "固定 vectors。歷史序列以 generator 描述（linear 0..n），避免把 5 年逐日數列寫死在檔案裡。",
+  "thresholds": { "percentileLow": 30, "percentileHigh": 70, "minHistorySamples": 250, "minPeerN": 3, "winsor": [0.05, 0.95] },
+  "vectors": [
+    {
+      "name": "3443 創意 — 正常獲利、三尺皆有值",
+      "asOf": "2026-09-18",
+      "input": { "pe": 183.29, "pb": 71.16, "dividendYield": 0.28 },
+      "historySpec": { "pe": { "from": 30, "to": 120, "n": 500 }, "pb": { "from": 8, "to": 40, "n": 500 }, "dividendYield": { "from": 0.2, "to": 2.5, "n": 500 } },
+      "expect": { "pe": "high", "pb": "high", "dividendYield": "high", "overall": "high" }
+    },
+    {
+      "name": "1101 台泥 — PE 缺值（近四季無獲利）",
+      "asOf": "2026-09-18",
+      "input": { "pe": null, "pb": 0.79, "dividendYield": 3.29 },
+      "historySpec": { "pe": { "from": 10, "to": 30, "n": 500 }, "pb": { "from": 0.7, "to": 1.6, "n": 500 }, "dividendYield": { "from": 2.0, "to": 6.0, "n": 500 } },
+      "expect": { "pe": "na", "peNaReason": "missing", "pb": "low", "dividendYield": "fair", "overall": "low" }
+    },
+    {
+      "name": "2882 國泰金 — 金融股，三尺皆有值",
+      "asOf": "2026-09-18",
+      "input": { "pe": 13.03, "pb": 1.59, "dividendYield": 3.17 },
+      "historySpec": { "pe": { "from": 6, "to": 20, "n": 500 }, "pb": { "from": 0.8, "to": 2.0, "n": 500 }, "dividendYield": { "from": 1.5, "to": 4.5, "n": 500 } },
+      "expect": { "pe": "fair", "pb": "fair", "dividendYield": "fair", "overall": "fair", "financial": true }
+    },
+    {
+      "name": "虧損公司 — EPS <= 0",
+      "input": { "pe": -8.2, "pb": 1.1, "dividendYield": 0 },
+      "historySpec": { "pe": { "from": 5, "to": 40, "n": 500 }, "pb": { "from": 0.9, "to": 3.0, "n": 500 }, "dividendYield": { "from": 0, "to": 4, "n": 500 } },
+      "expect": { "pe": "na", "peNaReason": "non_positive_denominator", "dividendYield": "na", "dividendYieldNaReason": "no_dividend", "overall": null }
+    },
+    {
+      "name": "歷史樣本不足（< 250 筆）",
+      "input": { "pe": 15, "pb": 2, "dividendYield": 3 },
+      "historySpec": { "pe": { "from": 10, "to": 20, "n": 100 }, "pb": { "from": 1, "to": 3, "n": 100 }, "dividendYield": { "from": 1, "to": 5, "n": 100 } },
+      "expect": { "pe": "na", "peNaReason": "insufficient_history", "overall": null }
+    }
+  ],
+  "peerVectors": [
+    {
+      "name": "同業 5 家，含 1 個極端值 — winsorize 後中位數",
+      "self": { "pe": 20 },
+      "peers": [{ "pe": 10 }, { "pe": 14 }, { "pe": 18 }, { "pe": 22 }, { "pe": 400 }],
+      "expect": { "n": 5, "median": 18, "premium": 0.111 }
+    },
+    {
+      "name": "同業不足 3 家",
+      "self": { "pe": 20 },
+      "peers": [{ "pe": 10 }, { "pe": 14 }],
+      "expect": { "n": 2, "median": null, "premium": null }
+    },
+    {
+      "name": "同業含無效分母（PE 空 / <= 0）不計入 n",
+      "self": { "pe": 20 },
+      "peers": [{ "pe": 10 }, { "pe": null }, { "pe": -5 }, { "pe": 14 }, { "pe": 18 }],
+      "expect": { "n": 3, "median": 14, "premium": 0.429 }
+    }
+  ]
+}
