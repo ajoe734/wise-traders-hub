@@ -172,14 +172,16 @@ export default function ChipsTrendChart({
         <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>
           趨勢與歷史回放
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <SegBtn WB={WB} active={mode === 'inst'} onClick={() => setMode('inst')}>
-            三大法人
-          </SegBtn>
-          <SegBtn WB={WB} active={mode === 'bsr'} onClick={() => setMode('bsr')}>
-            分點集中度
-          </SegBtn>
-        </div>
+        {showBsr && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <SegBtn WB={WB} active={mode === 'inst'} onClick={() => setMode('inst')}>
+              三大法人
+            </SegBtn>
+            <SegBtn WB={WB} active={mode === 'bsr'} onClick={() => setMode('bsr')}>
+              分點集中度
+            </SegBtn>
+          </div>
+        )}
       </div>
 
       {mode === 'inst' && (
