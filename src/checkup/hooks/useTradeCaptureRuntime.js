@@ -458,6 +458,15 @@ export function useTradeCaptureRuntime({
       return
     }
 
+    // C 階段：使用者手動刪除過的個股，截圖重匯**預設略過**（只影響顯示，不動交易紀錄）。
+    // 要恢復必須由使用者明確重新加入該檔（那條路徑才會清除排除標記）。
+    const importPlan = planScreenshotImport({
+      incoming: nextHoldings,
+      exclusions: readLocalExclusions(),
+      confirmedCodes: [],
+    })
+    nextHoldings = importPlan.accepted
+
     const nextTradeLog = [...entries, ...prevTradeLog]
 
     // Snapshot before mutation — undo 還原 holdings + tradeLog 兩者
