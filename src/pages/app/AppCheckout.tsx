@@ -59,11 +59,9 @@ const AppCheckout = () => {
   const [providers, setProviders] = useState<Array<{ id: string; provider_type: string; is_active: boolean; is_default?: boolean; sort_order?: number | null }>>([]);
   useEffect(() => {
     (async () => {
-      // Use the safe view (accessible to authenticated users; base table is admin-only via RLS)
+      // 安全來源：payment_providers_safe_list()（SECURITY DEFINER 函式，只回非敏感欄位；底層表仍為 admin-only）
       const { data } = await supabase
-        .from("payment_providers_safe")
-        .select("id, provider_type, is_active, is_default")
-        .eq("is_active", true)
+        .rpc("payment_providers_safe_list")
         .order("is_default", { ascending: false })
         .order("display_name", { ascending: true });
       const list = ((data as any) || []) as Array<{ id: string; provider_type: string; is_active: boolean; is_default?: boolean }>;

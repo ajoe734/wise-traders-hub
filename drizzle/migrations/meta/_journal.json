@@ -15,6 +15,20 @@
       "when": 1789838332901,
       "tag": "0001_create_tw_valuation_daily_and_snapshot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789839855473,
+      "tag": "0002_fix_payment_providers_safe_security_invoker",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789839925978,
+      "tag": "0003_replace_payment_providers_safe_view_with_definer_function",
+      "breakpoints": true
     }
   ]
 }
