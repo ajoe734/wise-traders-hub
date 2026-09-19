@@ -131,7 +131,20 @@ function nextWorkerWindow(now = new Date()): { inWindow: boolean; label: string 
 
 
 
-export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
+export default function ChipsSection({
+  WB,
+  stockCode,
+  showBsr = true,
+}: {
+  WB: any;
+  stockCode: string;
+  /**
+   * 持倉抽屜（HoldingsDetailPanel）已完全移除「關鍵分點／BSR」surface：
+   * 標題、1／5／10 日切換、狀態列、補資料提示、最後成功日期、展開內容都不得渲染。
+   * 後端管線與其他 surface（harness／其他頁面）維持原樣，故以 prop 控制而非刪碼。
+   */
+  showBsr?: boolean;
+}) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
   // ETF / 權證 / 受益憑證 / DR：無分點資料，直接顯示提示（不進 sync 佇列）
