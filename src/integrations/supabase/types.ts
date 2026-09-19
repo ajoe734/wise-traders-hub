@@ -5792,6 +5792,27 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_industry_peers: {
+        Row: {
+          industry: string
+          market: string | null
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          industry: string
+          market?: string | null
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          industry?: string
+          market?: string | null
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tw_institutional_daily: {
         Row: {
           created_at: string
@@ -5854,6 +5875,42 @@ export type Database = {
           name?: string | null
           note?: string | null
           source?: string
+          trade_date?: string
+        }
+        Relationships: []
+      }
+      tw_valuation_daily: {
+        Row: {
+          dividend_yield: number | null
+          fetched_at: string
+          id: number
+          market: string | null
+          pbr: number | null
+          per: number | null
+          source: string
+          symbol: string
+          trade_date: string
+        }
+        Insert: {
+          dividend_yield?: number | null
+          fetched_at?: string
+          id?: number
+          market?: string | null
+          pbr?: number | null
+          per?: number | null
+          source?: string
+          symbol: string
+          trade_date: string
+        }
+        Update: {
+          dividend_yield?: number | null
+          fetched_at?: string
+          id?: number
+          market?: string | null
+          pbr?: number | null
+          per?: number | null
+          source?: string
+          symbol?: string
           trade_date?: string
         }
         Relationships: []
@@ -7485,6 +7542,7 @@ export type Database = {
         Args: { p_rows: Json; p_writer: string }
         Returns: number
       }
+      valuation_snapshot: { Args: { _symbol: string }; Returns: Json }
     }
     Enums: {
       announcement_status: "draft" | "published"

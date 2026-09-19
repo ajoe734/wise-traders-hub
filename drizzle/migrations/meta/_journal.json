@@ -8,6 +8,13 @@
       "when": 1789807753979,
       "tag": "0000_subscriber_expiry_multichannel_and_ack",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789838332901,
+      "tag": "0001_create_tw_valuation_daily_and_snapshot",
+      "breakpoints": true
     }
   ]
 }

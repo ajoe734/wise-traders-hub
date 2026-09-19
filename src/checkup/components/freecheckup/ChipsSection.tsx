@@ -280,7 +280,13 @@ export default function ChipsSection({
               OFFLINE
             </span>
           )}
-          {(uiState.state === 'd1_fallback' || uiState.state === 'filling_new_stock' || uiState.state === 'upstream_outage') && (
+          {/* showBsr=false（持倉抽屜）：D-1／FILLING／OUTAGE 這三個狀態多半由分點管線驅動，
+              分點 surface 已移除，只有法人相關或通用伺服器錯誤才保留，避免顯示與畫面無關的紅字。 */}
+          {(uiState.state === 'd1_fallback' || uiState.state === 'filling_new_stock' || uiState.state === 'upstream_outage')
+            && (showBsr
+              || uiState.subState?.inst_d5_state === 'upstream_exhausted'
+              || uiState.subState?.inst_d5_state === 'filling'
+              || uiState.subState?.error_kind === 'server') && (
             <span
               data-testid="chips-state-badge"
               data-state={uiState.state}
