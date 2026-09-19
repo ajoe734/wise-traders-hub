@@ -2,10 +2,22 @@
  * Signal trade business logic helpers extracted from handle_signal_trade
  * and handle_signal_takedown PostgreSQL triggers.
  * Mirrors ROUND(..., 2) in the SQL using Math.round(n * 100) / 100.
+ *
+ * SIGNAL_MATH_CONTRACT_V1（`src/lib/signalMath.contract.json`）：
+ * 本檔的 applySignalMathVector 是前台唯一 canonical calculator；
+ * SQL 鏡像是 `signal_math_apply`（migration，未套用前由 db/p0-signal-math
+ * scenario 內聯同名函式驗證）。兩邊跑同一組 contract vectors，逐值一致。
+ *
+ * 口徑憲法：
+ * - 內部單位一律「股」；「張→股」只能在入口換算一次（×1000，走 lotSize）。
+ * - 現金：buy/add 扣 成交價×股數；sell/trim/exit 一律以「實際成交價×實際股數」
+ *   回收（已實現損益因此進入現金），絕不得用成本價釋放。
+ * - 金額輸出一律 ROUND(x, 2) half-up。
  */
 
-function r2(n: number): number {
-  return Math.round(n * 100) / 100;
+export function r2(n: number): number {
+  const v = Math.round(n * 100) / 100;
+  return v === 0 ? 0 : v; // 消除 -0
 }
 
 /**
