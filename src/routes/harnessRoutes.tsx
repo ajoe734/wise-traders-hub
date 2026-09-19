@@ -55,6 +55,7 @@ const ShellEventBusHarnessEntry = lazy(() => import("../pages/ShellEventBusHarne
 const SubscriberExpiryReminderHarnessEntry = lazy(() => import("../pages/SubscriberExpiryReminderHarnessEntry"));
 const PendingJournalEditHarnessEntry = lazy(() => import("../pages/PendingJournalEditHarnessEntry"));
 const BsrProviderStateHarnessEntry = lazy(() => import("../pages/BsrProviderStateHarnessEntry"));
+const SignalArithmeticHarnessEntry = lazy(() => import("../pages/SignalArithmeticHarnessEntry"));
 
 interface HarnessRouteGuardProps {
   children?: ReactNode;
