@@ -131,7 +131,20 @@ function nextWorkerWindow(now = new Date()): { inWindow: boolean; label: string 
 
 
 
-export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: string }) {
+export default function ChipsSection({
+  WB,
+  stockCode,
+  showBsr = true,
+}: {
+  WB: any;
+  stockCode: string;
+  /**
+   * 持倉抽屜（HoldingsDetailPanel）已完全移除「關鍵分點／BSR」surface：
+   * 標題、1／5／10 日切換、狀態列、補資料提示、最後成功日期、展開內容都不得渲染。
+   * 後端管線與其他 surface（harness／其他頁面）維持原樣，故以 prop 控制而非刪碼。
+   */
+  showBsr?: boolean;
+}) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
   // ETF / 權證 / 受益憑證 / DR：無分點資料，直接顯示提示（不進 sync 佇列）
@@ -336,7 +349,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
           fontFamily: SERIF,
         }}
       >
-        {buildFreshnessSegments(data).map((seg) => (
+        {buildFreshnessSegments(data).filter((seg) => showBsr || seg.key !== 'bsr').map((seg) => (
           <span
             key={seg.key}
             data-testid={`chips-seg-${seg.key}`}
@@ -360,7 +373,7 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
 
 
       {/* 稀疏資料：手動回補過去 60 日 */}
-      {sparse && !error && !isTerminalProvider && (
+      {sparse && !error && !isTerminalProvider && showBsr && (
         <div
           data-testid="chips-backfill-hint"
           style={{
@@ -538,7 +551,8 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         </div>
       )}
 
-      {/* BSR 分點：預設收合成一行 data-quality badge */}
+      {/* BSR 分點 surface（持倉抽屜 showBsr=false 時完全不渲染，連容器與間距都不保留） */}
+      {showBsr && (
       <div style={{ borderTop: `1px dashed ${WB.hair}`, paddingTop: 12 }}>
         <button
           type="button"
@@ -797,11 +811,12 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
         )}
         </>)}
       </div>
+      )}
 
 
       {/* 趨勢圖 + 歷史回放 */}
       <div style={{ borderTop: `1px dashed ${WB.hair}`, marginTop: 12, paddingTop: 6 }}>
-        <ChipsTrendChart WB={WB} data={data} />
+        <ChipsTrendChart WB={WB} data={data} showBsr={showBsr} />
       </div>
 
       {/* 資料來源標示：三大法人與分點資料的官方來源是 TWSE（上市）與 TPEx

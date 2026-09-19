@@ -37,11 +37,16 @@ const PAD_B = 22;
 export default function ChipsTrendChart({
   WB,
   data,
+  showBsr = true,
 }: {
   WB: any;
   data: TwChipsPayload | null;
+  /** 持倉抽屜已完全移除分點 surface；false 時不得渲染分點集中度模式。 */
+  showBsr?: boolean;
 }) {
-  const [mode, setMode] = useState<Mode>('inst');
+  const [modeState, setModeState] = useState<Mode>('inst');
+  const mode: Mode = showBsr ? modeState : 'inst';
+  const setMode = setModeState;
   const [win, setWin] = useState<Window>(1);
   const [idx, setIdx] = useState<number>(-1); // -1 = latest
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -167,14 +172,16 @@ export default function ChipsTrendChart({
         <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>
           趨勢與歷史回放
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <SegBtn WB={WB} active={mode === 'inst'} onClick={() => setMode('inst')}>
-            三大法人
-          </SegBtn>
-          <SegBtn WB={WB} active={mode === 'bsr'} onClick={() => setMode('bsr')}>
-            分點集中度
-          </SegBtn>
-        </div>
+        {showBsr && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <SegBtn WB={WB} active={mode === 'inst'} onClick={() => setMode('inst')}>
+              三大法人
+            </SegBtn>
+            <SegBtn WB={WB} active={mode === 'bsr'} onClick={() => setMode('bsr')}>
+              分點集中度
+            </SegBtn>
+          </div>
+        )}
       </div>
 
       {mode === 'inst' && (

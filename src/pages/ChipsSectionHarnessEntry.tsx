@@ -146,6 +146,8 @@ export default function ChipsSectionHarnessEntry() {
     typeof window !== 'undefined' ? window.location.search : '',
   );
   const code = params.get('code') || '2330';
+  // bsr=off 模擬持倉抽屜（關鍵分點 surface 已移除）；預設保留其他 surface 行為。
+  const showBsr = params.get('bsr') !== 'off';
   const force = params.get('force'); // offline | stale | fresh（可逗號組合）| null
   const mode = resolveMode(force); // fresh > stale
   const freezeTime = params.get('freezeTime') === '1';
@@ -186,6 +188,7 @@ export default function ChipsSectionHarnessEntry() {
       data-stale-shifted={shifted ? '1' : '0'}
       data-fixed-now={fixedNow != null ? '1' : '0'}
       data-visibility={visibility}
+      data-show-bsr={showBsr ? '1' : '0'}
 
       style={{
 
@@ -204,7 +207,7 @@ export default function ChipsSectionHarnessEntry() {
         {tick > 0 ? ` · tick=${tick}` : ''}
       </div>
       <Suspense fallback={<div data-testid="chips-harness-loading">loading harness…</div>}>
-        <ChipsSection WB={WB} stockCode={code} />
+        <ChipsSection WB={WB} stockCode={code} showBsr={showBsr} />
       </Suspense>
     </div>
   );
