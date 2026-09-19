@@ -12,6 +12,7 @@ import { resolveBsrRetryNote } from '@/checkup/lib/bsrProviderPresentation';
 
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
+import { readinessCountLabel, windowCoverageText } from '@/checkup/lib/readinessLabel';
 
 // 過期自動重抓的狀態文案（單一資料源：useTwChipsDetail 的 AutoRefreshState）
 const AUTO_STATE_BADGE: Record<string, string> = {
@@ -770,7 +771,10 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
                       letterSpacing: '0.05em',
                     }}
                   >
-                    低品質・{Number(data?.bsr_broker_count ?? 0)}/5 分點
+                    低品質・{readinessCountLabel({
+                      have: Number(data?.bsr_broker_count ?? 0),
+                      need: Number(data?.bsr_low_quality_threshold ?? 5),
+                    })} 分點
                   </span>
                 )}
               </div>
