@@ -4,7 +4,12 @@
  * 獨立成檔的理由：bootstrap（.js）與 trade capture runtime（.js）都需要在
  * replay / 截圖匯入時讀排除清單，但不該相依 React hook。
  */
-import { HOLDING_EXCLUSIONS_KEY, parseExclusions, type HoldingExclusion } from './holdingExclusions';
+import {
+  HOLDING_EXCLUSIONS_KEY,
+  parseExclusions,
+  planManualReAdd,
+  type HoldingExclusion,
+} from './holdingExclusions';
 
 export function readLocalExclusions(): HoldingExclusion[] {
   try {
