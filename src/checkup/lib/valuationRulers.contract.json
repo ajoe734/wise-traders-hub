@@ -21,7 +21,7 @@
       "name": "2882 國泰金 — 金融股，三尺皆有值",
       "asOf": "2026-09-18",
       "input": { "pe": 13.03, "pb": 1.59, "dividendYield": 3.17 },
-      "historySpec": { "pe": { "from": 6, "to": 20, "n": 500 }, "pb": { "from": 0.8, "to": 2.0, "n": 500 }, "dividendYield": { "from": 1.5, "to": 8.0, "n": 500 } },
+      "historySpec": { "pe": { "from": 6, "to": 20, "n": 500 }, "pb": { "from": 0.8, "to": 2.0, "n": 500 }, "dividendYield": { "from": 1.5, "to": 4.5, "n": 500 } },
       "expect": { "pe": "fair", "pb": "fair", "dividendYield": "fair", "overall": "fair", "financial": true }
     },
     {
