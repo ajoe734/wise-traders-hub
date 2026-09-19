@@ -31,6 +31,9 @@ import {
   buildReminderIndex, summaryFor, reminderBadge,
   RENEWAL_REMINDER_ACTIONS, type ReminderLogRow,
 } from '@/lib/renewalReminderStatus';
+import {
+  buildDeliveryIndex, deliveryFor, deliveryBadge, type ExpiryReminderLedgerRow,
+} from '@/lib/subscriberExpiryDelivery';
 
 const PAGE_SIZE = 50;
 
@@ -115,6 +118,24 @@ const CompanySubscribers = () => {
     staleTime: 60_000,
   });
   const reminderIndex = useMemo(() => buildReminderIndex(reminderLogs || []), [reminderLogs]);
+
+  // 老師端到期通知（站內／Email／LINE）的實際送達狀態，讓管理者不用人工追蹤老師有沒有被通知到
+  const { data: deliveryRows } = useQuery({
+    queryKey: ['company', 'subscribers', 'expiry-delivery'],
+    queryFn: async (): Promise<ExpiryReminderLedgerRow[]> => {
+      const since = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: rows, error } = await supabase
+        .from('subscriber_expiry_reminders')
+        .select('expert_id, local_date, reminder_type, payload, channels, created_at')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (rows || []) as unknown as ExpiryReminderLedgerRow[];
+    },
+    staleTime: 60_000,
+  });
+  const deliveryIndex = useMemo(() => buildDeliveryIndex(deliveryRows || []), [deliveryRows]);
 
   const nowMs = Date.now();
   const groups = useMemo(() => groupSubscriberSpells(rows, nowMs), [rows]);
@@ -217,9 +238,16 @@ const CompanySubscribers = () => {
     formatDate: (iso) => formatTaipeiYMD(iso) || '-',
   });
 
+  const deliveryFor_ = (g: SubscriberGroup) => deliveryBadge({
+    summary: deliveryFor(deliveryIndex, g.latest.id),
+    status: g.status,
+    remainingDays: g.remaining_days,
+    formatDate: (iso) => formatTaipeiYMD(iso) || '-',
+  });
+
   const exportSummary = () => {
     downloadCsv(`subscribers-summary-${stamp}.csv`, [
-      ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '老師', '最新方案', '首次訂閱日', '最新到期日', '累計期數', '狀態', '到期提醒'],
+      ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '老師', '最新方案', '首次訂閱日', '最新到期日', '累計期數', '狀態', '到期提醒', '通知老師'],
       ...filtered.map((g) => {
         const id = identities[g.user_id];
         return [
@@ -236,6 +264,7 @@ const CompanySubscribers = () => {
           String(g.cycles),
           STATUS_LABEL[g.status],
           badgeFor(g).label,
+          deliveryFor_(g).label,
         ];
       }),
     ]);
@@ -416,14 +445,15 @@ const CompanySubscribers = () => {
                   <SortHead k="cycles">期數</SortHead>
                   <th className="p-4">狀態</th>
                   <th className="p-4" title="到期提醒由排程每日 09:10（台北）自動寄出，這裡標記最近一次寄送">到期提醒</th>
+                  <th className="p-4" title="老師端到期通知（站內／Email／LINE）的實際送達狀態">通知老師</th>
                   <th className="p-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={13} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={14} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : pageRows.length === 0 ? (
-                  <tr><td colSpan={13} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={14} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   pageRows.map((g) => {
                     const id = identities[g.user_id];
@@ -432,6 +462,7 @@ const CompanySubscribers = () => {
                     const open = expanded.has(g.key);
                     const rd = g.remaining_days;
                     const reminder = badgeFor(g);
+                    const delivery = deliveryFor_(g);
                     return (
                       <Fragment key={g.key}>
                         <tr className="border-b last:border-0">
@@ -490,6 +521,14 @@ const CompanySubscribers = () => {
                               {reminder.label}
                             </span>
                           </td>
+                          <td className="p-4" title={delivery.title}>
+                            <span
+                              data-testid="teacher-delivery-cell"
+                              className={`text-xs ${delivery.tone === 'sent' ? 'text-green-600' : delivery.tone === 'partial' ? 'text-foreground' : delivery.tone === 'failed' ? 'text-destructive font-medium' : delivery.tone === 'pending' ? 'text-yellow-600 font-medium' : 'text-muted-foreground'}`}
+                            >
+                              {delivery.label}
+                            </span>
+                          </td>
                           <td className="p-4 text-right">
                             <div className="inline-flex flex-col items-end gap-1">
                               <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => launchViewAs(g.user_id)} title="以此會員身分模擬登入（新分頁、唯讀視角）">
@@ -506,7 +545,7 @@ const CompanySubscribers = () => {
                         </tr>
                         {open && (
                           <tr className="border-b last:border-0 bg-muted/30">
-                            <td colSpan={13} className="px-12 py-3">
+                            <td colSpan={14} className="px-12 py-3">
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="text-muted-foreground text-left">

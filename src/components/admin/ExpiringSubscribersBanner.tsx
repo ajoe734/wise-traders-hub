@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { CalendarClock, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { createPrefsStore } from '@/checkup/lib/prefsStore';
-import { useExpiringSubscribers } from '@/hooks/useExpiringSubscribers';
+import { useExpiringSubscribers, EXPIRING_SUBSCRIBERS_QUERY_KEY } from '@/hooks/useExpiringSubscribers';
 import {
+  bannerTitle,
   daysLeftLabel,
   dismissKey,
   formatExpiresOn,
   pruneDismissed,
-  reminderTitle,
   shouldShowBanner,
 } from '@/lib/subscriberExpiryReminder';
 
@@ -35,6 +37,22 @@ export function ExpiringSubscribersBanner({ expertId, expertSlug, enabled = true
   const { data: rows, isLoading, error } = useExpiringSubscribers(expertId, enabled);
   const [dismissed, setDismissed] = useState<string[]>(() => prefs.load().dismissed);
   const [expanded, setExpanded] = useState(false);
+  const [ackError, setAckError] = useState<string | null>(null);
+  const qc = useQueryClient();
+
+  // 「已聯繫」：標記後這位訂閱者就不再出現在橫幅與每日通知，續訂或標記前不會自動消失
+  const ack = useMutation({
+    mutationFn: async (subscriptionId: string) => {
+      const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ error: unknown }>;
+      const { error: e } = await rpc('ack_subscriber_expiry', { _subscription_id: subscriptionId, _ack: true });
+      if (e) throw e;
+    },
+    onSuccess: () => {
+      setAckError(null);
+      qc.invalidateQueries({ queryKey: [EXPIRING_SUBSCRIBERS_QUERY_KEY] });
+    },
+    onError: () => setAckError('標記失敗，請稍後再試'),
+  });
 
   if (!enabled || isLoading || error || !shouldShowBanner({ rows, dismissed, expertId })) return null;
   const list = rows!;
@@ -58,7 +76,7 @@ export function ExpiringSubscribersBanner({ expertId, expertSlug, enabled = true
         <div className="flex items-start gap-2 min-w-0">
           <CalendarClock className="h-4 w-4 mt-0.5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">{reminderTitle(list.length)}</p>
+            <p className="text-sm font-semibold text-foreground">{bannerTitle(list)}</p>
             <p className="text-xs text-muted-foreground mt-0.5">續訂關懷提醒：建議在今天的週記中多一句關心，提醒他們續訂。</p>
             <ul className="mt-2 space-y-1" data-testid="expiring-subscribers-list">
               {visible.map((r) => (
@@ -67,9 +85,20 @@ export function ExpiringSubscribersBanner({ expertId, expertSlug, enabled = true
                   <span className="text-muted-foreground">{r.plan_name || '訂閱方案'}</span>
                   <span className="text-muted-foreground">{formatExpiresOn(r.expires_on)}</span>
                   <span className={r.days_left <= 1 ? 'text-destructive font-medium' : 'text-foreground'}>{daysLeftLabel(r.days_left)}</span>
+                  <button
+                    type="button"
+                    data-testid="ack-subscriber"
+                    className="text-xs text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                    disabled={ack.isPending}
+                    onClick={() => ack.mutate(r.subscription_id)}
+                    title="已私訊／已致電，從提醒名單移除"
+                  >
+                    已聯繫
+                  </button>
                 </li>
               ))}
             </ul>
+            {ackError && <p className="mt-1 text-xs text-destructive" data-testid="ack-error">{ackError}</p>}
             <div className="mt-2 flex items-center gap-3">
               {list.length > 3 && (
                 <button type="button" className="text-xs text-primary inline-flex items-center gap-1" onClick={() => setExpanded((v) => !v)}>

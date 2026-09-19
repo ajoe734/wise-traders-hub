@@ -17,6 +17,7 @@ import {
   adminSignalsUrl,
   expertDetailUrl,
 } from './routes.ts';
+import { advice, headline, itemLine } from './subscriberExpiryChannels.ts';
 
 export type NotificationRow = ReturnType<typeof buildNotificationRow>;
 
@@ -117,6 +118,27 @@ export function buildSubscriberExpiryTeacherReminder(params: {
     userId: params.teacherUserId,
     title: `${count} 位訂閱者將於 7 日內到期`,
     body: `${preview.join('、')}${more}。建議在今天的週記中多一句關懷，提醒他們續訂。`,
+    type: 'subscriber_expiry_reminder',
+    link: adminSignalsUrl(params.expertSlug),
+  });
+}
+
+/**
+ * 訂閱者昨日到期未續訂 —— 過期後 24 小時挽回提醒（與 7 日提醒同一批人的後續）。
+ * 文案沿用 subscriberExpiryChannels 的單一資料源，三通道措辭一致。
+ */
+export function buildSubscriberExpiryChurnReminder(params: {
+  teacherUserId: string;
+  expertSlug?: string | null;
+  items: SubscriberExpiryItem[];
+}): NotificationRow {
+  const items = params.items || [];
+  const preview = items.slice(0, 3).map((i) => itemLine(i));
+  const more = items.length > 3 ? ` 等 ${items.length} 位` : '';
+  return buildNotificationRow({
+    userId: params.teacherUserId,
+    title: headline('subscriber_expiry_churn_24h', items.length),
+    body: `${preview.join('、')}${more}。${advice('subscriber_expiry_churn_24h')}`,
     type: 'subscriber_expiry_reminder',
     link: adminSignalsUrl(params.expertSlug),
   });
