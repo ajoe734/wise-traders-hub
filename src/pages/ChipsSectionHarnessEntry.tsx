@@ -146,6 +146,8 @@ export default function ChipsSectionHarnessEntry() {
     typeof window !== 'undefined' ? window.location.search : '',
   );
   const code = params.get('code') || '2330';
+  // bsr=off 模擬持倉抽屜（關鍵分點 surface 已移除）；預設保留其他 surface 行為。
+  const showBsr = params.get('bsr') !== 'off';
   const force = params.get('force'); // offline | stale | fresh（可逗號組合）| null
   const mode = resolveMode(force); // fresh > stale
   const freezeTime = params.get('freezeTime') === '1';
