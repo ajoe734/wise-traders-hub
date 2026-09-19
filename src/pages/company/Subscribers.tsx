@@ -119,6 +119,24 @@ const CompanySubscribers = () => {
   });
   const reminderIndex = useMemo(() => buildReminderIndex(reminderLogs || []), [reminderLogs]);
 
+  // 老師端到期通知（站內／Email／LINE）的實際送達狀態，讓管理者不用人工追蹤老師有沒有被通知到
+  const { data: deliveryRows } = useQuery({
+    queryKey: ['company', 'subscribers', 'expiry-delivery'],
+    queryFn: async (): Promise<ExpiryReminderLedgerRow[]> => {
+      const since = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: rows, error } = await supabase
+        .from('subscriber_expiry_reminders')
+        .select('expert_id, local_date, reminder_type, payload, channels, created_at')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (rows || []) as unknown as ExpiryReminderLedgerRow[];
+    },
+    staleTime: 60_000,
+  });
+  const deliveryIndex = useMemo(() => buildDeliveryIndex(deliveryRows || []), [deliveryRows]);
+
   const nowMs = Date.now();
   const groups = useMemo(() => groupSubscriberSpells(rows, nowMs), [rows]);
 
