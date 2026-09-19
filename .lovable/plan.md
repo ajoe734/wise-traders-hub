@@ -1,58 +1,56 @@
-# P0_THREE_ISSUES — 盤點結論與修正計畫
+# P0_THREE_ISSUES — 修正計畫（v2，含完整驗收條件）
 
-HEAD `2adc128c`，working tree clean。本輪未改 code、未動 DB、未 deploy、未發任何通知。
+HEAD `2adc128c`，working tree clean。盤點全程唯讀；本計畫核准前不改 code/DB、不 deploy/Publish、不發通知。
 
----
+## A. 週記後台算數 — 根因與正式資料反例
 
-## A. 週記後台算數錯誤 — PARTIAL（根因已鎖定）
+根因：現金與損益口徑分散在三處各自實作（前端 `derive.ts`、DB trigger `enforce_signal_capital_limit`、DB trigger `handle_signal_trade`），且 `trade_records` 的 `quantity_unit` 標籤與實際數值不一致（股數被標成「張」）。
 
-根因：現金口徑前後端與 DB trigger 三處各算一次，且張/股單位在兩張表不一致。
+正式資料反例（彥愷 expert `13926bcc-...`）：
 
-- `src/pages/_signalEditor/derive.ts:152-190` `computeCashSim` 賣出分支用成本價釋放現金（`remaining += (before.avg || price) * before.qty`），不是實際賣出價。
-- DB trigger `enforce_signal_capital_limit`：買進檢查用 `price_hint × (張 ? quantity*1000 : 1)`，與前端 cashSim 不同源。
-- DB trigger `handle_signal_trade` 只建 `trade_records`，不扣款，所以資金只由上面兩處各自推導。
+1. **00708L 期元大S&P黃金正2**（buy signal `9c995675`，quantity=2 張 @77.7）
+   - 正確成本 = 77.7 × 2 × 1000 = **155,400**
+   - 目前 `trade_records` 存 quantity=2000、`quantity_unit='張'` → 任何用「張×1000」口徑的消費者算成 77.7 × 2000 × 1000 = **155,400,000**（1000 倍）
+2. **6706 惠特**（buy 1 張 @123 → sell 1 張 @143，已 closed）
+   - 已實現獲利 = (143 − 123) × 1000 = **+20,000**
+   - 目前前端 `src/pages/_signalEditor/derive.ts:152-190` 賣出分支以成本價釋放現金（`remaining += (before.avg || price) * before.qty`），現金只回收 **123,000**，20,000 獲利不進現金
+3. **3006 晶豪科 / 6526 達發 / 3035 智原**（buy+sell 各一對，皆 published）
+   - 這 6 筆 signal 在 `trade_records` **完全沒有列**（buy 的 `batch_id` 皆 null，屬 orphan）
+   - 目前績效漏算三筆已結案交易：3006 (238−174)×1000 = **+64,000**、6526 (752−585)×500 = **+83,500**、3035 (207.5−169)×1000 = **+38,500**
 
-正式資料反例（彥愷）：
+### A 修正方案
 
-1. 00708L：`expert_signals.quantity = 2`（張），`trade_records.quantity = 2000`（股），單位換算不一致，部位%與報酬率擇一來源就會差 1000 倍級距。
-2. 6706 賣出信號：`expert_signals` 有列，`trade_records` 無對應列 → 已實現損益缺一筆。
-3. 3006 / 6526 / 3035：`batch_id` 為 null 的 orphan signals，無任何 trade_records → 持倉與資金皆漏算。
+- **Canonical calculator**：建立 `src/lib/signalTradeLogic.ts`（現金、成本、損益、報酬率）與對應 SQL 函式；**contract test vectors 單一資料源**（JSON 檔，含 00708L 1000 倍案例、6706 賣出回收現金、張/股換算、空值/0、部分賣出），TS vitest 與 SQL（pgTAP 或 scenario SQL）各自實作、跑同一組向量、結果逐值一致。
+- **單位換算唯一邊界**：lot→share 只能在 calculator 入口的 `lotsToShares` 發生一次；`trade_records` 寫入後一律以股為內部單位（顯示層才再換張）。賣出現金一律用實際成交價 × 實際股數。
+- **歷史資料**：不補寫、不 migration 正式資料；orphan / missing trade_records 只產生 **read-only diff report**（唯讀查詢頁或檔案），等你另行確認後才處理。
+- **驗收**：fixture route `/e2e/signal-arithmetic-harness`（production-path、network hard-block、host gate），上述三反例輸入 → 正確輸出；既有 pending-journal-edit isolation 測試續過。
 
-最小修正：把 `derive.ts` 的現金推導與單位換算收斂成單一 canonical calculator（`src/lib/signalTradeLogic.ts`），賣出以成交價計、買進以 `lotsToShares` 統一換股數；trigger 改為呼叫同一口徑的 SQL 函式。orphan / 缺 trade_records 先出唯讀差異報表，不自動補寫。
+## B. 訂閱到期提醒 — 站內為完成條件
 
----
+- 原始核心需求：老師進入/撰寫週記時看見站內提醒。**Email/LINE 非本輪完成條件，不得發送真實通知。**
+- 證據：彥愷 9/14–9/18 五筆 `notifications.user_id = 2a49b906-...`（= `experts.user_id`），收件人正確；`notifications` 表無 `recipient_user_id`，實際欄位是 `user_id`。
+- `subscriber_expiry_reminders` 5 筆的 `channels` 全為 `{}` → 多管道**未完成，不得宣稱完成**；呈現上必須分開「已建立 notification」與「實際送達」。
+- **Harness 矛盾根因**：`/e2e/subscriber-expiry-reminder-harness` 為 fixture-only（`fixtures.ts:7`、`HarnessEntry.tsx:130,150`，`mutation_calls` 恆 0），marker 停在 V1 未隨功能升版；「今天先收起」是 localStorage（`lf.expiringSubscribersBanner.v1`），與 DB ack 無關。harness 從未驗證過 DB ack 路徑 —— 是驗收缺口，非 RPC `ack_subscriber_expiry` 不存在。
+- **B 修正**：
+  1. harness 升 V2（marker bump），新增 DB ack 情境 —— **只用安全 fixture/mock，不寫正式 DB**；正式資料以 read-only 查詢佐證。
+  2. banner：「今天先收起」（localStorage，隔日重現）與「已聯繫」（DB ack，持續消失）分開呈現與分開測。
+  3. **必測情境**：同一提醒重跑不重複（唯一鍵）；續訂後消失；DB ack 後持續消失；僅收起隔日重現；跨老師/跨 tenant ack 被拒。
+  4. **consumer 驗收**：必須在真正的通知中心（鈴鐺）與 `/admin/:slug/signals` 撰寫頁實測呈現，不只獨立 harness。
 
-## B. 訂閱到期通知 — PARTIAL（站內通道成立，其餘未在正式環境跑過）
+## C. 手動刪除持倉 — 現況 MISSING，需 durable 資料模型
 
-- `notifications` 無 `recipient_user_id` 欄位，實際欄位是 `user_id`；彥愷 9/14–9/18 五筆的 `user_id = 2a49b906-...`，與 `experts.user_id` 一致 → 收件人正確、老師頁可見、跨老師不可見。
-- `subscriber_expiry_reminders` 僅 5 筆，`channels` 全為 `{}`、`reminder_type` 全為 `subscriber_expiry_7d`；`subscriber_expiry_acks` 0 筆；churn_24h 0 筆。→ Email/LINE fan-out 與「昨日到期挽回」程式碼存在（edge function `subscriber-expiry-teacher-reminder`，327 行）但正式環境**從未產出資料**。
-- 因此「三通道已上線」只成立在程式碼層，正式資料無證據；不重複寄送可證（每人每日一筆），續訂後消失可證（來源 RPC `_expiring_subscriptions_by_expert` 以有效訂閱過濾），**已聯繫後消失無法證**（acks 0 筆）。
+- 現況：無單一持倉刪除入口。`holdingsStore.js:125 removeHolding` 只是前端 filter；`LogTab.jsx:156` 是交易日誌刪除（會 replay 回滾）；`FreeCheckup.jsx:2922` 是整組清空。持倉真實儲存 = localStorage + 雲端 `checkup_storage` key `pf-holdings-v2`（正式 47 使用者），日曆鏡像 `pf-calendar-holdings`。
+- 風險：`tradeLogOps.reconcileHoldingsWithTradeLog` 會用交易日誌 replay 持倉 —— 只刪持倉不處理排除，該檔會被 replay 復活（假刪）。
+- **C 修正**：
+  1. **Durable、owner-scoped 排除模型**：新表（如 `checkup_holding_exclusions`：user_id、symbol、excluded_at、唯一鍵 (user_id, symbol)，RLS 僅本人、service_role 管理）—— **只產出 migration 檔與測試，不套用正式環境**。刪除 = 寫入排除列 + 從 `pf-holdings-v2` 與日曆鏡像移除，同一操作失敗完整 rollback。
+  2. 語意：不新增賣出交易；不動 `trade_records`、`user_performances`、starting capital、cash；只影響目前持倉與鏡像。
+  3. **重新加入同股票必須明確清除排除標記**；截圖匯入遇到已排除股票時顯示提示（預設不匯入，使用者選擇後才清除標記並匯入）；手動重新新增同股票時先清除標記。
+  4. **必測**：未授權刪除被拒；持久化失敗完整 rollback；刪除最後一檔；重複 symbol；刪除後 reload 仍消失；交易日誌 replay 不復活；重新加入可恢復；截圖匯入行為；其他持倉與帳務 fingerprint 完全不變。
+  5. fixture route `/e2e/holding-delete-harness`（production-path、network hard-block、host gate，不走 demo seam）。
 
-### harness 矛盾的原因
+## 驗證與交付紀律
 
-`/e2e/subscriber-expiry-reminder-harness` 是 fixture-only 驗收頁：`src/pages/_subscriberExpiryHarness/fixtures.ts:7`、`SubscriberExpiryReminderHarnessEntry.tsx:130,150` 明定 fixture 模式不寫 DB、`mutation_calls` 恆為 0，marker 仍是 `SUBSCRIBER_EXPIRY_PREVIEW_V1`（建立時的版本，後續改動沒同步 bump）。所以它顯示的「今天先收起」是 `ExpiringSubscribersBanner` 的 localStorage 行為（`lf.expiringSubscribersBanner.v1`），不是 DB ack。harness 與正式行為本來就不同源 —— 它不能、也沒有驗證過 DB 持久化的「已聯繫」。這是驗收缺口，不是 DB 功能不存在（RPC `ack_subscriber_expiry` 確實存在）。
-
-最小修正：harness marker bump 至 V2 並新增「DB ack 模式」情境；banner 的 localStorage dismiss 與 DB ack 分開呈現（收起僅當日、未 ack 隔日仍出現）；`subscriber_expiry_reminders.channels` 寫入實際送達結果後才可宣稱通道完成。
-
----
-
-## C. 持倉看板手動刪除個股 — MISSING（無此功能）
-
-- 目前只有：交易日誌單筆刪除（`LogTab.jsx:156`，走 `recomputeHoldingsAfterDelete` 回滾持倉）與整組資料清空（`FreeCheckup.jsx:3614/2922`）。沒有「刪除單一持倉」入口。
-- `holdingsStore.js:125` 的 `removeHolding` 只是前端 filter，未接任何 UI，也不寫儲存。
-- 持倉真實儲存：localStorage + 雲端 `checkup_storage` key `pf-holdings-v2`（正式環境 47 筆使用者資料），日曆鏡像 `pf-calendar-holdings`（46 筆），寫入點 `FreeCheckup.jsx:728,742`。
-- 關鍵風險：`tradeLogOps.reconcileHoldingsWithTradeLog` 會用交易日誌 replay 持倉，若只刪持倉不處理日誌，該檔會被重新算回來（假刪）。
-
-最小修正：在持倉卡加「移除此持倉」＋確認視窗；走既有 owner-scoped 儲存寫入（`pf-holdings-v2` + 日曆鏡像同步），並把該檔標記為 replay 排除，避免被日誌復活。不建立賣出交易、不動 `trade_records` / `user_performances` / 起始資金 / 現金；寫入失敗整批回滾。
-
----
-
-## 分階段與驗收
-
-| 階段 | 範圍 | Hosted Preview 正向驗收 | 反向驗收 |
-| --- | --- | --- | --- |
-| 1 | C 刪除持倉 | 刪除單檔後重整仍不在，其他檔數值不變 | 刪除後交易日誌 replay 不復活；`trade_records` 指紋不變 |
-| 2 | B harness/ack | marker V2；按「已聯繫」後隔日仍不出現 | 「今天先收起」隔日必須再出現；跨老師看不到他人名單 |
-| 3 | A 算數收斂 | 三個反例輸出改為資料口徑正確值 | 未發布 pending 編輯仍不得動帳本（既有 isolation 測試續過） |
-
-每階段驗收含：focused vitest、tsgo、module-boundaries、build。
+- 三項各有 production-path fixture route：signal arithmetic / subscriber reminder V2 / holding delete。
+- 每階段回報：exact HEAD、diff 檔案清單、測試結果；跑 focused vitest、tsgo、module-boundaries、build。
+- fresh Hosted Preview 全綠之前：不 Publish、不 deploy、不套 migration/cron、不寫正式 DB、不發真實通知。
+- fresh Preview 全綠之後也先停下來回報，等你確認才進下一步。
