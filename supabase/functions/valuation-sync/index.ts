@@ -153,6 +153,52 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // 全市場單日：一次取回當日所有個股（含上櫃），供同業中位數使用。
+  if (mode === 'market_day') {
+    const end = String(body?.date || new Date().toISOString().slice(0, 10));
+    const startD = String(body?.start_date || end);
+    const url = `${FINMIND}?dataset=TaiwanStockPER&start_date=${startD}&end_date=${end}${token ? `&token=${token}` : ''}`;
+    const res = await fetchWithRetry(url, {}, { source: 'finmind_per_market', policy: { maxAttempts: 3 } });
+    const json = await res.json();
+    if (json?.status !== 200 || !Array.isArray(json?.data)) {
+      return new Response(JSON.stringify({ error: 'finmind_market_day_failed', detail: String(json?.msg || '').slice(0, 200) }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const seenKey = new Set<string>();
+    const all: Row[] = [];
+    for (const d of json.data as Record<string, unknown>[]) {
+      const key = `${d.stock_id}|${d.date}`;
+      if (seenKey.has(key)) continue;
+      seenKey.add(key);
+      all.push({
+        symbol: String(d.stock_id),
+        trade_date: String(d.date),
+        per: positive(d.PER),
+        pbr: positive(d.PBR),
+        dividend_yield: nonNegative(d.dividend_yield),
+        market: null,
+        source: 'finmind',
+      });
+    }
+    let n = 0;
+    for (let i = 0; i < all.length; i += 1000) {
+      const chunk = all.slice(i, i + 1000);
+      const { error } = await supa.from('tw_valuation_daily').upsert(chunk, { onConflict: 'symbol,trade_date' });
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message, upserted: n }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      n += chunk.length;
+    }
+    return new Response(JSON.stringify({ ok: true, mode, date: end, upserted: n }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+
+
   // 目標清單：明確傳入，或以目前持倉／已有序列的股票為母體
   let symbols: string[] = Array.isArray(body?.symbols) ? (body.symbols as unknown[]).map(String) : [];
   if (symbols.length === 0) {
