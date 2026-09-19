@@ -28,7 +28,9 @@ import {
   type HoldingPersistenceGateway,
 } from '@/checkup/lib/holdingDeleteService';
 
-export { readLocalExclusions } from '@/checkup/lib/holdingExclusionsStorage';
+import { readLocalExclusions, writeLocalExclusions } from '@/checkup/lib/holdingExclusionsStorage';
+
+export { readLocalExclusions };
 
 export interface UseHoldingExclusionsArgs {
   holdings: HoldingLike[] | null | undefined;
