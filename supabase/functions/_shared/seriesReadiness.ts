@@ -93,6 +93,22 @@ export function resolveAllWindows(input: ReadinessInput): Record<WindowKey, Wind
   return out;
 }
 
+/**
+ * 視窗覆蓋計數的**唯一顯示語意**：分子是「落在這個視窗內的交易日數」，
+ * 因此必須夾在 need 上限，不得出現 27/5 這種分子大於分母的荒謬計數。
+ * （`have` 是整條序列的有效天數，跨多個視窗共用，直接印出來就會爆。）
+ */
+export function readinessCountLabel(r: Pick<WindowReadiness, 'have' | 'need'>): string {
+  const need = Math.max(0, r.need);
+  const have = Math.max(0, Math.min(r.have, need));
+  return `${have}/${need}`;
+}
+
+/** 視窗是否真的補滿（分子已達分母）。 */
+export function isWindowCovered(r: Pick<WindowReadiness, 'have' | 'need'>): boolean {
+  return r.have >= r.need && r.need > 0;
+}
+
 /** 使用者可讀文案（不承諾具體時間）。 */
 export function readinessCopy(r: WindowReadiness): string {
   switch (r.state) {
