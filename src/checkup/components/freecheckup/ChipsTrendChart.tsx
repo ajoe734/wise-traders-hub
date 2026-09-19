@@ -44,7 +44,7 @@ export default function ChipsTrendChart({
   /** 持倉抽屜已完全移除分點 surface；false 時不得渲染分點集中度模式。 */
   showBsr?: boolean;
 }) {
-  const [mode, setModeState] = useState<Mode>('inst');
+  const [modeState, setModeState] = useState<Mode>('inst');
   const mode: Mode = showBsr ? modeState : 'inst';
   const setMode = setModeState;
   const [win, setWin] = useState<Window>(1);
