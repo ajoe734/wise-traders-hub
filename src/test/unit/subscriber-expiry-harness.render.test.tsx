@@ -31,7 +31,7 @@ describe('SubscriberExpiryReminderHarnessEntry', () => {
   it('due3/A：banner 1 筆、notification 1 則、route=/admin/teacher-a/signals、marker 正確', async () => {
     open('due3', 'A');
     await settled();
-    expect(text('build-marker')).toBe('build_marker=SUBSCRIBER_EXPIRY_PREVIEW_V1');
+    expect(text('build-marker')).toBe('build_marker=SUBSCRIBER_EXPIRY_PREVIEW_V2');
     await waitFor(() => expect(text('visible-count')).toBe('visible_count=1'));
     expect(screen.getByTestId('expiring-subscribers-banner')).toBeInTheDocument();
     expect(screen.getByText('小明')).toBeInTheDocument();

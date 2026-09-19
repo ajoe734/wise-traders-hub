@@ -156,6 +156,6 @@ describe('橫幅：過期挽回名單與「已聯繫」', () => {
     renderBanner();
     await waitFor(() => expect(screen.getByTestId('expiring-subscribers-banner')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('ack-subscriber'));
-    expect((await screen.findByTestId('ack-error')).textContent).toContain('標記失敗');
+    expect((await screen.findByTestId('ack-error')).textContent).toContain('沒有權限標記這位訂閱者');
   });
 });
