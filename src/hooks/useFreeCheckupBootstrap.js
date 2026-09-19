@@ -7,6 +7,9 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAuthoritativeQuotes } from "@/checkup/lib/authoritativeQuotes";
 import { reconcileHoldingsWithTradeLog } from "@/checkup/lib/tradeLogOps.js";
+// C 階段：使用者手動刪除的個股不得被 trade replay 復活。
+import { applyHoldingExclusions } from "@/checkup/lib/holdingExclusions";
+import { readLocalExclusions } from "@/checkup/lib/holdingExclusionsStorage";
 
 // P0-3: demoData lazy — 15.3 KB chunk only loads when isDemo branch hits
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
@@ -143,7 +146,10 @@ export function useAuthoritativeHoldingsReconciliation({
     if (!ready || isDemo || !Array.isArray(holdings) || !Array.isArray(tradeLog) || tradeLog.length === 0) return;
     setHoldings((current) => {
       const previous = Array.isArray(current) ? current : [];
-      const reconciled = stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(previous, tradeLog));
+      const reconciled = applyHoldingExclusions(
+        stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(previous, tradeLog)),
+        readLocalExclusions(),
+      );
       return JSON.stringify(previous) === JSON.stringify(reconciled) ? previous : reconciled;
     });
   }, [ready, isDemo, holdings, tradeLog, setHoldings]);
@@ -311,7 +317,10 @@ export function useFreeCheckupBootstrap({
       // checkup_trade_memos 是交易權威；先用 logs 證明 seed-code 也是真實持倉，
       // 再清除沒有任何交易／使用者來源證據的 demo 污染。
       const rawHoldings = Array.isArray(h) ? h : [];
-      const reconciledHoldings = stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(rawHoldings, l));
+      const reconciledHoldings = applyHoldingExclusions(
+        stripDemoSeedHoldings(reconcileHoldingsWithTradeLog(rawHoldings, l)),
+        readLocalExclusions(),
+      );
       const removedDemoSeedCount = rawHoldings.length - reconciledHoldings.filter((row) =>
         rawHoldings.some((prior) => String(prior?.code || '').trim() === String(row?.code || '').trim())
       ).length;
