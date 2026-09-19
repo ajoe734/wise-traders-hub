@@ -61,14 +61,13 @@ export interface FetchPaymentProvidersSafeResult {
 }
 
 /**
- * 查詢 payment_providers_safe 安全視圖（不含 config）。
+ * 查詢 payment_providers_safe_list()（SECURITY DEFINER 函式，不含 config）。
+ * 取代原本的 SECURITY DEFINER view（scanner: SUPA_security_definer_view）。
  */
 export async function fetchPaymentProvidersSafe(
-  supabase: { from: (table: string) => any },
+  supabase: { rpc: (fn: string) => any },
 ): Promise<FetchPaymentProvidersSafeResult> {
-  const { data, error } = await supabase
-    .from('payment_providers_safe')
-    .select('*');
+  const { data, error } = await supabase.rpc('payment_providers_safe_list');
 
   return { providers: data ?? [], error: error?.message ?? null };
 }
