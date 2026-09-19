@@ -156,19 +156,23 @@ export function applySignalMathVector(input: SignalMathInput): SignalMathResult 
 
 export interface CashSimTrade {
   action: 'buy' | 'sell' | 'add' | 'trim' | 'exit' | string;
+  /** 實際成交／參考價。sell/trim/exit 的現金回收一律用此價（SIGNAL_MATH_CONTRACT_V1）。 */
   price: number;
   shares: number;
   /** Existing open quantity for this symbol when action is 'exit' (used to release full cash) */
   exitShares?: number;
-  /** Average entry price for the existing position when action is 'exit' (cash released = avg * shares) */
+  /**
+   * @deprecated SIGNAL_MATH_CONTRACT_V1 起 exit 以實際出場價回收現金，
+   * 成本價釋放已廢棄；此欄位保留僅為型別相容，不再參與計算。
+   */
   exitAvgPrice?: number;
 }
 
 /**
  * Simulate the analyst's available cash after submitting a list of trades.
  * - buy/add → consume price × shares
- * - sell/trim → release price × shares (rough — uses exit price)
- * - exit → release exitAvgPrice × exitShares if provided, otherwise price × shares
+ * - sell/trim → release price × shares（實際成交價）
+ * - exit → release price × exitShares（實際出場價 × 全部持有；不再用成本價）
  */
 export function simulateCashAfterTrades(
   startCash: number,
@@ -185,8 +189,7 @@ export function simulateCashAfterTrades(
       remaining += p * s;
     } else if (t.action === 'exit') {
       const sh = Number(t.exitShares) || s;
-      const ap = Number(t.exitAvgPrice) || p;
-      remaining += ap * sh;
+      remaining += p * sh;
     }
     perTrade.push(remaining);
   }
