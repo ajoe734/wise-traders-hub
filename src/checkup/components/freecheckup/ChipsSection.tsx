@@ -203,6 +203,13 @@ export default function ChipsSection({ WB, stockCode }: { WB: any; stockCode: st
   // 依真實 status 渲染 BSR 標頭文案（單一來源：bsrHeaderLabel.ts）
   const headerLabel = bsrHeaderLabel(syncStatus, !!data?.bsr_as_of);
 
+  // VALUATION_THREE_RULERS_PLAN_V1 §F：分點細節降級成一行 data-quality badge，
+  // 主要版面讓給估值三把尺。展開後內容與 testid 完全不變（e2e 合約不破）。
+  const [bsrOpen, setBsrOpen] = React.useState(false);
+  const bsrCompactText = data?.bsr_as_of
+    ? `資料日 ${data.bsr_as_of.split('-').join('/')}${bsrLatest ? '' : '・本視窗無資料'}`
+    : headerLabel?.text || '尚未同步';
+
 
 
   return (
