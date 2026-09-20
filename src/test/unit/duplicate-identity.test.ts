@@ -87,6 +87,12 @@ describe('findDuplicateIdentityClusters', () => {
     expect(findDuplicateIdentityClusters([a, b], ['a'])).toEqual([]);
   });
 
+  it('英文名互為子字串不得誤判（正式資料踩過 Huang vs Chuang）', () => {
+    const a = acc({ user_id: 'a', email: 'line_1@line.local', display_name: 'Huang', is_line: true });
+    const b = acc({ user_id: 'b', email: 'b@y.com', display_name: 'Chuang' });
+    expect(findDuplicateIdentityClusters([a, b], ['a'])).toEqual([]);
+  });
+
   it('兩邊都有訂閱不列入', () => {
     expect(findDuplicateIdentityClusters([emailAcct, lineAcct], ['u-email', 'u-line'])).toEqual([]);
   });
