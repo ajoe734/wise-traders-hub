@@ -18,6 +18,8 @@ import {
   History, Eye, Link2, Bell, ChevronDown, ChevronRight, ArrowUpDown, Clock,
 } from 'lucide-react';
 import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
+import { useDuplicateIdentities } from '@/hooks/useDuplicateIdentities';
+import { DuplicateIdentityHint } from '@/components/company/DuplicateIdentityHint';
 import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 import { LinePushDialog } from '@/components/company/LinePushDialog';
 import { PlatformNotifyDialog } from '@/components/company/PlatformNotifyDialog';
@@ -139,6 +141,14 @@ const CompanySubscribers = () => {
 
   const nowMs = Date.now();
   const groups = useMemo(() => groupSubscriberSpells(rows, nowMs), [rows]);
+
+  // 疑似同一人有兩個帳號（Email／LINE）且只有其中一個有訂閱 —— 這是
+  // 「已付費卻看不到週記」客訴的唯一成因，讓客服在列表上就看得出來。
+  const subscribedUserIds = useMemo(
+    () => [...new Set(rows.filter((r) => r.status === 'active').map((r) => r.user_id).filter(Boolean))],
+    [rows],
+  );
+  const { byUser: duplicateByUser } = useDuplicateIdentities(subscribedUserIds);
 
   // 指標：續訂率（真口徑）與有效佔比（原本被誤稱為續訂率的數字）
   const renewal = useMemo(() => calcRenewalRate(rows, nowMs), [rows]);
