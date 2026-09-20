@@ -121,6 +121,7 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
           expert_slug: p.expert_slug,
           is_tester: !!p.is_tester,
           is_line: !!p.line_user_id,
+          line_user_id: p.line_user_id || null,
           banned_until: a?.banned_until || null,
           roles: rolesByUser.get(p.user_id) || [],
           created_at: p.created_at,
