@@ -500,6 +500,9 @@ const CompanySubscribers = () => {
                                 {isLine ? 'Line' : 'Email'}
                               </Badge>
                               <span className="font-medium">{id?.display_name || g.user_id?.slice(0, 8)}</span>
+                              {duplicateByUser[g.user_id] && (
+                                <DuplicateIdentityHint cluster={duplicateByUser[g.user_id]} userId={g.user_id} />
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">{formatIdentitySecondary(id, g.user_id)}</div>
                           </td>
