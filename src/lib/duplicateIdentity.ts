@@ -57,12 +57,16 @@ export function emailLocalPart(email: string | null | undefined): string {
   return local.split('+')[0].trim();
 }
 
+const IS_CJK_ONLY = /^[\u3400-\u9fff\uf900-\ufaff]+$/;
+
 function nameMatches(a: string, b: string): boolean {
   if (!a || !b) return false;
   if (a === b) return true;
-  // 「Charlene 邱郁惠 🎀」正規化後是「邱郁惠」，可與「邱郁惠」相等；
-  // 互相包含只在兩邊都夠長時才算，避免「王」這種單字誤判。
-  if (a.length >= 2 && b.length >= 2) {
+  // 互相包含只對中文姓名開放（「Charlene 邱郁惠 🎀」正規化後已是「邱郁惠」，
+  // 這裡處理的是「邱郁惠」vs「邱郁惠惠」這種尾綴）。英文名一律要求完全相同，
+  // 否則 Huang ⊂ Chuang 這種會誤判成同一人（正式資料實際踩到過）。
+  if (!IS_CJK_ONLY.test(a) || !IS_CJK_ONLY.test(b)) return false;
+  if (a.length >= 3 && b.length >= 3) {
     return a.includes(b) || b.includes(a);
   }
   return false;
