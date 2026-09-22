@@ -86,8 +86,8 @@ async function fetchAll(): Promise<AutoIndustryMap> {
 /** 載入一次並注入；重複呼叫共用同一個 in-flight promise。 */
 export async function loadStockIndustryMap(force = false): Promise<AutoIndustryMap> {
   if (!force) {
-    const cached = cache.get();
-    if (cached && Object.keys(cached).length) {
+    const cached = readFresh();
+    if (cached) {
       setAutoIndustryMap(cached);
       applied = true;
       return cached;
@@ -97,7 +97,8 @@ export async function loadStockIndustryMap(force = false): Promise<AutoIndustryM
     inflight = fetchAll()
       .then((map) => {
         if (Object.keys(map).length) {
-          cache.set(map);
+          cache.write({ at: Date.now(), map });
+
           setAutoIndustryMap(map);
           applied = true;
         }
