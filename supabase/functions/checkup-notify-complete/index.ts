@@ -7,9 +7,9 @@ import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { buildNotificationRow, checkupUrl } from '../_shared/routes.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
-const RESEND_API_URL = 'https://api.resend.com/emails';
 const SITE_URL = 'https://legendflow.tw';
 
 interface JobSummary {
@@ -85,7 +85,6 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
   // Auth: 接受使用者 JWT（前端呼叫）或 service_role
   const authHeader = req.headers.get('Authorization') || '';

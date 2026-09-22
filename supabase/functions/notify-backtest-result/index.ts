@@ -5,6 +5,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 // 回測完成通知（Email 版）：彙整最近 N 小時的 knowledge_backtest_runs，
 // 透過 Resend 寄信給所有 company_admin。
 // Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto_after_backfill' | 'auto' }
@@ -12,7 +13,6 @@ import { validateInput, validationJsonResponse } from '../_shared/inputValidator
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const RESEND_API_URL = 'https://api.resend.com/emails'
 const FROM_ADDR = 'WiseTraders <noreply@wisetraders.tw>'
 
 function fmtPct(v: number | null | undefined): string {
