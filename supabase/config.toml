@@ -115,3 +115,5 @@ project_id = "yqacmrgdjlenbijclngi"
     verify_jwt = false
   [functions.validate-signal-prices]
     verify_jwt = false
+  [functions.preview-transactional-email]
+    verify_jwt = false
