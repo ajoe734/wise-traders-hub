@@ -14,9 +14,10 @@ import {
   type SubscriberExpiryItem,
 } from '../_shared/notificationTemplates.ts';
 import { adminSignalsUrl } from '../_shared/routes.ts';
-import {
 import { sendAppEmail } from '../_shared/mailer.ts';
+import {
   buildTeacherEmail,
+
   buildTeacherLineText,
   allFailed,
   hasFailure,
