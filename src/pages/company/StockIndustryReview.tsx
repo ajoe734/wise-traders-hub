@@ -82,7 +82,7 @@ export default function StockIndustryReview() {
 
   const save = async (row: Row, opts: { industries?: string[] | null } = {}) => {
     setBusy(row.symbol);
-    const { error } = await supabase.rpc('admin_update_stock_industry', {
+    const { error } = await (supabase as any).rpc('admin_update_stock_industry', {
       _symbol: row.symbol,
       _industries: opts.industries ?? null,
       _themes: null,
