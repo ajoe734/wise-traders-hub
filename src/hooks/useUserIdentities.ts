@@ -9,6 +9,8 @@ export type UserIdentity = {
   email: string;
   line_user_id: string | null;
   login_method: 'email' | 'line';
+  /** 帳號註冊時間（auth.users.created_at）。舊版後端未回傳時為 undefined。 */
+  created_at?: string | null;
 };
 
 export function useUserIdentities(userIds: string[]) {
