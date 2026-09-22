@@ -18,6 +18,8 @@ import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSect
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
 import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
+import { useStockIndustryMap } from "@/checkup/hooks/useStockIndustryMap";
+
 import { matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
@@ -89,6 +91,9 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
 function HoldingsTab(props) {
   // E1: dev-only schema check（漏傳 setTab 等核心 callback 立即在 console 警告）
   validateProps('HoldingsTab', props, HOLDINGS_TAB_PROP_SCHEMA);
+  // 全市場細分產業分類表：載入完成後注入 stockMetaMulti，並觸發一次 re-render。
+  useStockIndustryMap();
+
   const {
     navigate,
     // theme tokens

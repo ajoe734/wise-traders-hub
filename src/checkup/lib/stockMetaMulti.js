@@ -67,6 +67,27 @@ function normalizeMix(mix) {
 }
 
 /**
+ * 全市場細分產業分類表（public.stock_industry_map）執行期注入層。
+ * 由 useStockIndustryMap 載入後呼叫一次；未注入時整層視為不存在。
+ * @type {Record<string, {industries?: string[], revenueMix?: Array<{industry:string,pct:number}>|null, themes?: string[]}>}
+ */
+let AUTO_MAP = {}
+
+/** 注入全市場分類表（key = 個股代號） */
+export function setAutoIndustryMap(map) {
+  AUTO_MAP = map && typeof map === 'object' ? map : {}
+}
+
+/** 測試／重置用 */
+export function clearAutoIndustryMap() {
+  AUTO_MAP = {}
+}
+
+export function getAutoIndustryMap() {
+  return AUTO_MAP
+}
+
+/**
  * @param {string|number} code
  * @param {Object} stockMeta   STOCK_META (seedData)
  * @param {Object} [override]  單筆 holding_meta_overrides row（可選）
@@ -75,19 +96,27 @@ export function getMultiMeta(code, stockMeta, override) {
   const key = String(code || '').trim()
   const base = (stockMeta && stockMeta[key]) || null
   const over = OVERLAY[key] || null
+  const auto = AUTO_MAP[key] || null
   const twseInd = TWSE[key] || null
   const finmindInd = FINMIND[key] || null
 
-  // 1. industries[]：DB override > overlay > base.industries > DB.industry > base.industry > TWSE > FinMind > 未分類
+  // 1. industries[]：DB override（人工修正）> 全市場細分分類表 > overlay JSON
+  //    > seed base > TWSE 官方大類 > FinMind > 未分類。
+  //    分類表擺在 overlay/base 之前，是因為舊的手工 overlay 只有大類（例：3443 IC設計），
+  //    而分類表是細分產業（3443 ASIC設計服務），本輪需求就是要細分取代大類。
   let industries = null
+  let usedAuto = false
   if (Array.isArray(override?.industries) && override.industries.length) {
     industries = override.industries.slice()
+  } else if (override?.industry) {
+    industries = [override.industry]
+  } else if (auto?.industries?.length) {
+    industries = auto.industries.slice()
+    usedAuto = true
   } else if (over?.industries?.length) {
     industries = over.industries.slice()
   } else if (base?.industries?.length) {
     industries = base.industries.slice()
-  } else if (override?.industry) {
-    industries = [override.industry]
   } else if (base?.industry) {
     industries = [base.industry]
   } else if (twseInd) {
@@ -98,12 +127,19 @@ export function getMultiMeta(code, stockMeta, override) {
     industries = [UNCLASSIFIED]
   }
 
-  // 2. revenueMix：DB override > overlay > base
+
+  // 2. revenueMix：DB override >（分類表，僅當 industries 來自分類表時）> overlay > base。
+  //    採用分類表時不得回頭套 overlay/base 的營收組成 —— 兩者族群名稱不同調，
+  //    混用會讓下方「以 mix 排序 industries」把細分族群換回舊大類。
   const revenueMix =
     normalizeMix(override?.revenue_mix) ||
-    normalizeMix(over?.revenueMix) ||
-    normalizeMix(base?.revenueMix) ||
+    (usedAuto
+      ? normalizeMix(auto?.revenueMix)
+      : normalizeMix(over?.revenueMix) || normalizeMix(base?.revenueMix)) ||
     null
+
+
+
 
   // 若有 revenueMix，industries 順序改由 mix 決定；
   // 但 override 明確給了 industries 時必須完全尊重使用者輸入，
@@ -116,12 +152,14 @@ export function getMultiMeta(code, stockMeta, override) {
     ? revenueMix.map((m) => m.industry)
     : industries
 
-  // 3. themes：合併 DB override + overlay + base，去重
+  // 3. themes：合併 分類表 + base + overlay + DB override，去重
   const themeSet = new Set()
+  for (const t of auto?.themes || []) if (t) themeSet.add(t)
   for (const t of base?.themes || []) if (t) themeSet.add(t)
   for (const t of over?.themes || []) if (t) themeSet.add(t)
   for (const t of override?.themes || []) if (t) themeSet.add(t)
   const themes = Array.from(themeSet)
+
 
   // 4. strategy：override > overlay > base
   const strategy = override?.strategy || over?.strategy || base?.strategy || null

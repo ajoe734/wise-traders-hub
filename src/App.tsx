@@ -157,6 +157,8 @@ const CompanyCheckupUsage = lazy(() => import("./pages/company/CheckupUsage"));
 const CompanyCheckupQuotaAudit = lazy(() => import("./pages/company/CheckupQuotaAudit"));
 const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"));
 const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
+const CompanyStockIndustryReview = lazy(() => import("./pages/company/StockIndustryReview"));
+
 const CompanyHoldingsConsistency = lazy(() => import("./pages/company/HoldingsConsistency"));
 const CompanySignalDupeAudit = lazy(() => import("./pages/company/SignalDupeAudit"));
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
@@ -375,6 +377,8 @@ const AppShell = () => (
             <Route path="/company/signal-dupe-audit" element={<ProtectedRoute requiredRole="company_admin"><CompanySignalDupeAudit /></ProtectedRoute>} />
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
+            <Route path="/company/stock-industry" element={<ProtectedRoute requiredRole="company_admin"><CompanyStockIndustryReview /></ProtectedRoute>} />
+
             <Route path="/company/perf-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPerfMetrics /></ProtectedRoute>} />
             <Route path="/company/currency-diagnostics" element={<ProtectedRoute requiredRole="company_admin"><CompanyCurrencyDiagnostics /></ProtectedRoute>} />
             <Route path="/company/stream-health" element={<ProtectedRoute requiredRole="company_admin"><CompanyStreamHealth /></ProtectedRoute>} />
