@@ -4546,6 +4546,54 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_industry_map: {
+        Row: {
+          confidence: number | null
+          industries: string[]
+          market: string | null
+          model: string | null
+          name: string | null
+          official_industry: string | null
+          rationale: string | null
+          revenue_mix: Json | null
+          reviewed: boolean
+          source: string
+          symbol: string
+          themes: string[]
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          industries?: string[]
+          market?: string | null
+          model?: string | null
+          name?: string | null
+          official_industry?: string | null
+          rationale?: string | null
+          revenue_mix?: Json | null
+          reviewed?: boolean
+          source?: string
+          symbol: string
+          themes?: string[]
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          industries?: string[]
+          market?: string | null
+          model?: string | null
+          name?: string | null
+          official_industry?: string | null
+          rationale?: string | null
+          revenue_mix?: Json | null
+          reviewed?: boolean
+          source?: string
+          symbol?: string
+          themes?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       stock_names: {
         Row: {
           asset_class: string
