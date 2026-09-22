@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { createDocumentCache } from '@/checkup/lib/checkupCacheStore';
-import { setAutoIndustryMap } from '@/checkup/lib/stockMetaMulti.js';
+import { setAutoIndustryMap, getAutoIndustryMapVersion } from '@/checkup/lib/stockMetaMulti.js';
 
 export interface AutoIndustryEntry {
   industries: string[];
