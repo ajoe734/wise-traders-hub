@@ -402,6 +402,8 @@ function HoldingsTab(props) {
             </div>
           ) : (
             <HoldingsWorkbench
+              key={`wb-${industryMapVersion}`}
+
               WB={WB}
               expandedDecision={expandedDecision}
               setExpandedDecision={setExpandedDecision}
