@@ -134,7 +134,7 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
       .catch((err: any) => {
         if (!alive) return;
         // 取不到就沿用官方大類，不擋畫面
-        const stale = cache.getEntry()?.value;
+        const stale = readCached();
         if (stale) setAutoIndustryMap(stale);
         setState({ ready: !!stale, count: stale ? Object.keys(stale).length : 0, error: String(err?.message ?? err) });
       });
