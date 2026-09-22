@@ -33,21 +33,14 @@ async function sendPasswordResetEmail(email: string, link: string) {
       <p style="font-size: 12px; color: #999; word-break: break-all;">${link}</p>
     </div>
   `;
-  const r = await fetch('https://api.resend.com/emails', {
-    signal: AbortSignal.timeout(10000),
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: 'LegendFlow <noreply@legendflow.tw>',
-      to: [email],
-      subject: '【LegendFlow】重設您的密碼',
-      html,
-    }),
+  const r = await sendAppEmail({
+    to: email,
+    subject: '【LegendFlow】重設您的密碼',
+    html,
+    label: 'admin-password-reset',
   });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`resend_failed: ${t}`);
-  }
+  if (!r.sent) throw new Error('recipient_suppressed');
+
 }
 
 Deno.serve(withLogging('admin-manage-users', async (req) => {
