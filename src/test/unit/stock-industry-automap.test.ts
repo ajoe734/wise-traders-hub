@@ -26,7 +26,6 @@ describe('autoMap 層', () => {
   });
 
   it('分類表優先於 TWSE 官方大類（不再只有「半導體業」這種大類）', () => {
-    // 2330 沒有手工 overlay，TWSE 官方大類為「半導體業」。
     setAutoIndustryMap({
       '2330': { industries: ['晶圓代工'], revenueMix: null, themes: [] },
     });
@@ -35,6 +34,14 @@ describe('autoMap 層', () => {
     expect(m.industries).not.toContain('半導體業');
   });
 
+  it('分類表的細分產業壓過舊的手工 overlay 大類（3443 創意＝ASIC設計服務）', () => {
+    setAutoIndustryMap({
+      '3443': { industries: ['ASIC設計服務', '矽智財IP'], revenueMix: null, themes: ['AI伺服器'] },
+    });
+    const m = getMultiMeta('3443', EMPTY_META);
+    expect(m.industries[0]).toBe('ASIC設計服務');
+    expect(m.industries).not.toContain('IC設計');
+  });
 
   it('手動修正（override）永遠壓過分類表', () => {
     setAutoIndustryMap({
@@ -44,13 +51,12 @@ describe('autoMap 層', () => {
     expect(m.industries).toEqual(['自訂族群']);
   });
 
-  it('seed base 已有 industries 時不被分類表覆蓋', () => {
-    setAutoIndustryMap({
-      '9999': { industries: ['分類表族群'], revenueMix: null, themes: [] },
-    });
+  it('seed base 只在分類表沒有這檔時才生效', () => {
+    setAutoIndustryMap({});
     const m = getMultiMeta('9999', { '9999': { industries: ['seed族群'] } });
     expect(m.industries).toEqual(['seed族群']);
   });
+
 
   it('分類表的營收組成只在該檔真的採用分類表時生效', () => {
     setAutoIndustryMap({
