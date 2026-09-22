@@ -128,13 +128,16 @@ export function getMultiMeta(code, stockMeta, override) {
   }
 
 
-  // 2. revenueMix：DB override >（分類表，僅當 industries 來自分類表時）> overlay > base
+  // 2. revenueMix：DB override >（分類表，僅當 industries 來自分類表時）> overlay > base。
+  //    採用分類表時不得回頭套 overlay/base 的營收組成 —— 兩者族群名稱不同調，
+  //    混用會讓下方「以 mix 排序 industries」把細分族群換回舊大類。
   const revenueMix =
     normalizeMix(override?.revenue_mix) ||
-    (usedAuto ? normalizeMix(auto?.revenueMix) : null) ||
-    normalizeMix(over?.revenueMix) ||
-    normalizeMix(base?.revenueMix) ||
+    (usedAuto
+      ? normalizeMix(auto?.revenueMix)
+      : normalizeMix(over?.revenueMix) || normalizeMix(base?.revenueMix)) ||
     null
+
 
 
 
