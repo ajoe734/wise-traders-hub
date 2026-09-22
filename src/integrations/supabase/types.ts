@@ -6544,6 +6544,15 @@ export type Database = {
         Returns: Json
       }
       admin_trade_dedupe_sweep: { Args: { p_dry_run?: boolean }; Returns: Json }
+      admin_update_stock_industry: {
+        Args: {
+          _industries?: string[]
+          _reviewed?: boolean
+          _symbol: string
+          _themes?: string[]
+        }
+        Returns: Json
+      }
       approve_expert_public_sample: {
         Args: { _expert_id: string; _selections: Json; _week_start: string }
         Returns: string

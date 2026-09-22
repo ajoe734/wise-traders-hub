@@ -92,7 +92,7 @@ function HoldingsTab(props) {
   // E1: dev-only schema check（漏傳 setTab 等核心 callback 立即在 console 警告）
   validateProps('HoldingsTab', props, HOLDINGS_TAB_PROP_SCHEMA);
   // 全市場細分產業分類表：載入完成後注入 stockMetaMulti，並觸發一次 re-render。
-  useStockIndustryMap();
+  const { version: industryMapVersion } = useStockIndustryMap();
 
   const {
     navigate,
@@ -278,6 +278,8 @@ function HoldingsTab(props) {
 
       {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散；點 chip 直接篩選下方卡片 */}
       <HoldingsSectorSummary
+        key={`sector-${industryMapVersion}`}
+
         holdings={H}
         stockMeta={STOCK_META}
         overrides={overrides}
@@ -400,6 +402,8 @@ function HoldingsTab(props) {
             </div>
           ) : (
             <HoldingsWorkbench
+              key={`wb-${industryMapVersion}`}
+
               WB={WB}
               expandedDecision={expandedDecision}
               setExpandedDecision={setExpandedDecision}

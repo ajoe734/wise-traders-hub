@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { createDocumentCache } from '@/checkup/lib/checkupCacheStore';
-import { setAutoIndustryMap } from '@/checkup/lib/stockMetaMulti.js';
+import { setAutoIndustryMap, getAutoIndustryMapVersion } from '@/checkup/lib/stockMetaMulti.js';
 
 export interface AutoIndustryEntry {
   industries: string[];
@@ -115,6 +115,8 @@ export interface UseStockIndustryMapResult {
   ready: boolean;
   count: number;
   error: string | null;
+  /** 注入版本；載入完成後遞增，供 memo 化區塊破快取重算 */
+  version: number;
 }
 
 export function useStockIndustryMap(): UseStockIndustryMapResult {
@@ -122,6 +124,7 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
     ready: applied,
     count: 0,
     error: null,
+    version: getAutoIndustryMapVersion(),
   });
 
   useEffect(() => {
@@ -129,14 +132,24 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
     loadStockIndustryMap()
       .then((map) => {
         if (!alive) return;
-        setState({ ready: true, count: Object.keys(map).length, error: null });
+        setState({
+          ready: true,
+          count: Object.keys(map).length,
+          error: null,
+          version: getAutoIndustryMapVersion(),
+        });
       })
       .catch((err: any) => {
         if (!alive) return;
         // 取不到就沿用官方大類，不擋畫面
         const stale = readCached();
         if (stale) setAutoIndustryMap(stale);
-        setState({ ready: !!stale, count: stale ? Object.keys(stale).length : 0, error: String(err?.message ?? err) });
+        setState({
+          ready: !!stale,
+          count: stale ? Object.keys(stale).length : 0,
+          error: String(err?.message ?? err),
+          version: getAutoIndustryMapVersion(),
+        });
       });
     return () => {
       alive = false;
@@ -145,3 +158,4 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
 
   return state;
 }
+

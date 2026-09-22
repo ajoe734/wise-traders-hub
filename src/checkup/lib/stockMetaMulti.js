@@ -72,20 +72,29 @@ function normalizeMix(mix) {
  * @type {Record<string, {industries?: string[], revenueMix?: Array<{industry:string,pct:number}>|null, themes?: string[]}>}
  */
 let AUTO_MAP = {}
+/** 每次注入／清空遞增，供 UI 破除 memo 快取 */
+let AUTO_MAP_VERSION = 0
 
 /** 注入全市場分類表（key = 個股代號） */
 export function setAutoIndustryMap(map) {
   AUTO_MAP = map && typeof map === 'object' ? map : {}
+  AUTO_MAP_VERSION += 1
 }
 
 /** 測試／重置用 */
 export function clearAutoIndustryMap() {
   AUTO_MAP = {}
+  AUTO_MAP_VERSION += 1
 }
 
 export function getAutoIndustryMap() {
   return AUTO_MAP
 }
+
+export function getAutoIndustryMapVersion() {
+  return AUTO_MAP_VERSION
+}
+
 
 /**
  * @param {string|number} code
