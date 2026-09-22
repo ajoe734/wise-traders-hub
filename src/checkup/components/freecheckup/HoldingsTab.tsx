@@ -89,6 +89,9 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
 function HoldingsTab(props) {
   // E1: dev-only schema check（漏傳 setTab 等核心 callback 立即在 console 警告）
   validateProps('HoldingsTab', props, HOLDINGS_TAB_PROP_SCHEMA);
+  // 全市場細分產業分類表：載入完成後注入 stockMetaMulti，並觸發一次 re-render。
+  useStockIndustryMap();
+
   const {
     navigate,
     // theme tokens
