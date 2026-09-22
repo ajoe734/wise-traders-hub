@@ -97,7 +97,7 @@ export default function StockIndustryReview() {
 
   return (
     <CompanyLayout>
-      <SEO title="個股分類審核 | legendflow" noindex />
+      <SEO title="個股分類審核 | legendflow" description="全市場個股細分產業與題材的後台審核頁" noindex />
       <div className="space-y-4">
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
