@@ -9,9 +9,9 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { checkupRenewalUrl, renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
-const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function buildLineFlex(productName: string, amount: number, resumeUrl: string) {
   return {
@@ -96,7 +96,6 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
 
   const supabaseAdmin = serviceClient();
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
-  const resendKey = Deno.env.get('RESEND_API_KEY');
 
   const now = new Date();
   const upper = new Date(now.getTime() - 30 * 60 * 1000);

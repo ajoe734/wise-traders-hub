@@ -12,9 +12,9 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
-const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function buildLineFlex(productName: string, amount: number, urls: { ecpay: string; linepay: string; remittance: string }) {
   return {
@@ -105,7 +105,6 @@ Deno.serve(withLogging('recover-failed-transactions', async (req) => {
 
   const supabaseAdmin = serviceClient();
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
-  const resendKey = Deno.env.get('RESEND_API_KEY');
 
   const now = new Date();
   const upper = new Date(now.getTime() - 22 * 60 * 60 * 1000);
