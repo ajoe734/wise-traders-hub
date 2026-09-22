@@ -100,23 +100,25 @@ export function getMultiMeta(code, stockMeta, override) {
   const twseInd = TWSE[key] || null
   const finmindInd = FINMIND[key] || null
 
-  // 1. industries[]：DB override > overlay > base.industries > DB.industry > base.industry
-  //    > 全市場細分分類 > TWSE 官方大類 > FinMind > 未分類
+  // 1. industries[]：DB override（人工修正）> 全市場細分分類表 > overlay JSON
+  //    > seed base > TWSE 官方大類 > FinMind > 未分類。
+  //    分類表擺在 overlay/base 之前，是因為舊的手工 overlay 只有大類（例：3443 IC設計），
+  //    而分類表是細分產業（3443 ASIC設計服務），本輪需求就是要細分取代大類。
   let industries = null
   let usedAuto = false
   if (Array.isArray(override?.industries) && override.industries.length) {
     industries = override.industries.slice()
+  } else if (override?.industry) {
+    industries = [override.industry]
+  } else if (auto?.industries?.length) {
+    industries = auto.industries.slice()
+    usedAuto = true
   } else if (over?.industries?.length) {
     industries = over.industries.slice()
   } else if (base?.industries?.length) {
     industries = base.industries.slice()
-  } else if (override?.industry) {
-    industries = [override.industry]
   } else if (base?.industry) {
     industries = [base.industry]
-  } else if (auto?.industries?.length) {
-    industries = auto.industries.slice()
-    usedAuto = true
   } else if (twseInd) {
     industries = [twseInd]
   } else if (finmindInd) {
@@ -126,13 +128,14 @@ export function getMultiMeta(code, stockMeta, override) {
   }
 
 
-  // 2. revenueMix：DB override > overlay > base >（分類表，僅當 industries 來自分類表時）
+  // 2. revenueMix：DB override >（分類表，僅當 industries 來自分類表時）> overlay > base
   const revenueMix =
     normalizeMix(override?.revenue_mix) ||
+    (usedAuto ? normalizeMix(auto?.revenueMix) : null) ||
     normalizeMix(over?.revenueMix) ||
     normalizeMix(base?.revenueMix) ||
-    (usedAuto ? normalizeMix(auto?.revenueMix) : null) ||
     null
+
 
 
   // 若有 revenueMix，industries 順序改由 mix 決定；
