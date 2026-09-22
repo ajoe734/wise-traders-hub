@@ -5,9 +5,9 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { recordPaymentFailureInDB } from "../_shared/subscriptionRenewal.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push";
-const RESEND_API_URL = "https://api.resend.com/emails";
 
 interface NotifyPayload {
   userId: string;
