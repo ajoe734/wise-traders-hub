@@ -19,9 +19,13 @@ describe('email-push-renewal-reminder 站內通知通道', () => {
   });
 
   it('站內通知連結不得帶 baseUrl（notifications.link 必須是站內相對路徑）', () => {
-    const inappBlock = SRC.slice(SRC.indexOf("utm_source: 'inapp'") - 400, SRC.indexOf("utm_source: 'inapp'") + 200);
-    expect(inappBlock).toContain('renewalUrl(');
-    expect(inappBlock).not.toContain('baseUrl');
+    const at = SRC.indexOf("utm_source: 'inapp'");
+    expect(at).toBeGreaterThan(-1);
+    const call = SRC.slice(SRC.lastIndexOf('renewalUrl(', at), at);
+    expect(call).not.toContain('baseUrl');
+    // 對照組：Email 那條才允許帶 baseUrl（絕對網址）
+    const emailAt = SRC.indexOf("utm_source: 'email'");
+    expect(SRC.slice(SRC.lastIndexOf('renewalUrl(', emailAt), emailAt)).toContain('baseUrl');
   });
 
   it('續訂連結格式通過 notifications.link 驗證', () => {
