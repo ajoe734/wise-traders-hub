@@ -278,6 +278,8 @@ function HoldingsTab(props) {
 
       {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散；點 chip 直接篩選下方卡片 */}
       <HoldingsSectorSummary
+        key={`sector-${industryMapVersion}`}
+
         holdings={H}
         stockMeta={STOCK_META}
         overrides={overrides}
