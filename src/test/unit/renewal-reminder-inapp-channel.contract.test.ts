@@ -32,10 +32,11 @@ describe('email-push-renewal-reminder 站內通知通道', () => {
     expect(validateNotificationLink('/checkout/sharkgu/ab1d8e55?cycle=monthly&utm_source=inapp')).toBeNull();
   });
 
-  it('RESEND_API_KEY 缺漏不得讓整支排程中斷（站內通知仍要送）', () => {
-    expect(SRC).not.toMatch(/RESEND_API_KEY missing'\s*\}\),\s*\{\s*status:\s*500/);
-    expect(SRC).toContain("if (!resendKey)");
+  it('寄信失敗不得讓整支排程中斷（站內通知仍要送）', () => {
+    expect(SRC).not.toMatch(/\}\),\s*\{\s*status:\s*500/);
+    expect(SRC).toContain("channels.email = 'failed'");
   });
+
 
   it('兩條通道各自獨立 idempotency 與失敗留痕', () => {
     expect(SRC).toContain("subscription.renewal_inapp_sent");
