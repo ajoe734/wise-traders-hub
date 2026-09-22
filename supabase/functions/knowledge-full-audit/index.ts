@@ -4,6 +4,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { buildNotificationRow, companyUrl } from '../_shared/routes.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 // 全庫知識審計 — 一次性掃 482 筆過舊條目並自動處置
 //
 // 兩層審計：
@@ -18,7 +19,6 @@ import { buildNotificationRow, companyUrl } from '../_shared/routes.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
 interface AuditItem {
   id: string
@@ -203,8 +203,8 @@ Deno.serve(withLogging('knowledge-full-audit', async (req) => {
         }))
         await sb.from('notifications').insert(notifs)
 
-        // Email（若有 RESEND_API_KEY）
-        if (RESEND_API_KEY) {
+        // Email
+        {
           const { data: profiles } = await sb
             .from('profiles').select('user_id,display_name')
             .in('user_id', notifyIds)
@@ -216,18 +216,7 @@ Deno.serve(withLogging('knowledge-full-audit', async (req) => {
           )
           const validEmails = emails.filter((e): e is string => !!e && !e.endsWith('@line.local'))
           if (validEmails.length > 0) {
-            await fetch('https://api.resend.com/emails', {
-              signal: AbortSignal.timeout(10000),
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${RESEND_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                from: '海洋福星 <noreply@legendflow.tw>',
-                to: validEmails,
-                subject: '📚 全庫知識審計完成',
-                html: `
+            const auditHtml = `
                   <h2>全庫知識審計完成</h2>
                   <ul>
                     <li>掃描總數：<b>${summary.total_items}</b> 筆</li>
@@ -243,9 +232,14 @@ Deno.serve(withLogging('knowledge-full-audit', async (req) => {
                     ).join('')}
                   </table>
                   <p style="color:#888">耗時 ${summary.duration_ms}ms · ${new Date().toISOString()}</p>
-                `,
-              }),
-            }).catch(e => console.error('resend failed:', e))
+                `
+            for (const to of validEmails) {
+              try {
+                await sendAppEmail({ to, subject: '📚 全庫知識審計完成', html: auditHtml, label: 'knowledge-audit' })
+              } catch (e) {
+                console.error('email_send_failed:', e)
+              }
+            }
           }
         }
       }

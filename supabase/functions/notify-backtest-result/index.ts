@@ -13,7 +13,6 @@ import { sendAppEmail } from '../_shared/mailer.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const FROM_ADDR = 'WiseTraders <noreply@wisetraders.tw>'
 
 function fmtPct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(Number(v))) return '—'
