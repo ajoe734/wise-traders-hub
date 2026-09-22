@@ -157,6 +157,8 @@ const CompanyCheckupUsage = lazy(() => import("./pages/company/CheckupUsage"));
 const CompanyCheckupQuotaAudit = lazy(() => import("./pages/company/CheckupQuotaAudit"));
 const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"));
 const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
+const CompanyStockIndustryReview = lazy(() => import("./pages/company/StockIndustryReview"));
+
 const CompanyHoldingsConsistency = lazy(() => import("./pages/company/HoldingsConsistency"));
 const CompanySignalDupeAudit = lazy(() => import("./pages/company/SignalDupeAudit"));
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
