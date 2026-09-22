@@ -12,9 +12,9 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
-const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function buildLineFlex(productName: string, amount: number, urls: { ecpay: string; linepay: string; remittance: string }) {
   return {
@@ -105,7 +105,6 @@ Deno.serve(withLogging('recover-failed-transactions', async (req) => {
 
   const supabaseAdmin = serviceClient();
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
-  const resendKey = Deno.env.get('RESEND_API_KEY');
 
   const now = new Date();
   const upper = new Date(now.getTime() - 22 * 60 * 60 * 1000);
@@ -192,21 +191,25 @@ Deno.serve(withLogging('recover-failed-transactions', async (req) => {
       }
     }
 
-    if (pushedVia === 'none' && resendKey) {
+    if (pushedVia === 'none') {
       const { data: userData } = await supabaseAdmin.auth.admin.getUserById(i.user_id);
       const rawEmail = userData?.user?.email;
       const userEmail = rawEmail && !rawEmail.endsWith('@line.local') ? rawEmail : null;
       if (userEmail) {
         const { subject, html } = buildFinalEmail(productName, i.amount, urls);
-        const er = await fetch(RESEND_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({ from: 'legendflow <noreply@legendflow.tw>', to: [userEmail], subject, html }),
-        });
-        if (er.ok) { pushedVia = 'email'; emailCount++; }
-        else console.error('resend_failed', er.status, await er.text());
+        try {
+          const r = await sendAppEmail({
+            to: userEmail, subject, html,
+            label: 'failed-transaction-recovery',
+            idempotencyKey: `recover-final-${i.id}`,
+          });
+          if (r.sent) { pushedVia = 'email'; emailCount++; }
+        } catch (e) {
+          console.error('email_send_failed', (e as Error).message);
+        }
       }
     }
+
 
     if (pushedVia === 'none') skipCount++;
 

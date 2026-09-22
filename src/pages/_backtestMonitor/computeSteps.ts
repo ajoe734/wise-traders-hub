@@ -101,7 +101,7 @@ export function computeSteps({
     steps.push({
       key: 'notify', label: '③ Email 通知 admin', state: 'failed',
       detail: `${fmtDateTime(notifyLog.created_at)}・全部失敗 ${notifyLog.email_failed}`,
-      hint: notifyLog.errors[0] ?? '請檢查 RESEND_API_KEY',
+      hint: notifyLog.errors[0] ?? '請至 Cloud → Emails 檢視寄送紀錄',
     });
   } else if (notifyLog.email_failed > 0) {
     steps.push({

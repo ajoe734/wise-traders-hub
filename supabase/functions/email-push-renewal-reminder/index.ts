@@ -2,17 +2,17 @@
 // W4-1: 會員續訂提醒（站內通知 + Email，兩通道各自獨立成敗）
 // 每日 09:10 (UTC+8)：T-7 / T-3 / T-1 / 到期當日 active 訂閱 + T+1 expired 訂閱（24h 內回購保留資料）
 // Idempotency: audit_logs action='subscription.renewal_inapp_sent' / 'subscription.renewal_email_sent' + detail.days_left
-// 站內通知不依賴外部寄信服務：RESEND_API_KEY 缺漏或失效時，Email 記為 failed，站內通知照送。
+// 站內通知不依賴 Email：寄信失敗時 Email 記為 failed，站內通知照送。
 
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { renewalUrl, buildNotificationRow } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 // 與 LINE 提醒、src/lib/renewalReminderStatus.ts 對齊：T-7 / T-3 / T-1 / 到期當日 / 過期後 24h
 const REMINDER_DAYS = [7, 3, 1, 0, -1] as const;
-const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function headerFor(daysLeft: number) {
   if (daysLeft < 0) return '訂閱已過期 — 24h 內回購保留歷史資料';
@@ -81,8 +81,6 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabaseAdmin = serviceClient();
-  // RESEND_API_KEY 缺漏／失效不得讓整支排程中斷：站內通知是獨立且不依賴外部服務的通道。
-  const resendKey = Deno.env.get('RESEND_API_KEY');
 
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
   const now = new Date();
@@ -251,25 +249,20 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
       let ok = false;
       let errBody = '';
       let status = 0;
-      if (!resendKey) {
-        errBody = 'RESEND_API_KEY missing';
-      } else {
-        try {
-          const er = await fetch(RESEND_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-            body: JSON.stringify({
-              from: 'legendflow <noreply@legendflow.tw>',
-              to: [userEmail], subject, html,
-            }),
-          });
-          ok = er.ok;
-          status = er.status;
-          if (!ok) errBody = await er.text();
-        } catch (e) {
-          errBody = (e as Error).message || 'fetch failed';
-        }
+      try {
+        const r = await sendAppEmail({
+          to: userEmail,
+          subject,
+          html,
+          label: 'renewal-reminder',
+          idempotencyKey: `renewal-${t.sub.id}-d${t.daysLeft}`,
+        });
+        ok = r.sent;
+        if (!ok) errBody = 'recipient_suppressed';
+      } catch (e) {
+        errBody = (e as Error).message || 'send failed';
       }
+
 
       if (ok) {
         totalSent++;
@@ -282,7 +275,7 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
           detail: logDetail,
         });
       } else {
-        console.error('resend_failed', status, errBody);
+        console.error('email_send_failed', status, errBody);
         // 寄送失敗也要留痕，管理頁才看得到「通知失敗」而不是一直顯示待送
         channels.email = 'failed';
         await supabaseAdmin.from('audit_logs').insert({

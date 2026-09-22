@@ -5,6 +5,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 // 回測完成通知（Email 版）：彙整最近 N 小時的 knowledge_backtest_runs，
 // 透過 Resend 寄信給所有 company_admin。
 // Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto_after_backfill' | 'auto' }
@@ -12,8 +13,6 @@ import { validateInput, validationJsonResponse } from '../_shared/inputValidator
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const RESEND_API_URL = 'https://api.resend.com/emails'
-const FROM_ADDR = 'WiseTraders <noreply@wisetraders.tw>'
 
 function fmtPct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(Number(v))) return '—'
@@ -214,38 +213,25 @@ Deno.serve(withLogging('notify-backtest-result', async (req) => {
       topGainers, topLosers, failures, monitorUrl,
     })
 
-    const resendKey = Deno.env.get('RESEND_API_KEY')
-    if (!resendKey) {
-      return new Response(JSON.stringify({ ok: false, error: 'RESEND_API_KEY not configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     let sent = 0
     let failedSend = 0
     const errors: string[] = []
     for (const to of recipients) {
       try {
-        const res = await fetch(RESEND_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({ from: FROM_ADDR, to: [to], subject, html }),
-        })
-        if (res.ok) sent++
+        const r = await sendAppEmail({ to, subject, html, label: 'backtest-result' })
+        if (r.sent) sent++
         else {
           failedSend++
-          const t = await res.text()
-          const msg = `${to}: HTTP ${res.status} ${t.slice(0, 180)}`
-          errors.push(msg)
-          console.error('Resend failed', msg)
+          errors.push(`${to}: recipient_suppressed`)
         }
       } catch (e) {
         failedSend++
         const msg = `${to}: ${String(e).slice(0, 180)}`
         errors.push(msg)
-        console.error('Resend error', msg)
+        console.error('email_send_failed', msg)
       }
     }
+
 
     // 寫入 function_run_logs 供監控頁顯示
     try {

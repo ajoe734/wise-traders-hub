@@ -5,10 +5,10 @@ import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { validateInput, validationResponse } from '../_shared/inputValidator.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://legendflow.tw';
 
 function json(body: unknown, status = 200) {
@@ -19,7 +19,6 @@ function json(body: unknown, status = 200) {
 }
 
 async function sendPasswordResetEmail(email: string, link: string) {
-  if (!RESEND_API_KEY) throw new Error('email_not_configured');
   const html = `
     <div style="font-family: -apple-system, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px; color: #1a1a1a;">
       <h2 style="font-weight: 500; font-size: 20px; margin: 0 0 16px;">重設您的密碼</h2>
@@ -33,21 +32,14 @@ async function sendPasswordResetEmail(email: string, link: string) {
       <p style="font-size: 12px; color: #999; word-break: break-all;">${link}</p>
     </div>
   `;
-  const r = await fetch('https://api.resend.com/emails', {
-    signal: AbortSignal.timeout(10000),
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: 'LegendFlow <noreply@legendflow.tw>',
-      to: [email],
-      subject: '【LegendFlow】重設您的密碼',
-      html,
-    }),
+  const r = await sendAppEmail({
+    to: email,
+    subject: '【LegendFlow】重設您的密碼',
+    html,
+    label: 'admin-password-reset',
   });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`resend_failed: ${t}`);
-  }
+  if (!r.sent) throw new Error('recipient_suppressed');
+
 }
 
 Deno.serve(withLogging('admin-manage-users', async (req) => {

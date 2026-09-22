@@ -9,9 +9,9 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { checkupRenewalUrl, renewalUrl } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
-const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function buildLineFlex(productName: string, amount: number, resumeUrl: string) {
   return {
@@ -96,7 +96,6 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
 
   const supabaseAdmin = serviceClient();
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
-  const resendKey = Deno.env.get('RESEND_API_KEY');
 
   const now = new Date();
   const upper = new Date(now.getTime() - 30 * 60 * 1000);
@@ -201,25 +200,28 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
     }
 
     // 2. 沒推到 LINE → 試 Email
-    if (pushedVia === 'none' && resendKey) {
+    if (pushedVia === 'none') {
       const { data: userData } = await supabaseAdmin.auth.admin.getUserById(i.user_id);
       const rawEmail = userData?.user?.email;
       const userEmail = rawEmail && !rawEmail.endsWith('@line.local') ? rawEmail : null;
       if (userEmail) {
         const { subject, html } = buildAbandonedEmail(productName, i.amount, resumeUrl);
-        const er = await fetch(RESEND_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({ from: 'legendflow <noreply@legendflow.tw>', to: [userEmail], subject, html }),
-        });
-        if (er.ok) {
-          pushedVia = 'email';
-          emailCount++;
-        } else {
-          console.error('resend_failed', er.status, await er.text());
+        try {
+          const r = await sendAppEmail({
+            to: userEmail, subject, html,
+            label: 'abandoned-checkout',
+            idempotencyKey: `abandoned-${i.id}`,
+          });
+          if (r.sent) {
+            pushedVia = 'email';
+            emailCount++;
+          }
+        } catch (e) {
+          console.error('email_send_failed', (e as Error).message);
         }
       }
     }
+
 
     if (pushedVia === 'none') skipCount++;
 

@@ -5,9 +5,9 @@ import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { recordPaymentFailureInDB } from "../_shared/subscriptionRenewal.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push";
-const RESEND_API_URL = "https://api.resend.com/emails";
 
 interface NotifyPayload {
   userId: string;
@@ -157,29 +157,22 @@ const handler = withLogging("notify-payment-failure", async (req, log) => {
 
   let emailSent = false;
   if (userEmail) {
-    const resendKey = Deno.env.get("RESEND_API_KEY");
-    if (resendKey) {
-      const siteUrl = (Deno.env.get("SITE_URL") || "https://legendflow.tw").replace(/\/$/, "");
-      const retryUrls = expertSlug ? {
-        ecpay: `${siteUrl}/checkout/${expertSlug}/${planId}?method=ecpay&utm_source=retry&utm_campaign=payment_failure`,
-        linepay: `${siteUrl}/checkout/${expertSlug}/${planId}?method=linepay&utm_source=retry&utm_campaign=payment_failure`,
-        remittance: `${siteUrl}/checkout/${expertSlug}/${planId}?method=remittance&utm_source=retry&utm_campaign=payment_failure`,
-      } : undefined;
-      const { subject, html } = buildPaymentFailureEmail(planName, expertName, amount, isRenewal, retryUrls);
-      const emailRes = await fetch(RESEND_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
-        body: JSON.stringify({
-          from: "legendflow <noreply@legendflow.tw>",
-          to: [userEmail], subject, html,
-        }),
-      });
-      if (emailRes.ok) emailSent = true;
-      else log.error("resend_email_failed", { status: emailRes.status, body: await emailRes.text() });
-    } else {
-      log.warn("resend_key_missing");
+    const siteUrl = (Deno.env.get("SITE_URL") || "https://legendflow.tw").replace(/\/$/, "");
+    const retryUrls = expertSlug ? {
+      ecpay: `${siteUrl}/checkout/${expertSlug}/${planId}?method=ecpay&utm_source=retry&utm_campaign=payment_failure`,
+      linepay: `${siteUrl}/checkout/${expertSlug}/${planId}?method=linepay&utm_source=retry&utm_campaign=payment_failure`,
+      remittance: `${siteUrl}/checkout/${expertSlug}/${planId}?method=remittance&utm_source=retry&utm_campaign=payment_failure`,
+    } : undefined;
+    const { subject, html } = buildPaymentFailureEmail(planName, expertName, amount, isRenewal, retryUrls);
+    try {
+      const r = await sendAppEmail({ to: userEmail, subject, html, label: "payment-failure" });
+      emailSent = r.sent;
+      if (!r.sent) log.warn("email_recipient_suppressed");
+    } catch (e) {
+      log.error("email_send_failed", { error: (e as Error).message });
     }
   }
+
 
   const { data: providerRow } = await supabase
     .from("payment_providers").select("id")

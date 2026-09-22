@@ -7,9 +7,9 @@ import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { buildNotificationRow, checkupUrl } from '../_shared/routes.ts';
+import { sendAppEmail } from '../_shared/mailer.ts';
 
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
-const RESEND_API_URL = 'https://api.resend.com/emails';
 const SITE_URL = 'https://legendflow.tw';
 
 interface JobSummary {
@@ -85,7 +85,6 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
   // Auth: 接受使用者 JWT（前端呼叫）或 service_role
   const authHeader = req.headers.get('Authorization') || '';
@@ -198,26 +197,25 @@ const handler = withLogging('checkup-notify-complete', async (req, log) => {
     channels.line = { ok: false, reason: lineId ? 'job_not_done' : 'no_line_binding' };
   }
 
-  // 3) Email（若有真實 email 且 Resend 已設定且使用者未關閉）
+  // 3) Email（若有真實 email 且使用者未關閉）
   if (!emailEnabled) {
     channels.email = { ok: false, reason: 'user_opt_out' };
-  } else if (RESEND_API_KEY && userEmail && !isLineVirtual && job.status === 'done') {
+  } else if (userEmail && !isLineVirtual && job.status === 'done') {
     try {
       const { subject, html } = buildEmail(summary, deepLink, displayName);
-      const r = await fetch(RESEND_API_URL, {
-        method: 'POST',
-        signal: AbortSignal.timeout(10000),
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
-        body: JSON.stringify({ from: 'legendflow <noreply@legendflow.tw>', to: [userEmail], subject, html }),
+      const r = await sendAppEmail({
+        to: userEmail, subject, html,
+        label: 'checkup-complete',
+        idempotencyKey: `checkup-complete-${jobId}`,
       });
-      if (r.ok) channels.email = { ok: true };
-      else channels.email = { ok: false, status: r.status, body: (await r.text()).slice(0, 200) };
+      channels.email = r.sent ? { ok: true } : { ok: false, reason: 'recipient_suppressed' };
     } catch (e) {
       channels.email = { ok: false, error: String(e).slice(0, 200) };
     }
   } else {
-    channels.email = { ok: false, reason: !RESEND_API_KEY ? 'no_resend' : (isLineVirtual ? 'line_virtual_email' : (!userEmail ? 'no_email' : 'job_not_done')) };
+    channels.email = { ok: false, reason: isLineVirtual ? 'line_virtual_email' : (!userEmail ? 'no_email' : 'job_not_done') };
   }
+
 
   // 標記已通知
   await admin.from('checkup_analysis_jobs')
