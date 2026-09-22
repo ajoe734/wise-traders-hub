@@ -25,14 +25,16 @@ describe('autoMap 層', () => {
     expect(m.themes).toContain('AI伺服器');
   });
 
-  it('分類表優先於 TWSE 官方大類（創意不再只是「半導體業」）', () => {
+  it('分類表優先於 TWSE 官方大類（不再只有「半導體業」這種大類）', () => {
+    // 2330 沒有手工 overlay，TWSE 官方大類為「半導體業」。
     setAutoIndustryMap({
-      '3443': { industries: ['ASIC設計服務', '矽智財IP'], revenueMix: null, themes: [] },
+      '2330': { industries: ['晶圓代工'], revenueMix: null, themes: [] },
     });
-    const m = getMultiMeta('3443', EMPTY_META);
-    expect(m.industries[0]).toBe('ASIC設計服務');
+    const m = getMultiMeta('2330', EMPTY_META);
+    expect(m.industries[0]).toBe('晶圓代工');
     expect(m.industries).not.toContain('半導體業');
   });
+
 
   it('手動修正（override）永遠壓過分類表', () => {
     setAutoIndustryMap({
