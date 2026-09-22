@@ -12,14 +12,18 @@
 export const RENEWAL_EMAIL_ACTION = 'subscription.renewal_email_sent';
 export const RENEWAL_LINE_ACTION = 'subscription.renewal_reminder_sent';
 export const RENEWAL_EMAIL_FAILED_ACTION = 'subscription.renewal_email_failed';
+/** 站內通知：不依賴外部寄信服務，是唯一保證會員看得到的通道。 */
+export const RENEWAL_INAPP_ACTION = 'subscription.renewal_inapp_sent';
+export const RENEWAL_INAPP_FAILED_ACTION = 'subscription.renewal_inapp_failed';
 export const RENEWAL_REMINDER_ACTIONS = [
   RENEWAL_EMAIL_ACTION, RENEWAL_LINE_ACTION, RENEWAL_EMAIL_FAILED_ACTION,
+  RENEWAL_INAPP_ACTION, RENEWAL_INAPP_FAILED_ACTION,
 ] as const;
 
 /** 與 edge function `email-push-renewal-reminder` 的 REMINDER_DAYS 對齊。 */
 export const REMINDER_DAYS = [7, 3, 1, 0, -1] as const;
 
-export type ReminderChannel = 'email' | 'line';
+export type ReminderChannel = 'email' | 'line' | 'inapp';
 
 export interface ReminderLogRow {
   action: string;
@@ -70,9 +74,11 @@ export function buildReminderIndex(logs: ReminderLogRow[]): Record<string, Remin
   const out: Record<string, ReminderSummary> = {};
   for (const l of logs) {
     if (!l.target_id) continue;
-    const failed = l.action === RENEWAL_EMAIL_FAILED_ACTION;
+    const failed = l.action === RENEWAL_EMAIL_FAILED_ACTION || l.action === RENEWAL_INAPP_FAILED_ACTION;
     const channel: ReminderChannel | null =
-      l.action === RENEWAL_EMAIL_ACTION || failed ? 'email' : l.action === RENEWAL_LINE_ACTION ? 'line' : null;
+      l.action === RENEWAL_EMAIL_ACTION || l.action === RENEWAL_EMAIL_FAILED_ACTION ? 'email'
+        : l.action === RENEWAL_INAPP_ACTION || l.action === RENEWAL_INAPP_FAILED_ACTION ? 'inapp'
+          : l.action === RENEWAL_LINE_ACTION ? 'line' : null;
     if (!channel) continue;
     const bucket = out[l.target_id] || (out[l.target_id] = { events: [], failures: [], channels: [] });
     const ev: ReminderEvent = {
@@ -104,7 +110,7 @@ export interface ReminderBadge {
   title: string;
 }
 
-const CHANNEL_LABEL: Record<ReminderChannel, string> = { email: 'Email', line: 'LINE' };
+const CHANNEL_LABEL: Record<ReminderChannel, string> = { email: 'Email', line: 'LINE', inapp: '站內' };
 
 function windowLabel(daysLeft: number | null): string {
   if (daysLeft == null) return '';
@@ -115,11 +121,13 @@ function windowLabel(daysLeft: number | null): string {
 
 /**
  * 表格「提醒」欄位：
- * - 最近一次寄送失敗（且之後沒有成功）→ 寄送失敗（要處理寄信服務金鑰）
- * - 已寄過 → 顯示最近一次通道與窗口
- * - 即將到期但未寄 → 待寄（排程每日 09:10 自動處理）
+ * - 同一波提醒只要有任一通道成功（站內／Email／LINE）→ 視為已通知，失敗通道寫在 tooltip
+ * - 最近一次失敗且之後 24 小時內沒有任何成功 → 通知失敗
+ * - 即將到期但完全沒送 → 待送（排程每日 09:10 自動處理）
  * - 其他狀態（已流失／取消／還很久） → 無需提醒
  */
+const SAME_WAVE_MS = 24 * 60 * 60 * 1000;
+
 export function reminderBadge(params: {
   summary: ReminderSummary;
   status: 'live' | 'expiring' | 'churned' | 'canceled';
@@ -129,30 +137,38 @@ export function reminderBadge(params: {
   const { summary, status, remainingDays, formatDate } = params;
   const fail = summary.lastFailure;
   const ok = summary.last;
-  if (fail && (!ok || new Date(fail.created_at).getTime() > new Date(ok.created_at).getTime())) {
-    const w = windowLabel(fail.days_left);
+  const okMs = ok ? new Date(ok.created_at).getTime() : -Infinity;
+  const failMs = fail ? new Date(fail.created_at).getTime() : -Infinity;
+  const failUnrescued = !!fail && failMs > okMs + SAME_WAVE_MS;
+  if (failUnrescued) {
+    const w = windowLabel(fail!.days_left);
     return {
       tone: 'failed',
-      label: `寄送失敗 ${formatDate(fail.created_at)}${w ? ` · ${w}` : ''}`,
-      title: `最近一次寄送失敗：${formatDate(fail.created_at)}${fail.error ? `\n${fail.error}` : ''}`,
+      label: `通知失敗 ${formatDate(fail!.created_at)}${w ? ` · ${w}` : ''}`,
+      title: `最近一次通知失敗：${formatDate(fail!.created_at)}（${CHANNEL_LABEL[fail!.channel]}）${fail!.error ? `\n${fail!.error}` : ''}`,
     };
   }
   if (ok) {
     const all = summary.events
       .map((e) => `${formatDate(e.created_at)} ${CHANNEL_LABEL[e.channel]} ${windowLabel(e.days_left)}`.trim())
       .join('\n');
+    const failNote = summary.failures.length
+      ? `\n失敗通道：\n${summary.failures
+        .map((e) => `${formatDate(e.created_at)} ${CHANNEL_LABEL[e.channel]}${e.error ? ` — ${e.error}` : ''}`)
+        .join('\n')}`
+      : '';
     const w = windowLabel(ok.days_left);
     return {
       tone: 'sent',
-      label: `已寄 ${formatDate(ok.created_at)}${w ? ` · ${w}` : ''}`,
-      title: `提醒紀錄（新到舊）：\n${all}`,
+      label: `已通知 ${formatDate(ok.created_at)} · ${CHANNEL_LABEL[ok.channel]}${w ? ` · ${w}` : ''}`,
+      title: `提醒紀錄（新到舊）：\n${all}${failNote}`,
     };
   }
   if (status === 'expiring' || (status === 'live' && remainingDays != null && remainingDays <= 7)) {
     return {
       tone: 'pending',
-      label: '待寄',
-      title: '排程每日 09:10（台北）自動寄出 T-7／T-3／T-1／到期日／過期後 24 小時提醒',
+      label: '待送',
+      title: '排程每日 09:10（台北）自動送出站內通知／Email／LINE 的 T-7／T-3／T-1／到期日／過期後 24 小時提醒',
     };
   }
   return { tone: 'none', label: '—', title: '目前不在提醒窗口' };

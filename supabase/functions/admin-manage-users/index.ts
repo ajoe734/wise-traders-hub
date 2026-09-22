@@ -446,15 +446,17 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
         .in('user_id', userIds);
 
       const { data: usersList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const emailById = new Map<string, string>();
-      (usersList?.users || []).forEach((u: any) => emailById.set(u.id, u.email || ''));
+      const authById = new Map<string, { email: string; created_at: string | null }>();
+      (usersList?.users || []).forEach((u: any) =>
+        authById.set(u.id, { email: u.email || '', created_at: u.created_at || null }));
 
       const profileById = new Map<string, any>();
       (profiles || []).forEach((p) => profileById.set(p.user_id, p));
 
       const identities = userIds.map((uid) => {
         const p = profileById.get(uid) || {};
-        const email = emailById.get(uid) || '';
+        const a = authById.get(uid);
+        const email = a?.email || '';
         const isLine = !!p.line_user_id || email.endsWith('@line.local');
         return {
           user_id: uid,
@@ -462,6 +464,8 @@ Deno.serve(withLogging('admin-manage-users', async (req) => {
           email,
           line_user_id: p.line_user_id || null,
           login_method: isLine ? 'line' : 'email',
+          // 註冊時間：訂閱者管理頁要能看出「這個人什麼時候註冊、什麼時候才付款」
+          created_at: a?.created_at || null,
         };
       });
 

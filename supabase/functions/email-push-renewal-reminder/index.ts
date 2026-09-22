@@ -1,11 +1,12 @@
 // AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
-// W4-1: Email 續訂提醒
-// 每日 09:10 (UTC+8)：T-7 / T-3 / T-1 active 訂閱 + T+1 expired 訂閱（24h 內回購保留資料）
-// Idempotency: audit_logs action='subscription.renewal_email_sent' + detail.days_left
+// W4-1: 會員續訂提醒（站內通知 + Email，兩通道各自獨立成敗）
+// 每日 09:10 (UTC+8)：T-7 / T-3 / T-1 / 到期當日 active 訂閱 + T+1 expired 訂閱（24h 內回購保留資料）
+// Idempotency: audit_logs action='subscription.renewal_inapp_sent' / 'subscription.renewal_email_sent' + detail.days_left
+// 站內通知不依賴外部寄信服務：RESEND_API_KEY 缺漏或失效時，Email 記為 failed，站內通知照送。
 
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
-import { renewalUrl } from '../_shared/routes.ts';
+import { renewalUrl, buildNotificationRow } from '../_shared/routes.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 
@@ -80,12 +81,8 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabaseAdmin = serviceClient();
+  // RESEND_API_KEY 缺漏／失效不得讓整支排程中斷：站內通知是獨立且不依賴外部服務的通道。
   const resendKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendKey) {
-    return new Response(JSON.stringify({ error: 'RESEND_API_KEY missing' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
 
   const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '');
   const now = new Date();
@@ -131,45 +128,38 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
   }
 
   let totalSent = 0;
+  let totalInapp = 0;
   const results: any[] = [];
   const tzOffsetMs = 8 * 60 * 60 * 1000;
   const dayStart = new Date(Math.floor((Date.now() + tzOffsetMs) / 86400000) * 86400000 - tzOffsetMs);
 
   for (const t of allTargets) {
-    // 偏好檢查：用戶可關閉續訂 email
+    // 偏好檢查：用戶可關閉續訂 email（只影響 Email 通道，站內通知是帳號內的必要提醒）
     const { data: pref } = await supabaseAdmin
       .from('notification_preferences')
       .select('renewal_email')
       .eq('user_id', t.sub.user_id)
       .maybeSingle();
-    if (pref && pref.renewal_email === false) {
-      results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'skipped_pref' });
-      continue;
-    }
+    const emailOptOut = !!pref && pref.renewal_email === false;
 
-    // Email 取得（跳過 line 虛擬）
+    // Email 取得（跳過 line 虛擬信箱）。沒有 email 只影響 Email 通道，站內通知照送。
     const { data: userData } = await supabaseAdmin.auth.admin.getUserById(t.sub.user_id);
     const rawEmail = userData?.user?.email;
     const userEmail = rawEmail && !rawEmail.endsWith('@line.local') ? rawEmail : null;
-    if (!userEmail) {
-      results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'skipped_no_email' });
-      continue;
-    }
 
-    // Idempotency：同日同窗口只發一次
-    const { data: dupe } = await supabaseAdmin
-      .from('audit_logs')
-      .select('id')
-      .eq('action', 'subscription.renewal_email_sent')
-      .eq('target_id', t.sub.id)
-      .gte('created_at', dayStart.toISOString())
-      .contains('detail', { days_left: t.daysLeft })
-      .limit(1)
-      .maybeSingle();
-    if (dupe) {
-      results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'skipped_dedupe' });
-      continue;
-    }
+    // Idempotency：同日、同窗口、同通道只送一次
+    const alreadySent = async (action: string) => {
+      const { data } = await supabaseAdmin
+        .from('audit_logs')
+        .select('id')
+        .eq('action', action)
+        .eq('target_id', t.sub.id)
+        .gte('created_at', dayStart.toISOString())
+        .contains('detail', { days_left: t.daysLeft })
+        .limit(1)
+        .maybeSingle();
+      return !!data;
+    };
 
     // 績效摘要：近 30 天 user_performances（hit = pnl_percent>0；closed = updated_at<now-1d 視為已結算用近似）
     // 此處用簡化：抓該 expert 全部紀錄計命中率
@@ -189,59 +179,126 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
     }
 
     const cycle = (t.sub as any).billing_cycle === 'yearly' ? 'yearly' : 'monthly';
-    const renewUrl = renewalUrl(t.expertSlug, t.planId, {
-      baseUrl: siteUrl,
-      query: {
-        cycle,
-        utm_source: 'email',
-        utm_medium: 'renewal',
-        utm_campaign: `d${t.daysLeft}`,
-      },
-    });
-    const { subject, html } = buildEmail({
-      expertName: t.expertName, planName: t.planName,
-      daysLeft: t.daysLeft, expiresAt: t.sub.expires_at, amount: t.amount,
-      renewUrl, perfHits, perfClosed,
-    });
+    const logDetail = { days_left: t.daysLeft, expert_id: t.expertId, plan_id: t.planId };
+    const channels: Record<string, string> = {};
 
-    const er = await fetch(RESEND_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-      body: JSON.stringify({
-        from: 'legendflow <noreply@legendflow.tw>',
-        to: [userEmail], subject, html,
-      }),
-    });
-
-    if (er.ok) {
-      totalSent++;
-      await supabaseAdmin.from('audit_logs').insert({
-        actor_id: t.sub.user_id,
-        action: 'subscription.renewal_email_sent',
-        target_type: 'member_subscription',
-        target_id: t.sub.id,
-        detail: { days_left: t.daysLeft, expert_id: t.expertId, plan_id: t.planId },
-      });
-      results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'sent' });
+    /* ── 通道 1：站內通知（不依賴外部服務，永遠先送） ───────────────── */
+    if (await alreadySent('subscription.renewal_inapp_sent')) {
+      channels.inapp = 'skipped_dedupe';
     } else {
-      const errBody = await er.text();
-      console.error('resend_failed', er.status, errBody);
-      // 寄送失敗也要留痕，管理頁才看得到「寄送失敗」而不是一直顯示待寄
-      await supabaseAdmin.from('audit_logs').insert({
-        actor_id: t.sub.user_id,
-        action: 'subscription.renewal_email_failed',
-        target_type: 'member_subscription',
-        target_id: t.sub.id,
-        detail: {
-          days_left: t.daysLeft, expert_id: t.expertId, plan_id: t.planId,
-          status: er.status, error: errBody.slice(0, 500),
+      try {
+        // link 必須是站內相對路徑，由 routes.ts builder 產生（不得帶 baseUrl）
+        const inappLink = renewalUrl(t.expertSlug, t.planId, {
+          query: { cycle, utm_source: 'inapp', utm_medium: 'renewal', utm_campaign: `d${t.daysLeft}` },
+        });
+        const row = buildNotificationRow({
+          userId: t.sub.user_id,
+          title: headerFor(t.daysLeft),
+          body: t.daysLeft < 0
+            ? `「${t.expertName} — ${t.planName}」已到期。24 小時內回購可保留歷史持倉與訂閱紀錄，續訂金額 NT$ ${t.amount.toLocaleString()}。`
+            : `「${t.expertName} — ${t.planName}」${t.daysLeft === 0 ? '今日到期' : `將於 ${t.daysLeft} 天後到期`}。本平台不會自動扣款，續訂金額 NT$ ${t.amount.toLocaleString()}。`,
+          type: t.daysLeft <= 0 ? 'warning' : 'info',
+          link: inappLink,
+        });
+        const { error: notifyErr } = await supabaseAdmin.from('notifications').insert(row);
+        if (notifyErr) throw new Error(notifyErr.message);
+        totalInapp++;
+        channels.inapp = 'sent';
+        await supabaseAdmin.from('audit_logs').insert({
+          actor_id: t.sub.user_id,
+          action: 'subscription.renewal_inapp_sent',
+          target_type: 'member_subscription',
+          target_id: t.sub.id,
+          detail: logDetail,
+        });
+      } catch (e) {
+        const msg = (e as Error).message || 'unknown';
+        console.error('inapp_notify_failed', t.sub.id, msg);
+        channels.inapp = 'failed';
+        await supabaseAdmin.from('audit_logs').insert({
+          actor_id: t.sub.user_id,
+          action: 'subscription.renewal_inapp_failed',
+          target_type: 'member_subscription',
+          target_id: t.sub.id,
+          detail: { ...logDetail, error: msg.slice(0, 500) },
+        });
+      }
+    }
+
+    /* ── 通道 2：Email（失敗不影響站內通知） ───────────────────────── */
+    if (emailOptOut) {
+      channels.email = 'skipped_pref';
+    } else if (!userEmail) {
+      channels.email = 'skipped_no_email';
+    } else if (await alreadySent('subscription.renewal_email_sent')) {
+      channels.email = 'skipped_dedupe';
+    } else {
+      const renewUrl = renewalUrl(t.expertSlug, t.planId, {
+        baseUrl: siteUrl,
+        query: {
+          cycle,
+          utm_source: 'email',
+          utm_medium: 'renewal',
+          utm_campaign: `d${t.daysLeft}`,
         },
       });
-      results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'failed', error: errBody });
+      const { subject, html } = buildEmail({
+        expertName: t.expertName, planName: t.planName,
+        daysLeft: t.daysLeft, expiresAt: t.sub.expires_at, amount: t.amount,
+        renewUrl, perfHits, perfClosed,
+      });
+
+      let ok = false;
+      let errBody = '';
+      let status = 0;
+      if (!resendKey) {
+        errBody = 'RESEND_API_KEY missing';
+      } else {
+        try {
+          const er = await fetch(RESEND_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
+            body: JSON.stringify({
+              from: 'legendflow <noreply@legendflow.tw>',
+              to: [userEmail], subject, html,
+            }),
+          });
+          ok = er.ok;
+          status = er.status;
+          if (!ok) errBody = await er.text();
+        } catch (e) {
+          errBody = (e as Error).message || 'fetch failed';
+        }
+      }
+
+      if (ok) {
+        totalSent++;
+        channels.email = 'sent';
+        await supabaseAdmin.from('audit_logs').insert({
+          actor_id: t.sub.user_id,
+          action: 'subscription.renewal_email_sent',
+          target_type: 'member_subscription',
+          target_id: t.sub.id,
+          detail: logDetail,
+        });
+      } else {
+        console.error('resend_failed', status, errBody);
+        // 寄送失敗也要留痕，管理頁才看得到「通知失敗」而不是一直顯示待送
+        channels.email = 'failed';
+        await supabaseAdmin.from('audit_logs').insert({
+          actor_id: t.sub.user_id,
+          action: 'subscription.renewal_email_failed',
+          target_type: 'member_subscription',
+          target_id: t.sub.id,
+          detail: { ...logDetail, status, error: errBody.slice(0, 500) },
+        });
+      }
     }
+
+    results.push({ sub_id: t.sub.id, days_left: t.daysLeft, channels });
   }
 
   return new Response(JSON.stringify({
-    reminded: totalSent, total_targets: allTargets.length, details: results,
+    reminded: totalSent, inapp: totalInapp, total_targets: allTargets.length, details: results,
   }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }));

@@ -36,6 +36,10 @@ import {
 import {
   buildDeliveryIndex, deliveryFor, deliveryBadge, type ExpiryReminderLedgerRow,
 } from '@/lib/subscriberExpiryDelivery';
+import {
+  buildPaymentIndex, paymentsForGroup, paymentsForSpell, startPaymentGapHint,
+  type PaymentRow,
+} from '@/lib/subscriberPayments';
 
 const PAGE_SIZE = 50;
 
@@ -138,6 +142,22 @@ const CompanySubscribers = () => {
     staleTime: 60_000,
   });
   const deliveryIndex = useMemo(() => buildDeliveryIndex(deliveryRows || []), [deliveryRows]);
+
+  // 實際付款紀錄：表格只看 started_at 會誤判「不足月」（起始日被補成比付款日更早的日期）
+  const { data: paymentRows } = useQuery({
+    queryKey: ['company', 'subscribers', 'payments'],
+    queryFn: async (): Promise<PaymentRow[]> => {
+      const { data: rows, error } = await supabase
+        .from('payment_transactions')
+        .select('subscription_id, amount, status, paid_at, created_at')
+        .order('paid_at', { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      return (rows || []) as unknown as PaymentRow[];
+    },
+    staleTime: 60_000,
+  });
+  const paymentIndex = useMemo(() => buildPaymentIndex(paymentRows || []), [paymentRows]);
 
   const nowMs = Date.now();
   const groups = useMemo(() => groupSubscriberSpells(rows, nowMs), [rows]);
@@ -257,9 +277,11 @@ const CompanySubscribers = () => {
 
   const exportSummary = () => {
     downloadCsv(`subscribers-summary-${stamp}.csv`, [
-      ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '老師', '最新方案', '首次訂閱日', '最新到期日', '累計期數', '狀態', '到期提醒', '通知老師'],
+      ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '註冊時間', '老師', '最新方案', '首次訂閱日', '首次付款日', '最近付款日', '最近付款金額', '累計付款金額', '起始日與付款日落差', '最新到期日', '累計期數', '狀態', '會員提醒', '通知老師'],
       ...filtered.map((g) => {
         const id = identities[g.user_id];
+        const pay = paymentsForGroup(paymentIndex, g.spells.map((s) => s.id));
+        const gap = startPaymentGapHint(g.first_started_at, pay.firstPaidAt);
         return [
           g.kind === 'checkup' ? '健檢' : '訂閱方案',
           id?.display_name || g.user_id?.slice(0, 8),
@@ -267,9 +289,15 @@ const CompanySubscribers = () => {
           id?.email || '',
           id?.line_user_id ? id.line_user_id.slice(-6) : '',
           g.user_id,
+          formatTaipeiYMD(id?.created_at) || '-',
           g.expert_name || '',
           g.latest.plan_name,
           formatTaipeiYMD(g.first_started_at) || '-',
+          formatTaipeiYMD(pay.firstPaidAt) || '-',
+          formatTaipeiYMD(pay.lastPaidAt) || '-',
+          pay.lastAmount != null ? String(pay.lastAmount) : '',
+          pay.count ? String(pay.totalAmount) : '',
+          gap ? gap.label : '',
           formatTaipeiYMD(g.expires_at) || '-',
           String(g.cycles),
           STATUS_LABEL[g.status],
@@ -282,20 +310,26 @@ const CompanySubscribers = () => {
 
   const exportDetail = () => {
     downloadCsv(`subscribers-detail-${stamp}.csv`, [
-      ['類型', '訂閱者', 'Email', 'User ID', '老師', '方案', '開始日', '到期日', '原始狀態'],
+      ['類型', '訂閱者', 'Email', 'User ID', '註冊時間', '老師', '方案', '開始日', '付款時間', '付款金額', '到期日', '原始狀態'],
       ...filtered.flatMap((g) => {
         const id = identities[g.user_id];
-        return g.spells.map((s) => [
-          s.kind === 'checkup' ? '健檢' : '訂閱方案',
-          id?.display_name || g.user_id?.slice(0, 8),
-          id?.email || '',
-          g.user_id,
-          s.expert_name || '',
-          s.plan_name,
-          formatTaipeiYMD(s.started_at) || '-',
-          formatTaipeiYMD(s.expires_at) || '-',
-          s.status,
-        ]);
+        return g.spells.map((s) => {
+          const sp = paymentsForSpell(paymentIndex, s.id);
+          return [
+            s.kind === 'checkup' ? '健檢' : '訂閱方案',
+            id?.display_name || g.user_id?.slice(0, 8),
+            id?.email || '',
+            g.user_id,
+            formatTaipeiYMD(id?.created_at) || '-',
+            s.expert_name || '',
+            s.plan_name,
+            formatTaipeiYMD(s.started_at) || '-',
+            formatTaipeiYMD(sp.firstPaidAt) || '-',
+            sp.count ? String(sp.totalAmount) : '',
+            formatTaipeiYMD(s.expires_at) || '-',
+            s.status,
+          ];
+        });
       }),
     ]);
   };
@@ -449,21 +483,24 @@ const CompanySubscribers = () => {
                   <th className="p-4">訂閱者</th>
                   <th className="p-4">老師</th>
                   <th className="p-4">最新方案</th>
+                  <th className="p-4" title="帳號註冊時間">註冊</th>
                   <SortHead k="first_started_at">首次訂閱</SortHead>
+                  <th className="p-4" title="第一筆付款成功的時間">首次付款</th>
+                  <th className="p-4" title="最近一筆付款成功的時間與金額">最近付款</th>
                   <SortHead k="expires_at">到期日</SortHead>
                   <SortHead k="remaining">剩餘天數</SortHead>
                   <SortHead k="cycles">期數</SortHead>
                   <th className="p-4">狀態</th>
-                  <th className="p-4" title="到期提醒由排程每日 09:10（台北）自動寄出，這裡標記最近一次寄送">到期提醒</th>
+                  <th className="p-4" title="會員端到期提醒（站內／Email／LINE）由排程每日 09:10（台北）自動送出，這裡標記最近一次結果">會員提醒</th>
                   <th className="p-4" title="老師端到期通知（站內／Email／LINE）的實際送達狀態">通知老師</th>
                   <th className="p-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={14} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                  <tr><td colSpan={17} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
                 ) : pageRows.length === 0 ? (
-                  <tr><td colSpan={14} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
+                  <tr><td colSpan={17} className="p-8 text-center text-muted-foreground text-sm">無訂閱紀錄</td></tr>
                 ) : (
                   pageRows.map((g) => {
                     const id = identities[g.user_id];
@@ -473,6 +510,8 @@ const CompanySubscribers = () => {
                     const rd = g.remaining_days;
                     const reminder = badgeFor(g);
                     const delivery = deliveryFor_(g);
+                    const pay = paymentsForGroup(paymentIndex, g.spells.map((s) => s.id));
+                    const gapHint = startPaymentGapHint(g.first_started_at, pay.firstPaidAt);
                     return (
                       <Fragment key={g.key}>
                         <tr className="border-b last:border-0">
@@ -508,7 +547,32 @@ const CompanySubscribers = () => {
                           </td>
                           <td className="p-4 text-sm">{g.expert_name || <span className="text-muted-foreground">-</span>}</td>
                           <td className="p-4 text-sm">{g.latest.plan_name}</td>
-                          <td className="p-4 text-sm text-muted-foreground">{formatTaipeiYMD(g.first_started_at) || '-'}</td>
+                          <td className="p-4 text-sm text-muted-foreground" data-testid="registered-cell">
+                            {formatTaipeiYMD(id?.created_at) || '-'}
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            <div>{formatTaipeiYMD(g.first_started_at) || '-'}</div>
+                            {gapHint && (
+                              <div
+                                data-testid="start-payment-gap"
+                                className="text-[11px] text-yellow-700 font-medium mt-0.5"
+                                title={gapHint.title}
+                              >
+                                {gapHint.label}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground" data-testid="first-paid-cell">
+                            {formatTaipeiYMD(pay.firstPaidAt) || '—'}
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground" data-testid="last-paid-cell">
+                            <div>{formatTaipeiYMD(pay.lastPaidAt) || '—'}</div>
+                            {pay.lastAmount != null && (
+                              <div className="text-[11px]" title={`累計 ${pay.count} 筆 · 合計 NT$ ${pay.totalAmount.toLocaleString()}`}>
+                                NT$ {pay.lastAmount.toLocaleString()}
+                              </div>
+                            )}
+                          </td>
                           <td className="p-4 text-sm text-muted-foreground">{formatTaipeiYMD(g.expires_at) || '-'}</td>
                           <td className="p-4">
                             {rd != null ? (
@@ -558,13 +622,15 @@ const CompanySubscribers = () => {
                         </tr>
                         {open && (
                           <tr className="border-b last:border-0 bg-muted/30">
-                            <td colSpan={14} className="px-12 py-3">
+                            <td colSpan={17} className="px-12 py-3">
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="text-muted-foreground text-left">
                                     <th className="py-1 pr-6">期別</th>
                                     <th className="py-1 pr-6">方案</th>
                                     <th className="py-1 pr-6">開始日</th>
+                                    <th className="py-1 pr-6">付款時間</th>
+                                    <th className="py-1 pr-6">金額</th>
                                     <th className="py-1 pr-6">到期日</th>
                                     <th className="py-1 pr-6">原始狀態</th>
                                     <th className="py-1">到期提醒</th>
@@ -573,16 +639,25 @@ const CompanySubscribers = () => {
                                 <tbody>
                                   {g.spells.map((s, i) => {
                                     const sum = summaryFor(reminderIndex, s.id);
+                                    const sp = paymentsForSpell(paymentIndex, s.id);
+                                    const spGap = startPaymentGapHint(s.started_at, sp.firstPaidAt);
                                     return (
                                     <tr key={s.id}>
                                       <td className="py-1 pr-6">第 {g.spells.length - i} 期</td>
                                       <td className="py-1 pr-6">{s.plan_name}</td>
-                                      <td className="py-1 pr-6">{formatTaipeiYMD(s.started_at) || '-'}</td>
+                                      <td className="py-1 pr-6">
+                                        {formatTaipeiYMD(s.started_at) || '-'}
+                                        {spGap && (
+                                          <span className="ml-1 text-yellow-700" title={spGap.title}>（{spGap.label}）</span>
+                                        )}
+                                      </td>
+                                      <td className="py-1 pr-6">{formatTaipeiYMD(sp.firstPaidAt) || '—'}</td>
+                                      <td className="py-1 pr-6">{sp.lastAmount != null ? `NT$ ${sp.totalAmount.toLocaleString()}` : '—'}</td>
                                       <td className="py-1 pr-6">{formatTaipeiYMD(s.expires_at) || '-'}</td>
                                       <td className="py-1 pr-6">{s.status}</td>
                                       <td className="py-1 text-muted-foreground">
                                         {sum.events.length
-                                          ? sum.events.map((e) => `${formatTaipeiYMD(e.created_at)} ${e.channel === 'email' ? 'Email' : 'LINE'}`).join('、')
+                                          ? sum.events.map((e) => `${formatTaipeiYMD(e.created_at)} ${e.channel === 'email' ? 'Email' : e.channel === 'inapp' ? '站內' : 'LINE'}`).join('、')
                                           : '—'}
                                       </td>
                                     </tr>
