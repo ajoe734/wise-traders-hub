@@ -25,7 +25,7 @@ export function NotifyIssueCard({ notifyLog }: { notifyLog: NotifyLog | null }) 
         )}
         {notifyLog.email_failed > 0 && (
           <div className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-            💡 401 / API key invalid → 請至 Connectors 更新 <code>RESEND_API_KEY</code>。
+            💡 寄信失敗時，請至 Cloud → Emails 檢視寄件網域驗證與寄送紀錄。
           </div>
         )}
       </CardContent>
