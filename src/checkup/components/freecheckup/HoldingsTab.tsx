@@ -18,6 +18,8 @@ import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSect
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
 import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
+import { useStockIndustryMap } from "@/checkup/hooks/useStockIndustryMap";
+
 import { matchSectorCodes } from "@/checkup/lib/holdingUtils";
 import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
