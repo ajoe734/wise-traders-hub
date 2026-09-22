@@ -251,25 +251,20 @@ Deno.serve(withLogging('email-push-renewal-reminder', async (req) => {
       let ok = false;
       let errBody = '';
       let status = 0;
-      if (!resendKey) {
-        errBody = 'RESEND_API_KEY missing';
-      } else {
-        try {
-          const er = await fetch(RESEND_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-            body: JSON.stringify({
-              from: 'legendflow <noreply@legendflow.tw>',
-              to: [userEmail], subject, html,
-            }),
-          });
-          ok = er.ok;
-          status = er.status;
-          if (!ok) errBody = await er.text();
-        } catch (e) {
-          errBody = (e as Error).message || 'fetch failed';
-        }
+      try {
+        const r = await sendAppEmail({
+          to: userEmail,
+          subject,
+          html,
+          label: 'renewal-reminder',
+          idempotencyKey: `renewal-${t.sub.id}-d${t.daysLeft}`,
+        });
+        ok = r.sent;
+        if (!ok) errBody = 'recipient_suppressed';
+      } catch (e) {
+        errBody = (e as Error).message || 'send failed';
       }
+
 
       if (ok) {
         totalSent++;
