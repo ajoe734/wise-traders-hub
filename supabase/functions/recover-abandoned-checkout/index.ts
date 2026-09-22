@@ -201,25 +201,28 @@ Deno.serve(withLogging('recover-abandoned-checkout', async (req) => {
     }
 
     // 2. 沒推到 LINE → 試 Email
-    if (pushedVia === 'none' && resendKey) {
+    if (pushedVia === 'none') {
       const { data: userData } = await supabaseAdmin.auth.admin.getUserById(i.user_id);
       const rawEmail = userData?.user?.email;
       const userEmail = rawEmail && !rawEmail.endsWith('@line.local') ? rawEmail : null;
       if (userEmail) {
         const { subject, html } = buildAbandonedEmail(productName, i.amount, resumeUrl);
-        const er = await fetch(RESEND_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({ from: 'legendflow <noreply@legendflow.tw>', to: [userEmail], subject, html }),
-        });
-        if (er.ok) {
-          pushedVia = 'email';
-          emailCount++;
-        } else {
-          console.error('resend_failed', er.status, await er.text());
+        try {
+          const r = await sendAppEmail({
+            to: userEmail, subject, html,
+            label: 'abandoned-checkout',
+            idempotencyKey: `abandoned-${i.id}`,
+          });
+          if (r.sent) {
+            pushedVia = 'email';
+            emailCount++;
+          }
+        } catch (e) {
+          console.error('email_send_failed', (e as Error).message);
         }
       }
     }
+
 
     if (pushedVia === 'none') skipCount++;
 
