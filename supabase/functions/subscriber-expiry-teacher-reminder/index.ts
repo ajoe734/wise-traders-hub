@@ -15,6 +15,7 @@ import {
 } from '../_shared/notificationTemplates.ts';
 import { adminSignalsUrl } from '../_shared/routes.ts';
 import {
+import { sendAppEmail } from '../_shared/mailer.ts';
   buildTeacherEmail,
   buildTeacherLineText,
   allFailed,
@@ -72,7 +73,6 @@ export type Deps = {
   now: () => string;
 };
 
-const RESEND_API_URL = 'https://api.resend.com/emails';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
 async function defaultTeacherEmail(admin: MinimalAdmin, userId: string): Promise<string | null> {
