@@ -90,18 +90,10 @@ async function defaultTeacherEmail(admin: MinimalAdmin, userId: string): Promise
 }
 
 async function defaultSendEmail(to: string, subject: string, html: string, text: string): Promise<'sent' | 'skipped'> {
-  const key = Deno.env.get('RESEND_API_KEY');
-  const from = Deno.env.get('RESEND_FROM') || 'legendflow <noreply@legendflow.tw>';
-  if (!key) return 'skipped';
-  const res = await fetch(RESEND_API_URL, {
-    method: 'POST',
-    signal: AbortSignal.timeout(10000),
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ from, to: [to], subject, html, text }),
-  });
-  if (!res.ok) throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  return 'sent';
+  const r = await sendAppEmail({ to, subject, html, text, label: 'teacher-expiry-reminder' });
+  return r.sent ? 'sent' : 'skipped';
 }
+
 
 async function defaultPushLine(
   admin: MinimalAdmin, expertId: string, teacherUserId: string, text: string,
