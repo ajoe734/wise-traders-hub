@@ -7,7 +7,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { validateNotificationLink } from '@/lib/routes';
+// 直接沿用 Deno 端的單一資料源（純函式、無 Deno API 依賴）
+import { validateNotificationLink } from '../../../supabase/functions/_shared/routes.ts';
 
 const SRC = readFileSync('supabase/functions/email-push-renewal-reminder/index.ts', 'utf8');
 
