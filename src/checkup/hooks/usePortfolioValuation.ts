@@ -10,7 +10,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCheckupGateway, type CheckupGateway } from '@/checkup/lib/gateway';
 import {
+  buildBucketValuations,
   computePortfolioValuation,
+  type BucketAssignment,
+  type BucketValuation,
   type PeerRow,
   type PortfolioValuationResult,
   type PortfolioValuationInput,
@@ -27,6 +30,8 @@ export interface PortfolioHoldingLike {
 export interface UsePortfolioValuationResult {
   status: ValuationStatus;
   result: PortfolioValuationResult | null;
+  /** 依產業／市場族群分桶的加權指數（需傳入 opts.bucketsOf，否則為空陣列）。 */
+  buckets: BucketValuation[];
   /** 全部快照中最舊的 as-of（保守揭露）。 */
   asOf: string | null;
   stale: boolean;
@@ -55,7 +60,13 @@ function taiwanCode(h: PortfolioHoldingLike): string {
 
 export function usePortfolioValuation(
   holdings: PortfolioHoldingLike[] | null | undefined,
-  opts: { injectedGateway?: CheckupGateway; now?: () => number; refreshMs?: number } = {},
+  opts: {
+    injectedGateway?: CheckupGateway;
+    now?: () => number;
+    refreshMs?: number;
+    /** 個股 → 產業／族群桶（由呼叫端以 getMultiMeta 提供，與索引區同口徑）。 */
+    bucketsOf?: (symbol: string) => BucketAssignment[];
+  } = {},
 ): UsePortfolioValuationResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
   const [rows, setRows] = useState<PortfolioValuationInput[] | null>(null);
@@ -179,11 +190,18 @@ export function usePortfolioValuation(
     [rows],
   );
 
+  const bucketsOf = opts.bucketsOf;
+  const buckets = useMemo(
+    () => (rows && bucketsOf ? buildBucketValuations(rows, bucketsOf) : []),
+    [rows, bucketsOf],
+  );
+
   const nowMs = (opts.now || Date.now)();
 
   return {
     status,
     result,
+    buckets,
     asOf,
     stale: computeStale(asOf, nowMs),
     error,

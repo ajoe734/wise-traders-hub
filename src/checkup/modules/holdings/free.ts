@@ -9,6 +9,7 @@ export { default as HoldingDeleteDialog } from '../../components/freecheckup/Hol
 export { default as HoldingsWorkbench } from '../../components/freecheckup/HoldingsWorkbench';
 export { default as HoldingsHero } from '../../components/freecheckup/HoldingsHero';
 export { default as HoldingsSectorSummary } from '../../components/freecheckup/HoldingsSectorSummary';
+export { default as HoldingsSectorValuation } from '../../components/freecheckup/HoldingsSectorValuation';
 export { default as HoldingsFilterBar } from '../../components/freecheckup/HoldingsFilterBar';
 export { default as HoldingsFooterBar } from '../../components/freecheckup/HoldingsFooterBar';
 export { default as HoldingsQuotaMeter } from '../../components/freecheckup/HoldingsQuotaMeter';

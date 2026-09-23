@@ -16,6 +16,7 @@ import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMe
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
 import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSectorSummary";
+import HoldingsSectorValuation from "@/checkup/components/freecheckup/HoldingsSectorValuation";
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
 import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
@@ -292,6 +293,17 @@ function HoldingsTab(props) {
         selected={sectorFilter}
         onSelect={setSectorFilterPersisted}
       />
+
+      {/* 產業分布 × 市場族群比例 × 各自的加權估值指數（唯讀 RPC，與索引區同一分類口徑） */}
+      <HoldingsSectorValuation
+        key={`sector-valuation-${industryMapVersion}`}
+        holdings={H}
+        stockMeta={STOCK_META}
+        overrides={overrides}
+        WB={WB}
+      />
+
+
 
 
       {/* HoldingsReversalSection 已下線（不在設計規格 §3 內），losers 由「今日待辦」統一呈現 */}
