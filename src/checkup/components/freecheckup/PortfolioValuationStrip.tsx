@@ -119,7 +119,7 @@ export default function PortfolioValuationStrip({
         {result && result.totalWeight > 0
           ? `涵蓋 ${Math.round((result.coveredWeight / result.totalWeight) * 100)}% 市值`
           : '無可計算的持倉'}
-        {asOf ? `・截至 ${asOf.replaceAll('-', '/')}` : ''}
+        {asOf ? `・截至 ${asOf.split('-').join('/')}` : ''}
         {stale ? '・資料較舊' : ''}
         {'・來源：交易所公告'}
       </div>
