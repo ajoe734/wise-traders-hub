@@ -38,15 +38,16 @@ const WB = {
 };
 
 describe('PortfolioValuationStrip 計算說明', () => {
-  it('預設收起，點擊後展開且含真實門檻數字', () => {
+  it('預設收起，點擊後展開且含真實門檻數字', async () => {
     const rpc = vi.fn(async () => [snapshotRow()]);
     render(
       <PortfolioValuationStrip holdings={HOLDINGS} WB={WB} injectedGateway={{ rpc } as any} />,
     );
 
+    const toggle = await screen.findByTestId('portfolio-valuation-explain-toggle');
     expect(screen.queryByTestId('portfolio-valuation-explain')).toBeNull();
 
-    fireEvent.click(screen.getByTestId('portfolio-valuation-explain-toggle'));
+    fireEvent.click(toggle);
     const panel = screen.getByTestId('portfolio-valuation-explain');
     expect(panel.textContent).toContain('3 家');
     expect(panel.textContent).toContain('5%–95%');
@@ -58,12 +59,12 @@ describe('PortfolioValuationStrip 計算說明', () => {
     expect(screen.queryByTestId('portfolio-valuation-explain')).toBeNull();
   });
 
-  it('aria-expanded 狀態正確切換', () => {
+  it('aria-expanded 狀態正確切換', async () => {
     const rpc = vi.fn(async () => [snapshotRow()]);
     render(
       <PortfolioValuationStrip holdings={HOLDINGS} WB={WB} injectedGateway={{ rpc } as any} />,
     );
-    const toggle = screen.getByTestId('portfolio-valuation-explain-toggle');
+    const toggle = await screen.findByTestId('portfolio-valuation-explain-toggle');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
