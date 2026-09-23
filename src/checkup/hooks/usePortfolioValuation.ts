@@ -7,7 +7,7 @@
  *   - 加權 / winsorize / 溢折價全部由純函式 `valuationRulers.ts` 計算，此 hook 不算數字。
  *   - harness 以 `injectedGateway` 換成 fake，達成零網路。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCheckupGateway, type CheckupGateway } from '@/checkup/lib/gateway';
 import {
   computePortfolioValuation,
@@ -84,10 +84,14 @@ export function usePortfolioValuation(
       setRows(null);
       setAsOf(null);
       setError(null);
+      lastFetchedRef.current = null;
+      setLastFetchedAt(null);
       return;
     }
     let cancelled = false;
-    setStatus('loading');
+    // 背景重抓（已有資料）時不要把畫面打回 loading，避免數字閃爍。
+    const isRefresh = lastFetchedRef.current != null;
+    if (!isRefresh) setStatus('loading');
     setError(null);
 
     const gateway = opts.injectedGateway || getCheckupGateway();
