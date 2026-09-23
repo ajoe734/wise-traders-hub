@@ -314,6 +314,8 @@ export interface ValuationSnapshotInput {
   peerScope?: 'fine' | 'broad' | 'legacy' | null;
   peerIndustry?: string | null;
   peers?: PeerRow[];
+  /** RPC 月取樣的估值趨勢（近 5 年，每月最後一個交易日）。 */
+  trend?: TrendPoint[];
 }
 
 export interface ValuationView {
@@ -330,6 +332,9 @@ export interface ValuationView {
   peerInsufficient: boolean;
   nearestPeers: PeerRow[];
   restPeers: PeerRow[];
+  /** 同業明細圖表用：三把尺各自的分布與趨勢（純函式算好，UI 只畫）。 */
+  distributions: PeerDistribution[];
+  trends: TrendSeries[];
 }
 
 /** 金融股提示：P/E 易受一次性損益影響，改以 P/B 與殖利率為主。 */
@@ -369,8 +374,12 @@ export function buildValuationView(input: ValuationSnapshotInput): ValuationView
     peerInsufficient: peerStats.every((s) => s.median == null),
     nearestPeers: near,
     restPeers: peers.filter((p) => !nearSet.has(p.symbol)),
+    distributions: RULER_KEYS.map((k) => buildPeerDistribution(k, input?.[k] ?? null, peers)),
+    trends: RULER_KEYS.map((k) => buildTrendSeries(k, Array.isArray(input?.trend) ? input.trend : [])),
   };
 }
+
+const RULER_KEYS: RulerKey[] = ['pe', 'pb', 'dividendYield'];
 
 export const VALUATION_RULERS_CONTRACT = 'VALUATION_RULERS_V1';
 
@@ -495,3 +504,161 @@ export function summarizePortfolioValuation(result: PortfolioValuationResult): s
 }
 
 export const PORTFOLIO_VALUATION_CONTRACT = 'PORTFOLIO_VALUATION_V1';
+
+// ── 同業明細圖表：產業分布 + 估值趨勢 ────────────────────────────
+//
+// 設計硬合約：
+//   - 全部為純函式，圖表元件只負責畫，不做任何運算。
+//   - 分布圖的母體＝computePeerStat 用的同一組有效同業值（含個股本身），
+//     禁止另刻有效性判定；不足 MIN_PEER_N 一律回 insufficient。
+//   - 趨勢序列以 RPC 的月取樣 trend 為唯一來源，點數不足 TREND_MIN_POINTS 視為資料不足。
+//   - 不輸出任何買賣建議字眼。
+
+export const TREND_MIN_POINTS = 4;
+export const DISTRIBUTION_BUCKETS = 5;
+
+export interface TrendPoint {
+  date: string;
+  pe: number | null;
+  pb: number | null;
+  dividendYield: number | null;
+}
+
+export interface TrendSeries {
+  key: RulerKey;
+  label: string;
+  points: { date: string; value: number }[];
+  min: number | null;
+  max: number | null;
+  first: number | null;
+  latest: number | null;
+  insufficient: boolean;
+  rangeText: string;
+}
+
+function isValidFor(key: RulerKey, v: unknown): v is number {
+  return key === 'dividendYield' ? isValidYield(v) : isValidMultiple(v);
+}
+
+export function buildTrendSeries(key: RulerKey, points: TrendPoint[]): TrendSeries {
+  const label = RULER_LABEL[key];
+  const pts = (Array.isArray(points) ? points : [])
+    .filter((p) => p && typeof p.date === 'string' && isValidFor(key, p[key]))
+    .map((p) => ({ date: p.date, value: p[key] as number }))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  if (pts.length < TREND_MIN_POINTS) {
+    return { key, label, points: pts, min: null, max: null, first: null, latest: null, insufficient: true, rangeText: '資料不足' };
+  }
+  const values = pts.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const first = values[0];
+  const latest = values[values.length - 1];
+  const digits = key === 'dividendYield' ? 2 : 2;
+  const unit = key === 'dividendYield' ? '%' : '';
+  return {
+    key,
+    label,
+    points: pts,
+    min,
+    max,
+    first,
+    latest,
+    insufficient: false,
+    rangeText: `近 ${pts.length} 個月 最低 ${min.toFixed(digits)}${unit}・最高 ${max.toFixed(digits)}${unit}・最新 ${latest.toFixed(digits)}${unit}`,
+  };
+}
+
+export interface DistributionBucket {
+  from: number;
+  to: number;
+  count: number;
+  hasSelf: boolean;
+  hasMedian: boolean;
+}
+
+export interface PeerDistribution {
+  key: RulerKey;
+  label: string;
+  buckets: DistributionBucket[];
+  total: number;
+  n: number;
+  median: number | null;
+  selfValue: number | null;
+  selfBucket: number | null;
+  insufficient: boolean;
+  maxCount: number;
+}
+
+/**
+ * 同業估值分布：把同業（含個股本身，若其值有效）落入等寬區間。
+ * 為避免單一極端值把所有人擠到第一格，區間邊界採 winsorize 後的 min/max。
+ */
+export function buildPeerDistribution(
+  key: RulerKey,
+  selfValue: number | null,
+  rows: PeerRow[],
+  bucketCount = DISTRIBUTION_BUCKETS,
+): PeerDistribution {
+  const label = RULER_LABEL[key];
+  const peerVals = peerValues(rows, key);
+  const stat = computePeerStat(key, selfValue, rows);
+  const selfUsable = isValidFor(key, selfValue) && (key !== 'dividendYield' || (selfValue as number) > 0);
+  const empty: PeerDistribution = {
+    key,
+    label,
+    buckets: [],
+    total: 0,
+    n: peerVals.length,
+    median: stat.median,
+    selfValue: selfUsable ? (selfValue as number) : null,
+    selfBucket: null,
+    insufficient: true,
+    maxCount: 0,
+  };
+  if (peerVals.length < MIN_PEER_N) return empty;
+
+  const all = selfUsable ? [...peerVals, selfValue as number] : peerVals.slice();
+  const clipped = winsorize(all);
+  const lo = Math.min(...clipped);
+  const hi = Math.max(...clipped);
+  const span = hi - lo;
+  const width = span > 0 ? span / bucketCount : Math.max(Math.abs(hi) * 0.1, 1) / bucketCount;
+  const base = span > 0 ? lo : hi - width * bucketCount / 2;
+
+  const buckets: DistributionBucket[] = Array.from({ length: bucketCount }, (_, i) => ({
+    from: base + width * i,
+    to: base + width * (i + 1),
+    count: 0,
+    hasSelf: false,
+    hasMedian: false,
+  }));
+  const indexOf = (v: number): number => {
+    const raw = Math.floor((Math.min(Math.max(v, lo), hi) - base) / width);
+    return Math.min(bucketCount - 1, Math.max(0, raw));
+  };
+  for (const v of clipped) buckets[indexOf(v)].count += 1;
+
+  let selfBucket: number | null = null;
+  if (selfUsable) {
+    selfBucket = indexOf(Math.min(Math.max(selfValue as number, lo), hi));
+    buckets[selfBucket].hasSelf = true;
+  }
+  if (stat.median != null) buckets[indexOf(stat.median)].hasMedian = true;
+
+  return {
+    key,
+    label,
+    buckets,
+    total: clipped.length,
+    n: peerVals.length,
+    median: stat.median,
+    selfValue: selfUsable ? (selfValue as number) : null,
+    selfBucket,
+    insufficient: false,
+    maxCount: Math.max(...buckets.map((b) => b.count)),
+  };
+}
+
+export const VALUATION_PEER_CHARTS_CONTRACT = 'VALUATION_PEER_CHARTS_V1';

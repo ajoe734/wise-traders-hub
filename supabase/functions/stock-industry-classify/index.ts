@@ -13,8 +13,8 @@
  * 僅接受排程金鑰（X-Cron-Key）。
  */
 // AUTH: cron-key
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { serviceClient } from '../_shared/supabaseClients.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import {
   INDUSTRIES,
@@ -170,10 +170,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabase = serviceClient();
 
   let body: Record<string, unknown> = {};
   try {

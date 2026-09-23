@@ -18,6 +18,7 @@ import { join, relative } from 'node:path';
 const ROOT = process.cwd();
 const FN_DIR = join(ROOT, 'supabase/functions');
 const MIG_DIR = join(ROOT, 'supabase/migrations');
+const DRIZZLE_MIG_DIR = join(ROOT, 'drizzle/migrations');
 const DEBT_FILE = join(ROOT, 'scripts/rpc-known-debt.json');
 
 /**
@@ -117,9 +118,16 @@ export function collectDefinedFunctions(dir = MIG_DIR) {
   return defined;
 }
 
+/** 目前 migration 檔同時存在兩個目錄（歷史 supabase/migrations + 現行 drizzle/migrations）。 */
+export function collectAllDefinedFunctions() {
+  const defined = collectDefinedFunctions(MIG_DIR);
+  for (const name of collectDefinedFunctions(DRIZZLE_MIG_DIR)) defined.add(name);
+  return defined;
+}
+
 export function audit() {
   const calls = collectRpcCalls(walk(FN_DIR));
-  const defined = collectDefinedFunctions();
+  const defined = collectAllDefinedFunctions();
   const { byName: debtByName } = loadKnownDebt();
   const missing = [];
   const debt = [];

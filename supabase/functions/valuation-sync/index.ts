@@ -12,8 +12,8 @@
  *   - 僅接受排程金鑰（X-Cron-Key）。
  */
 // AUTH: cron-key
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { serviceClient, type SupabaseClient } from '../_shared/supabaseClients.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 
@@ -90,7 +90,7 @@ export function parityDiff(a: number | null, b: number | null): number | null {
   return Math.abs(b - a) / a;
 }
 
-async function refreshIndustryPeers(supa: ReturnType<typeof createClient>, token: string) {
+async function refreshIndustryPeers(supa: SupabaseClient, token: string) {
   const url = `${FINMIND}?dataset=TaiwanStockInfo${token ? `&token=${token}` : ''}`;
   const res = await fetchWithRetry(url, {}, { source: 'finmind_stock_info', policy: { maxAttempts: 3 } });
   const json = await res.json();
@@ -144,10 +144,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const supa = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supa = serviceClient();
   const token = Deno.env.get('FINMIND_TOKEN') || '';
 
   let body: Record<string, unknown> = {};

@@ -2,19 +2,15 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { parseEmailWebhookPayload } from 'npm:@lovable.dev/email-js'
 import { WebhookError, verifyWebhookRequest } from 'npm:@lovable.dev/webhooks-js'
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { serviceClient } from '../_shared/supabaseClients.ts'
+import { corsHeaders } from '../_shared/cors.ts'
+import { sendAppEmail } from '../_shared/mailer.ts'
 import { SignupEmail } from '../_shared/email-templates/signup.tsx'
 import { InviteEmail } from '../_shared/email-templates/invite.tsx'
 import { MagicLinkEmail } from '../_shared/email-templates/magic-link.tsx'
 import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx'
 import { EmailChangeEmail } from '../_shared/email-templates/email-change.tsx'
 import { ReauthenticationEmail } from '../_shared/email-templates/reauthentication.tsx'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-}
 
 const EMAIL_SUBJECTS: Record<string, string> = {
   signup: 'Confirm your email',
@@ -243,15 +239,11 @@ async function handleWebhook(req: Request): Promise<Response> {
     plainText: true,
   })
 
-  // Enqueue email for async processing by the dispatcher (process-email-queue).
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
-
+  // Send through the single shared mailer (no queue RPC; see _shared/mailer.ts).
+  const supabase = serviceClient()
   const messageId = crypto.randomUUID()
 
-  // Log pending BEFORE enqueue so we have a record even if enqueue crashes
+  // Log pending BEFORE sending so we have a record even if the send crashes.
   await supabase.from('email_send_log').insert({
     message_id: messageId,
     template_name: emailType,
@@ -259,47 +251,42 @@ async function handleWebhook(req: Request): Promise<Response> {
     status: 'pending',
   })
 
-  const { error: enqueueError } = await supabase.rpc('enqueue_email', {
-    queue_name: 'auth_emails',
-    payload: {
-      run_id,
-      message_id: messageId,
+  try {
+    const result = await sendAppEmail({
       to: payload.data.email,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-      sender_domain: SENDER_DOMAIN,
       subject: EMAIL_SUBJECTS[emailType] || 'Notification',
       html,
       text,
-      purpose: 'transactional',
-      label: emailType,
-      queued_at: new Date().toISOString(),
-    },
-  })
-
-  if (enqueueError) {
-    console.error('Failed to enqueue auth email', {
-      code: enqueueError.code,
-      message: enqueueError.message,
-      run_id,
-      emailType,
+      label: `auth-${emailType}`,
+      idempotencyKey: messageId,
     })
     await supabase.from('email_send_log').insert({
       message_id: messageId,
       template_name: emailType,
       recipient_email: payload.data.email,
-      status: 'failed',
-      error_message: 'Failed to enqueue email',
+      status: result.sent ? 'sent' : 'skipped',
+      error_message: result.sent ? null : result.reason,
     })
-    return new Response(JSON.stringify({ error: 'Failed to enqueue email' }), {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('Failed to send auth email', { message, run_id, emailType })
+    await supabase.from('email_send_log').insert({
+      message_id: messageId,
+      template_name: emailType,
+      recipient_email: payload.data.email,
+      status: 'failed',
+      error_message: message.slice(0, 500),
+    })
+    return new Response(JSON.stringify({ error: 'Failed to send email' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 
-  console.log('Auth email enqueued', { emailType, email_redacted: redactEmail(payload.data.email), run_id })
+  console.log('Auth email sent', { emailType, email_redacted: redactEmail(payload.data.email), run_id })
 
   return new Response(
-    JSON.stringify({ success: true, queued: true }),
+    JSON.stringify({ success: true, sent: true }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 }

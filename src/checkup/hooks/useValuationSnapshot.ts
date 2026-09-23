@@ -85,6 +85,7 @@ export function useValuationSnapshot(
             peerScope: payload.peerScope ?? null,
             peerIndustry: payload.peerIndustry ?? null,
             peers: payload.peers || [],
+            trend: Array.isArray(payload?.trend) ? payload.trend : [],
           }),
         );
         setStatus('ready');

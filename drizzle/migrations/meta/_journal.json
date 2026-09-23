@@ -71,6 +71,20 @@
       "when": 1790134862268,
       "tag": "0009_valuation_snapshot_peer_fallback_broad",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790146426187,
+      "tag": "0010_valuation_snapshot_add_trend",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790147248566,
+      "tag": "0011_register_valuation_backfill_targets",
+      "breakpoints": true
     }
   ]
 }
