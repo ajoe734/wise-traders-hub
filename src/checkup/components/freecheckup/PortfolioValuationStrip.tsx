@@ -52,6 +52,7 @@ export default function PortfolioValuationStrip({
   const { status, result, asOf, stale, error, lastFetchedAt } = usePortfolioValuation(holdings, {
     injectedGateway,
   });
+  const [explainOpen, setExplainOpen] = useState(false);
 
   // 無台股持倉時整列不出現（避免佔空間）。
   if (status === 'idle') return null;
