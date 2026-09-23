@@ -6,8 +6,11 @@
  *   - 不出現任何買賣建議字眼。
  *   - as-of 永遠可見；stale 時加註「資料較舊」。
  *   - 所有數字由 `valuationRulers.ts` 純函式算好後傳入，本檔案不做運算。
+ *   - 「計算說明」折疊面板文字必須與 valuationRulers.ts 的常數一致（MIN_PEER_N、
+ *     WINSOR 5%/95%、PORTFOLIO_PREMIUM_CAP、PORTFOLIO_PREMIUM_NEUTRAL），禁止口頭另刻數字。
  *   - 手機 ≤640px 允許換行，禁止橫向溢出。
  */
+import { useState } from 'react';
 import {
   PORTFOLIO_VALUATION_CONTRACT,
   summarizePortfolioValuation,
