@@ -8,7 +8,7 @@
  *   4. 背景重抓失敗不清空既有數字（status 維持 ready）。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import {
   usePortfolioValuation,
   PORTFOLIO_VALUATION_REFRESH_MS,
@@ -138,7 +138,7 @@ describe('usePortfolioValuation 自動更新排程', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.status).toBe('ready');
     expect(result.current.result).toEqual(before);
   });
 });
