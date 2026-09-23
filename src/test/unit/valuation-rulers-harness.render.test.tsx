@@ -92,7 +92,10 @@ describe('ValuationRulersHarnessEntry', () => {
     await waitFor(() => scope.getByTestId('valuation-peer-expand'));
     expect(scope.queryByTestId('valuation-peer-detail')).toBeNull();
     fireEvent.click(scope.getByTestId('valuation-peer-expand'));
-    expect(scope.getByTestId('valuation-peer-detail').textContent).toContain('2881');
+    const detail = scope.getByTestId('valuation-peer-detail').textContent || '';
+    expect(detail).toContain('2881');
+    expect(detail).toMatch(/2881\s+富邦金/);
+    expect(detail).toMatch(/2886\s+兆豐金/);
     fireEvent.click(scope.getByTestId('valuation-peer-expand'));
     expect(scope.queryByTestId('valuation-peer-detail')).toBeNull();
   });
