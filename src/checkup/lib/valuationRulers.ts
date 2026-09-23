@@ -311,7 +311,7 @@ export interface ValuationSnapshotInput {
   dividendYield: number | null;
   history: { pe: number[]; pb: number[]; dividendYield: number[] };
   industry?: string | null;
-  peerScope?: 'fine' | 'broad' | 'legacy' | null;
+  peerScope?: PeerScope | null;
   peerIndustry?: string | null;
   peers?: PeerRow[];
   /** RPC 月取樣的估值趨勢（近 5 年，每月最後一個交易日）。 */
@@ -323,7 +323,7 @@ export interface ValuationView {
   asOf: string | null;
   source: string | null;
   industry: string | null;
-  peerScope: 'fine' | 'broad' | 'legacy';
+  peerScope: PeerScope;
   peerIndustry: string | null;
   rulers: RulerResult[];
   summary: ValuationSummary;
