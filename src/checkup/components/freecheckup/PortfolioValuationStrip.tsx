@@ -111,6 +111,10 @@ export default function PortfolioValuationStrip({
                 {fmtPremium(r.weightedPremium)}
               </span>
               <span style={{ fontSize: 11, color: WB.inkSub }}>（{r.text}）</span>
+              <span data-testid={`portfolio-valuation-${r.key}-coverage`} style={{ fontSize: 10, color: WB.inkMute }}>
+                {' '}
+                涵蓋 {Math.round((r.coverage || 0) * 100)}% 市值
+              </span>
             </div>
           ))}
         </div>
