@@ -7570,6 +7570,12 @@ export type Database = {
         Args: { p_rows: Json; p_writer: string }
         Returns: number
       }
+      valuation_backfill_targets: {
+        Args: { _limit?: number; _min_rows?: number }
+        Returns: {
+          symbol: string
+        }[]
+      }
       valuation_snapshot: { Args: { _symbol: string }; Returns: Json }
     }
     Enums: {
