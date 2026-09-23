@@ -111,13 +111,17 @@ export default function PortfolioValuationStrip({
                 {fmtPremium(r.weightedPremium)}
               </span>
               <span style={{ fontSize: 11, color: WB.inkSub }}>（{r.text}）</span>
+              <span data-testid={`portfolio-valuation-${r.key}-coverage`} style={{ fontSize: 10, color: WB.inkMute }}>
+                {' '}
+                涵蓋 {Math.round((r.coverage || 0) * 100)}% 市值
+              </span>
             </div>
           ))}
         </div>
       )}
       <div data-testid="portfolio-valuation-meta" style={{ fontSize: 10, color: WB.inkMute, marginTop: 6 }}>
         {result && result.totalWeight > 0
-          ? `涵蓋 ${Math.round((result.coveredWeight / result.totalWeight) * 100)}% 市值`
+          ? `納入計算 ${result.stockCount} 檔台股；各尺涵蓋率以同業樣本足夠者為準`
           : '無可計算的持倉'}
         {asOf ? `・截至 ${asOf.split('-').join('/')}` : ''}
         {stale ? '・資料較舊' : ''}
