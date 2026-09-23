@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import {
   formatPremium,
+  peerScopeLabel,
   isFinancialIndustry,
   RULER_LABEL,
   type PeerDistribution,
