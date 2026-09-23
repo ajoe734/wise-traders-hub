@@ -82,6 +82,8 @@ export function useValuationSnapshot(
               pb: payload?.history?.pb || [],
               dividendYield: payload?.history?.dividendYield || [],
             },
+            peerScope: payload.peerScope ?? null,
+            peerIndustry: payload.peerIndustry ?? null,
             peers: payload.peers || [],
           }),
         );
