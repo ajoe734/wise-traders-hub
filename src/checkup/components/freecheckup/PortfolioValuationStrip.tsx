@@ -33,7 +33,9 @@ export default function PortfolioValuationStrip({
   WB: any;
   injectedGateway?: CheckupGateway;
 }) {
-  const { status, result, asOf, stale, error } = usePortfolioValuation(holdings, { injectedGateway });
+  const { status, result, asOf, stale, error, lastFetchedAt } = usePortfolioValuation(holdings, {
+    injectedGateway,
+  });
 
   // 無台股持倉時整列不出現（避免佔空間）。
   if (status === 'idle') return null;
