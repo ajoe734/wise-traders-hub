@@ -7,7 +7,7 @@
  *      單檔溢價上限 +200%、中性判讀 10%。
  *   3. 說明不得出現買賣建議字眼。
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import PortfolioValuationStrip from '@/checkup/components/freecheckup/PortfolioValuationStrip';
 
