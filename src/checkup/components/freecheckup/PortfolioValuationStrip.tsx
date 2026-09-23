@@ -106,9 +106,47 @@ export default function PortfolioValuationStrip({
         minWidth: 0,
       }}
     >
-      <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em', marginBottom: 6 }}>
-        投組估值（市值加權 vs 同業中位數）
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em' }}>
+          投組估值（市值加權 vs 同業中位數）
+        </div>
+        <button
+          type="button"
+          data-testid="portfolio-valuation-explain-toggle"
+          aria-expanded={explainOpen}
+          onClick={() => setExplainOpen((v) => !v)}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            padding: 0,
+            font: 'inherit',
+            fontSize: 10,
+            color: WB.inkMute,
+            textDecoration: 'underline',
+            textUnderlineOffset: 2,
+            cursor: 'pointer',
+          }}
+        >
+          {explainOpen ? '收起說明' : '計算說明'}
+        </button>
       </div>
+      {explainOpen && (
+        <div
+          data-testid="portfolio-valuation-explain"
+          style={{
+            margin: '6px 0 2px',
+            padding: '8px 10px',
+            border: `1px solid ${WB.hair}`,
+            fontSize: 10,
+            lineHeight: 1.7,
+            color: WB.inkSub,
+          }}
+        >
+          <div>涵蓋率：每把尺只納入「該尺算得出溢折價」的持股（個股數值有效、且同業樣本足夠），以市值加權；涵蓋率＝納入計算的市值 ÷ 全部台股持股市值。涵蓋率低代表該尺主要反映少數持股，判讀時應保守。</div>
+          <div>同業門檻：同業中位數需至少 3 家同業有當日有效數值才計算；母體先做極端值處理（保留 5%–95% 區間）再取中位數。個股溢折價＝個股數值 ÷ 同業中位數 − 1，單檔溢價上限 +200%，避免單一極端股主導加權指數。</div>
+          <div>判讀：加權溢折價絕對值在 10% 以內顯示「與同業相當」。以上僅描述與同業的相對位置，不構成任何買賣建議。</div>
+        </div>
+      )}
       {!summary ? (
         <div data-testid="portfolio-valuation-insufficient" style={{ fontSize: 11, color: WB.inkMute }}>
           估值資料不足，暫不顯示投組加權指數
