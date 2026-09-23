@@ -662,3 +662,99 @@ export function buildPeerDistribution(
 }
 
 export const VALUATION_PEER_CHARTS_CONTRACT = 'VALUATION_PEER_CHARTS_V1';
+
+// ── 產業／市場族群分桶估值 ─────────────────────────────────────
+//
+// 設計硬合約（PORTFOLIO_BUCKET_VALUATION_V1）：
+//   - 每個桶的三把尺一律重用 computePortfolioValuation（winsorize / clip / MIN_PEER_N 單一來源）。
+//   - 產業桶依營收拆分權重分攤市值（與 aggregateBySector 同口徑，桶內合計 = 100%）。
+//   - 市場族群是純標籤：一檔可落入多個族群桶，族群桶佔比不互斥、不得與產業桶相加。
+//   - 涵蓋率 = 桶內「算得出溢折價」的市值 ÷ 桶市值（由 computePortfolioValuation 的 coverage 給）。
+//   - 只輸出中性描述，不得給買賣建議。
+
+/** 同業母體層級（與 valuation_snapshot RPC 的 peerScope 對齊）。 */
+export type PeerScope = 'group' | 'fine' | 'fineWide' | 'broad' | 'legacy';
+
+export const PEER_SCOPE_LABEL: Record<PeerScope, string> = {
+  group: '市場族群',
+  fine: '細分產業',
+  fineWide: '細分產業（含次要）',
+  broad: '產業大類',
+  legacy: '產業分類',
+};
+
+export function peerScopeLabel(scope?: string | null): string {
+  return PEER_SCOPE_LABEL[(scope || 'fine') as PeerScope] || PEER_SCOPE_LABEL.fine;
+}
+
+/** 一檔個股落入的桶（share 為該桶分到的市值比例，族群固定 1）。 */
+export interface BucketAssignment {
+  kind: 'industry' | 'marketGroup';
+  key: string;
+  share?: number;
+}
+
+export interface BucketValuation {
+  kind: 'industry' | 'marketGroup';
+  key: string;
+  /** 桶市值（產業桶已按營收拆分攤）。 */
+  weight: number;
+  /** 桶市值佔全部台股持股市值比（0–1）。族群桶彼此不互斥。 */
+  weightShare: number;
+  stockCount: number;
+  rulers: PortfolioRulerAggregate[];
+  /** 桶內任一尺可算的市值比（0–1）。 */
+  coverage: number;
+  /** 三把尺都算不出來 → 資料不足。 */
+  insufficient: boolean;
+}
+
+/**
+ * 依產業／市場族群分桶，各自算一次市值加權估值指數。
+ * `bucketsOf` 由呼叫端提供（前台走 getMultiMeta，與索引區同口徑）。
+ */
+export function buildBucketValuations(
+  rows: PortfolioValuationInput[],
+  bucketsOf: (symbol: string) => BucketAssignment[],
+): BucketValuation[] {
+  const candidates = (Array.isArray(rows) ? rows : []).filter(
+    (r) => r && typeof r.symbol === 'string' && isFiniteNumber(r.weight) && r.weight > 0,
+  );
+  const totalWeight = candidates.reduce((acc, r) => acc + r.weight, 0);
+  if (totalWeight <= 0) return [];
+
+  const buckets = new Map<string, { kind: 'industry' | 'marketGroup'; key: string; rows: PortfolioValuationInput[] }>();
+  for (const r of candidates) {
+    const assigns = bucketsOf(r.symbol) || [];
+    const seen = new Set<string>();
+    for (const a of assigns) {
+      if (!a || !a.key || (a.kind !== 'industry' && a.kind !== 'marketGroup')) continue;
+      const id = `${a.kind}:${a.key}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const share = a.kind === 'marketGroup' ? 1 : isFiniteNumber(a.share) ? a.share : 1;
+      if (!(share > 0)) continue;
+      if (!buckets.has(id)) buckets.set(id, { kind: a.kind, key: a.key, rows: [] });
+      buckets.get(id)!.rows.push({ ...r, weight: r.weight * share });
+    }
+  }
+
+  const out: BucketValuation[] = [];
+  for (const b of buckets.values()) {
+    const res = computePortfolioValuation(b.rows);
+    out.push({
+      kind: b.kind,
+      key: b.key,
+      weight: res.totalWeight,
+      weightShare: Math.round((res.totalWeight / totalWeight) * 1000) / 1000,
+      stockCount: res.stockCount,
+      rulers: res.rulers,
+      coverage: res.totalWeight > 0 ? Math.round((res.coveredWeight / res.totalWeight) * 1000) / 1000 : 0,
+      insufficient: res.rulers.every((r) => r.weightedPremium == null),
+    });
+  }
+
+  return out.sort((a, b) => b.weight - a.weight || a.key.localeCompare(b.key));
+}
+
+export const PORTFOLIO_BUCKET_VALUATION_CONTRACT = 'PORTFOLIO_BUCKET_VALUATION_V1';
