@@ -7576,6 +7576,7 @@ export type Database = {
           symbol: string
         }[]
       }
+      valuation_peer_medians: { Args: { _symbols: string[] }; Returns: Json }
       valuation_snapshot: { Args: { _symbol: string }; Returns: Json }
     }
     Enums: {

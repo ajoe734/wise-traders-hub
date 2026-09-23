@@ -103,11 +103,30 @@ async function refreshIndustryPeers(supa: ReturnType<typeof createClient>, token
       market: String(d.type || '').toLowerCase() === 'twse' ? 'TWSE' : 'TPEX',
       updated_at: new Date().toISOString(),
     }));
+  const nameRows = json.data
+    .filter((d: Record<string, unknown>) =>
+      /^\d{4,6}$/.test(String(d.stock_id || '')) && String(d.stock_name || '').trim().length > 0
+    )
+    .map((d: Record<string, unknown>) => ({
+      symbol: String(d.stock_id),
+      name: String(d.stock_name).trim(),
+      market: String(d.type || '').toLowerCase() === 'twse' ? 'TWSE' : 'TPEX',
+      asset_class: 'tw_stock',
+      currency: 'TWD',
+    }));
   const seen = new Set<string>();
   const unique = rows.filter((r: { symbol: string }) => (seen.has(r.symbol) ? false : (seen.add(r.symbol), true)));
+  const seenNames = new Set<string>();
+  const uniqueNames = nameRows.filter((r: { symbol: string }) =>
+    seenNames.has(r.symbol) ? false : (seenNames.add(r.symbol), true)
+  );
   for (let i = 0; i < unique.length; i += 500) {
     const { error } = await supa.from('tw_industry_peers').upsert(unique.slice(i, i + 500), { onConflict: 'symbol' });
     if (error) throw new Error(`industry_upsert_failed: ${error.message}`);
+  }
+  for (let i = 0; i < uniqueNames.length; i += 500) {
+    const { error } = await supa.from('stock_names').upsert(uniqueNames.slice(i, i + 500), { onConflict: 'symbol' });
+    if (error) throw new Error(`stock_names_upsert_failed: ${error.message}`);
   }
   return unique.length;
 }
