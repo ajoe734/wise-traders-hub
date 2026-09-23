@@ -450,7 +450,7 @@ export function computePortfolioValuation(rows: PortfolioValuationInput[]): Port
       const stat = computePeerStat(key, r[key] ?? null, Array.isArray(r.peers) ? r.peers : []);
       if (stat.premium == null) continue;
       wSum += r.weight;
-      wpSum += r.weight * stat.premium;
+      wpSum += r.weight * clipPremium(stat.premium);
       n += 1;
     }
     const weightedPremium = n > 0 && wSum > 0 ? Math.round((wpSum / wSum) * 1000) / 1000 : null;
