@@ -275,9 +275,10 @@ export function ValuationRulersView({
       )}
 
       {view.peerIndustry && (
-        <div data-testid="valuation-peer-scope" style={{ fontSize: 10, color: WB.inkMute, marginTop: 6 }}>
-          同業母體：{view.peerIndustry}
-          {view.peerScope === 'broad' ? '（細分同業不足，改用產業大類）' : ''}
+        <div data-testid="valuation-peer-scope" data-scope={view.peerScope} style={{ fontSize: 10, color: WB.inkMute, marginTop: 6 }}>
+          同業母體：{view.peerIndustry}（{peerScopeLabel(view.peerScope)}・{view.peerCount} 家）
+          {view.peerScope === 'broad' ? '・細分同業不足，改用產業大類' : ''}
+          {view.peerScope === 'fineWide' ? '・主產業同業不足，納入次要產業' : ''}
         </div>
       )}
 
