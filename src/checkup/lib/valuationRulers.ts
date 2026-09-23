@@ -321,6 +321,8 @@ export interface ValuationView {
   asOf: string | null;
   source: string | null;
   industry: string | null;
+  peerScope: 'fine' | 'broad' | 'legacy';
+  peerIndustry: string | null;
   rulers: RulerResult[];
   summary: ValuationSummary;
   peerStats: PeerStat[];
