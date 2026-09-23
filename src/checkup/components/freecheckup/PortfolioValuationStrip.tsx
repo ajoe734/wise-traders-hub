@@ -24,6 +24,19 @@ function fmtPremium(v: number | null): string {
   return `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}%`;
 }
 
+function fmtClock(ts: number): string {
+  try {
+    return new Date(ts).toLocaleTimeString('zh-TW', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Taipei',
+    });
+  } catch {
+    return '';
+  }
+}
+
 export default function PortfolioValuationStrip({
   holdings,
   WB,
@@ -33,7 +46,9 @@ export default function PortfolioValuationStrip({
   WB: any;
   injectedGateway?: CheckupGateway;
 }) {
-  const { status, result, asOf, stale, error } = usePortfolioValuation(holdings, { injectedGateway });
+  const { status, result, asOf, stale, error, lastFetchedAt } = usePortfolioValuation(holdings, {
+    injectedGateway,
+  });
 
   // 無台股持倉時整列不出現（避免佔空間）。
   if (status === 'idle') return null;
@@ -126,6 +141,10 @@ export default function PortfolioValuationStrip({
         {asOf ? `・截至 ${asOf.split('-').join('/')}` : ''}
         {stale ? '・資料較舊' : ''}
         {'・來源：交易所公告'}
+        <span data-testid="portfolio-valuation-autorefresh">
+          {'・每 30 分鐘自動更新'}
+          {lastFetchedAt ? `（上次 ${fmtClock(lastFetchedAt)}）` : ''}
+        </span>
       </div>
     </div>
   );

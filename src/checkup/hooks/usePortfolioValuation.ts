@@ -7,7 +7,7 @@
  *   - 加權 / winsorize / 溢折價全部由純函式 `valuationRulers.ts` 計算，此 hook 不算數字。
  *   - harness 以 `injectedGateway` 換成 fake，達成零網路。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCheckupGateway, type CheckupGateway } from '@/checkup/lib/gateway';
 import {
   computePortfolioValuation,
@@ -31,7 +31,21 @@ export interface UsePortfolioValuationResult {
   asOf: string | null;
   stale: boolean;
   error: string | null;
+  /** 最近一次成功取得資料的時間（毫秒）。 */
+  lastFetchedAt: number | null;
+  /** 手動重新抓取（自動排程之外的逃生門）。 */
+  refetch: () => void;
 }
+
+/**
+ * 自動更新排程（PORTFOLIO_VALUATION_AUTOREFRESH_V1）：
+ *   - 後端估值同步是每交易日 16:30（台北）落地，前台不需要高頻輪詢。
+ *   - 固定間隔 30 分鐘背景重抓一次；分頁隱藏時不打 RPC（省流量、避免背景累積）。
+ *   - 分頁重新可見且距上次成功超過 5 分鐘時補抓一次，確保「早上打開昨天的分頁」立刻換新。
+ *   - 重抓失敗不清空既有數字（保留舊值，只在 meta 顯示 as-of），避免畫面閃成錯誤態。
+ */
+export const PORTFOLIO_VALUATION_REFRESH_MS = 30 * 60 * 1000;
+export const PORTFOLIO_VALUATION_VISIBLE_STALE_MS = 5 * 60 * 1000;
 
 function taiwanCode(h: PortfolioHoldingLike): string {
   const raw = h?.code ?? h?.symbol ?? '';
@@ -41,12 +55,16 @@ function taiwanCode(h: PortfolioHoldingLike): string {
 
 export function usePortfolioValuation(
   holdings: PortfolioHoldingLike[] | null | undefined,
-  opts: { injectedGateway?: CheckupGateway; now?: () => number } = {},
+  opts: { injectedGateway?: CheckupGateway; now?: () => number; refreshMs?: number } = {},
 ): UsePortfolioValuationResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
   const [rows, setRows] = useState<PortfolioValuationInput[] | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
+  const [tick, setTick] = useState(0);
+  const lastFetchedRef = useRef<number | null>(null);
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
 
   const candidates = useMemo(() => {
     const list = Array.isArray(holdings) ? holdings : [];
@@ -66,10 +84,14 @@ export function usePortfolioValuation(
       setRows(null);
       setAsOf(null);
       setError(null);
+      lastFetchedRef.current = null;
+      setLastFetchedAt(null);
       return;
     }
     let cancelled = false;
-    setStatus('loading');
+    // 背景重抓（已有資料）時不要把畫面打回 loading，避免數字閃爍。
+    const isRefresh = lastFetchedRef.current != null;
+    if (!isRefresh) setStatus('loading');
     setError(null);
 
     const gateway = opts.injectedGateway || getCheckupGateway();
@@ -100,9 +122,17 @@ export function usePortfolioValuation(
         setRows(merged);
         setAsOf(oldest);
         setStatus('ready');
+        const ts = (opts.now || Date.now)();
+        lastFetchedRef.current = ts;
+        setLastFetchedAt(ts);
       })
       .catch((e: any) => {
         if (cancelled) return;
+        if (isRefresh) {
+          // 背景重抓失敗：保留舊數字，不把畫面打成錯誤態。
+          setError(e?.message || '估值資料暫時取不到');
+          return;
+        }
         setRows(null);
         setAsOf(null);
         setError(e?.message || '估值資料暫時取不到');
@@ -113,7 +143,36 @@ export function usePortfolioValuation(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, opts.injectedGateway]);
+  }, [key, opts.injectedGateway, tick]);
+
+  // 自動更新排程：固定間隔 + 分頁重新可見時補抓（隱藏時不打 RPC）。
+  useEffect(() => {
+    if (candidates.length === 0) return;
+    if (typeof window === 'undefined') return;
+    const intervalMs = opts.refreshMs ?? PORTFOLIO_VALUATION_REFRESH_MS;
+    if (!(intervalMs > 0)) return;
+
+    const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      refetch();
+    }, intervalMs);
+
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      const last = lastFetchedRef.current;
+      const now = (opts.now || Date.now)();
+      if (last == null || now - last >= PORTFOLIO_VALUATION_VISIBLE_STALE_MS) refetch();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, opts.refreshMs, refetch]);
 
   const result = useMemo(
     () => (rows ? computePortfolioValuation(rows) : null),
@@ -128,5 +187,7 @@ export function usePortfolioValuation(
     asOf,
     stale: computeStale(asOf, nowMs),
     error,
+    lastFetchedAt,
+    refetch,
   };
 }
