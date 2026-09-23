@@ -106,7 +106,7 @@ export default function PortfolioValuationStrip({
         minWidth: 0,
       }}
     >
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'baseline', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em' }}>
           投組估值（市值加權 vs 同業中位數）
         </div>
