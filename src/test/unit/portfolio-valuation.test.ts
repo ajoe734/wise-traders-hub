@@ -102,6 +102,8 @@ describe('computePortfolioValuation', () => {
     const r = computePortfolioValuation(rows);
     expect(r.rulers[0].weightedPremium).toBe(2.0);
   });
+
+  it('極端值：同業端有極端 PE 時中位數仍穩定（winsorize 在 peer 端）', () => {
     const skewed = peers([8, 9, 10, 11, 5000]); // winsorize 後中位數仍接近 10
     const rows: PortfolioValuationInput[] = [
       { symbol: 'A', weight: 100, pe: 10, pb: null, dividendYield: null, peers: skewed },
