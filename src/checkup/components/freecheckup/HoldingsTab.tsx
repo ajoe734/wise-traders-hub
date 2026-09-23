@@ -293,6 +293,17 @@ function HoldingsTab(props) {
         onSelect={setSectorFilterPersisted}
       />
 
+      {/* 產業分布 × 市場族群比例 × 各自的加權估值指數（唯讀 RPC，與索引區同一分類口徑） */}
+      <HoldingsSectorValuation
+        key={`sector-valuation-${industryMapVersion}`}
+        holdings={H}
+        stockMeta={STOCK_META}
+        overrides={overrides}
+        WB={WB}
+      />
+
+
+
 
       {/* HoldingsReversalSection 已下線（不在設計規格 §3 內），losers 由「今日待辦」統一呈現 */}
 
