@@ -127,6 +127,13 @@
       "when": 1790189799197,
       "tag": "0017_valuation_peer_scope_primary_industry",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790189867889,
+      "tag": "0018_valuation_peer_group_limit_10",
+      "breakpoints": true
     }
   ]
 }
