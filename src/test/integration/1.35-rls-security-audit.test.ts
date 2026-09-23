@@ -265,8 +265,9 @@ describe('F. RLS helpers — anon must be denied (authenticated-only by design)'
 describe('G. payment_providers — config not leaked', () => {
   it('anon SELECT * → 0 rows（public policy 已移除）', async () => {
     const { data, error } = await anon.from('payment_providers' as never).select('*').limit(5);
-    expect(error).toBeNull();
-    expect(data ?? []).toEqual([]);
+    // 允許兩種安全結果：RLS 過濾成 0 列，或表層權限直接拒絕（42501）。
+    if (error) expect(error.code).toBe('42501');
+    else expect(data ?? []).toEqual([]);
   });
 
   it('anon SELECT config → 0 rows / 不會回傳 config 內容', async () => {

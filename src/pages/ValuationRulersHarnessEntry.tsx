@@ -12,6 +12,7 @@ import {
   buildValuationView,
   computePeerStat,
   type PeerRow,
+  type TrendPoint,
 } from '@/checkup/lib/valuationRulers';
 import { ValuationRulersView } from '@/checkup/components/freecheckup/ValuationRulers';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
@@ -25,12 +26,36 @@ function ramp(from: number, to: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => from + ((to - from) * i) / (n - 1));
 }
 
+/** 月取樣趨勢（每月最後一日），n 個月往回推。 */
+function monthly(
+  n: number,
+  pe: [number, number],
+  pb: [number, number],
+  dy: [number, number],
+): TrendPoint[] {
+  const peS = ramp(pe[0], pe[1], n);
+  const pbS = ramp(pb[0], pb[1], n);
+  const dyS = ramp(dy[0], dy[1], n);
+  return Array.from({ length: n }, (_, i) => {
+    const m = 9 - (n - 1 - i);
+    const y = 2026 + Math.floor((m - 1) / 12);
+    const mm = ((((m - 1) % 12) + 12) % 12) + 1;
+    return {
+      date: `${y}-${String(mm).padStart(2, '0')}-28`,
+      pe: peS[i],
+      pb: pbS[i],
+      dividendYield: dyS[i],
+    };
+  });
+}
+
 /** 真實代表案例（2026-09-18 交易所公告值）。 */
 export const FIXTURES = {
   '3443': {
     symbol: '3443', asOf: '2026-09-18', source: 'twse_bwibbu', industry: 'IC設計',
     pe: 183.29, pb: 71.16, dividendYield: 0.28,
     history: { pe: ramp(30, 120, 500), pb: ramp(8, 40, 500), dividendYield: ramp(0.2, 2.5, 500) },
+    trend: monthly(61, [54, 183.29], [15.5, 71.16], [1.0, 0.28]) as TrendPoint[],
     peers: [
       { symbol: '3661', name: '世芯-KY', pe: 60.2, pb: 18.4, dividendYield: 0.5 },
       { symbol: '5274', name: '信驊', pe: 78.5, pb: 30.1, dividendYield: 0.9 },
@@ -43,6 +68,7 @@ export const FIXTURES = {
     symbol: '1101', asOf: '2026-09-18', source: 'twse_bwibbu', industry: '水泥工業',
     pe: null, pb: 0.79, dividendYield: 3.29,
     history: { pe: ramp(10, 30, 500), pb: ramp(0.7, 1.6, 500), dividendYield: ramp(2.0, 6.0, 500) },
+    trend: monthly(61, [12, 18], [1.2, 0.79], [5.0, 3.29]) as TrendPoint[],
     peers: [
       { symbol: '1102', name: '亞泥', pe: 12.1, pb: 0.82, dividendYield: 4.1 },
       { symbol: '1103', name: '嘉泥', pe: null, pb: 0.66, dividendYield: 0 },
@@ -54,6 +80,7 @@ export const FIXTURES = {
     symbol: '2882', asOf: '2026-09-18', source: 'twse_bwibbu', industry: '金融保險',
     pe: 13.03, pb: 1.59, dividendYield: 3.17,
     history: { pe: ramp(6, 20, 500), pb: ramp(0.8, 2.0, 500), dividendYield: ramp(1.5, 4.5, 500) },
+    trend: monthly(61, [9, 13.03], [1.0, 1.59], [4.5, 3.17]) as TrendPoint[],
     peers: [
       { symbol: '2881', name: '富邦金', pe: 14.07, pb: 1.85, dividendYield: 2.9 },
       { symbol: '2884', name: '玉山金', pe: 19.25, pb: 2.67, dividendYield: 2.4 },
@@ -66,6 +93,7 @@ export const FIXTURES = {
     symbol: '9999', asOf: '2026-09-18', source: 'finmind', industry: '其他',
     pe: 15, pb: 2, dividendYield: 3,
     history: { pe: ramp(10, 20, 100), pb: ramp(1, 3, 100), dividendYield: ramp(1, 5, 100) },
+    trend: monthly(3, [14, 15], [1.8, 2], [2.5, 3]) as TrendPoint[],
     peers: [{ symbol: '9998', name: 'A', pe: 12, pb: 1.5, dividendYield: 2 }] as PeerRow[],
   },
 } as const;
@@ -246,6 +274,8 @@ export function ValuationRulersHarnessEntry() {
       {WIDTHS.map(([label, w]) => (
         <LivePanel key={label} label={label} width={w} fixture="2882" />
       ))}
+      <h2 style={{ fontSize: 15, marginTop: 20 }}>歷史／趨勢資料不足</h2>
+      <LivePanel label="thin-history" width={1024} fixture="9999" />
       <h2 style={{ fontSize: 15, marginTop: 20 }}>錯誤狀態</h2>
       <LivePanel label="error-state" width={1024} fixture="error" />
     </div>

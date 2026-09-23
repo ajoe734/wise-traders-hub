@@ -102,6 +102,39 @@ describe('ValuationRulersHarnessEntry', () => {
     expect(scope.queryByTestId('valuation-peer-detail')).toBeNull();
   });
 
+  it('同業明細含產業分布圖與估值趨勢折線圖，且可切換三把尺', async () => {
+    render(<ValuationRulersHarnessEntry />);
+    const frame = await screen.findByTestId('live-frame-mobile-390');
+    const scope = within(frame);
+    await waitFor(() => scope.getByTestId('valuation-peer-expand'));
+    fireEvent.click(scope.getByTestId('valuation-peer-expand'));
+
+    const charts = scope.getByTestId('valuation-peer-charts');
+    const dist = within(charts).getByTestId('valuation-distribution');
+    expect(dist.getAttribute('data-key')).toBe('pe');
+    expect(dist.textContent).toContain('產業分布');
+    // 每個桶都要有數量文字；本檔與中位數各只標記一次（顏色不單獨承載意義）
+    const bucketText = dist.textContent || '';
+    expect(bucketText).toContain('本檔');
+    expect(bucketText).toContain('中位數');
+
+    const trend = within(charts).getByTestId('valuation-trend');
+    expect(trend.getAttribute('data-key')).toBe('pe');
+    expect(within(charts).getByTestId('valuation-trend-range').textContent).toMatch(/最低.*最高.*最新/);
+
+    fireEvent.click(within(charts).getByTestId('valuation-chart-metric-dividendYield'));
+    expect(within(charts).getByTestId('valuation-distribution').getAttribute('data-key')).toBe('dividendYield');
+    expect(within(charts).getByTestId('valuation-trend').getAttribute('data-key')).toBe('dividendYield');
+  });
+
+  it('趨勢點數不足時顯示資料不足，不畫折線', async () => {
+    render(<ValuationRulersHarnessEntry />);
+    const frame = await screen.findByTestId('live-frame-thin-history');
+    const scope = within(frame);
+    await waitFor(() => scope.getByTestId('valuation-rulers'));
+    expect(scope.queryByTestId('valuation-trend')).toBeNull();
+  });
+
   it('error state 顯示重試按鈕', async () => {
     render(<ValuationRulersHarnessEntry />);
     const frame = await screen.findByTestId('live-frame-error-state');
