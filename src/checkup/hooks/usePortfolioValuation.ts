@@ -61,6 +61,10 @@ export function usePortfolioValuation(
   const [rows, setRows] = useState<PortfolioValuationInput[] | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
+  const [tick, setTick] = useState(0);
+  const lastFetchedRef = useRef<number | null>(null);
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
 
   const candidates = useMemo(() => {
     const list = Array.isArray(holdings) ? holdings : [];
