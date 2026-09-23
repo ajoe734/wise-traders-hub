@@ -273,6 +273,9 @@ function HoldingsTab(props) {
         holdings={H}
       />
 
+      {/* 投組加權估值指數（市值加權 vs 同業中位數）：唯讀 RPC，無台股持倉時整列不出現 */}
+      <PortfolioValuationStrip holdings={H} WB={WB} />
+
 
 
 
