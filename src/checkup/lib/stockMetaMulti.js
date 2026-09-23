@@ -170,7 +170,15 @@ export function getMultiMeta(code, stockMeta, override) {
   const themes = Array.from(themeSet)
 
 
-  // 4. strategy：override > overlay > base
+  // 4. marketGroups：市場族群俗稱（散熱三雄…）。
+  //    來源：分類表 + DB override（人工修正）；純標籤，不參與同業估值母體。
+  const mgSet = new Set()
+  for (const g of auto?.marketGroups || []) if (g) mgSet.add(g)
+  for (const g of override?.market_groups || []) if (g) mgSet.add(g)
+  for (const g of override?.marketGroups || []) if (g) mgSet.add(g)
+  const marketGroups = Array.from(mgSet)
+
+  // 5. strategy：override > overlay > base
   const strategy = override?.strategy || over?.strategy || base?.strategy || null
 
   return {
@@ -178,6 +186,7 @@ export function getMultiMeta(code, stockMeta, override) {
     primaryIndustry: finalIndustries[0],
     revenueMix,
     themes,
+    marketGroups,
     strategy,
   }
 }

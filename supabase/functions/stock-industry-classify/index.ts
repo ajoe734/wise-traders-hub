@@ -20,9 +20,11 @@ import {
   INDUSTRIES,
   INDUSTRY_GROUPS,
   THEMES,
+  MARKET_GROUPS,
   isNonEquity,
   sanitizeIndustries,
   sanitizeThemes,
+  sanitizeMarketGroups,
 } from '../_shared/industryTaxonomy.ts';
 
 const GATEWAY = 'https://ai.gateway.lovable.dev/v1/chat/completions';
@@ -48,7 +50,7 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['symbol', 'industries', 'revenueMix', 'themes', 'confidence'],
+        required: ['symbol', 'industries', 'revenueMix', 'themes', 'marketGroups', 'confidence'],
         properties: {
           symbol: { type: 'string' },
           industries: {
@@ -70,6 +72,11 @@ const SCHEMA = {
             },
           },
           themes: { type: 'array', items: { type: 'string', enum: THEMES } },
+          marketGroups: {
+            type: 'array',
+            maxItems: 3,
+            items: { type: 'string', enum: MARKET_GROUPS },
+          },
           confidence: { type: 'number' },
         },
       },
@@ -82,19 +89,24 @@ function systemPrompt(): string {
     .map(([g, list]) => `${g}：${list.join('、')}`)
     .join('\n');
   return [
-    '你是台股產業分類專家。針對每一檔個股，依主要營收來源指定 1-3 個「細分產業」與 0-5 個「題材」。',
+    '你是台股產業分類專家。針對每一檔個股，依主要營收來源指定 1-3 個「細分產業」、0-5 個「題材」與 0-3 個「市場族群」。',
     '規則：',
-    '1. 細分產業與題材只能從下列字典逐字挑選，不得自創、不得改字。',
+    '1. 細分產業、題材、市場族群只能從下列字典逐字挑選，不得自創、不得改字。',
     '2. industries 依營收比重由高到低排列；revenueMix 為對應比重（總和 100），無法判斷比重時回傳空陣列。',
-    '3. 只有一個主業時就只給 1 個細分產業，不要硬湊。',
-    '4. confidence 0-1：熟悉且確定 0.8 以上；只能靠官方大類推測給 0.4 以下。',
-    '5. 官方大類僅供參考，請以公司實際業務為準（例：3443 創意是 ASIC 設計服務，不是泛半導體）。',
+    '3. 細分產業要盡量精準：字典若有更細的類別就用細的（例：散熱廠用「液冷散熱」或「均熱片/VC」而非泛用「散熱模組」；電源管理晶片廠用「電源管理IC」而非「IC設計」；ABF 載板用「載板ABF/BT」而非「PCB/CCL」）。真的無法再細分時才用泛用類。',
+    '4. 只有一個主業時就只給 1 個細分產業，不要硬湊。',
+    '5. marketGroups 是台股市場慣用的族群俗稱（例：3017 奇鋐／3324 雙鴻／3653 健策＝「散熱三雄」；2330 台積電＝「晶圓雙雄」「台灣50成分股」）。只有市場公認屬於該族群的個股才給，寧缺勿濫，不確定就回傳空陣列。',
+    '6. confidence 0-1：熟悉且確定 0.8 以上；只能靠官方大類推測給 0.4 以下。',
+    '7. 官方大類僅供參考，請以公司實際業務為準（例：3443 創意是 ASIC 設計服務，不是泛半導體）。',
     '',
     '【細分產業字典】',
     dict,
     '',
     '【題材字典】',
     THEMES.join('、'),
+    '',
+    '【市場族群字典】',
+    MARKET_GROUPS.join('、'),
   ].join('\n');
 }
 
@@ -276,6 +288,9 @@ Deno.serve(async (req) => {
             industries,
             revenue_mix: revenueMix,
             themes: sanitizeThemes(r.themes),
+            market_groups: isNonEquity({ symbol: c.symbol, officialIndustry: c.official, name: c.name })
+              ? []
+              : sanitizeMarketGroups(r.marketGroups),
             confidence: Number.isFinite(Number(r.confidence)) ? Number(r.confidence) : null,
             model: MODEL,
             source: 'ai',

@@ -85,6 +85,27 @@
       "when": 1790147248566,
       "tag": "0011_register_valuation_backfill_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790175428092,
+      "tag": "0012_stock_industry_map_add_market_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790175656103,
+      "tag": "0013_admin_update_stock_industry_market_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790175686275,
+      "tag": "0014_drop_old_admin_update_stock_industry_overload",
+      "breakpoints": true
     }
   ]
 }

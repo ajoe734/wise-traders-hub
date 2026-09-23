@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.admin_update_stock_industry(text, text[], text[], boolean);

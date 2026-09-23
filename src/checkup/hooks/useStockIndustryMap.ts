@@ -16,6 +16,8 @@ export interface AutoIndustryEntry {
   industries: string[];
   revenueMix: Array<{ industry: string; pct: number }> | null;
   themes: string[];
+  /** 市場族群（散熱三雄…）：純標籤，不影響同業估值母體 */
+  marketGroups: string[];
 }
 
 export type AutoIndustryMap = Record<string, AutoIndustryEntry>;
@@ -29,7 +31,8 @@ interface CachedDoc {
 }
 
 const cache = createDocumentCache<CachedDoc>({
-  storageKey: 'lf.checkup.stockIndustryMap.v1',
+  // v2：新增 marketGroups 欄位，舊快取缺欄位一律作廢
+  storageKey: 'lf.checkup.stockIndustryMap.v2',
   empty: () => ({ at: 0, map: {} }),
 });
 
@@ -61,7 +64,15 @@ function normalizeRow(row: any): AutoIndustryEntry | null {
           .filter((m: any) => m.industry && Number.isFinite(m.pct))
       : null;
   const themes = Array.isArray(row?.themes) ? row.themes.filter(Boolean).map(String) : [];
-  return { industries, revenueMix: revenueMix && revenueMix.length ? revenueMix : null, themes };
+  const marketGroups = Array.isArray(row?.market_groups)
+    ? row.market_groups.filter(Boolean).map(String)
+    : [];
+  return {
+    industries,
+    revenueMix: revenueMix && revenueMix.length ? revenueMix : null,
+    themes,
+    marketGroups,
+  };
 }
 
 async function fetchAll(): Promise<AutoIndustryMap> {
@@ -70,7 +81,7 @@ async function fetchAll(): Promise<AutoIndustryMap> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await db
       .from('stock_industry_map')
-      .select('symbol, industries, revenue_mix, themes')
+      .select('symbol, industries, revenue_mix, themes, market_groups')
       .order('symbol')
       .range(from, from + PAGE - 1);
     if (error) throw new Error(error.message || 'stock_industry_map read failed');

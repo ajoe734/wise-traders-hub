@@ -28,6 +28,7 @@ function marketValue(item) {
  * @returns {{
  *   industryByValue: Array<{ key: string, value: number, count: number, pct: number }>,
  *   themeByCount: Array<{ key: string, count: number }>,
+ *   marketGroupByCount: Array<{ key: string, count: number }>,
  *   strategyByCount: Array<{ key: string, count: number }>,
  *   totalValue: number,
  *   totalCount: number,
@@ -44,13 +45,14 @@ export function aggregateBySector(holdings, stockMeta, overrides) {
 
   const indMap = new Map() // key → { value, count(整檔數，不拆) }
   const themeMap = new Map() // key → count
+  const groupMap = new Map() // 市場族群 key → count
   const stratMap = new Map() // key → count
   let unclassifiedCount = 0
   let multiIndustryCount = 0
 
   for (const item of list) {
     if (!item?.code) continue
-    const { industries, revenueMix, themes, strategy } = getMultiMeta(
+    const { industries, revenueMix, themes, marketGroups, strategy } = getMultiMeta(
       item.code,
       meta,
       ov[item.code],
@@ -84,6 +86,14 @@ export function aggregateBySector(holdings, stockMeta, overrides) {
       themeMap.set(t, (themeMap.get(t) || 0) + 1)
     }
 
+    // 市場族群：每檔在每個族群各算 1 次（純標籤，不拆權重、不影響產業佔比）
+    const countedGroup = new Set()
+    for (const g of marketGroups || []) {
+      if (!g || countedGroup.has(g)) continue
+      countedGroup.add(g)
+      groupMap.set(g, (groupMap.get(g) || 0) + 1)
+    }
+
     // 策略：每檔 1 次
     const strat = strategy || UNCLASSIFIED
     stratMap.set(strat, (stratMap.get(strat) || 0) + 1)
@@ -106,6 +116,10 @@ export function aggregateBySector(holdings, stockMeta, overrides) {
   const themeByCount = Array.from(themeMap.entries())
     .map(([key, count]) => ({ key, count }))
     .sort((a, b) => b.count - a.count)
+
+  const marketGroupByCount = Array.from(groupMap.entries())
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
 
   const strategyByCount = Array.from(stratMap.entries())
     .map(([key, count]) => ({ key, count }))
@@ -133,6 +147,7 @@ export function aggregateBySector(holdings, stockMeta, overrides) {
   return {
     industryByValue,
     themeByCount,
+    marketGroupByCount,
     strategyByCount,
     totalValue,
     totalCount,
@@ -151,7 +166,7 @@ export const HOLDING_UNCLASSIFIED_LABEL = UNCLASSIFIED
  * @param {Array} holdings
  * @param {Object} stockMeta
  * @param {Object} overrides
- * @param {{kind:'industry'|'theme'|'strategy', key:string}} sel
+ * @param {{kind:'industry'|'theme'|'marketGroup'|'strategy', key:string}} sel
  * @returns {Array<{
  *   code:string, name:string, marketValue:number,
  *   weight:number,         // 該檔在此族群的權重（0-1）
@@ -190,6 +205,8 @@ export function holdingsInSector(holdings, stockMeta, overrides, sel) {
       }
     } else if (sel.kind === 'theme') {
       if (m.themes.includes(sel.key)) weight = 1
+    } else if (sel.kind === 'marketGroup') {
+      if ((m.marketGroups || []).includes(sel.key)) weight = 1
     } else if (sel.kind === 'strategy') {
       const strat = m.strategy || UNCLASSIFIED
       if (strat === sel.key) weight = 1
@@ -232,7 +249,7 @@ export function holdingsInSector(holdings, stockMeta, overrides, sel) {
  * @param {Array} holdings
  * @param {Object} stockMeta
  * @param {Object} overrides
- * @param {Array<{kind:'industry'|'theme'|'strategy', key:string}>} items
+ * @param {Array<{kind:'industry'|'theme'|'marketGroup'|'strategy', key:string}>} items
  * @param {'union'|'intersection'} mode
  * @returns {Set<string>|null} null = 無任何條件（不篩）
  */
