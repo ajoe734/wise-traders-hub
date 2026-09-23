@@ -18,6 +18,7 @@ type Row = {
   official_industry: string | null;
   industries: string[] | null;
   themes: string[] | null;
+  market_groups: string[] | null;
   confidence: number | null;
   rationale: string | null;
   reviewed: boolean | null;
@@ -39,6 +40,7 @@ export default function StockIndustryReview() {
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [groupDraft, setGroupDraft] = useState<Record<string, string>>({});
 
   const { data: rows = [], isLoading, refetch } = useQuery<Row[]>({
     queryKey: ['company', 'stock-industry-map', mode],
@@ -46,7 +48,7 @@ export default function StockIndustryReview() {
     queryFn: async () => {
       let q = supabase
         .from('stock_industry_map')
-        .select('symbol, name, market, official_industry, industries, themes, confidence, rationale, reviewed, source, updated_at')
+        .select('symbol, name, market, official_industry, industries, themes, market_groups, confidence, rationale, reviewed, source, updated_at')
         .order('confidence', { ascending: true })
         .limit(500);
       if (mode === 'low') q = q.lt('confidence', 0.7);
@@ -72,7 +74,7 @@ export default function StockIndustryReview() {
     const kw = filter.trim().toLowerCase();
     if (!kw) return rows;
     return rows.filter((r) =>
-      [r.symbol, r.name, r.official_industry, ...(r.industries || []), ...(r.themes || [])]
+      [r.symbol, r.name, r.official_industry, ...(r.industries || []), ...(r.themes || []), ...(r.market_groups || [])]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(kw)),
     );
@@ -80,18 +82,23 @@ export default function StockIndustryReview() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['company', 'stock-industry-map'] });
 
-  const save = async (row: Row, opts: { industries?: string[] | null } = {}) => {
+  const save = async (
+    row: Row,
+    opts: { industries?: string[] | null; marketGroups?: string[] | null } = {},
+  ) => {
     setBusy(row.symbol);
     const { error } = await (supabase as any).rpc('admin_update_stock_industry', {
       _symbol: row.symbol,
       _industries: opts.industries ?? null,
       _themes: null,
+      _market_groups: opts.marketGroups ?? null,
       _reviewed: true,
     });
     setBusy(null);
     if (error) { toast.error(error.message); return; }
     toast.success(`${row.symbol} 已確認`);
     setDraft((d) => { const n = { ...d }; delete n[row.symbol]; return n; });
+    setGroupDraft((d) => { const n = { ...d }; delete n[row.symbol]; return n; });
     invalidate();
   };
 
@@ -140,6 +147,7 @@ export default function StockIndustryReview() {
                       <TableHead>名稱</TableHead>
                       <TableHead>官方大類</TableHead>
                       <TableHead>細分產業</TableHead>
+                      <TableHead>市場族群</TableHead>
                       <TableHead>題材</TableHead>
                       <TableHead>信心</TableHead>
                       <TableHead>狀態</TableHead>
@@ -151,6 +159,10 @@ export default function StockIndustryReview() {
                       const current = (r.industries || []).join('、');
                       const value = draft[r.symbol] ?? current;
                       const dirty = value.trim() !== current;
+                      const currentGroups = (r.market_groups || []).join('、');
+                      const groupValue = groupDraft[r.symbol] ?? currentGroups;
+                      const groupDirty = groupValue.trim() !== currentGroups;
+                      const anyDirty = dirty || groupDirty;
                       return (
                         <TableRow key={r.symbol}>
                           <TableCell className="font-mono">{r.symbol}</TableCell>
@@ -163,6 +175,13 @@ export default function StockIndustryReview() {
                               placeholder="以、分隔"
                             />
                           </TableCell>
+                          <TableCell className="min-w-[180px]">
+                            <Input
+                              value={groupValue}
+                              onChange={(e) => setGroupDraft((d) => ({ ...d, [r.symbol]: e.target.value }))}
+                              placeholder="以、分隔，如 散熱三雄"
+                            />
+                          </TableCell>
                           <TableCell className="text-sm">{(r.themes || []).join('、') || '—'}</TableCell>
                           <TableCell className="text-sm">{r.confidence == null ? '—' : r.confidence.toFixed(2)}</TableCell>
                           <TableCell>
@@ -173,18 +192,21 @@ export default function StockIndustryReview() {
                           <TableCell className="text-right">
                             <Button
                               size="sm"
-                              variant={dirty ? 'default' : 'outline'}
+                              variant={anyDirty ? 'default' : 'outline'}
                               disabled={busy === r.symbol}
                               onClick={() =>
                                 save(r, {
                                   industries: dirty
                                     ? value.split(/[、,，]/).map((s) => s.trim()).filter(Boolean)
                                     : null,
+                                  marketGroups: groupDirty
+                                    ? groupValue.split(/[、,，]/).map((s) => s.trim()).filter(Boolean)
+                                    : null,
                                 })
                               }
                             >
                               {busy === r.symbol ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-                              {dirty ? '儲存並確認' : '標記已確認'}
+                              {anyDirty ? '儲存並確認' : '標記已確認'}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -192,7 +214,7 @@ export default function StockIndustryReview() {
                     })}
                     {visible.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           沒有符合條件的個股
                         </TableCell>
                       </TableRow>

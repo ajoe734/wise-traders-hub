@@ -8,16 +8,20 @@ import taxonomyJson from './industryTaxonomy.json' with { type: 'json' }
 const RAW = taxonomyJson as unknown as {
   groups: Record<string, string[]>
   themes: string[]
+  marketGroups: string[]
   nonEquityMarkets: string[]
 }
 
 export const INDUSTRY_GROUPS = RAW.groups
 export const THEMES = RAW.themes
+export const MARKET_GROUPS = RAW.marketGroups
 export const NON_EQUITY_MARKETS = RAW.nonEquityMarkets
 export const INDUSTRIES: string[] = Object.values(INDUSTRY_GROUPS).flat()
+export const MAX_MARKET_GROUPS = 3
 
 const INDUSTRY_SET = new Set(INDUSTRIES)
 const THEME_SET = new Set(THEMES)
+const MARKET_GROUP_SET = new Set(MARKET_GROUPS)
 
 export function isValidIndustry(name: unknown): boolean {
   return typeof name === 'string' && INDUSTRY_SET.has(name)
@@ -73,4 +77,13 @@ export function sanitizeIndustries(
 export function sanitizeThemes(themes: unknown): string[] {
   const list = Array.isArray(themes) ? themes.filter(isValidTheme).map(String) : []
   return Array.from(new Set(list)).slice(0, 5)
+}
+
+export function isValidMarketGroup(name: unknown): boolean {
+  return typeof name === 'string' && MARKET_GROUP_SET.has(name)
+}
+
+export function sanitizeMarketGroups(groups: unknown): string[] {
+  const list = Array.isArray(groups) ? groups.filter(isValidMarketGroup).map(String) : []
+  return Array.from(new Set(list)).slice(0, MAX_MARKET_GROUPS)
 }

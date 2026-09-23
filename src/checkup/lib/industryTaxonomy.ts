@@ -11,17 +11,24 @@ export type TaxonomyGroups = Record<string, string[]>
 const RAW = taxonomyJson as unknown as {
   groups: TaxonomyGroups
   themes: string[]
+  marketGroups: string[]
   nonEquityMarkets: string[]
 }
 
 export const INDUSTRY_GROUPS: TaxonomyGroups = RAW.groups
 export const THEMES: string[] = RAW.themes
+/** 市場族群（散熱三雄、CoWoS概念股…）：純標籤，不參與同業估值母體 */
+export const MARKET_GROUPS: string[] = RAW.marketGroups
 export const NON_EQUITY_MARKETS: string[] = RAW.nonEquityMarkets
 
 export const INDUSTRIES: string[] = Object.values(INDUSTRY_GROUPS).flat()
 
+/** 每檔最多掛幾個市場族群 */
+export const MAX_MARKET_GROUPS = 3
+
 const INDUSTRY_SET = new Set(INDUSTRIES)
 const THEME_SET = new Set(THEMES)
+const MARKET_GROUP_SET = new Set(MARKET_GROUPS)
 
 const GROUP_OF: Record<string, string> = (() => {
   const out: Record<string, string> = {}
@@ -94,4 +101,14 @@ export function sanitizeIndustries(
 export function sanitizeThemes(themes: unknown): string[] {
   const list = Array.isArray(themes) ? themes.filter(isValidTheme).map(String) : []
   return Array.from(new Set(list)).slice(0, 5)
+}
+
+export function isValidMarketGroup(name: unknown): boolean {
+  return typeof name === 'string' && MARKET_GROUP_SET.has(name)
+}
+
+/** 白名單外一律丟棄；去重；上限 MAX_MARKET_GROUPS */
+export function sanitizeMarketGroups(groups: unknown): string[] {
+  const list = Array.isArray(groups) ? groups.filter(isValidMarketGroup).map(String) : []
+  return Array.from(new Set(list)).slice(0, MAX_MARKET_GROUPS)
 }

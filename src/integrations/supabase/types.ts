@@ -4551,6 +4551,7 @@ export type Database = {
           confidence: number | null
           industries: string[]
           market: string | null
+          market_groups: string[]
           model: string | null
           name: string | null
           official_industry: string | null
@@ -4566,6 +4567,7 @@ export type Database = {
           confidence?: number | null
           industries?: string[]
           market?: string | null
+          market_groups?: string[]
           model?: string | null
           name?: string | null
           official_industry?: string | null
@@ -4581,6 +4583,7 @@ export type Database = {
           confidence?: number | null
           industries?: string[]
           market?: string | null
+          market_groups?: string[]
           model?: string | null
           name?: string | null
           official_industry?: string | null
@@ -6547,6 +6550,7 @@ export type Database = {
       admin_update_stock_industry: {
         Args: {
           _industries?: string[]
+          _market_groups?: string[]
           _reviewed?: boolean
           _symbol: string
           _themes?: string[]

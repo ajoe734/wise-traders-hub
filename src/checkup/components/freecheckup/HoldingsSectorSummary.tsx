@@ -24,7 +24,7 @@ import {
 } from '@/checkup/lib/holdingUtils'
 import { useSectorFilterPresets } from '@/checkup/lib/sectorFilterPresets'
 
-const KIND_LABEL = { industry: '產業', theme: '題材', strategy: '策略' }
+const KIND_LABEL = { industry: '產業', theme: '題材', marketGroup: '市場族群', strategy: '策略' }
 const EMPTY_SEL = { items: [], mode: 'union' }
 
 // 產業帶用色：主色 + 4 階灰階，其餘 fill
@@ -100,6 +100,7 @@ function HoldingsSectorSummaryImpl({
   const {
     industryByValue,
     themeByCount,
+    marketGroupByCount,
     strategyByCount,
     unclassifiedCount,
     multiIndustryCount,
@@ -107,7 +108,7 @@ function HoldingsSectorSummaryImpl({
     overDiversified,
   } = hasHoldings
     ? aggregateBySector(holdings, stockMeta, overrides)
-    : { industryByValue: [], themeByCount: [], strategyByCount: [], unclassifiedCount: 0, multiIndustryCount: 0, warnings: [], overDiversified: false }
+    : { industryByValue: [], themeByCount: [], marketGroupByCount: [], strategyByCount: [], unclassifiedCount: 0, multiIndustryCount: 0, warnings: [], overDiversified: false }
 
   // ── 集中度編輯註記（前 3 大合計）
   // 必須在下方 early return **之前**呼叫：0 檔 → N 檔（手動新增／截圖匯入）時
@@ -738,7 +739,7 @@ function HoldingsSectorSummaryImpl({
         >
           索引 {indexOpen ? '↑' : '↓'}
           <span style={{ color: 'var(--cm-ink-mute)', marginLeft: 4 }}>
-            產業 {industryByValue.length} · 題材 {themeByCount.length} · 策略 {strategyByCount.length}
+            產業 {industryByValue.length} · 題材 {themeByCount.length} · 族群 {marketGroupByCount.length} · 策略 {strategyByCount.length}
           </span>
         </button>
         {indexOpen && (
@@ -778,6 +779,23 @@ function HoldingsSectorSummaryImpl({
               kind="strategy"
               isSelected={isSelected}
               toggle={toggle}
+              isRight
+            />
+          </div>
+        )}
+        {/* 市場族群：市場慣用俗稱（散熱三雄…），純標籤，不影響上方產業佔比 */}
+        {indexOpen && marketGroupByCount.length > 0 && (
+          <div
+            data-testid="holdings-market-group-index"
+            style={{ borderBottom: '1px solid var(--cm-ink)' }}
+          >
+            <ColumnIndex
+              title="市場族群"
+              rows={marketGroupByCount.map((g: any) => ({ key: g.key, primary: `${g.count}`, secondary: '檔' }))}
+              kind="marketGroup"
+              isSelected={isSelected}
+              toggle={toggle}
+              emptyText="無市場族群標籤"
               isRight
             />
           </div>

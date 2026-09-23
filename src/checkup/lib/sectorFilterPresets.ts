@@ -3,7 +3,7 @@
  * 持倉族群篩選預設（localStorage 儲存）
  *
  * 資料形狀：
- *   { id, name, items: [{kind:'industry'|'theme'|'strategy', key:string}], mode:'union'|'intersection', createdAt:number }
+ *   { id, name, items: [{kind:'industry'|'theme'|'marketGroup'|'strategy', key:string}], mode:'union'|'intersection', createdAt:number }
  */
 import { useCallback, useEffect, useState } from 'react'
 
