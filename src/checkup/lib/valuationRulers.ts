@@ -373,3 +373,115 @@ export function buildValuationView(input: ValuationSnapshotInput): ValuationView
 }
 
 export const VALUATION_RULERS_CONTRACT = 'VALUATION_RULERS_V1';
+
+// ── 投組層級：市值加權同業溢折價指數 ────────────────────────────
+//
+// 設計硬合約：
+//   - 權重 = 個股市值；每把尺只納入「該尺能算出溢折價」的檔，權重對納入檔重新正規化。
+//   - 單檔溢折價一律重用 computePeerStat（winsorize + MIN_PEER_N 單一來源，禁止重刻）。
+//   - 只輸出「高於 / 接近 / 低於同業」的中性描述，不得給買賣建議。
+
+export interface PortfolioValuationInput {
+  symbol: string;
+  /** 市值（未正規化）；<= 0 或缺值整檔排除。 */
+  weight: number;
+  pe: number | null;
+  pb: number | null;
+  dividendYield: number | null;
+  peers: PeerRow[];
+}
+
+export interface PortfolioRulerAggregate {
+  key: RulerKey;
+  /** 市值加權溢折價（self ÷ 同業中位數 − 1 的加權平均）；無有效檔時 null。 */
+  weightedPremium: number | null;
+  /** 納入檔市值占全部候選市值比（0–1）。 */
+  coverage: number;
+  /** 納入檔數。 */
+  n: number;
+  label: string;
+  /** 中性文字（例：「高於同業」）；weightedPremium 為 null 時為「資料不足」。 */
+  text: string;
+}
+
+export interface PortfolioValuationResult {
+  rulers: PortfolioRulerAggregate[];
+  /** 候選總市值（台股且 weight > 0）。 */
+  totalWeight: number;
+  /** 有任一尺可用的市值。 */
+  coveredWeight: number;
+  stockCount: number;
+}
+
+/** 加權溢折價的中性判讀門檻：|溢折價| < 10% 視為接近同業。 */
+export const PORTFOLIO_PREMIUM_NEUTRAL = 0.1;
+
+export function portfolioPremiumText(key: RulerKey, premium: number | null): string {
+  if (premium == null) return '資料不足';
+  const abs = Math.abs(premium);
+  if (abs < PORTFOLIO_PREMIUM_NEUTRAL) return '與同業相當';
+  if (key === 'dividendYield') {
+    return premium > 0 ? '殖利率高於同業' : '殖利率低於同業';
+  }
+  return premium > 0 ? '高於同業' : '低於同業';
+}
+
+export function computePortfolioValuation(rows: PortfolioValuationInput[]): PortfolioValuationResult {
+  const candidates = (Array.isArray(rows) ? rows : []).filter(
+    (r) => r && typeof r.symbol === 'string' && isFiniteNumber(r.weight) && r.weight > 0,
+  );
+  const totalWeight = candidates.reduce((acc, r) => acc + r.weight, 0);
+
+  const rulers = (['pe', 'pb', 'dividendYield'] as RulerKey[]).map((key): PortfolioRulerAggregate => {
+    let wSum = 0;
+    let wpSum = 0;
+    let n = 0;
+    for (const r of candidates) {
+      const stat = computePeerStat(key, r[key] ?? null, Array.isArray(r.peers) ? r.peers : []);
+      if (stat.premium == null) continue;
+      wSum += r.weight;
+      wpSum += r.weight * stat.premium;
+      n += 1;
+    }
+    const weightedPremium = n > 0 && wSum > 0 ? Math.round((wpSum / wSum) * 1000) / 1000 : null;
+    return {
+      key,
+      weightedPremium,
+      coverage: totalWeight > 0 ? Math.round((wSum / totalWeight) * 1000) / 1000 : 0,
+      n,
+      label: RULER_LABEL[key],
+      text: portfolioPremiumText(key, weightedPremium),
+    };
+  });
+
+  const coveredWeight = candidates
+    .filter((r) =>
+      (['pe', 'pb', 'dividendYield'] as RulerKey[]).some(
+        (key) => computePeerStat(key, r[key] ?? null, Array.isArray(r.peers) ? r.peers : []).premium != null,
+      ),
+    )
+    .reduce((acc, r) => acc + r.weight, 0);
+
+  return {
+    rulers,
+    totalWeight,
+    coveredWeight,
+    stockCount: candidates.length,
+  };
+}
+
+/** 投組加權指數的摘要一行（UI 直接顯示；無有效尺時回 null）。 */
+export function summarizePortfolioValuation(result: PortfolioValuationResult): string | null {
+  const usable = result.rulers.filter((r) => r.weightedPremium != null);
+  if (usable.length === 0 || result.totalWeight <= 0) return null;
+  const parts = usable.map((r) => {
+    const pct = (r.weightedPremium as number) * 100;
+    const rounded = Math.sign(pct) * (Math.round(Math.abs(pct) * 10) / 10);
+    const sign = rounded > 0 ? '+' : '';
+    return `${r.label} ${sign}${rounded.toFixed(1)}%（${r.text}）`;
+  });
+  const coveragePct = Math.round((result.coveredWeight / result.totalWeight) * 100);
+  return `${parts.join('｜')}｜涵蓋 ${coveragePct}% 市值`;
+}
+
+export const PORTFOLIO_VALUATION_CONTRACT = 'PORTFOLIO_VALUATION_V1';
