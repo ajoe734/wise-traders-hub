@@ -113,6 +113,13 @@
       "when": 1790189596019,
       "tag": "0015_valuation_snapshot_market_group_peers",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790189678771,
+      "tag": "0016_valuation_peer_group_pick_tightest",
+      "breakpoints": true
     }
   ]
 }
