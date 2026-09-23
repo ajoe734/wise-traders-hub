@@ -311,6 +311,8 @@ export interface ValuationSnapshotInput {
   dividendYield: number | null;
   history: { pe: number[]; pb: number[]; dividendYield: number[] };
   industry?: string | null;
+  peerScope?: 'fine' | 'broad' | 'legacy' | null;
+  peerIndustry?: string | null;
   peers?: PeerRow[];
 }
 
