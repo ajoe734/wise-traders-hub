@@ -33,6 +33,6 @@ describe('tw-chips-detail public market-data contract', () => {
 
   it('平台層 JWT 驗證必須關閉，讓公開市場資料 endpoint 可由匿名/demo 使用', () => {
     const config = readFileSync(CONFIG_FILE, 'utf8');
-    expect(config).toMatch(/\[functions\.tw-chips-detail\]\s*\nverify_jwt\s*=\s*false/);
+    expect(config).toMatch(/\[functions\.tw-chips-detail\]\s*\n\s*verify_jwt\s*=\s*false/);
   });
 });
