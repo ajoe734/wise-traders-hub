@@ -416,6 +416,16 @@ export interface PortfolioValuationResult {
 /** 加權溢折價的中性判讀門檻：|溢折價| < 10% 視為接近同業。 */
 export const PORTFOLIO_PREMIUM_NEUTRAL = 0.1;
 
+/**
+ * 個股溢折價上限剪裁（winsorize）：高倍數股（如 PB 70x vs 同業 3x）單檔溢價可達 +2000%，
+ * 不剪裁會讓投組指數被單一極端股主導。折價端天然有界（最低 −100%），只夾上限。
+ */
+export const PORTFOLIO_PREMIUM_CAP = 2.0;
+
+function clipPremium(p: number): number {
+  return Math.min(PORTFOLIO_PREMIUM_CAP, p);
+}
+
 export function portfolioPremiumText(key: RulerKey, premium: number | null): string {
   if (premium == null) return '資料不足';
   const abs = Math.abs(premium);
