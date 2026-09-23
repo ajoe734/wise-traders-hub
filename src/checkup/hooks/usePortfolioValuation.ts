@@ -122,9 +122,17 @@ export function usePortfolioValuation(
         setRows(merged);
         setAsOf(oldest);
         setStatus('ready');
+        const ts = (opts.now || Date.now)();
+        lastFetchedRef.current = ts;
+        setLastFetchedAt(ts);
       })
       .catch((e: any) => {
         if (cancelled) return;
+        if (isRefresh) {
+          // 背景重抓失敗：保留舊數字，不把畫面打成錯誤態。
+          setError(e?.message || '估值資料暫時取不到');
+          return;
+        }
         setRows(null);
         setAsOf(null);
         setError(e?.message || '估值資料暫時取不到');
@@ -135,7 +143,36 @@ export function usePortfolioValuation(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, opts.injectedGateway]);
+  }, [key, opts.injectedGateway, tick]);
+
+  // 自動更新排程：固定間隔 + 分頁重新可見時補抓（隱藏時不打 RPC）。
+  useEffect(() => {
+    if (candidates.length === 0) return;
+    if (typeof window === 'undefined') return;
+    const intervalMs = opts.refreshMs ?? PORTFOLIO_VALUATION_REFRESH_MS;
+    if (!(intervalMs > 0)) return;
+
+    const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      refetch();
+    }, intervalMs);
+
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      const last = lastFetchedRef.current;
+      const now = (opts.now || Date.now)();
+      if (last == null || now - last >= PORTFOLIO_VALUATION_VISIBLE_STALE_MS) refetch();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, opts.refreshMs, refetch]);
 
   const result = useMemo(
     () => (rows ? computePortfolioValuation(rows) : null),
@@ -150,5 +187,7 @@ export function usePortfolioValuation(
     asOf,
     stale: computeStale(asOf, nowMs),
     error,
+    lastFetchedAt,
+    refetch,
   };
 }
