@@ -55,7 +55,7 @@ function taiwanCode(h: PortfolioHoldingLike): string {
 
 export function usePortfolioValuation(
   holdings: PortfolioHoldingLike[] | null | undefined,
-  opts: { injectedGateway?: CheckupGateway; now?: () => number } = {},
+  opts: { injectedGateway?: CheckupGateway; now?: () => number; refreshMs?: number } = {},
 ): UsePortfolioValuationResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
   const [rows, setRows] = useState<PortfolioValuationInput[] | null>(null);
