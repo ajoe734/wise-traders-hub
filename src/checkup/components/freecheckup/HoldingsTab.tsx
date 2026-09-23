@@ -16,6 +16,7 @@ import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMe
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
 import HoldingsSectorSummary from "@/checkup/components/freecheckup/HoldingsSectorSummary";
+import HoldingsSectorValuation from "@/checkup/components/freecheckup/HoldingsSectorValuation";
 import HoldingMetaReportModal from "@/checkup/components/freecheckup/HoldingMetaReportModal";
 import { useMetaOverrides } from "@/checkup/hooks/useMetaOverrides";
 import { getMultiMeta } from "@/checkup/lib/stockMetaMulti.js";
