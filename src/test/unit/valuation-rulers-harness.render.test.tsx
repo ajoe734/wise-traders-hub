@@ -95,7 +95,9 @@ describe('ValuationRulersHarnessEntry', () => {
     const detail = scope.getByTestId('valuation-peer-detail').textContent || '';
     expect(detail).toContain('2881');
     expect(detail).toMatch(/2881\s+富邦金/);
-    expect(detail).toMatch(/2886\s+兆豐金/);
+    expect(detail).toMatch(/2885\s+元大金/);
+    expect(detail).toMatch(/2884\s+玉山金/);
+    expect(detail).toMatch(/2880\s+華南金/);
     fireEvent.click(scope.getByTestId('valuation-peer-expand'));
     expect(scope.queryByTestId('valuation-peer-detail')).toBeNull();
   });
