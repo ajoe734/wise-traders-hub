@@ -43,6 +43,13 @@
       "when": 1790133931606,
       "tag": "0005_create_valuation_backfill_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790134319071,
+      "tag": "0006_optimize_valuation_backfill_targets",
+      "breakpoints": true
     }
   ]
 }
