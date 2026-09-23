@@ -1,0 +1,132 @@
+/**
+ * usePortfolioValuation —— 持倉看板「投組加權估值指數」的 production seam。
+ *
+ * 契約（比照 useValuationSnapshot）：
+ *   - 對外握手一律走 `getCheckupGateway()`，rpc `valuation_peer_medians`（STABLE，唯讀）。
+ *   - 一次批量帶入全部台股代碼（上限 50，DB 端去重）。
+ *   - 加權 / winsorize / 溢折價全部由純函式 `valuationRulers.ts` 計算，此 hook 不算數字。
+ *   - harness 以 `injectedGateway` 換成 fake，達成零網路。
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { getCheckupGateway, type CheckupGateway } from '@/checkup/lib/gateway';
+import {
+  computePortfolioValuation,
+  type PeerRow,
+  type PortfolioValuationResult,
+  type PortfolioValuationInput,
+} from '@/checkup/lib/valuationRulers';
+import { computeStale, type ValuationStatus } from '@/checkup/hooks/useValuationSnapshot';
+
+export interface PortfolioHoldingLike {
+  code?: string | number | null;
+  symbol?: string | number | null;
+  /** 已正規化的市值（normalizeHoldingMetrics 的 value）。 */
+  value?: number | null;
+}
+
+export interface UsePortfolioValuationResult {
+  status: ValuationStatus;
+  result: PortfolioValuationResult | null;
+  /** 全部快照中最舊的 as-of（保守揭露）。 */
+  asOf: string | null;
+  stale: boolean;
+  error: string | null;
+}
+
+function taiwanCode(h: PortfolioHoldingLike): string {
+  const raw = h?.code ?? h?.symbol ?? '';
+  const code = String(raw).trim();
+  return /^\d{4,6}$/.test(code) ? code : '';
+}
+
+export function usePortfolioValuation(
+  holdings: PortfolioHoldingLike[] | null | undefined,
+  opts: { injectedGateway?: CheckupGateway; now?: () => number } = {},
+): UsePortfolioValuationResult {
+  const [status, setStatus] = useState<ValuationStatus>('idle');
+  const [rows, setRows] = useState<PortfolioValuationInput[] | null>(null);
+  const [asOf, setAsOf] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const candidates = useMemo(() => {
+    const list = Array.isArray(holdings) ? holdings : [];
+    return list
+      .map((h) => ({ code: taiwanCode(h), weight: Number(h?.value) || 0 }))
+      .filter((c) => c.code && c.weight > 0);
+  }, [holdings]);
+
+  const key = useMemo(
+    () => candidates.map((c) => `${c.code}:${Math.round(c.weight)}`).join(','),
+    [candidates],
+  );
+
+  useEffect(() => {
+    if (candidates.length === 0) {
+      setStatus('idle');
+      setRows(null);
+      setAsOf(null);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    setStatus('loading');
+    setError(null);
+
+    const gateway = opts.injectedGateway || getCheckupGateway();
+    const symbols = [...new Set(candidates.map((c) => c.code))];
+    Promise.resolve(gateway.rpc('valuation_peer_medians', { _symbols: symbols }))
+      .then((raw: any) => {
+        if (cancelled) return;
+        const arr: any[] = Array.isArray(raw) ? raw : [];
+        const bySymbol = new Map<string, any>();
+        let oldest: string | null = null;
+        for (const item of arr) {
+          if (!item?.symbol) continue;
+          bySymbol.set(String(item.symbol), item);
+          const a = item.asOf || null;
+          if (a && (!oldest || a < oldest)) oldest = a;
+        }
+        const merged: PortfolioValuationInput[] = candidates.map((c) => {
+          const snap = bySymbol.get(c.code);
+          return {
+            symbol: c.code,
+            weight: c.weight,
+            pe: snap?.pe ?? null,
+            pb: snap?.pb ?? null,
+            dividendYield: snap?.dividendYield ?? null,
+            peers: (Array.isArray(snap?.peers) ? snap.peers : []) as PeerRow[],
+          };
+        });
+        setRows(merged);
+        setAsOf(oldest);
+        setStatus('ready');
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        setRows(null);
+        setAsOf(null);
+        setError(e?.message || '估值資料暫時取不到');
+        setStatus('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, opts.injectedGateway]);
+
+  const result = useMemo(
+    () => (rows ? computePortfolioValuation(rows) : null),
+    [rows],
+  );
+
+  const nowMs = (opts.now || Date.now)();
+
+  return {
+    status,
+    result,
+    asOf,
+    stale: computeStale(asOf, nowMs),
+    error,
+  };
+}
