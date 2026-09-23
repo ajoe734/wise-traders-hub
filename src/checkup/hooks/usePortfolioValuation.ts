@@ -31,7 +31,21 @@ export interface UsePortfolioValuationResult {
   asOf: string | null;
   stale: boolean;
   error: string | null;
+  /** 最近一次成功取得資料的時間（毫秒）。 */
+  lastFetchedAt: number | null;
+  /** 手動重新抓取（自動排程之外的逃生門）。 */
+  refetch: () => void;
 }
+
+/**
+ * 自動更新排程（PORTFOLIO_VALUATION_AUTOREFRESH_V1）：
+ *   - 後端估值同步是每交易日 16:30（台北）落地，前台不需要高頻輪詢。
+ *   - 固定間隔 30 分鐘背景重抓一次；分頁隱藏時不打 RPC（省流量、避免背景累積）。
+ *   - 分頁重新可見且距上次成功超過 5 分鐘時補抓一次，確保「早上打開昨天的分頁」立刻換新。
+ *   - 重抓失敗不清空既有數字（保留舊值，只在 meta 顯示 as-of），避免畫面閃成錯誤態。
+ */
+export const PORTFOLIO_VALUATION_REFRESH_MS = 30 * 60 * 1000;
+export const PORTFOLIO_VALUATION_VISIBLE_STALE_MS = 5 * 60 * 1000;
 
 function taiwanCode(h: PortfolioHoldingLike): string {
   const raw = h?.code ?? h?.symbol ?? '';
