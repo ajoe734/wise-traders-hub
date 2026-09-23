@@ -64,6 +64,13 @@
       "when": 1790134640475,
       "tag": "0008_valuation_backfill_targets_require_existing_quote",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790134862268,
+      "tag": "0009_valuation_snapshot_peer_fallback_broad",
+      "breakpoints": true
     }
   ]
 }
