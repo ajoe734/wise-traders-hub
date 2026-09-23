@@ -95,7 +95,13 @@ describe('computePortfolioValuation', () => {
     expect(summarizePortfolioValuation(r)).toBeNull();
   });
 
-  it('極端值：個股 PE 極端不影響同業中位數（winsorize 在 peer 端）', () => {
+  it('極端值：個股溢價超過 +200% 會被剪裁（防單檔主導）', () => {
+    const rows: PortfolioValuationInput[] = [
+      { symbol: 'A', weight: 100, pe: 210, pb: null, dividendYield: null, peers: PEERS_10 }, // +2000% → clip +200%
+    ];
+    const r = computePortfolioValuation(rows);
+    expect(r.rulers[0].weightedPremium).toBe(2.0);
+  });
     const skewed = peers([8, 9, 10, 11, 5000]); // winsorize 後中位數仍接近 10
     const rows: PortfolioValuationInput[] = [
       { symbol: 'A', weight: 100, pe: 10, pb: null, dividendYield: null, peers: skewed },
