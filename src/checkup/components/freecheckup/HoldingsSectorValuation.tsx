@@ -105,8 +105,9 @@ export default function HoldingsSectorValuation({
           out.push({ kind: 'industry', key: k, share: 1 / industries.length });
         }
       }
-      for (const g of Array.isArray(meta?.marketGroups) ? meta.marketGroups : []) {
-        if (g) out.push({ kind: 'marketGroup', key: g });
+      const groups: string[] = Array.isArray(meta?.marketGroups) ? (meta.marketGroups as string[]) : [];
+      for (const g of groups) {
+        if (g) out.push({ kind: 'marketGroup', key: String(g) });
       }
       return out;
     },
