@@ -360,6 +360,8 @@ export function buildValuationView(input: ValuationSnapshotInput): ValuationView
     asOf: input?.asOf || null,
     source: input?.source || null,
     industry: input?.industry || null,
+    peerScope: input?.peerScope || 'fine',
+    peerIndustry: input?.peerIndustry || input?.industry || null,
     rulers,
     summary: summarizeRulers(rulers),
     peerStats,
