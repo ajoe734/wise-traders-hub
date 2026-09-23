@@ -36,6 +36,41 @@
       "when": 1790059628720,
       "tag": "0004_create_stock_industry_map_and_fine_peers",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790133931606,
+      "tag": "0005_create_valuation_backfill_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790134319071,
+      "tag": "0006_optimize_valuation_backfill_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790134465037,
+      "tag": "0007_valuation_backfill_targets_skip_recent",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790134640475,
+      "tag": "0008_valuation_backfill_targets_require_existing_quote",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790134862268,
+      "tag": "0009_valuation_snapshot_peer_fallback_broad",
+      "breakpoints": true
     }
   ]
 }

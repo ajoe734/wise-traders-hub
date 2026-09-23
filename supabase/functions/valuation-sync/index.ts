@@ -198,6 +198,64 @@ Deno.serve(async (req: Request) => {
   }
 
 
+  // 全市場五年歷史回補：一次處理一批「歷史樣本不足」的個股（每檔一次 API 取回完整日序列）。
+  if (mode === 'history') {
+    const limit = Number(body?.limit) > 0 ? Math.min(Number(body.limit), 200) : 60;
+    const minRows = Number(body?.min_rows) > 0 ? Number(body.min_rows) : 250;
+    const concurrency = Number(body?.concurrency) > 0 ? Math.min(Number(body.concurrency), 8) : 5;
+    const years = Number(body?.years) > 0 ? Number(body.years) : 5;
+
+    let targets: string[] = Array.isArray(body?.symbols) ? (body.symbols as unknown[]).map(String) : [];
+    if (targets.length === 0) {
+      const { data, error } = await supa.rpc('valuation_backfill_targets', { _limit: limit, _min_rows: minRows });
+      if (error) {
+        return new Response(JSON.stringify({ error: `targets_failed: ${error.message}` }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      targets = (data || []).map((r: { symbol: string }) => r.symbol);
+    }
+
+    const endIso = new Date().toISOString().slice(0, 10);
+    const startIso = new Date(Date.now() - years * 365.25 * 86400000).toISOString().slice(0, 10);
+
+    const failures: Record<string, string> = {};
+    let upserted = 0;
+    let done = 0;
+    let cursor = 0;
+
+    const worker = async () => {
+      for (;;) {
+        const i = cursor++;
+        if (i >= targets.length) return;
+        const s = targets[i];
+        try {
+          const rows = await fetchFinmindPer(s, startIso, endIso, token);
+          for (let j = 0; j < rows.length; j += 1000) {
+            const chunk = rows.slice(j, j + 1000);
+            const { error } = await supa
+              .from('tw_valuation_daily')
+              .upsert(chunk, { onConflict: 'symbol,trade_date' });
+            if (error) throw new Error(error.message);
+            upserted += chunk.length;
+          }
+          done++;
+        } catch (e) {
+          failures[s] = String((e as Error).message).slice(0, 160);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: concurrency }, worker));
+
+    return new Response(JSON.stringify({
+      ok: Object.keys(failures).length === 0,
+      mode,
+      targets: targets.length,
+      done,
+      upserted,
+      failures,
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
 
   // 目標清單：明確傳入，或以目前持倉／已有序列的股票為母體
   let symbols: string[] = Array.isArray(body?.symbols) ? (body.symbols as unknown[]).map(String) : [];

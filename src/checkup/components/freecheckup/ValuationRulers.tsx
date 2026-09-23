@@ -154,6 +154,13 @@ export function ValuationRulersView({
         </div>
       )}
 
+      {view.peerIndustry && (
+        <div data-testid="valuation-peer-scope" style={{ fontSize: 10, color: WB.inkMute, marginTop: 6 }}>
+          同業母體：{view.peerIndustry}
+          {view.peerScope === 'broad' ? '（細分同業不足，改用產業大類）' : ''}
+        </div>
+      )}
+
       <PeerLine WB={WB} stats={view.peerStats} />
 
       {view.nearestPeers.length > 0 && (
