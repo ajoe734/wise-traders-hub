@@ -12,6 +12,20 @@
  */
 import { memo, useMemo } from 'react';
 import PriceTrack from '../PriceTrack';
+import { isAwaitingMarketQuote } from '@/checkup/lib/quoteRequestGate';
+
+/**
+ * 卡片報價狀態，三選一，永不空白：
+ *  - ready：已有市場報價
+ *  - loading：只有成交價（剛新增）或尚無價格且沒有錯誤
+ *  - none：取價失敗／查無報價
+ */
+export function holdingQuoteStatus(h: any): 'ready' | 'loading' | 'none' {
+  const hasPrice = Number(h?.price) > 0;
+  if (h?.priceError) return 'none';
+  if (!hasPrice || isAwaitingMarketQuote(h)) return 'loading';
+  return 'ready';
+}
 
 function HoldingCardPriceTrackImpl({
   h,
@@ -26,9 +40,22 @@ function HoldingCardPriceTrackImpl({
     marginBottom: isFeature ? 10 : 8,
   }), [isFeature]);
 
+  const status = holdingQuoteStatus(h);
+  const priceOk = Number(h.price) > 0 && Number(h.cost) > 0;
   return (
     <div className="wb-price-track" style={wrapStyle}>
-      <PriceTrack cost={Number(h.cost)} now={Number(h.price)} />
+      {priceOk && <PriceTrack cost={Number(h.cost)} now={Number(h.price)} />}
+      {status !== 'ready' && (
+        <div
+          data-testid="card-quote-status"
+          data-quote-status={status}
+          role="status"
+          className="cm-num"
+          style={{ fontSize: 10, letterSpacing: '0.10em', color: 'var(--cm-ink-mute)', textAlign: 'right', marginTop: priceOk ? 2 : 0 }}
+        >
+          {status === 'loading' ? '報價載入中…' : '暫無報價'}
+        </div>
+      )}
     </div>
   );
 }
