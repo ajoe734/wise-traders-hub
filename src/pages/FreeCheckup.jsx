@@ -27,7 +27,9 @@ import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort }
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { canonicalizeTradeRow, screenImportedTradeIdentities } from "@/checkup/lib/importedTradeIdentity";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
-import { getAutoRefreshMinutes } from "@/checkup/lib/autoRefreshInterval";
+import { getAutoRefreshMinutes, setNextAutoRefreshAt } from "@/checkup/lib/autoRefreshInterval";
+import { createQuoteRequestGate, mergeQuoteIntoHolding } from "@/checkup/lib/quoteRequestGate";
+import { useRenderCounter } from "@/checkup/hooks/useRenderCounter";
 import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
@@ -129,11 +131,11 @@ export default function App() {
   // 配額耗盡採 inline banner（TradeTab L162 / DailyTab）+ toast 提示，
   // 不再使用全螢幕 modal，避免擋住 tab 導航（見 .lovable/plan.md）
   // 每分鐘 tick 一次，重新計算「距離重置」倒數
-  const [, setQuotaTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
-    return () => clearInterval(t);
-  }, []);
+  // 2026-09-24：移除頁面層 60 秒 tick——頁面內沒有任何倒數讀它，只是每分鐘讓整頁重畫。
+  const quoteGateRef = useRef(null);
+  if (quoteGateRef.current === null) quoteGateRef.current = createQuoteRequestGate();
+  const closeBackoffRef = useRef({ fp: null, attempts: 0, nextAt: 0 });
+  useRenderCounter('FreeCheckup', { warnThreshold: 30 });
   useEffect(() => {
     if (tab !== 'daily' || isDemo || !supabaseUser?.id) return;
     refreshQuota?.().catch(() => {});
@@ -1450,13 +1452,15 @@ export default function App() {
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
   // REFRESH_COOLDOWN moved above (near state declarations)
   // 深模組 deps 綁定：每次 render 更新，讓 useHoldingsSync 的 callback 讀到最新值
-  syncDepsRef.current = { isDemo, holdings, setHoldings, setSaved, enriched: H, refreshPrices: (...a) => refreshPrices(...a) };
+  syncDepsRef.current = { isDemo, holdings, setHoldings, setSaved, enriched: H, refreshPrices: (o) => refreshPrices({ ...(o || {}), manual: true }) };
 
   // opts: { allowAuthority?: boolean, forceAuthority?: boolean }
   // 回傳 typed outcome，讓 auto effect 能依「可證實的 attempt」決定 one-shot。
   const refreshPrices = async (opts = {}) => {
     const allowAuthority = opts.allowAuthority !== false;
     if (refreshing) return { kind: 'skipped', why: 'refreshing' };
+    // 手動刷新重置 pending_close 退避
+    if (opts.manual) closeBackoffRef.current = { fp: null, attempts: 0, nextAt: 0 };
     // ── DEMO 模式 ────────────────────────────────────────────────
     // 以前這裡用 ±1.5% 亂數合成「模擬報價」，於是 8/4 午夜看到的 3443 是
     // 4,239.25，而 8/3 官方收盤是 4,185 —— 假價被當成今日收盤。
@@ -1467,7 +1471,10 @@ export default function App() {
       setRefreshStatus({ phase: 'fetching', total: H.length, ok: 0, fail: H.length, missingNames: [] });
       try {
         const codes = (holdings || []).map(h => String(h.code || '').trim()).filter(Boolean);
+        const ticket = quoteGateRef.current.begin();
         const cards = await fetchDailyCloseCards(codes);
+        // 過期回應（期間已有更新的請求）直接丟棄
+        if (!quoteGateRef.current.isCurrent(ticket)) return { kind: 'skipped', why: 'stale' };
         let ok = 0;
         setHoldings(prev => (prev || []).map(h => {
           const cc = cards[String(h.code || '').trim()];
@@ -1543,7 +1550,10 @@ export default function App() {
       // Step 2: 走 close-authority lane 取價
       //   settled + allowAuthority → 官方日 K（唯一 confirmed）
       //   其他 lane 或 allowAuthority=false → 0 次 checkup-sparkline
+      const ticket = quoteGateRef.current.begin();
       const { quotes, meta } = await fetchAuthoritativeQuotesDetailed(codes, laneNow, { allowAuthority });
+      // 過期保護：期間若有更新的請求開始，這份回應一律不寫入
+      if (!quoteGateRef.current.isCurrent(ticket)) return { kind: 'skipped', why: 'stale' };
       outcome = meta.attempted
         ? { kind: 'attempted', lane: meta.lane, fingerprint, transport: meta.transport }
         : (meta.lane === 'settled'
@@ -1566,26 +1576,21 @@ export default function App() {
       });
 
       const nowIso = new Date().toISOString();
-      setHoldings(prev => (prev || []).map(h => {
-        const hit = priceMap[h.code];
-        if (!hit) {
-          return { ...h, priceError: '尚無報價（可能停牌、興櫃，或 sync 尚未完成）' };
-        }
-        // authority 被跳過時，不得把已確認的收盤身分洗回 pending
-        if (!allowAuthority && h.priceState === 'confirmed') return h;
-        const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
-        return {
-          ...h,
-          price: hit.price,
-          value, pnl, pct,
-          priceSource: hit.source,
-          priceTradeDate: hit.tradeDate,
-          priceState: hit.state,
-          priceReason: hit.state === 'confirmed' ? null : (hit.reason || 'stale_trade_date'),
-          priceUpdatedAt: hit.updatedAt || nowIso,
-          priceError: null,
-        };
-      }));
+      // 以目前持倉（prev）為底只覆寫價格欄位：請求期間使用者改的股數／成本／名稱保留。
+      setHoldings(prev => {
+        const list = prev || [];
+        const next = list.map(h => {
+          const hit = priceMap[h.code];
+          if (!hit) {
+            const msg = '尚無報價（可能停牌、興櫃，或 sync 尚未完成）';
+            return h.priceError === msg ? h : { ...h, priceError: msg };
+          }
+          // authority 被跳過時，不得把已確認的收盤身分洗回 pending
+          if (!allowAuthority && h.priceState === 'confirmed') return h;
+          return mergeQuoteIntoHolding(h, hit, calcPnlWithNet, nowIso);
+        });
+        return next.some((h, i) => h !== list[i]) ? next : prev;
+      });
 
       const updated = Object.keys(priceMap).length;
       const total = codes.length;
@@ -1625,7 +1630,6 @@ export default function App() {
   // stale=true 也不得繞過；transport throw/absent 不記完成，60 秒後可重試。
   const holdingsAutoRefreshRef = useRef({ lastTab: null, lastRunAt: 0 });
   const authorityDoneRef = useRef(new Set());
-  const closeBackoffRef = useRef({ fp: null, attempts: 0, nextAt: 0 });
   const autoDisposedRef = useRef(false);
   // StrictMode effect probe：setup→cleanup(true)→setup，setup 必須重設為 false，
   // 否則 ref 永久 true，authorityDoneRef 永遠不記 fingerprint，週期刷新會重打 Edge。
@@ -1644,28 +1648,26 @@ export default function App() {
     const expected = latestCompletedTradeDate(now);
     const fp = closeAuthorityFingerprint(expected, holdings);
     const authorityDone = lane === 'settled' && authorityDoneRef.current.has(fp);
-    const intervalMs = minutes * 60 * 1000;
-    const stale = !lastUpdate || (Date.now() - lastUpdate.getTime()) > intervalMs;
     const closePending = needsCloseAuthorityRefresh(holdings, now);
-    const due = stale || closePending;
-    if (!due) return;
-    // 收盤已定版且本 fingerprint 已完成 → 整次 price refresh 跳過（0 Edge）
-    if (authorityDone) return;
-    // pending_close 退避：同一 fingerprint 未取得定版前，依 1→2→5→15→30 分鐘拉長間隔，不熱迴圈。
     const bo = closeBackoffRef.current;
-    if (bo.fp !== fp) { bo.fp = fp; bo.attempts = 0; bo.nextAt = 0; }
-    if (!stale && closePending && Date.now() < bo.nextAt) return;
-    if (Date.now() - (holdingsAutoRefreshRef.current.lastRunAt || 0) < 60 * 1000) return;
+    // 單一決策來源（含 stale 寬限、收盤待補退避、55 秒最小間隔）：@/checkup/lib/autoRefreshGate
+    const decision = decideAutoRefresh({
+      now: Date.now(),
+      minutes,
+      lastUpdateMs: lastUpdate ? lastUpdate.getTime() : null,
+      lastRunAt: holdingsAutoRefreshRef.current.lastRunAt || 0,
+      closePending,
+      authorityDone,
+      fingerprint: fp,
+      backoff: bo,
+    });
+    if (!decision.run) return;
     holdingsAutoRefreshRef.current.lastRunAt = Date.now();
     const out = await refreshPrices({ allowAuthority: true }).catch(() => null);
     if (autoDisposedRef.current) return;
-    if (out && out.kind === 'attempted' && out.lane === 'settled' && out.transport === 'ok' && out.fingerprint) {
-      authorityDoneRef.current.add(out.fingerprint);
-      bo.attempts = 0; bo.nextAt = 0;
-    } else if (closePending) {
-      bo.nextAt = Date.now() + nextCloseRetryDelay(bo.attempts);
-      bo.attempts += 1;
-    }
+    const settledOk = !!(out && out.kind === 'attempted' && out.lane === 'settled' && out.transport === 'ok' && out.fingerprint);
+    if (settledOk) authorityDoneRef.current.add(out.fingerprint);
+    recordCloseAttempt(bo, Date.now(), settledOk, closePending);
   };
   const runAutoRefreshRef = useRef(runAutoRefresh);
   runAutoRefreshRef.current = runAutoRefresh;
@@ -1679,6 +1681,45 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, _holdingsCodesKey]);
 
+  // 新增持股：只替「新出現的代碼」非阻塞取價，不等下一輪整批刷新、不受 30 秒冷卻。
+  // 不取消上一檔的請求（連續新增兩檔時兩份都要落地）；mergeQuoteIntoHolding 保證
+  // 只覆寫價格欄位且較舊回應不倒退，故晚到回應不會蓋掉使用者輸入或較新報價。
+  const prevCodesSetRef = useRef(null);
+  useEffect(() => {
+    const cur = _holdingsCodesKey ? _holdingsCodesKey.split(',') : [];
+    const prev = prevCodesSetRef.current;
+    prevCodesSetRef.current = new Set(cur);
+    if (!prev || isDemo) return; // 首次載入交給整批刷新
+    const added = cur.filter(c => !prev.has(c));
+    if (added.length === 0) return;
+    (async () => {
+      try {
+        const { quotes } = await fetchAuthoritativeQuotesDetailed(added, new Date(), { allowAuthority: true });
+        if (autoDisposedRef.current) return;
+        const nowIso = new Date().toISOString();
+        const addedSet = new Set(added);
+        setHoldings(prevList => {
+          const list = prevList || [];
+          const next = list.map(h => {
+            if (!addedSet.has(h.code)) return h;
+            const q = quotes?.[h.code];
+            if (!(Number(q?.price) > 0)) return h;
+            return mergeQuoteIntoHolding(h, {
+              price: Number(q.price),
+              source: q.state === 'confirmed' ? 'close' : (q.source === 'snapshot' ? 'pending_close' : 'db'),
+              updatedAt: q.updatedAt,
+              tradeDate: q.tradeDate || null,
+              state: q.state,
+              reason: q.reason || null,
+            }, calcPnlWithNet, nowIso);
+          });
+          return next.some((h, i) => h !== list[i]) ? next : prevList;
+        });
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_holdingsCodesKey, isDemo]);
+
   // 週期性自動刷新（依使用者設定的分鐘數；0=關閉）。只在 holdings tab 且非同步中觸發。
   useEffect(() => {
     if (tab !== 'holdings') return;
@@ -1687,8 +1728,10 @@ export default function App() {
     const schedule = () => {
       if (disposed) return;
       const minutes = getAutoRefreshMinutes();
-      if (minutes <= 0) return; // off
+      if (minutes <= 0) { setNextAutoRefreshAt(null); return; } // off
       const intervalMs = minutes * 60 * 1000;
+      // Hero 顯示的「下次刷新」與這個 timer 同一個計時來源
+      setNextAutoRefreshAt(Date.now() + intervalMs);
       timerId = setTimeout(async () => {
         if (disposed) return;
         try {
@@ -1706,6 +1749,7 @@ export default function App() {
     return () => {
       disposed = true;
       if (timerId) clearTimeout(timerId);
+      setNextAutoRefreshAt(null);
       window.removeEventListener('fc:holdings-auto-refresh-changed', onChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

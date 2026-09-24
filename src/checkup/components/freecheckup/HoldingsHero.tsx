@@ -7,7 +7,7 @@ import { memo, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { fmtSigned, fmtSignedInt, fmtWan } from '@/checkup/lib/checkupFormat';
 import { validateProps } from '@/checkup/lib/validateProps.js';
-import { AUTO_REFRESH_OPTIONS, useAutoRefreshMinutes } from '@/checkup/lib/autoRefreshInterval';
+import { AUTO_REFRESH_OPTIONS, useAutoRefreshMinutes, useNextAutoRefreshAt } from '@/checkup/lib/autoRefreshInterval';
 import { summarizeCloseAlignment } from '@/checkup/lib/closeAlignment';
 import { formatAge } from '../../lib/freshness';
 
@@ -104,6 +104,8 @@ function HoldingsHeroImpl(props) {
 
   const canRefresh = typeof onRefreshPrices === 'function' && !refreshing;
   const [autoMin, setAutoMin] = useAutoRefreshMinutes();
+  // 與 FreeCheckup 週期 timer 同源；關閉自動或非持倉分頁時為 null
+  const nextAutoAt = useNextAutoRefreshAt();
 
   // 收盤對齊（最後完整交易日）— 與抓取時間是兩件事，必須分開顯示
   const closeAlign = summarizeCloseAlignment(holdings as any);
@@ -324,6 +326,13 @@ function HoldingsHeroImpl(props) {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
+              <span data-testid="holdings-hero-next-refresh" data-next-at={nextAutoAt ?? ''}>
+                {autoMin === 0
+                  ? '僅手動刷新'
+                  : nextAutoAt
+                    ? `下次 ${new Date(nextAutoAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                    : ''}
+              </span>
             </label>
 
           </div>
