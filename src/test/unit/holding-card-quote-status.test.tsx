@@ -10,6 +10,7 @@ import { mergeQuoteIntoHolding } from '@/checkup/lib/quoteRequestGate';
 import HoldingCardPriceTrack, { holdingQuoteStatus } from '@/checkup/components/freecheckup/_ui/holdingCard/HoldingCardPriceTrack';
 
 const calc = (h: any, p: number) => ({ value: p * h.qty, pnl: (p - h.cost) * h.qty, pct: (p / h.cost - 1) * 100 });
+const P = { dec: null, meta: null, muteColor: '#999', subColor: '#333' };
 const added = { code: '1216', name: '統一', qty: 1000, cost: 80, price: 80, priceSource: 'manual', priceUpdatedAt: '2026-09-24T05:50:00Z' };
 
 describe('新增持股報價', () => {
@@ -32,11 +33,11 @@ describe('新增持股報價', () => {
     expect(holdingQuoteStatus({ ...added, priceSource: 'pending_close', priceError: '收盤待補' })).toBe('ready');
   });
   it('卡片價格列永不空白', () => {
-    const { rerender } = render(<HoldingCardPriceTrack h={added} />);
+    const { rerender } = render(<HoldingCardPriceTrack {...P} h={added} />);
     expect(screen.getByTestId('card-quote-status').textContent).toBe('報價載入中…');
-    rerender(<HoldingCardPriceTrack h={{ ...added, price: 0, cost: 0, priceError: '尚無報價' }} />);
+    rerender(<HoldingCardPriceTrack {...P} h={{ ...added, price: 0, cost: 0, priceError: '尚無報價' }} />);
     expect(screen.getByTestId('card-quote-status').textContent).toBe('暫無報價');
-    rerender(<HoldingCardPriceTrack h={{ ...added, price: 88.4, priceSource: 'db' }} />);
+    rerender(<HoldingCardPriceTrack {...P} h={{ ...added, price: 88.4, priceSource: 'db' }} />);
     expect(screen.queryByTestId('card-quote-status')).toBeNull();
     expect(screen.getByText(/現價 88\.4/)).toBeTruthy();
   });
