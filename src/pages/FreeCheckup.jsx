@@ -771,8 +771,13 @@ export default function App() {
       }, (payload) => {
         const row = payload.new;
         if (!row || !row.symbol || !(Number(row.price) > 0)) return;
-        setHoldings(prev => (prev || []).map(h => {
+        setHoldings(prev => {
+          const list = prev || [];
+          let changed = false;
+          const next = list.map(h => {
           if (h.code !== row.symbol) return h;
+          // 價格未變：保留原物件，避免整份持倉換參考觸發下游重算／重抓。
+          if (Number(h.price) === Number(row.price) && h.priceSource === 'realtime') return h;
           // 防 demo seed 洗白：若是 seed code 且該持倉沒有任何使用者來源標記，跳過 realtime 寫入，
           // 避免價格被更新後 isExactDemoHolding 判 false、永久殘留於正式持倉。
           if (DEMO_SEED_CODES.has(h.code) && !holdingHasUserOrigin(h)) return h;
@@ -786,7 +791,10 @@ export default function App() {
             priceUpdatedAt: row.pushed_at || new Date().toISOString(),
             priceError: null,
           };
-        }));
+          });
+          for (let i = 0; i < next.length; i++) { if (next[i] !== list[i]) { changed = true; break; } }
+          return changed ? next : prev;
+        });
         setLastUpdate(new Date());
       })
       .subscribe((status) => {
@@ -1490,7 +1498,10 @@ export default function App() {
             priceUpdatedAt: cc.fetchedAt || new Date().toISOString(),
             priceError: null,
           };
-        }));
+          });
+          for (let i = 0; i < next.length; i++) { if (next[i] !== list[i]) { changed = true; break; } }
+          return changed ? next : prev;
+        });
         setLastUpdate(new Date());
         setRefreshStatus({ phase: 'done', total: codes.length, ok, fail: Math.max(0, codes.length - ok), missingNames: [] });
         const expected = latestCompletedTradeDate().replace(/-/g, '/');
@@ -1617,6 +1628,7 @@ export default function App() {
   // stale=true 也不得繞過；transport throw/absent 不記完成，60 秒後可重試。
   const holdingsAutoRefreshRef = useRef({ lastTab: null, lastRunAt: 0 });
   const authorityDoneRef = useRef(new Set());
+  const closeBackoffRef = useRef({ fp: null, attempts: 0, nextAt: 0 });
   const autoDisposedRef = useRef(false);
   // StrictMode effect probe：setup→cleanup(true)→setup，setup 必須重設為 false，
   // 否則 ref 永久 true，authorityDoneRef 永遠不記 fingerprint，週期刷新會重打 Edge。
@@ -1637,16 +1649,25 @@ export default function App() {
     const authorityDone = lane === 'settled' && authorityDoneRef.current.has(fp);
     const intervalMs = minutes * 60 * 1000;
     const stale = !lastUpdate || (Date.now() - lastUpdate.getTime()) > intervalMs;
-    const due = stale || needsCloseAuthorityRefresh(holdings, now);
+    const closePending = needsCloseAuthorityRefresh(holdings, now);
+    const due = stale || closePending;
     if (!due) return;
     // 收盤已定版且本 fingerprint 已完成 → 整次 price refresh 跳過（0 Edge）
     if (authorityDone) return;
+    // pending_close 退避：同一 fingerprint 未取得定版前，依 1→2→5→15→30 分鐘拉長間隔，不熱迴圈。
+    const bo = closeBackoffRef.current;
+    if (bo.fp !== fp) { bo.fp = fp; bo.attempts = 0; bo.nextAt = 0; }
+    if (!stale && closePending && Date.now() < bo.nextAt) return;
     if (Date.now() - (holdingsAutoRefreshRef.current.lastRunAt || 0) < 60 * 1000) return;
     holdingsAutoRefreshRef.current.lastRunAt = Date.now();
     const out = await refreshPrices({ allowAuthority: true }).catch(() => null);
     if (autoDisposedRef.current) return;
     if (out && out.kind === 'attempted' && out.lane === 'settled' && out.transport === 'ok' && out.fingerprint) {
       authorityDoneRef.current.add(out.fingerprint);
+      bo.attempts = 0; bo.nextAt = 0;
+    } else if (closePending) {
+      bo.nextAt = Date.now() + nextCloseRetryDelay(bo.attempts);
+      bo.attempts += 1;
     }
   };
   const runAutoRefreshRef = useRef(runAutoRefresh);
@@ -1657,8 +1678,9 @@ export default function App() {
     if (tab !== 'holdings') return;
     const t = setTimeout(() => { runAutoRefreshRef.current().catch(() => {}); }, 300);
     return () => clearTimeout(t);
+    // 只在「代碼集合」改變時觸發；報價更新（holdings 換參考）不得再觸發批次刷新。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, holdings]);
+  }, [tab, _holdingsCodesKey]);
 
   // 週期性自動刷新（依使用者設定的分鐘數；0=關閉）。只在 holdings tab 且非同步中觸發。
   useEffect(() => {
