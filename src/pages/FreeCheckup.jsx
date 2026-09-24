@@ -1452,6 +1452,7 @@ export default function App() {
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
   // REFRESH_COOLDOWN moved above (near state declarations)
   // 深模組 deps 綁定：每次 render 更新，讓 useHoldingsSync 的 callback 讀到最新值
+  if (typeof window!=='undefined'){ const _x=(holdings||[]).find(h=>h.code==='3443'); if(_x) console.log('DBG3443', JSON.stringify({p:_x.price,q:_x.qty,c:_x.cost,tc:_x.totalCost,v:_x.value,pnl:_x.pnl,src:_x.priceSource,st:_x.priceState})); }
   syncDepsRef.current = { isDemo, holdings, setHoldings, setSaved, enriched: H, refreshPrices: (o) => refreshPrices({ ...(o || {}), manual: true }) };
 
   // opts: { allowAuthority?: boolean, forceAuthority?: boolean }
