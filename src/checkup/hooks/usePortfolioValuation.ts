@@ -19,6 +19,7 @@ import {
   type PortfolioValuationInput,
 } from '@/checkup/lib/valuationRulers';
 import { computeStale, type ValuationStatus } from '@/checkup/hooks/useValuationSnapshot';
+import { fetchPeerMedians } from '@/checkup/lib/peerMediansCache';
 
 export interface PortfolioHoldingLike {
   code?: string | number | null;
@@ -69,7 +70,6 @@ export function usePortfolioValuation(
   } = {},
 ): UsePortfolioValuationResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
-  const [rows, setRows] = useState<PortfolioValuationInput[] | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
@@ -84,15 +84,18 @@ export function usePortfolioValuation(
       .filter((c) => c.code && c.weight > 0);
   }, [holdings]);
 
+  // 只以「代碼集合」決定是否重抓：報價造成的市值變動不再觸發 RPC（權重於前端即時重算）。
   const key = useMemo(
-    () => candidates.map((c) => `${c.code}:${Math.round(c.weight)}`).join(','),
+    () => [...new Set(candidates.map((c) => c.code))].sort().join(','),
     [candidates],
   );
+  const [snapshots, setSnapshots] = useState<Map<string, any> | null>(null);
+  const reqSeqRef = useRef(0);
 
   useEffect(() => {
-    if (candidates.length === 0) {
+    if (!key) {
       setStatus('idle');
-      setRows(null);
+      setSnapshots(null);
       setAsOf(null);
       setError(null);
       lastFetchedRef.current = null;
@@ -100,17 +103,18 @@ export function usePortfolioValuation(
       return;
     }
     let cancelled = false;
+    const seq = ++reqSeqRef.current;
     // 背景重抓（已有資料）時不要把畫面打回 loading，避免數字閃爍。
     const isRefresh = lastFetchedRef.current != null;
     if (!isRefresh) setStatus('loading');
     setError(null);
 
     const gateway = opts.injectedGateway || getCheckupGateway();
-    const symbols = [...new Set(candidates.map((c) => c.code))];
-    Promise.resolve(gateway.rpc('valuation_peer_medians', { _symbols: symbols }))
-      .then((raw: any) => {
-        if (cancelled) return;
-        const arr: any[] = Array.isArray(raw) ? raw : [];
+    const symbols = key.split(',');
+    fetchPeerMedians(gateway, symbols, { force: tick > 0 })
+      .then((arr: any[]) => {
+        // 代碼集合已改變或元件卸載：丟棄過期回應。
+        if (cancelled || seq !== reqSeqRef.current) return;
         const bySymbol = new Map<string, any>();
         let oldest: string | null = null;
         for (const item of arr) {
@@ -119,18 +123,7 @@ export function usePortfolioValuation(
           const a = item.asOf || null;
           if (a && (!oldest || a < oldest)) oldest = a;
         }
-        const merged: PortfolioValuationInput[] = candidates.map((c) => {
-          const snap = bySymbol.get(c.code);
-          return {
-            symbol: c.code,
-            weight: c.weight,
-            pe: snap?.pe ?? null,
-            pb: snap?.pb ?? null,
-            dividendYield: snap?.dividendYield ?? null,
-            peers: (Array.isArray(snap?.peers) ? snap.peers : []) as PeerRow[],
-          };
-        });
-        setRows(merged);
+        setSnapshots(bySymbol);
         setAsOf(oldest);
         setStatus('ready');
         const ts = (opts.now || Date.now)();
@@ -138,13 +131,13 @@ export function usePortfolioValuation(
         setLastFetchedAt(ts);
       })
       .catch((e: any) => {
-        if (cancelled) return;
+        if (cancelled || seq !== reqSeqRef.current) return;
         if (isRefresh) {
           // 背景重抓失敗：保留舊數字，不把畫面打成錯誤態。
           setError(e?.message || '估值資料暫時取不到');
           return;
         }
-        setRows(null);
+        setSnapshots(null);
         setAsOf(null);
         setError(e?.message || '估值資料暫時取不到');
         setStatus('error');
@@ -156,9 +149,25 @@ export function usePortfolioValuation(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, opts.injectedGateway, tick]);
 
+  // 權重（市值）隨報價即時重算，不需要重打 RPC。
+  const rows = useMemo<PortfolioValuationInput[] | null>(() => {
+    if (!snapshots) return null;
+    return candidates.map((c) => {
+      const snap = snapshots.get(c.code);
+      return {
+        symbol: c.code,
+        weight: c.weight,
+        pe: snap?.pe ?? null,
+        pb: snap?.pb ?? null,
+        dividendYield: snap?.dividendYield ?? null,
+        peers: (Array.isArray(snap?.peers) ? snap.peers : []) as PeerRow[],
+      };
+    });
+  }, [snapshots, candidates]);
+
   // 自動更新排程：固定間隔 + 分頁重新可見時補抓（隱藏時不打 RPC）。
   useEffect(() => {
-    if (candidates.length === 0) return;
+    if (!key) return;
     if (typeof window === 'undefined') return;
     const intervalMs = opts.refreshMs ?? PORTFOLIO_VALUATION_REFRESH_MS;
     if (!(intervalMs > 0)) return;
