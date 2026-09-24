@@ -221,20 +221,42 @@ test.describe('FreeCheckup mobile card', () => {
   });
 
   test('first workbench card visual matches baseline', async ({ page }, testInfo) => {
+    // ── 固定 mock 資料：凍結時鐘 + 決定性亂數，後端請求一律回空，
+    //    卡片只吃 demo 種子資料，不受網路報價/收盤時序影響。
+    await page.clock.setFixedTime(new Date('2026-07-31T04:00:00.000Z'));
+    await page.addInitScript(() => {
+      let seed = 0x2f6e2b1;
+      Math.random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 0x100000000;
+      };
+    });
+    await page.route(/supabase\.co\//, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    // ── 固定字型：擋掉 Google Fonts，改用 repo 內 public/fonts 的 Noto Sans TC。
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
+
     await gotoFreeCheckup(page, testInfo);
     const firstCard = page.locator(CARD_SELECTOR).first();
     await expect(firstCard).toBeVisible();
 
-    // Stabilise: hide network-driven sparkline + animations.
+    // Stabilise: hide network-driven sparkline + animations; force local font.
     await page.addStyleTag({
       content: `
+        @font-face { font-family: 'LF Test Sans'; font-weight: 400; src: url('/fonts/NotoSansTC-Regular.ttf') format('truetype'); }
+        @font-face { font-family: 'LF Test Sans'; font-weight: 500 900; src: url('/fonts/NotoSansTC-Bold.ttf') format('truetype'); }
+        .holdings-card-grid, .holdings-card-grid * { font-family: 'LF Test Sans', sans-serif !important; }
         .wb-spark { visibility: hidden !important; }
         * { animation: none !important; transition: none !important; }
       `,
     });
-    // 字型（Google Noto Sans TC）非同步載入：未載完時 CJK 行高會差 1–2px，
-    // 造成 baseline 隨網路時序飄動。截圖前一律等字型就緒。
-    await page.evaluate(() => (document as any).fonts?.ready);
+    // 等固定字型實際載入完成再截圖。
+    await page.evaluate(async () => {
+      const d = document as any;
+      await Promise.all([d.fonts.load("400 14px 'LF Test Sans'", '持倉'), d.fonts.load("700 14px 'LF Test Sans'", '持倉')]);
+      await d.fonts.ready;
+    });
     await firstCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(150);
 
