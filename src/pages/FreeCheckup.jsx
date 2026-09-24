@@ -1690,7 +1690,7 @@ export default function App() {
     const prev = prevCodesSetRef.current;
     prevCodesSetRef.current = new Set(cur);
     if (!prev || isDemo) return; // 首次載入交給整批刷新
-    const added = cur.filter(c => !prev.has(c));
+    const added = cur.filter(c => !prev.has(c)); console.log('DBGADD', cur.length, added.join(','));
     if (added.length === 0) return;
     (async () => {
       try {
