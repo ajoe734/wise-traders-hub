@@ -69,7 +69,9 @@ describe('持倉刷新來源', () => {
 
   it('閒置 1/5/30 分鐘：只有 30 分鐘時背景重抓一次', async () => {
     const rpc = vi.fn(async (_n: string, a: any) => a._symbols.map((s: string) => row(s)));
-    renderHook(() => usePortfolioValuation([{ code: '2330', value: 1 }], { injectedGateway: { rpc } as any }));
+    const h = [{ code: '2330', value: 1 }];
+    const gw = { rpc } as any;
+    renderHook(() => usePortfolioValuation(h, { injectedGateway: gw }));
     await act(flush);
     await act(async () => { vi.advanceTimersByTime(60_000); await flush(); });
     expect(rpc).toHaveBeenCalledTimes(1);
