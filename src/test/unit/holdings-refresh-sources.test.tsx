@@ -65,7 +65,6 @@ describe('持倉刷新來源', () => {
     expect(result.current.asOf).toBe('2026-09-20');
     await act(async () => { resolvers[0](); resolvers[1](); await flush(); });
     expect(result.current.asOf).toBe('2026-09-20');
-    expect(result.current.result?.coverage ?? 1).toBeDefined();
   });
 
   it('閒置 1/5/30 分鐘：只有 30 分鐘時背景重抓一次', async () => {
