@@ -61,3 +61,27 @@ export function useAutoRefreshMinutes(): [number, (v: number) => void] {
   const update = useCallback((v: number) => setAutoRefreshMinutes(v), []);
   return [value, update];
 }
+
+// ── 下次自動刷新時間（與 FreeCheckup 的 setTimeout 同一計時來源）──
+const NEXT_EVENT = 'fc:holdings-next-auto-refresh';
+let nextAt: number | null = null;
+
+export function setNextAutoRefreshAt(ts: number | null) {
+  nextAt = ts;
+  try { window.dispatchEvent(new CustomEvent(NEXT_EVENT, { detail: ts })); } catch {}
+}
+
+export function getNextAutoRefreshAt(): number | null {
+  return nextAt;
+}
+
+export function useNextAutoRefreshAt(): number | null {
+  const [v, setV] = useState<number | null>(() => nextAt);
+  useEffect(() => {
+    const h = () => setV(nextAt);
+    window.addEventListener(NEXT_EVENT, h);
+    h();
+    return () => window.removeEventListener(NEXT_EVENT, h);
+  }, []);
+  return v;
+}

@@ -105,3 +105,8 @@ export function useRenderCounter(label: string, options: RenderCounterOptions = 
 }
 
 export default useRenderCounter;
+
+// dev/test：讓 Playwright 讀得到 render 計數（生產環境不掛）
+if (ENABLED && typeof window !== 'undefined') {
+  (window as any).__lfRenderStats = { get: getRenderStats, reset: resetRenderStats };
+}

@@ -81,6 +81,26 @@ describe('持倉刷新來源', () => {
     expect(rpc).toHaveBeenCalledTimes(2);
   });
 
+  it('visibility／focus／online 同時觸發：整批估值只多 1 次', async () => {
+    let now = 1_000_000;
+    const rpc = vi.fn(async (_n: string, a: any) => a._symbols.map((s: string) => row(s)));
+    const h = [{ code: '2330', value: 1 }];
+    const gw = { rpc } as any;
+    const nowFn = () => now;
+    renderHook(() => usePortfolioValuation(h, { injectedGateway: gw, now: nowFn }));
+    renderHook(() => usePortfolioValuation(h, { injectedGateway: gw, now: nowFn }));
+    await act(flush);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    now += 6 * 60_000;
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('online'));
+      await flush();
+    });
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
   it('快取有上限', async () => {
     const rpc = vi.fn(async () => []);
     const gw = { rpc } as any;
