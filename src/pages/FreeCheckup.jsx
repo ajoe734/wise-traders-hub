@@ -105,6 +105,7 @@ import {
   useAuthoritativeHoldingsReconciliation,
 } from "@/hooks/useFreeCheckupBootstrap";
 import { fetchAuthoritativeQuotesDetailed } from "@/checkup/lib/authoritativeQuotes";
+import { resolveStockNames } from "@/lib/stockNameResolver";
 import { fetchDailyCloseCards } from "@/checkup/lib/closeAuthority";
 import { confirmedCloseLabel } from "@/checkup/lib/confirmedClose";
 import { latestCompletedTradeDate, closeAuthorityLane } from "@/checkup/lib/marketCalendar";
@@ -1692,6 +1693,18 @@ export default function App() {
     if (!prev || isDemo) return; // 首次載入交給整批刷新
     const added = cur.filter(c => !prev.has(c));
     if (added.length === 0) return;
+    // 股名晚到補回：只補「名稱仍等於代碼」的列，使用者期間改過名稱就不覆蓋
+    const unnamed = (holdings || []).filter(h => added.includes(h.code) && (!h.name || h.name === h.code)).map(h => h.code);
+    if (unnamed.length) {
+      resolveStockNames(unnamed).then(names => {
+        if (autoDisposedRef.current || !names) return;
+        setHoldings(prevList => {
+          const list = prevList || [];
+          const next = list.map(h => (names[h.code] && (!h.name || h.name === h.code)) ? { ...h, name: names[h.code] } : h);
+          return next.some((h, i) => h !== list[i]) ? next : prevList;
+        });
+      }).catch(() => {});
+    }
     (async () => {
       try {
         const { quotes } = await fetchAuthoritativeQuotesDetailed(added, new Date(), { allowAuthority: true });
