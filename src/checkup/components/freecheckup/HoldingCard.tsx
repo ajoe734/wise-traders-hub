@@ -88,7 +88,6 @@ function HoldingCardImpl(props) {
   // 大字 ROI：現價 vs 成本
   const _costNum = Number(h.cost);
   const _priceNum = Number(h.price);
-  if (h.code==='3443') console.log('DBG3443card', JSON.stringify({p:h.price,v:h.value,src:h.priceSource}));
   const _qtyNum = Number(h.qty);
   const pctVal = (_costNum > 0 && Number.isFinite(_priceNum))
     ? ((_priceNum / _costNum) - 1) * 100
