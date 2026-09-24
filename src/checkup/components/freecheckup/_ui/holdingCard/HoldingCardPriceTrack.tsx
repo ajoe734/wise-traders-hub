@@ -22,9 +22,9 @@ import { isAwaitingMarketQuote } from '@/checkup/lib/quoteRequestGate';
  */
 export function holdingQuoteStatus(h: any): 'ready' | 'loading' | 'none' {
   const hasPrice = Number(h?.price) > 0;
-  if (h?.priceError) return 'none';
-  if (!hasPrice || isAwaitingMarketQuote(h)) return 'loading';
-  return 'ready';
+  // 已有市場報價（即使收盤待補）→ ready；價格欄旁的收盤狀態由其他元件呈現
+  if (hasPrice && !isAwaitingMarketQuote(h)) return 'ready';
+  return h?.priceError ? 'none' : 'loading';
 }
 
 function HoldingCardPriceTrackImpl({
