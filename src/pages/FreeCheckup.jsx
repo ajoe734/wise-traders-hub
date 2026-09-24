@@ -1498,10 +1498,7 @@ export default function App() {
             priceUpdatedAt: cc.fetchedAt || new Date().toISOString(),
             priceError: null,
           };
-          });
-          for (let i = 0; i < next.length; i++) { if (next[i] !== list[i]) { changed = true; break; } }
-          return changed ? next : prev;
-        });
+        }));
         setLastUpdate(new Date());
         setRefreshStatus({ phase: 'done', total: codes.length, ok, fail: Math.max(0, codes.length - ok), missingNames: [] });
         const expected = latestCompletedTradeDate().replace(/-/g, '/');
