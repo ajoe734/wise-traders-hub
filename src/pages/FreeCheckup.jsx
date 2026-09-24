@@ -1474,6 +1474,7 @@ export default function App() {
         const ticket = quoteGateRef.current.begin();
         const cards = await fetchDailyCloseCards(codes);
         // 過期回應（期間已有更新的請求）直接丟棄
+        if (!quoteGateRef.current.isCurrent(ticket)) return { kind: 'skipped', why: 'stale' };
         let ok = 0;
         setHoldings(prev => (prev || []).map(h => {
           const cc = cards[String(h.code || '').trim()];
