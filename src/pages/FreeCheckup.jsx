@@ -1703,7 +1703,11 @@ export default function App() {
           const next = list.map(h => {
             if (!addedSet.has(h.code)) return h;
             const q = quotes?.[h.code];
-            if (!(Number(q?.price) > 0)) return h;
+            if (!(Number(q?.price) > 0)) {
+              // 查無市場報價：只有成交價的那檔改標「暫無報價」，不讓卡片永遠停在載入中
+              const msg = '尚無報價（可能停牌、興櫃，或 sync 尚未完成）';
+              return (h.priceSource === 'manual' || h.priceSource === 'screenshot') && h.priceError !== msg ? { ...h, priceError: msg } : h;
+            }
             return mergeQuoteIntoHolding(h, {
               price: Number(q.price),
               source: q.state === 'confirmed' ? 'close' : (q.source === 'snapshot' ? 'pending_close' : 'db'),
