@@ -232,6 +232,9 @@ test.describe('FreeCheckup mobile card', () => {
         * { animation: none !important; transition: none !important; }
       `,
     });
+    // 字型（Google Noto Sans TC）非同步載入：未載完時 CJK 行高會差 1–2px，
+    // 造成 baseline 隨網路時序飄動。截圖前一律等字型就緒。
+    await page.evaluate(() => (document as any).fonts?.ready);
     await firstCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(150);
 
