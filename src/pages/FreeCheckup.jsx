@@ -1681,6 +1681,45 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, _holdingsCodesKey]);
 
+  // 新增持股：只替「新出現的代碼」非阻塞取價，不等下一輪整批刷新、不受 30 秒冷卻。
+  // 不取消上一檔的請求（連續新增兩檔時兩份都要落地）；mergeQuoteIntoHolding 保證
+  // 只覆寫價格欄位且較舊回應不倒退，故晚到回應不會蓋掉使用者輸入或較新報價。
+  const prevCodesSetRef = useRef(null);
+  useEffect(() => {
+    const cur = _holdingsCodesKey ? _holdingsCodesKey.split(',') : [];
+    const prev = prevCodesSetRef.current;
+    prevCodesSetRef.current = new Set(cur);
+    if (!prev || isDemo) return; // 首次載入交給整批刷新
+    const added = cur.filter(c => !prev.has(c));
+    if (added.length === 0) return;
+    (async () => {
+      try {
+        const { quotes } = await fetchAuthoritativeQuotesDetailed(added, new Date(), { allowAuthority: true });
+        if (autoDisposedRef.current) return;
+        const nowIso = new Date().toISOString();
+        const addedSet = new Set(added);
+        setHoldings(prevList => {
+          const list = prevList || [];
+          const next = list.map(h => {
+            if (!addedSet.has(h.code)) return h;
+            const q = quotes?.[h.code];
+            if (!(Number(q?.price) > 0)) return h;
+            return mergeQuoteIntoHolding(h, {
+              price: Number(q.price),
+              source: q.state === 'confirmed' ? 'close' : (q.source === 'snapshot' ? 'pending_close' : 'db'),
+              updatedAt: q.updatedAt,
+              tradeDate: q.tradeDate || null,
+              state: q.state,
+              reason: q.reason || null,
+            }, calcPnlWithNet, nowIso);
+          });
+          return next.some((h, i) => h !== list[i]) ? next : prevList;
+        });
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_holdingsCodesKey, isDemo]);
+
   // 週期性自動刷新（依使用者設定的分鐘數；0=關閉）。只在 holdings tab 且非同步中觸發。
   useEffect(() => {
     if (tab !== 'holdings') return;
