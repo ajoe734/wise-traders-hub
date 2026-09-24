@@ -109,3 +109,11 @@ export function needsCloseAuthorityRefresh(
     return h?.priceState === 'pending' || td !== expected;
   });
 }
+
+/** pending_close 退避序列（分鐘）：同一 fingerprint 未取得定版前逐次拉長，封頂 30 分鐘。 */
+export const CLOSE_RETRY_BACKOFF_MIN = [1, 2, 5, 15, 30] as const;
+
+export function nextCloseRetryDelay(attempts: number): number {
+  const i = Math.max(0, Math.min(CLOSE_RETRY_BACKOFF_MIN.length - 1, Math.floor(attempts || 0)));
+  return CLOSE_RETRY_BACKOFF_MIN[i] * 60 * 1000;
+}

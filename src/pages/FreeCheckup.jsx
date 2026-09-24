@@ -106,7 +106,7 @@ import { fetchAuthoritativeQuotesDetailed } from "@/checkup/lib/authoritativeQuo
 import { fetchDailyCloseCards } from "@/checkup/lib/closeAuthority";
 import { confirmedCloseLabel } from "@/checkup/lib/confirmedClose";
 import { latestCompletedTradeDate, closeAuthorityLane } from "@/checkup/lib/marketCalendar";
-import { closeAuthorityFingerprint, needsCloseAuthorityRefresh } from "@/checkup/lib/closeAlignment";
+import { closeAuthorityFingerprint, needsCloseAuthorityRefresh, nextCloseRetryDelay } from "@/checkup/lib/closeAlignment";
 
 import { Logomark } from "@/components/brand";
 
