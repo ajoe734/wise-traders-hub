@@ -27,7 +27,7 @@ import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort }
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { canonicalizeTradeRow, screenImportedTradeIdentities } from "@/checkup/lib/importedTradeIdentity";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
-import { getAutoRefreshMinutes, setNextAutoRefreshAt } from "@/checkup/lib/autoRefreshInterval";
+import { getAutoRefreshMinutes, startAutoRefreshLoop } from "@/checkup/lib/autoRefreshInterval";
 import { createQuoteRequestGate, mergeQuoteIntoHolding } from "@/checkup/lib/quoteRequestGate";
 import { useRenderCounter } from "@/checkup/hooks/useRenderCounter";
 import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
@@ -109,7 +109,8 @@ import { resolveStockNames } from "@/lib/stockNameResolver";
 import { fetchDailyCloseCards } from "@/checkup/lib/closeAuthority";
 import { confirmedCloseLabel } from "@/checkup/lib/confirmedClose";
 import { latestCompletedTradeDate, closeAuthorityLane } from "@/checkup/lib/marketCalendar";
-import { closeAuthorityFingerprint, needsCloseAuthorityRefresh, nextCloseRetryDelay } from "@/checkup/lib/closeAlignment";
+import { closeAuthorityFingerprint, needsCloseAuthorityRefresh } from "@/checkup/lib/closeAlignment";
+import { decideAutoRefresh, recordCloseAttempt } from "@/checkup/lib/autoRefreshGate";
 
 import { Logomark } from "@/components/brand";
 
@@ -1740,35 +1741,11 @@ export default function App() {
   // 週期性自動刷新（依使用者設定的分鐘數；0=關閉）。只在 holdings tab 且非同步中觸發。
   useEffect(() => {
     if (tab !== 'holdings') return;
-    let disposed = false;
-    let timerId = null;
-    const schedule = () => {
-      if (disposed) return;
-      const minutes = getAutoRefreshMinutes();
-      if (minutes <= 0) { setNextAutoRefreshAt(null); return; } // off
-      const intervalMs = minutes * 60 * 1000;
-      // Hero 顯示的「下次刷新」與這個 timer 同一個計時來源
-      setNextAutoRefreshAt(Date.now() + intervalMs);
-      timerId = setTimeout(async () => {
-        if (disposed) return;
-        try {
-          if (document.visibilityState !== 'hidden') await runAutoRefreshRef.current();
-        } catch {}
-        schedule();
-      }, intervalMs);
-    };
-    schedule();
-    const onChange = () => {
-      if (timerId) { clearTimeout(timerId); timerId = null; }
-      schedule();
-    };
-    window.addEventListener('fc:holdings-auto-refresh-changed', onChange);
-    return () => {
-      disposed = true;
-      if (timerId) clearTimeout(timerId);
-      setNextAutoRefreshAt(null);
-      window.removeEventListener('fc:holdings-auto-refresh-changed', onChange);
-    };
+    // Hero 顯示的「下次刷新」與 timer 同一個計時來源（startAutoRefreshLoop）
+    return startAutoRefreshLoop({
+      getMinutes: getAutoRefreshMinutes,
+      run: () => runAutoRefreshRef.current(),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, holdings?.length]);
 
@@ -3250,7 +3227,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   syncError.rawMessage ? `raw: ${syncError.rawMessage}` : null,
                   syncError.attempts ? `attempts: ${syncError.attempts}` : null,
                   syncError.failedCodes?.length ? `failedCodes: ${syncError.failedCodes.join(',')}` : null,
-                  `consecutiveFail: ${consecutiveFailRef.current}`,
                 ].filter(Boolean).join('\n');
                 try {
                   if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);

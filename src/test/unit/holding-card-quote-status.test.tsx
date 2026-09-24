@@ -21,6 +21,13 @@ describe('新增持股報價', () => {
     expect(next.qty).toBe(1000);
     expect(next.cost).toBe(80);
   });
+  it('示範種子價（demo）不擋市場報價，且卡片仍為 ready（不顯示載入中）', () => {
+    const demo = { ...added, priceSource: 'demo', priceUpdatedAt: '2026-09-24T05:50:00Z' };
+    expect(holdingQuoteStatus(demo)).toBe('ready');
+    const next = mergeQuoteIntoHolding(demo, { price: 88.4, source: 'pending_close', updatedAt: '2026-09-24T05:30:00Z', state: 'pending', reason: 'no_bars' } as any, calc, 'x');
+    expect(next.priceSource).toBe('pending_close');
+    expect(next.qty).toBe(1000);
+  });
   it('市場報價之間仍不倒退', () => {
     const live = { ...added, price: 90, priceSource: 'realtime', priceUpdatedAt: '2026-09-24T05:50:00Z' };
     expect(mergeQuoteIntoHolding(live, { price: 88.4, source: 'db', updatedAt: '2026-09-24T05:30:00Z' } as any, calc, 'x')).toBe(live);

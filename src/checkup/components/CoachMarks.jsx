@@ -96,7 +96,7 @@ export function CoachMarks({ onTabChange: _onTabChange }) {
     if (isLast) { close(); return; }
     const nextStep = step + 1;
     setStep(nextStep);
-    onTabChange?.(STEPS[nextStep].targetTab);
+    _onTabChange?.(STEPS[nextStep].targetTab);
   };
 
   return (

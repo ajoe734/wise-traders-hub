@@ -61,13 +61,19 @@ export function isAwaitingMarketQuote(h: any): boolean {
   return !!h && TRADE_PRICE_SOURCES.has(h.priceSource);
 }
 
+/**
+ * 非市場報價來源：時間戳是「輸入/載入當下」，不代表報價新舊，不可拿來擋市場報價。
+ * demo 為示範種子價（進頁時產生時間戳）；卡片仍視為 ready，不顯示載入中。
+ */
+export const NON_MARKET_PRICE_SOURCES = new Set(['manual', 'screenshot', 'demo']);
+
 export function mergeQuoteIntoHolding(h: any, hit: QuoteHit | undefined, calc: Calc, nowIso: string): any {
   if (!h || !hit || !(Number(hit.price) > 0)) return h;
   const prevTs = h.priceUpdatedAt ? Date.parse(h.priceUpdatedAt) : NaN;
   const hitTs = hit.updatedAt ? Date.parse(hit.updatedAt) : NaN;
   // 比現有「市場報價」還舊（例如 realtime 已推了更新價）→ 不倒退。
-  // 成交價（manual/screenshot）的時間戳是輸入當下，不可拿來擋掉較早時間的市場報價。
-  if (!isAwaitingMarketQuote(h) && Number.isFinite(prevTs) && Number.isFinite(hitTs) && hitTs < prevTs) return h;
+  // 成交價（manual/screenshot）與示範種子價（demo）的時間戳是輸入/載入當下，不可拿來擋掉較早時間的市場報價。
+  if (!NON_MARKET_PRICE_SOURCES.has(h.priceSource) && Number.isFinite(prevTs) && Number.isFinite(hitTs) && hitTs < prevTs) return h;
   const { value, pnl, pct } = calc(h, Number(hit.price));
   const next = {
     ...h,

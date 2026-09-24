@@ -85,3 +85,43 @@ export function useNextAutoRefreshAt(): number | null {
   }, []);
   return v;
 }
+
+/**
+ * 週期自動刷新迴圈（FreeCheckup 唯一計時來源）。
+ * 每次排程都用同一個 `Date.now() + intervalMs` 同時設定 setTimeout 與「下次刷新」顯示，
+ * 所以 Hero 的時間與實際觸發時間不會漂移。分頁隱藏時該輪不發請求，但照常排下一輪。
+ */
+export function startAutoRefreshLoop(opts: {
+  getMinutes: () => number;
+  run: () => Promise<unknown> | unknown;
+  isHidden?: () => boolean;
+}): () => void {
+  let disposed = false;
+  let timerId: ReturnType<typeof setTimeout> | null = null;
+  const isHidden = opts.isHidden ?? (() => typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  const schedule = () => {
+    if (disposed) return;
+    const minutes = opts.getMinutes();
+    if (!(minutes > 0)) { setNextAutoRefreshAt(null); return; }
+    const intervalMs = minutes * 60 * 1000;
+    setNextAutoRefreshAt(Date.now() + intervalMs);
+    timerId = setTimeout(async () => {
+      timerId = null;
+      if (disposed) return;
+      try { if (!isHidden()) await opts.run(); } catch { /* 單輪失敗不中斷迴圈 */ }
+      schedule();
+    }, intervalMs);
+  };
+  const onChange = () => {
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+    schedule();
+  };
+  schedule();
+  window.addEventListener(EVENT, onChange);
+  return () => {
+    disposed = true;
+    if (timerId) clearTimeout(timerId);
+    setNextAutoRefreshAt(null);
+    window.removeEventListener(EVENT, onChange);
+  };
+}
