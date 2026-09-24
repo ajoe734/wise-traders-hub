@@ -186,7 +186,9 @@ function HoldingCardImpl(props) {
         ? `正在更新 ${cardLabel} 現價…`
         : cardSyncError
           ? ''
-          : (h.priceUpdatedAt ? `${cardLabel} 現價已更新` : '')}
+          : (h.priceSource === 'manual' || h.priceSource === 'screenshot')
+            ? `${cardLabel} 報價載入中`
+            : (h.priceUpdatedAt ? `${cardLabel} 現價已更新` : '')}
     </span>
   );
 

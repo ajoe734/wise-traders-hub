@@ -53,12 +53,21 @@ type Calc = (h: any, price: number) => { value: number; pnl: number; pct: number
  * 以「目前」持倉 h 為底，只覆寫價格欄位。
  * 回傳原物件代表不需變更（避免整份持倉換參考）。
  */
+/** 成交輸入帶來的價格（成交價，不是市場報價）。 */
+export const TRADE_PRICE_SOURCES = new Set(['manual', 'screenshot']);
+
+/** 這檔目前顯示的價格是否只是成交價、尚未拿到市場報價。 */
+export function isAwaitingMarketQuote(h: any): boolean {
+  return !!h && TRADE_PRICE_SOURCES.has(h.priceSource);
+}
+
 export function mergeQuoteIntoHolding(h: any, hit: QuoteHit | undefined, calc: Calc, nowIso: string): any {
   if (!h || !hit || !(Number(hit.price) > 0)) return h;
   const prevTs = h.priceUpdatedAt ? Date.parse(h.priceUpdatedAt) : NaN;
   const hitTs = hit.updatedAt ? Date.parse(hit.updatedAt) : NaN;
-  // 比現有報價還舊（例如 realtime 已推了更新價）→ 不倒退
-  if (Number.isFinite(prevTs) && Number.isFinite(hitTs) && hitTs < prevTs) return h;
+  // 比現有「市場報價」還舊（例如 realtime 已推了更新價）→ 不倒退。
+  // 成交價（manual/screenshot）的時間戳是輸入當下，不可拿來擋掉較早時間的市場報價。
+  if (!isAwaitingMarketQuote(h) && Number.isFinite(prevTs) && Number.isFinite(hitTs) && hitTs < prevTs) return h;
   const { value, pnl, pct } = calc(h, Number(hit.price));
   const next = {
     ...h,
