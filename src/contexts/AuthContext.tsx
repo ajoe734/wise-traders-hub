@@ -121,8 +121,13 @@ type AuthContextType = AuthStateValue & AuthActionsValue;
 // re-renders all subscribers; actions are stable refs so action-only consumers
 // (forms, buttons) never re-render on token refresh. `useAuth()` keeps the
 // merged shape for backward compatibility.
-const AuthStateContext = createContext<AuthStateValue | undefined>(undefined);
-const AuthActionsContext = createContext<AuthActionsValue | undefined>(undefined);
+// HMR 穩定：熱更新重新執行本模組時沿用同一個 context，避免 Provider/Consumer 身分不一致而白屏。
+const __g = globalThis as unknown as {
+  __lfAuthStateCtx?: React.Context<AuthStateValue | undefined>;
+  __lfAuthActionsCtx?: React.Context<AuthActionsValue | undefined>;
+};
+const AuthStateContext = (__g.__lfAuthStateCtx ??= createContext<AuthStateValue | undefined>(undefined));
+const AuthActionsContext = (__g.__lfAuthActionsCtx ??= createContext<AuthActionsValue | undefined>(undefined));
 AuthStateContext.displayName = 'AuthStateContext';
 AuthActionsContext.displayName = 'AuthActionsContext';
 
