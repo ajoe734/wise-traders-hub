@@ -8,6 +8,10 @@
  *  - 任一步失敗 → 已寫入的部分**完整 rollback** 回原值，回報 ok:false。
  *  - 不得寫任何帳務表（trade_records / user_performances / 資金）。
  *    gateway 實作若嘗試寫入 FORBIDDEN_WRITE_TABLES，service 直接拒絕。
+ *
+ * 另提供 buildSellTradeEntry：「刪除前先記一筆賣出」的純函式層。
+ * 產出的交易列與 TradeTab.applyCorrections 同形狀，由呼叫端走既有
+ * mergeTradeIntoHoldings + setTradeLog 管線；本服務不做任何提交。
  */
 import {
   CALENDAR_HOLDINGS_KEY,
@@ -23,6 +27,7 @@ import {
   planManualReAdd,
   planScreenshotImport,
 } from './holdingExclusions';
+import { formatTradeDate, formatTradeTime } from './manualTradeEntry';
 
 export interface HoldingPersistenceGateway {
   /** 寫入 pf-holdings-v2（本機 + 雲端）。 */
@@ -181,4 +186,92 @@ export async function applyScreenshotImportWithExclusions<T extends HoldingLike>
       error: e instanceof Error ? e.message : String(e),
     };
   }
+}
+
+// ── 「記賣出並刪除」純函式層 ──────────────────────────────────────────
+
+export type SellEntryError = 'invalid-qty' | 'invalid-price' | 'oversell';
+
+/**
+ * 賣出交易列：欄位與 TradeTab.applyCorrections 產生的列同形狀
+ * （12-key manual row + tradeLog 的 id / qa），mergeTradeIntoHoldings
+ * 只讀 action / code / name / qty / price / total_cost / fee / market_price。
+ */
+export interface SellTradeEntry {
+  id: string;
+  action: '賣出';
+  code: string;
+  name: string;
+  qty: number;
+  price: number;
+  market_price: null;
+  amount: null;
+  total_cost: null;
+  fee: null;
+  date: string;
+  time: string;
+  priceSource: 'manual';
+  qa: [];
+}
+
+export function validateSellEntry({
+  qty,
+  price,
+  heldQty,
+}: {
+  qty: number;
+  price: number;
+  heldQty: number;
+}): SellEntryError | null {
+  if (!Number.isFinite(qty) || qty <= 0) return 'invalid-qty';
+  if (!Number.isFinite(price) || price <= 0) return 'invalid-price';
+  if (Number.isFinite(heldQty) && heldQty > 0 && qty > heldQty) return 'oversell';
+  return null;
+}
+
+export type BuildSellEntryResult =
+  | { ok: true; entry: SellTradeEntry }
+  | { ok: false; error: SellEntryError | 'invalid-code' };
+
+/** 賣出股數 = 持股股數 → replay 後該檔移出持倉；部分賣出 → 僅扣股數。 */
+export function buildSellTradeEntry({
+  code,
+  name,
+  qty,
+  price,
+  heldQty,
+  now = new Date(),
+}: {
+  code: unknown;
+  name?: unknown;
+  qty: unknown;
+  price: unknown;
+  heldQty?: unknown;
+  now?: Date;
+}): BuildSellEntryResult {
+  const target = String(code ?? '').trim();
+  const q = Number(qty);
+  const p = Number(price);
+  const error = validateSellEntry({ qty: q, price: p, heldQty: Number(heldQty) || 0 });
+  if (!target) return { ok: false, error: error ?? 'invalid-code' };
+  if (error) return { ok: false, error };
+  return {
+    ok: true,
+    entry: {
+      id: `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+      action: '賣出',
+      code: target,
+      name: String(name ?? '').trim() || target,
+      qty: q,
+      price: p,
+      market_price: null,
+      amount: null,
+      total_cost: null,
+      fee: null,
+      date: formatTradeDate(now),
+      time: formatTradeTime(now),
+      priceSource: 'manual',
+      qa: [],
+    },
+  };
 }
