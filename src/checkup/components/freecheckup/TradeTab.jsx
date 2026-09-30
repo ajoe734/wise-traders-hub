@@ -110,7 +110,7 @@ function TradeTabImpl({
   // 手動目標價
   tpCode, setTpCode, tpFirm, setTpFirm, tpVal, setTpVal,
   setTargets, setSaved,
-  onClearHoldingExclusion,
+  onClearHoldingExclusion = undefined,
 }) {
   validateProps('TradeTab', arguments[0], TRADE_TAB_PROP_SCHEMA);
   // 'upload' = 截圖解析（既有路徑）；'manual' = 手動輸入。兩者共用同一份 preview 清單與同一顆確認鈕。
