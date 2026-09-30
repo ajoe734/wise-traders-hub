@@ -49,9 +49,9 @@ export function HoldingDeleteSellHarnessEntry() {
         heldQty: held?.qty ?? 0,
         now: new Date(2026, 8, 30, 11, 30),
       });
-      if (!built.ok) {
-        setError(built.error);
-        return { ok: false, reason: built.error };
+      if (built.ok === false) {
+        setError(String(built.error));
+        return { ok: false, reason: String(built.error) };
       }
       const remaining = (held?.qty ?? 0) - built.entry.qty;
       setHoldings((prev) => applyTradeEntryToHoldings(prev, built.entry) as Row[]);
