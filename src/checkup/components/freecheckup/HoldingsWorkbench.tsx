@@ -45,6 +45,7 @@ function HoldingsWorkbench(props) {
     STOCK_META,
     overrides,
     holdingSyncStates,
+    onDeleteHolding,
     handleHoldingCardSelect,
     handleHoldingCardOpenDrawer,
     handleReportMeta,
@@ -372,6 +373,7 @@ function HoldingsWorkbench(props) {
                 setSortDir={setSortDir}
                 tradeLog={tradeLog}
                 onReportMeta={handleReportMeta}
+                onDeleteHolding={onDeleteHolding}
               />
             </Suspense>
           )}
