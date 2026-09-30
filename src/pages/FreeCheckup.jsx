@@ -30,6 +30,7 @@ import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { getAutoRefreshMinutes, startAutoRefreshLoop } from "@/checkup/lib/autoRefreshInterval";
 import { createQuoteRequestGate, mergeQuoteIntoHolding } from "@/checkup/lib/quoteRequestGate";
 import { useRenderCounter } from "@/checkup/hooks/useRenderCounter";
+import { useHoldingExclusions } from "@/checkup/hooks/useHoldingExclusions";
 import { readLastUpdate, writeLastUpdate } from "@/checkup/lib/holdingsLastUpdate";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
@@ -435,6 +436,29 @@ export default function App() {
   const resetGuardRef = useRef(0);
   // 追蹤是否為使用者主動操作（上傳截圖）造成的持倉變動
   const holdingsChangedByUserRef = useRef(false);
+  const {
+    deleteHolding: deleteHoldingWithPersistence,
+    clearExclusion: clearHoldingExclusion,
+  } = useHoldingExclusions({
+    holdings,
+    setHoldings,
+    getUserId: getCurrentUserId,
+    isDemo,
+    ready,
+  });
+  const handleDeleteHolding = useCallback(async (code) => {
+    holdingsChangedByUserRef.current = true;
+    const result = await deleteHoldingWithPersistence(code);
+    if (result.ok) {
+      toast.success(`已刪除持倉 ${result.code}`, {
+        description: "產業分布、族群比例與投組加權估值已同步更新",
+      });
+    } else {
+      holdingsChangedByUserRef.current = false;
+      toast.error("刪除持倉失敗", { description: result.error || "請稍後再試" });
+    }
+    return result;
+  }, [deleteHoldingWithPersistence]);
 
   // ── Calendar 節流與冪等控制 ──
   // - inflightKey：當下正在抓取的 holdingCodes，若相同則略過
@@ -3395,6 +3419,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               showAll={showAll}
               setShowAll={setShowAll}
               holdingSyncStates={holdingSyncStates}
+              onDeleteHolding={handleDeleteHolding}
               setTab={setTab}
               tradeLog={tradeLog}
             />
@@ -3528,6 +3553,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             tpFirm, setTpFirm,
             tpVal, setTpVal,
             setTargets, setSaved,
+            onClearHoldingExclusion: clearHoldingExclusion,
           };
           const modalOpen = uploadModalOpen || tab === 'trade';
           return (

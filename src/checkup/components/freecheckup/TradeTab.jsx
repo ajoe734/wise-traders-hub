@@ -7,7 +7,6 @@ import ManualTradeForm from './ManualTradeForm';
 import { appendToParsed, computePreviewIssues, describeIssue } from '@/checkup/lib/manualTradeEntry';
 import { normalizeStockCode, classifyCode, validateQty, qtyRuleFor } from '@/checkup/lib/stockIdentity';
 import { canonicalizeTradeCode } from '@/checkup/lib/importedTradeIdentity';
-import { clearLocalExclusion } from '@/checkup/lib/holdingExclusionsStorage';
 
 
 
@@ -72,6 +71,7 @@ const TRADE_TAB_PROP_SCHEMA = {
   setTpVal: 'function',
   setTargets: 'function',
   setSaved: 'function',
+  onClearHoldingExclusion: { type: 'function', optional: true },
 };
 
 /**
@@ -110,6 +110,7 @@ function TradeTabImpl({
   // 手動目標價
   tpCode, setTpCode, tpFirm, setTpFirm, tpVal, setTpVal,
   setTargets, setSaved,
+  onClearHoldingExclusion = undefined,
 }) {
   validateProps('TradeTab', arguments[0], TRADE_TAB_PROP_SCHEMA);
   // 'upload' = 截圖解析（既有路徑）；'manual' = 手動輸入。兩者共用同一份 preview 清單與同一顆確認鈕。
@@ -131,11 +132,16 @@ function TradeTabImpl({
   const addManualRow = (row) => {
     setParsed(prev => appendToParsed(prev, row));
     // C 階段：使用者手動重新加入先前刪除的個股 → 清除排除標記，讓它重新出現在持倉。
-    const revived = clearLocalExclusion(row.code);
-    toast.success(`已加入清單：${row.code} ${row.name}`, {
-      description: revived
-        ? '你先前刪除過這一檔，已解除略過設定，確認後會重新出現在持倉'
-        : '確認後才會寫入持倉',
+    Promise.resolve(onClearHoldingExclusion?.(row.code)).then((result) => {
+      if (result?.ok === false) {
+        toast.error('恢復持倉設定失敗', { description: result.error || '請稍後再試' });
+        return;
+      }
+      toast.success(`已加入清單：${row.code} ${row.name}`, {
+        description: result?.cleared
+          ? '你先前刪除過這一檔，已解除略過設定，確認後會重新出現在持倉'
+          : '確認後才會寫入持倉',
+      });
     });
   };
 
