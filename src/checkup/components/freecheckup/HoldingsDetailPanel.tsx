@@ -264,8 +264,10 @@ function HoldingsDetailPanelImpl({
           onOpenChange={setDeleteOpen}
           code={String(h.code)}
           name={h.name ? String(h.name) : undefined}
-          onConfirm={async () => {
-            const result = await onDeleteHolding(h.code);
+          heldQty={Number(h.qty) || null}
+          currentPrice={Number(h.price) || null}
+          onConfirm={async (choice) => {
+            const result = await onDeleteHolding(h.code, choice);
             if (result?.ok !== false) setExpandedDecision(null);
           }}
         />

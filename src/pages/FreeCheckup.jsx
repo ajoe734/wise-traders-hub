@@ -20,6 +20,7 @@ import { simulateSteps, demoDelay } from "@/checkup/utils/demoSimulate";
 import { STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
+import { buildSellTradeEntry } from "@/checkup/lib/holdingDeleteService";
 import { buildDecision, sortByDecisionPriority, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
@@ -446,19 +447,7 @@ export default function App() {
     isDemo,
     ready,
   });
-  const handleDeleteHolding = useCallback(async (code) => {
-    holdingsChangedByUserRef.current = true;
-    const result = await deleteHoldingWithPersistence(code);
-    if (result.ok) {
-      toast.success(`已刪除持倉 ${result.code}`, {
-        description: "產業分布、族群比例與投組加權估值已同步更新",
-      });
-    } else {
-      holdingsChangedByUserRef.current = false;
-      toast.error("刪除持倉失敗", { description: result.error || "請稍後再試" });
-    }
-    return result;
-  }, [deleteHoldingWithPersistence]);
+  // handleDeleteHolding 移至 mergeTradeIntoHoldings 定義之後（記賣出路徑需要它）。
 
   // ── Calendar 節流與冪等控制 ──
   // - inflightKey：當下正在抓取的 holdingCodes，若相同則略過
@@ -2627,6 +2616,59 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
     return arr;
   };
+
+  // 單檔刪除（二選一）：withSell → 記一筆賣出再刪（已實現損益入帳）；
+  // 否則走排除標記的單純刪除。choice 形狀見 HoldingDeleteDialog.HoldingDeleteChoice。
+  const handleDeleteHolding = useCallback(async (code, opts = {}) => {
+    const choice = opts || {};
+    holdingsChangedByUserRef.current = true;
+    if (choice.withSell) {
+      const held = (holdings || []).find((h) => String(h.code) === String(code));
+      const built = buildSellTradeEntry({
+        code,
+        name: held?.name,
+        qty: choice.qty ?? held?.qty,
+        price: choice.price ?? held?.price,
+        heldQty: Number(held?.qty) || 0,
+        now: new Date(),
+      });
+      if (!built.ok) {
+        holdingsChangedByUserRef.current = false;
+        const msg = built.error === 'oversell'
+          ? `賣出股數超過目前持有 ${Number(held?.qty) || 0} 股`
+          : built.error === 'invalid-price'
+            ? '賣出價格需大於 0'
+            : '賣出股數需大於 0';
+        toast.error("記錄賣出失敗", { description: msg });
+        return { ok: false, code: String(code ?? ''), reason: built.error, error: msg };
+      }
+      const entry = built.entry;
+      const remaining = (Number(held?.qty) || 0) - entry.qty;
+      // 與 TradeTab.applyCorrections 同一條 commit 管線：replay helper + tradeLog 前插，
+      // 雲端同步交給既有 saveTradeLogToCloud / pf-holdings-v2 auto-save effect。
+      setHoldings((prev) => mergeTradeIntoHoldings(
+        stripDemoSeedHoldings(prev || []),
+        entry,
+      ).map(markUserOwnedHolding));
+      setTradeLog((prev) => [entry, ...(prev || [])]);
+      toast.success(remaining <= 0 ? `已記錄賣出並移除持倉 ${entry.code}` : `已記錄賣出 ${entry.code} ${entry.qty} 股`, {
+        description: remaining <= 0
+          ? `賣出 ${entry.qty} 股 @ ${entry.price}，已實現損益已計入`
+          : `剩餘 ${remaining} 股仍在持倉`,
+      });
+      return { ok: true, code: entry.code, viaSell: true, remaining };
+    }
+    const result = await deleteHoldingWithPersistence(code);
+    if (result.ok) {
+      toast.success(`已刪除持倉 ${result.code}`, {
+        description: "產業分布、族群比例與投組加權估值已同步更新",
+      });
+    } else {
+      holdingsChangedByUserRef.current = false;
+      toast.error("刪除持倉失敗", { description: result.error || "請稍後再試" });
+    }
+    return result;
+  }, [deleteHoldingWithPersistence, holdings, mergeTradeIntoHoldings, setHoldings, setTradeLog]);
 
   const hasExplicitTradeAction = (trade) => {
     const action = String(trade?.action || "").trim();
