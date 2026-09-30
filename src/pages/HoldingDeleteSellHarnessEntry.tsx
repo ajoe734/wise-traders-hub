@@ -14,7 +14,7 @@ import { buildSellTradeEntry, deleteHoldingWithExclusion } from '@/checkup/lib/h
 import { applyTradeEntryToHoldings } from '@/checkup/lib/holdings';
 import { createFakeGateway, HARNESS_MARKER } from '@/pages/HoldingDeleteHarnessEntry';
 
-interface Row { code: string; name: string; qty: number; cost: number; price: number; }
+interface Row { code: string; name: string; qty: number; cost: number; price: number; [k: string]: unknown; }
 
 const BASE: Row[] = [
   { code: '2338', name: '光罩', qty: 1000, cost: 40, price: 61.8 },
