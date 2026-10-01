@@ -1,6 +1,6 @@
 /**
  * CustomMultiplesEditor —— 我的情境試算：使用者自行輸入倍數（只存本機，不寫資料庫，不代表老師或平台）。
- * 只能套在已核實的財報分母；必填來源、日期、假設；結果一律標 MY_SCENARIO_LABEL。無預設倍數、無預設來源。
+ * 只能套在可計算的財報分母；必填來源、日期、假設；結果一律標 MY_SCENARIO_LABEL。無預設倍數、無預設來源。
  */
 import { useEffect, useState } from 'react';
 import { customMultiplesPrefs, EMPTY_CUSTOM, sanitizeCustomInput } from '@/checkup/lib/drawerPrefs';
@@ -60,7 +60,7 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
                 <span style={{ color: WB.ink, overflowWrap: 'anywhere' }}>
                   {SCENARIO_LABELS[k]}
                   <span style={{ display: 'block', fontSize: 11, color: WB.inkSub }}>
-                    {ok ? `${SCENARIO_BASES[k]} ${twd(row!.basis!.value)}` : '分母未核實，不可套用'}
+                    {ok ? `${SCENARIO_BASES[k]} ${twd(row!.basis!.value)}` : '分母不可用，不可套用'}
                   </span>
                 </span>
                 <input aria-label={`${SCENARIO_LABELS[k]} 倍數下限`} inputMode="decimal" disabled={!ok} placeholder="下限"
@@ -89,7 +89,7 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
               style={{ fontSize: 12, padding: '3px 10px', border: `1px solid ${WB.hair}`, background: 'transparent', color: WB.inkSub, cursor: 'pointer' }}>清除</button>
           </div>
           <div style={{ marginTop: 6 }}>
-            這是你自己輸入的試算，只存在這台裝置；不是老師發布的觀點，也不是系統算出的合理價。只乘已核實的每股分母；多把尺取交集，無交集就不給單一區間。清除後價格軸上的試算帶會一起消失。
+            這是你自己輸入的試算，只存在這台裝置；不是老師發布的觀點，也不是系統算出的合理價。只乘已計算且可用的每股分母；多把尺取交集，無交集就不給單一區間。清除後價格軸上的試算帶會一起消失。
           </div>
         </div>
       )}
