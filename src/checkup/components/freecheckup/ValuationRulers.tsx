@@ -20,6 +20,8 @@ import {
   type RulerResult,
   type TrendSeries,
   type ValuationView,
+  type ValuationPriceBand,
+  type RulerPriceRange,
 } from '@/checkup/lib/valuationRulers';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
@@ -31,24 +33,39 @@ function fmt(key: string, v: number | null): string {
   return key === 'dividendYield' ? `${v.toFixed(2)}%` : v.toFixed(2);
 }
 
-function RulerCard({ WB, r }: { WB: any; r: RulerResult }) {
+const twd = (v: number | null) =>
+  v == null ? '—' : `NT$${v.toLocaleString('zh-TW', { maximumFractionDigits: v >= 100 ? 0 : 2 })}`;
+const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('zh-TW', { maximumFractionDigits: d }));
+
+/** 計算依據：一把尺一列（原始比率 → 5 年 30/70 分位 → 換算價格區間）。 */
+function BasisRow({ WB, r, range }: { WB: any; r: RulerResult; range?: RulerPriceRange }) {
+  const isYield = r.key === 'dividendYield';
+  const q = range && range.q30 != null && range.q70 != null
+    ? isYield ? `${num(range.q70)}%–${num(range.q30)}%` : `${num(range.q30)}–${num(range.q70)} 倍`
+    : null;
   return (
     <div
       data-testid={`valuation-ruler-${r.key}`}
       data-band={r.band}
-      style={{ minWidth: 0, border: `1px solid ${WB.hair}`, padding: '8px 10px' }}
+      className="valuation-basis-row"
+      style={{ minWidth: 0, borderTop: `1px solid ${WB.hair}`, padding: '8px 0', fontSize: 12, color: WB.inkSub, lineHeight: 1.7 }}
     >
-      <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>
-        {RULER_LABEL[r.key]}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ color: WB.ink, fontWeight: 700 }}>
+          {RULER_LABEL[r.key]} {fmt(r.key, r.value)}
+        </span>
+        <span data-testid={`valuation-band-${r.key}`}>
+          {r.bandLabel}
+          {r.percentile != null ? `・5 年分位 ${r.percentile.toFixed(0)}%` : ''}
+        </span>
       </div>
-      <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: WB.ink, lineHeight: 1.4 }}>
-        {fmt(r.key, r.value)}
-      </div>
-      <div data-testid={`valuation-band-${r.key}`} style={{ fontSize: 11, color: WB.inkSub, lineHeight: 1.5 }}>
-        {r.bandLabel}
-      </div>
-      {r.percentile != null && (
-        <div style={{ fontSize: 10, color: WB.inkMute }}>5 年分位 {r.percentile.toFixed(0)}%</div>
+      {range && range.low != null && range.high != null ? (
+        <div data-testid={`valuation-basis-range-${r.key}`}>
+          {range.baseLabel} {num(range.base)} × 30–70 分位 {q} → {twd(range.low)}–{twd(range.high)}
+          <span style={{ color: WB.inkMute }}>（樣本 {r.sampleSize}）</span>
+        </div>
+      ) : (
+        <div style={{ color: WB.inkMute }}>不進入區間合成（{r.bandLabel}，樣本 {r.sampleSize}）</div>
       )}
     </div>
   );
@@ -194,6 +211,8 @@ function PeerCharts({ WB, view }: { WB: any; view: ValuationView }) {
 export function ValuationRulersView({
   WB,
   view,
+  band = null,
+  defaultBasisOpen = false,
   status,
   error,
   stale,
@@ -201,12 +220,16 @@ export function ValuationRulersView({
 }: {
   WB: any;
   view: ValuationView | null;
+  band?: ValuationPriceBand | null;
+  /** harness / 測試用：預設展開計算依據。 */
+  defaultBasisOpen?: boolean;
   status: string;
   error: string | null;
   stale: boolean;
   onRetry: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [basisOpen, setBasisOpen] = useState(defaultBasisOpen);
 
   if (status === 'idle') return null;
 
@@ -244,21 +267,31 @@ export function ValuationRulersView({
 
   return (
     <div data-testid="valuation-rulers" style={{ marginTop: 16, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-        <div style={{ fontSize: 11, color: WB.inkMute, letterSpacing: '0.14em' }}>估值三把尺</div>
-        <div data-testid="valuation-asof" style={{ fontSize: 10, color: WB.inkMute, textAlign: 'right' }}>
-          {view.asOf ? view.asOf.split('-').join('/') : '無日期'} · 來源 {view.source || '未知'}
-          {stale ? ' · 資料較舊' : ''}
-        </div>
+      <button
+        type="button"
+        data-testid="valuation-basis-toggle"
+        aria-expanded={basisOpen}
+        onClick={() => setBasisOpen((v) => !v)}
+        style={{ fontSize: 12, color: WB.inkSub, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', letterSpacing: '0.08em' }}
+      >
+        {basisOpen ? '▾' : '▸'} 計算依據（三把尺、同業、趨勢）
+      </button>
+      {basisOpen && (
+      <div data-testid="valuation-basis" style={{ marginTop: 8, minWidth: 0 }}>
+      <div data-testid="valuation-asof" style={{ fontSize: 11, color: WB.inkMute, marginBottom: 6 }}>
+        估值日 {view.asOf ? view.asOf.split('-').join('/') : '無日期'} · 來源 {view.source || '未知'}
+        {band?.closeAtAsOf != null ? ` · 同日收盤 ${band.closeAtAsOf.toLocaleString('zh-TW')}` : ''}
+        {stale ? ' · 資料已逾 7 天' : ''}
       </div>
 
-      <div
-        className="valuation-ruler-grid"
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}
-      >
-        {view.rulers.map((r) => (
-          <RulerCard key={r.key} WB={WB} r={r} />
-        ))}
+      {view.rulers.map((r) => (
+        <BasisRow key={r.key} WB={WB} r={r} range={band?.ranges.find((x) => x.key === r.key)} />
+      ))}
+
+      <div data-testid="valuation-basis-formula" style={{ fontSize: 11, color: WB.inkMute, marginTop: 6, lineHeight: 1.7 }}>
+        基礎值以估值同日收盤價反推：EPS＝收盤÷本益比、每股淨值＝收盤÷股價淨值比、每股股利＝收盤×殖利率。
+        比率僅到小數 2 位，反推誤差約萬分之一。殖利率越高對應價格越低，故上下界反轉。
+        至少 2 把有效尺且換算範圍有交集（寬度 ≥ 中點 3%）才合成區間；同業中位數不納入區間。
       </div>
 
       <div
@@ -308,6 +341,8 @@ export function ValuationRulersView({
           )}
         </>
       )}
+      </div>
+      )}
     </div>
   );
 }
@@ -321,8 +356,8 @@ export default function ValuationRulers({
   stockCode?: string | null;
   injectedGateway?: CheckupGateway;
 }) {
-  const { status, view, error, stale, refetch } = useValuationSnapshot(stockCode, { injectedGateway });
+  const { status, view, band, error, stale, refetch } = useValuationSnapshot(stockCode, { injectedGateway });
   return (
-    <ValuationRulersView WB={WB} view={view} status={status} error={error} stale={stale} onRetry={refetch} />
+    <ValuationRulersView WB={WB} view={view} band={band} status={status} error={error} stale={stale} onRetry={refetch} />
   );
 }

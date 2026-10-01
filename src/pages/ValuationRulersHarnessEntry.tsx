@@ -114,7 +114,16 @@ export function createFakeValuationGateway(
       json: () => boom('http.json'), tryJson: () => boom('http.tryJson'),
       text: () => boom('http.text'), blob: () => boom('http.blob'),
     },
-    db: { from: () => boom('db.from') },
+    // 唯讀：估值同日收盤價查詢回空（fixture 不含收盤價 → 區間顯示資料不足），其餘表一律封鎖。
+    db: {
+      from: (table: string) => {
+        if (table !== 'daily_price_snapshots') return boom('db.from');
+        const chain: any = {};
+        for (const op of ['select', 'eq', 'limit']) chain[op] = () => chain;
+        chain.then = (res: any, rej: any) => Promise.resolve({ data: [], error: null }).then(res, rej);
+        return chain;
+      },
+    },
     auth: {
       getUserId: async () => null,
       onAuthStateChange: () => () => {},
@@ -233,7 +242,7 @@ function LivePanel({ width, label, fixture }: { width: number; label: string; fi
         data-testid={`live-frame-${label}`}
         style={{ width: inner, maxWidth: '100%', border: `1px solid ${WB.hair}`, padding: 14, background: '#fff', overflow: 'hidden', boxSizing: 'border-box' }}
       >
-        <ValuationRulersView WB={WB} view={view} status={status} error={error} stale={stale} onRetry={refetch} />
+        <ValuationRulersView WB={WB} view={view} defaultBasisOpen status={status} error={error} stale={stale} onRetry={refetch} />
       </div>
     </div>
   );
