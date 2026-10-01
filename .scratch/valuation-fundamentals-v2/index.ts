@@ -113,14 +113,15 @@ Deno.serve(async (req) => {
   if (!/^\d{4,6}$/.test(symbol)) return errorResponse('symbol 必須為 4–6 位台股代碼', 400, { code: 'BAD_SYMBOL' }, req);
 
   const started = Date.now();
-  const meter: Meter = { finmind: 0, official: 0, cacheHits: 0, timeouts: 0 };
+  const meter: Meter = { finmind: 0, official: 0, httpAttempts: 0, retries: 0, cacheHits: 0, timeouts: 0 };
   const fetchedAt = new Date().toISOString();
   try {
     const supa = serviceClient();
     const { data: meta, error } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').eq('symbol', symbol).maybeSingle();
     if (error) throw new Error(`industry_map: ${error.message}`);
-    const official = await officialIndex(meter);
-    const target = await loadCompany(meter, symbol, 5, 5 * 365, official(symbol));
+    // 官方名錄（約 1.3MB、首次約 5 秒）與目標財報同時抓，不串接等待。
+    const [official, targetRaw] = await Promise.all([officialIndex(meter), loadCompany(meter, symbol, 5, 5 * 365, null)]);
+    const target = { ...targetRaw, official: official(symbol) };
     const asOf = target.prices.map((p) => p.date).sort().at(-1) ?? null;
     if (!asOf) return jsonResponse({ ok: true, symbol, asOf: null, rows: [], reason: '近期無收盤價' }, {}, req);
     const targetBasis = computeCompanyBasis(symbol, target.fs, target.bs, asOf, { mode: 'live', official: target.official, fetchedAt });
