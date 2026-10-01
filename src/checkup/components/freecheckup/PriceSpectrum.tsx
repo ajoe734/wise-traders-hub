@@ -2,7 +2,7 @@ import { useMemo, type CSSProperties } from 'react';
 import type { ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 type Marker = { key: 'cost' | 'target' | 'price'; name: string; value: number; x: number };
-type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string };
+type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string; surface?: string };
 
 const money = (value: number) => `NT$${value.toLocaleString('zh-TW', { maximumFractionDigits: 2 })}`;
 const valid = (value: number | null | undefined): value is number =>
@@ -52,7 +52,7 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
     <div className="price-spectrum" data-testid="price-spectrum" aria-label={description}
       style={{ '--spectrum-ink': WB.ink, '--spectrum-sub': WB.inkSub, '--spectrum-mute': WB.inkMute,
         '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent,
-        '--spectrum-surface': '#fff' } as CSSProperties}>
+        '--spectrum-surface': WB.surface ?? '#fff' } as CSSProperties}>
       <div className="price-spectrum-track">
         <svg className="price-spectrum-rail" viewBox="0 0 100 80" preserveAspectRatio="none"
           role="img" aria-label={description}>
