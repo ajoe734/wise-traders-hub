@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as F from '../../../supabase/functions/_shared/fundamentalsBasis';
 import { buildCustomScenario, buildValuationScenario, EMPTY_CUSTOM } from '@/checkup/lib/valuationScenario';
+import { sanitizeCustomInput } from '@/checkup/lib/drawerPrefs';
 import f3443 from '../fixtures/finmind/v2/3443.json';
 import f2454 from '../fixtures/finmind/v2/2454.json';
 import f2327 from '../fixtures/finmind/v2/2327.json';
@@ -317,6 +318,17 @@ describe('我的情境試算（僅此裝置）', () => {
     const c = buildCustomScenario(sc, { ...EMPTY_CUSTOM, legacy: { pe: { low: 10, high: 20 }, pb: { low: 2, high: 3 }, ps: { low: null, high: null }, source: '舊資料', date: '2026-09-01', assumption: '舊假設' } }, '2026-10-01');
     expect(c.status).toBe('needsReview');
     expect(c.low).toBeNull();
+  });
+  it('v1 本機資料完整搬入 legacy，不靜默改成任何主要尺', () => {
+    const migrated = sanitizeCustomInput({
+      pe: { low: 10, high: 20 }, pb: { low: 2, high: 3 }, ps: { low: 1, high: 2 },
+      source: '舊來源', date: '2026-09-01', assumption: '舊假設',
+    });
+    expect(migrated.primaryKey).toBeNull();
+    expect(migrated.legacy).toEqual({
+      pe: { low: 10, high: 20 }, pb: { low: 2, high: 3 }, ps: { low: 1, high: 2 },
+      source: '舊來源', date: '2026-09-01', assumption: '舊假設',
+    });
   });
 });
 
