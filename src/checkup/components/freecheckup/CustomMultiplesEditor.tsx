@@ -2,16 +2,14 @@
  * CustomMultiplesEditor —— 老師依課程輸入倍數情境（只存本機，不寫資料庫）。
  * 只能套在已核實的財報分母；必填來源、日期、假設；結果一律標「自訂倍數情境（使用者輸入，非合理價）」。
  */
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 import { customMultiplesPrefs, EMPTY_CUSTOM, sanitizeCustomInput } from '@/checkup/lib/drawerPrefs';
 import { SCENARIO_BASES, SCENARIO_LABELS, type CustomScenario, type CustomScenarioInput, type ScenarioKey, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 export function useCustomMultiples(symbol: string | null | undefined): [CustomScenarioInput | null, (v: CustomScenarioInput | null) => void] {
-  const all = useSyncExternalStore(
-    (fn) => customMultiplesPrefs.subscribe(fn),
-    () => customMultiplesPrefs.load(),
-    () => customMultiplesPrefs.load(),
-  );
+  // load() 每次回傳新物件，不能直接當 useSyncExternalStore 快照；改用 state + subscribe。
+  const [all, setAll] = useState(() => customMultiplesPrefs.load());
+  useEffect(() => customMultiplesPrefs.subscribe(setAll), []);
   const code = symbol ? String(symbol).trim() : '';
   const value = code ? all.bySymbol[code] ?? null : null;
   const set = (v: CustomScenarioInput | null) => {
