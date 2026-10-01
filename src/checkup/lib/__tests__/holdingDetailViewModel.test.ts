@@ -166,13 +166,22 @@ describe('deriveThesisRows', () => {
 });
 
 describe('deriveDecisionStamp', () => {
-  it('出場＋立即會標 accent', () => {
+  it('論點轉弱與高度關注會標 accent，不輸出交易指令', () => {
     expect(deriveDecisionStamp({ actionType: 'exit', urgency: 'now' }))
-      .toMatchObject({ actionKind: 'exit', actionLabel: '出場', urgencyLabel: '立即', urgencyAccent: true });
+      .toMatchObject({ actionKind: 'exit', actionLabel: '論點轉弱', urgencyLabel: '高', urgencyAccent: true });
   });
-  it('未知值退回續抱／低', () => {
+  it('檢視與維持持有只呈現中性的觀察狀態', () => {
+    expect(deriveDecisionStamp({ actionType: 'review', urgency: 'soon' }))
+      .toMatchObject({ actionLabel: '待檢視', urgencyLabel: '中', urgencyAccent: true });
+    expect(deriveDecisionStamp({ actionType: 'hold', urgency: 'monitor' }))
+      .toMatchObject({ actionLabel: '持續觀察', urgencyLabel: '一般', urgencyAccent: false });
+  });
+  it('無資料不暗示持有，也不臆測籌碼或主力動向', () => {
     expect(deriveDecisionStamp(undefined))
-      .toMatchObject({ actionLabel: '續抱', urgencyLabel: '低', urgencyAccent: false });
+      .toMatchObject({ actionLabel: '資料待確認', urgencyLabel: '一般', urgencyAccent: false });
+    for (const decision of [undefined, { actionType: 'exit', urgency: 'now' }, { actionType: 'review', urgency: 'soon' }, { actionType: 'hold', urgency: 'monitor' }]) {
+      expect(deriveDecisionStamp(decision).actionLabel).not.toMatch(/建議|出場|買進|賣出|主力|籌碼/);
+    }
   });
 });
 
@@ -270,7 +279,7 @@ describe('deriveHoldingDetailViewModel', () => {
       now: new Date(2026, 0, 2, 3, 4),
     });
     expect(vm.identity.name).toBe('台積電');
-    expect(vm.decisionStamp.actionLabel).toBe('檢視');
+    expect(vm.decisionStamp.actionLabel).toBe('待檢視');
     expect(vm.neighbors.prev).toEqual({ code: '1101' });
     expect(vm.neighbors.next).toBeNull();
     expect(vm.nextEvent).toMatchObject({ title: '法說會' });
@@ -286,7 +295,7 @@ describe('deriveHoldingDetailViewModel', () => {
     expect(vm.holdContext).toBeNull();
     expect(vm.thesisRows).toBeNull();
     expect(vm.sparkArr).toEqual([]);
-    expect(vm.decisionStamp.actionLabel).toBe('續抱');
+    expect(vm.decisionStamp.actionLabel).toBe('資料待確認');
   });
 });
 

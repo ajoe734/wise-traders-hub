@@ -12,10 +12,10 @@
 import { buildVolumeAnalysis } from '@/checkup/lib/volumeAnalysis';
 
 export const URGENCY_LABEL: Record<string, string> = {
-  now: '立即', soon: '儘快', monitor: '觀察', low: '低',
+  now: '高', soon: '中', monitor: '一般', low: '一般',
 };
 export const ACTION_LABEL: Record<string, string> = {
-  exit: '出場', review: '檢視', hold: '續抱',
+  exit: '論點轉弱', review: '待檢視', hold: '持續觀察',
 };
 
 const num = (v: any): number => Number(v);
@@ -227,7 +227,7 @@ export function deriveThesisRows(thesisTracking: any, code: any) {
   }));
 }
 
-/** 建議印章行：操作分類與急迫度。 */
+/** 觀察狀態行：僅呈現決策分類，不推論未經佐證的籌碼或主力動向。 */
 export function deriveDecisionStamp(dec: any) {
   const actionKind = dec?.actionType === 'exit' ? 'exit'
     : dec?.actionType === 'review' ? 'review' : 'hold';
@@ -236,7 +236,7 @@ export function deriveDecisionStamp(dec: any) {
     : dec?.urgency === 'monitor' ? 'monitor' : 'low';
   return {
     actionKind,
-    actionLabel: ACTION_LABEL[actionKind],
+    actionLabel: dec ? ACTION_LABEL[actionKind] : '資料待確認',
     urgencyKind,
     urgencyLabel: URGENCY_LABEL[urgencyKind],
     urgencyAccent: urgencyKind === 'now' || urgencyKind === 'soon',

@@ -32,7 +32,7 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     await page.locator('.wb-card').first().waitFor({ state: 'visible', timeout: 15_000 });
   });
 
-  test('單擊持倉卡 → 展開新版 HoldingsDetailPanel（§4）+ 建議印章行 + ExportMenu', async ({ page }) => {
+  test('單擊持倉卡 → 展開中性觀察狀態 + ExportMenu', async ({ page }) => {
     await page.locator('.wb-card').first().click();
 
     const panel = page.locator('[data-testid="holdings-detail-panel"]');
@@ -48,7 +48,9 @@ test.describe('Holdings detail panel @ 863px (narrow viewport)', () => {
     // §4 刪除 & 新增
     await expect(panel.locator('[data-testid="holdings-comparison-charts"]')).toHaveCount(0);
     await expect(panel.locator('[data-testid="decision-stamp"]')).toBeVisible();
-    await expect(panel.locator('[data-testid="decision-stamp"]')).toContainText('建議');
+    await expect(panel.locator('[data-testid="decision-stamp"]')).toContainText('目前觀察');
+    await expect(panel.locator('[data-testid="decision-stamp"]')).toContainText('關注程度');
+    await expect(panel.locator('[data-testid="decision-stamp"]')).not.toContainText(/建議|出場|買進|賣出|主力/);
 
     const exportMenu = panel.locator('[data-testid="holdings-export-menu"]');
     await expect(exportMenu).toBeVisible();
