@@ -34,7 +34,7 @@ export default function HoldingEditDialog({ open, onOpenChange, holding, onConfi
   }, [open, holding.code]);
   const submit = async () => {
     const result = buildHoldingEditTrade({ holding, targetQty: qty, targetCost: cost, executionPrice: price });
-    if (!result.ok) { setError(result.error); return; }
+    if (result.ok === false) { setError(result.error); return; }
     setBusy(true);
     try {
       const response = await onConfirm(result);
