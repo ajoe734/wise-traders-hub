@@ -1,8 +1,8 @@
 import { useMemo, type CSSProperties } from 'react';
-import type { ValuationPriceBand } from '@/checkup/lib/valuationRulers';
+import type { ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 type Marker = { key: 'cost' | 'target' | 'price'; name: string; value: number; x: number };
-type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string };
+type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string; surface?: string };
 
 const money = (value: number) => `NT$${value.toLocaleString('zh-TW', { maximumFractionDigits: 2 })}`;
 const valid = (value: number | null | undefined): value is number =>
@@ -11,7 +11,7 @@ const valid = (value: number | null | undefined): value is number =>
 /** Single continuous TWD scale. The percentage is never clamped per marker or band. */
 export function priceSpectrumGeometry(
   values: { price?: number | null; cost?: number | null; target?: number | null },
-  band?: ValuationPriceBand | null,
+  band?: ValuationScenario | null,
 ) {
   const consensus = band?.status === 'consensus' && valid(band.low) && valid(band.high)
     ? { low: band.low, high: band.high } : null;
@@ -31,7 +31,7 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
   price?: number | null;
   cost?: number | null;
   target?: number | null;
-  band?: ValuationPriceBand | null;
+  band?: ValuationScenario | null;
 }) {
   const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, band), [price, cost, target, band]);
   if (!geometry) return null;
@@ -44,14 +44,15 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
   const description = [
     '新台幣等比例價格線',
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
-    consensus ? `歷史估值參考區間 ${money(consensus.low)} 至 ${money(consensus.high)}` :
-      band?.status === 'divergent' ? '三尺分歧，無共同區間' : '無可用歷史估值參考區間',
+     consensus ? `三尺共同支持的情境區間 ${money(consensus.low)} 至 ${money(consensus.high)}` :
+       '方法分歧或資料不足，無可用情境區間',
   ].join('；');
 
   return (
     <div className="price-spectrum" data-testid="price-spectrum" aria-label={description}
       style={{ '--spectrum-ink': WB.ink, '--spectrum-sub': WB.inkSub, '--spectrum-mute': WB.inkMute,
-        '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent } as CSSProperties}>
+        '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent,
+        '--spectrum-surface': WB.surface ?? '#fff' } as CSSProperties}>
       <div className="price-spectrum-track">
         <svg className="price-spectrum-rail" viewBox="0 0 100 80" preserveAspectRatio="none"
           role="img" aria-label={description}>

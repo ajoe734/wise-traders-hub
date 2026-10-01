@@ -1,20 +1,19 @@
 /**
- * useValuationSnapshot —— 估值三把尺的 production seam。
+ * useValuationSnapshot —— 歷史比率與三尺財報情境的唯讀接縫。
  *
  * 契約：
  *   - 對外握手一律走 `getCheckupGateway()`（不得直接 import supabase client / fetch）。
  *   - 只讀（rpc valuation_snapshot 為 STABLE），**不做任何寫入**。
- *   - 分位 / 中位數 / 溢折價全部交給純函式 `valuationRulers.ts`，此 hook 不算數字。
+ *   - 比率的分位／同業交給 `valuationRulers.ts`；無獨立財報時 `valuationScenario.ts` 不產生價格。
  *   - harness 以 `injectedGateway` 換成 fake，達成零網路。
  */
 import { useCallback, useEffect, useState } from 'react';
 import { getCheckupGateway, type CheckupGateway } from '@/checkup/lib/gateway';
 import {
-  buildValuationPriceBand,
   buildValuationView,
-  type ValuationPriceBand,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
+import { buildValuationScenario, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 /** as-of 超過這麼多天視為 stale（台股連假最長約 5 個交易日）。 */
 export const VALUATION_STALE_DAYS = 7;
@@ -24,8 +23,8 @@ export type ValuationStatus = 'idle' | 'loading' | 'ready' | 'error';
 export interface UseValuationSnapshotResult {
   status: ValuationStatus;
   view: ValuationView | null;
-  /** 三尺換算的歷史估值參考區間（以估值同日收盤價反推）。 */
-  band: ValuationPriceBand | null;
+  /** 公開財報分母與可比倍數均核實後，才會產生三尺情境區間。 */
+  band: ValuationScenario | null;
   error: string | null;
   stale: boolean;
   refetch: () => void;
@@ -48,7 +47,7 @@ export function useValuationSnapshot(
 ): UseValuationSnapshotResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
   const [view, setView] = useState<ValuationView | null>(null);
-  const [band, setBand] = useState<ValuationPriceBand | null>(null);
+  const [band, setBand] = useState<ValuationScenario | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -65,6 +64,8 @@ export function useValuationSnapshot(
     }
     let cancelled = false;
     setStatus('loading');
+    setBand(null);
+    setView(null);
     setError(null);
 
     const gateway = opts.injectedGateway || getCheckupGateway();
@@ -78,37 +79,10 @@ export function useValuationSnapshot(
           setStatus('ready');
           return;
         }
-        // 估值同日收盤價：只取 asOf 當天，不回退其他日期（避免今日價配舊比率）。
-        let closeAtAsOf: number | null = null;
-        if (payload.asOf) {
-          try {
-            const { data } = await gateway.db
-              .from('daily_price_snapshots')
-              .select('close_price')
-              .eq('symbol', code)
-              .eq('trade_date', payload.asOf)
-              .limit(1);
-            const c = Number(Array.isArray(data) ? data[0]?.close_price : (data as any)?.close_price);
-            closeAtAsOf = Number.isFinite(c) && c > 0 ? c : null;
-          } catch {
-            closeAtAsOf = null;
-          }
-        }
         if (cancelled) return;
-        setBand(
-          buildValuationPriceBand({
-            asOf: payload.asOf ?? null,
-            closeAtAsOf,
-            pe: payload.pe ?? null,
-            pb: payload.pb ?? null,
-            dividendYield: payload.dividendYield ?? null,
-            history: {
-              pe: payload?.history?.pe || [],
-              pb: payload?.history?.pb || [],
-              dividendYield: payload?.history?.dividendYield || [],
-            },
-          }),
-        );
+        // RPC 只有比率，沒有已公告的獨立 EPS/BVPS/每股營收、公告日與可比倍數理由。
+        // 不以收盤價除比率循環產出情境價，也不把產業大類當可比同業。
+        setBand(buildValuationScenario(payload.asOf ?? null, []));
         setView(
           buildValuationView({
             symbol: payload.symbol || code,

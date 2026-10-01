@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { priceSpectrumGeometry } from './PriceSpectrum';
-import type { ValuationPriceBand } from '@/checkup/lib/valuationRulers';
+import type { ValuationScenario } from '@/checkup/lib/valuationScenario';
 
-const consensus = { status: 'consensus', low: 1677, high: 2151 } as ValuationPriceBand;
+const consensus = { status: 'consensus', low: 75, high: 100 } as ValuationScenario;
 
 describe('single continuous TWD price spectrum', () => {
-  it('3443 extreme gap remains proportional, never widens the reference band', () => {
+  it('extreme gap remains proportional, never widens the scenario band', () => {
     const axis = priceSpectrumGeometry({ cost: 5100, target: 7100, price: 8385 }, consensus);
     expect(axis).not.toBeNull();
     if (!axis) return;
-    const scale = (axis.mapX(2151) - axis.mapX(1677)) / (axis.mapX(8385) - axis.mapX(1677));
-    expect(scale).toBeCloseTo(474 / 6708, 10);
+    const scale = (axis.mapX(100) - axis.mapX(75)) / (axis.mapX(8385) - axis.mapX(75));
+    expect(scale).toBeCloseTo(25 / 8310, 10);
     expect(axis.mapX(5100)).toBeLessThan(axis.mapX(7100));
   });
 

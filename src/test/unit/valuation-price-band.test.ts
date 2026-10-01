@@ -1,167 +1,59 @@
-/**
- * VALUATION_PRICE_BAND_V1 —— 三把尺換算歷史估值參考區間。
- *
- * 真實向量：3443 創意 / 2882 國泰金，2026-09-23 估值日（tw_valuation_daily）
- * 與同日收盤價（daily_price_snapshots）。歷史分布以「線性 ramp 使 30/70 分位
- * 精確等於 DB percentile_cont 實測值」重建（DB 讀回值見下方常數），避免把 5 年逐日數列寫死。
- */
 import { describe, expect, it } from 'vitest';
-import {
-  buildValuationPriceBand,
-  priceVsBandText,
-  roundPrice,
-  quantile,
-  type PriceBandInput,
-} from '@/checkup/lib/valuationRulers';
+import { buildValuationScenario, type ScenarioRowInput } from '@/checkup/lib/valuationScenario';
 
-/** 產生 n 點線性序列，使其 30/70 分位（linear interpolation）恰為 q30/q70。 */
-function rampFor(q30: number, q70: number, n = 1208): number[] {
-  const span = (q70 - q30) / 0.4;
-  const a = q30 - 0.3 * span;
-  return Array.from({ length: n }, (_, i) => a + (span * i) / (n - 1));
-}
+const date = '2026-09-23';
+const basis = (value: number) => ({ value, unit: 'TWD/share' as const, period: '2026 FY', publishedAt: '2026-09-20', source: '公開財報', kind: 'reported' as const, shareBasis: '2026 加權平均股數' });
+const multiple = (low: number, high: number) => ({ low, high, reason: '產品與風險逐家核對', source: '公開同業財報', period: '2026 FY', sampleSize: 3, peerComparability: '同產品與風險', cycle: '相近景氣', growth: '成長已核對', earningsStability: '獲利已核對', cash: '現金已核對', debt: '負債已核對', shareBasis: '2026 加權平均股數' });
+const rows: ScenarioRowInput[] = [
+  { key: 'pe', basis: basis(5), multiples: multiple(15, 20) },
+  { key: 'pb', basis: basis(40), multiples: multiple(1, 1.5) },
+  { key: 'ps', basis: basis(25), multiples: multiple(2, 3) },
+];
 
-// DB 讀回（2021-10-01 ~ 2026-09-23，n=1208）
-const REAL = {
-  '3443': {
-    asOf: '2026-09-23', close: 8385, pe: 214.94, pb: 83.45, dy: 0.24,
-    q: { pe: [42.99, 55.137], pb: [14.831, 21.869], dy: [0.87, 1.2] },
-  },
-  '2882': {
-    asOf: '2026-09-23', close: 111.5, pe: 13.15, pb: 1.61, dy: 3.14,
-    q: { pe: [8.805, 14.87], pb: [1.07, 1.28], dy: [3.061, 5.33] },
-  },
-} as const;
-
-function inputFor(code: keyof typeof REAL, over: Partial<PriceBandInput> = {}): PriceBandInput {
-  const r = REAL[code];
-  return {
-    asOf: r.asOf,
-    closeAtAsOf: r.close,
-    pe: r.pe,
-    pb: r.pb,
-    dividendYield: r.dy,
-    history: {
-      pe: rampFor(r.q.pe[0], r.q.pe[1]),
-      pb: rampFor(r.q.pb[0], r.q.pb[1]),
-      dividendYield: rampFor(r.q.dy[0], r.q.dy[1]),
-    },
-    ...over,
-  };
-}
-
-const near = (a: number | null, b: number, tol = 0.005) => {
-  expect(a).not.toBeNull();
-  expect(Math.abs((a as number) - b) / b).toBeLessThan(tol);
-};
-
-describe('rampFor 重建分位', () => {
-  it('30/70 分位與 DB 實測一致', () => {
-    const h = rampFor(42.99, 55.137);
-    expect(quantile(h, 0.3)).toBeCloseTo(42.99, 6);
-    expect(quantile(h, 0.7)).toBeCloseTo(55.137, 6);
+describe('三尺獨立財報情境', () => {
+  it('故意分歧：75–100、40–60、50–75，不能給單一區間', () => {
+    const result = buildValuationScenario(date, rows);
+    expect(result.rows.map((r) => [r.low, r.high])).toEqual([[75, 100], [40, 60], [50, 75]]);
+    expect(result.status).toBe('divergent');
+    expect([result.low, result.high]).toEqual([null, null]);
   });
-});
-
-describe('buildValuationPriceBand — 真實向量', () => {
-  it('3443 創意：三尺交集 NT$1,677–2,151，現價 8,385 高於上緣', () => {
-    const b = buildValuationPriceBand(inputFor('3443'));
-    expect(b.status).toBe('consensus');
-    expect(b.validCount).toBe(3);
-    const [pe, pb, dy] = b.ranges;
-    near(pe.low, 1677); near(pe.high, 2151);
-    near(pb.low, 1490); near(pb.high, 2197);
-    near(dy.low, 1677); near(dy.high, 2313);
-    near(b.low, 1677); near(b.high, 2151);
-    expect(priceVsBandText(8385, b)).toMatch(/高於區間上緣 29\d%/);
+  it('三尺都可信且有共同支持才給情境，非兩尺交集', () => {
+    const result = buildValuationScenario(date, [rows[0], { ...rows[1], multiples: multiple(2, 2.5) }, { ...rows[2], multiples: multiple(3, 4) }]);
+    expect([result.status, result.low, result.high]).toEqual(['consensus', 80, 100]);
+    expect(buildValuationScenario(date, rows.slice(0, 2)).status).toBe('insufficient');
   });
-
-  it('2882 國泰金：三尺交集 NT$74.7–88.6', () => {
-    const b = buildValuationPriceBand(inputFor('2882'));
-    expect(b.status).toBe('consensus');
-    near(b.low, 74.7); near(b.high, 88.6);
-    expect(priceVsBandText(111.5, b)).toMatch(/高於區間上緣/);
+  it.each(['pe', 'pb', 'ps'] as const)('%s 缺獨立分母，不以現價／比率循環補值', (key) => {
+    const result = buildValuationScenario(date, rows.map((r) => r.key === key ? { ...r, basis: null } : r));
+    expect(result.status).toBe('insufficient');
+    expect(result.rows.find((r) => r.key === key)?.reason).toContain('缺已公開');
   });
-
-  it('殖利率上下界反轉：q70（高殖利率）對應下界', () => {
-    const b = buildValuationPriceBand(inputFor('3443'));
-    const dy = b.ranges[2];
-    expect(dy.low! < dy.high!).toBe(true);
-    expect(dy.low).toBeCloseTo(dy.base! / (dy.q70! / 100), 6);
+  it.each(['pe', 'pb', 'ps'] as const)('%s 分母≤0 不適用', (key) => {
+    const result = buildValuationScenario(date, rows.map((r) => r.key === key ? { ...r, basis: basis(-1) } : r));
+    expect(result.rows.find((r) => r.key === key)?.reason).toContain('≤0');
+    expect(result.low).toBeNull();
   });
-});
-
-describe('buildValuationPriceBand — 規則', () => {
-  it('缺同日收盤價 → insufficient，不回退', () => {
-    const b = buildValuationPriceBand(inputFor('3443', { closeAtAsOf: null }));
-    expect(b.status).toBe('insufficient');
-    expect(b.reason).toContain('2026/09/23 收盤價');
-    expect(b.low).toBeNull();
+  it('公告日比估值日晚，不可偷看未公布數字', () => {
+    const result = buildValuationScenario(date, rows.map((r) => r.key === 'pe' ? { ...r, basis: { ...basis(5), publishedAt: '2026-09-24' } } : r));
+    expect(result.rows[0].reason).toContain('公告日晚於估值日');
   });
-
-  it('EPS<=0 排除 P/E，其餘兩尺仍可合成', () => {
-    const b = buildValuationPriceBand(inputFor('3443', { pe: -5 }));
-    expect(b.ranges[0].low).toBeNull();
-    expect(b.validCount).toBe(2);
-    expect(b.status).toBe('consensus');
+  it('股數基準不一致，停止該尺', () => {
+    const result = buildValuationScenario(date, rows.map((r) => r.key === 'ps' ? { ...r, multiples: { ...multiple(2, 3), shareBasis: '期末流通股數' } } : r));
+    expect(result.rows[2].reason).toContain('股數基準不一致');
   });
-
-  it('未配息排除殖利率尺', () => {
-    const b = buildValuationPriceBand(inputFor('3443', { dividendYield: 0 }));
-    expect(b.ranges[2].low).toBeNull();
-    expect(b.ranges[2].ruler.naReason).toBe('no_dividend');
+  it('缺同業可比性、日期、風險理由或樣本均不編價', () => {
+    for (const override of [{ sampleSize: 2 }, { peerComparability: '' }, { debt: '' }, { period: '' }]) {
+      const result = buildValuationScenario(date, rows.map((r) => r.key === 'pe' ? { ...r, multiples: { ...multiple(15, 20), ...override } } : r));
+      expect(result.rows[0].low).toBeNull();
+      expect(result.status).toBe('insufficient');
+    }
   });
-
-  it('樣本 < 250 排除該尺；有效尺 < 2 → insufficient', () => {
-    const inp = inputFor('3443');
-    const b = buildValuationPriceBand({
-      ...inp,
-      history: { ...inp.history, pe: inp.history.pe.slice(0, 100), pb: inp.history.pb.slice(0, 100) },
-    });
-    expect(b.validCount).toBe(1);
-    expect(b.status).toBe('insufficient');
-    expect(b.reason).toContain('有效尺少於 2 把');
-  });
-
-  it('各尺無交集 → divergent，不給單一區間', () => {
-    const inp = inputFor('3443');
-    const b = buildValuationPriceBand({ ...inp, history: { ...inp.history, pb: rampFor(40, 45) } });
-    expect(b.status).toBe('divergent');
-    expect(b.low).toBeNull();
-    expect(b.high).toBeNull();
-  });
-
-  it('交集寬度 < 中點 3% → divergent', () => {
-    // P/E 1677–2151；P/B 調到 2130–2300 → 交集 2130–2151（約 1%）
-    const inp = inputFor('3443');
-    const bvps = 8385 / 83.45;
-    const b = buildValuationPriceBand({ ...inp, history: { ...inp.history, pb: rampFor(2130 / bvps, 2300 / bvps) } });
-    expect(b.status).toBe('divergent');
-  });
-
-  it('roundPrice：≥1000 個位、100–1000 0.5、<100 0.05', () => {
-    expect(roundPrice(1676.6)).toBe(1677);
-    expect(roundPrice(126.3)).toBe(126.5);
-    expect(roundPrice(74.72)).toBe(74.7);
-  });
-});
-
-describe('計算依據說明文字（財務正確性）', () => {
-  const src = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../checkup/components/freecheckup/ValuationRulers.tsx'), 'utf8') as string;
-  it('移除無依據的精度宣稱，改為近似值說明', () => {
-    expect(src).not.toContain('萬分之一');
-    expect(src).toContain('比率經四捨五入，反推基礎值與區間均為近似值');
-  });
-  it('殖利率尺以除法呈現並註明上下界反轉', () => {
-    expect(src).toMatch(/÷<\/b> 歷史殖利率 30–70 分位 \{q\}（上下界反轉）/);
-    expect(src).toContain('收盤×殖利率÷100');
-  });
-});
-
-describe('基礎值標籤標明反推近似', () => {
-  const lib = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../checkup/lib/valuationRulers.ts'), 'utf8') as string;
-  it('三個基礎值標籤皆含「反推」與「約」', () => {
-    for (const l of ['依同日收盤與本益比反推 EPS 約', '依同日收盤與股價淨值比反推每股淨值約', '依殖利率反推每股股利約']) expect(lib).toContain(l);
-    expect(lib).not.toContain("'近 12 月每股現金股利'");
+  it('3443 僅有歷史 PE/PB/殖利率與收盤價時，正式情境一律資料不足', () => {
+    const result = buildValuationScenario(date, []);
+    expect(result.validCount).toBe(0);
+    expect(result.rows.map((r) => r.reason)).toEqual([
+      '缺已公開、可核對的每股獲利與公告日',
+      '缺已公開、可核對的每股淨值與公告日',
+      '缺已公開、可核對的每股營收與公告日',
+    ]);
   });
 });

@@ -16,6 +16,8 @@ const TOL = 0.5;
 
 async function openFirstDrawer(page: Page, width: number) {
   await page.setViewportSize({ width, height: 844 });
+  // 幾何檢查需要最終尺寸，不應取到 pop 動畫縮放中的圓點。
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript(() => {
     localStorage.setItem('checkup-coach-seen-v1', '1');
     localStorage.setItem('holdings-intro-video-seen-v2', '1');
@@ -29,7 +31,7 @@ async function openFirstDrawer(page: Page, width: number) {
   await card.click();
   await page.locator('[data-testid="holdings-detail-panel"]').waitFor({ state: 'visible', timeout: 10_000 });
   await page.locator('[data-testid="holdings-price-axis"]').waitFor({ state: 'visible', timeout: 10_000 });
-  // 估值參考區間非同步到達會改變價格線值域與版面：等它落定再量測。
+  // 等情境資料落定；沒有獨立財報時不可畫出假區間。
   await page.locator('[data-testid="valuation-band-skeleton"]').waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {});
   await page.waitForTimeout(400);
 }
@@ -103,14 +105,13 @@ for (const width of BREAKPOINTS) {
         const a = geo.labels[i];
         const b = geo.labels[j];
         expect(overlaps(a, b), `${a.id} 與 ${b.id} 重疊 @${width}`).toBe(false);
+      }
     }
 
     // 2b) 字寬規則：標籤不得被水平截斷（長字串應改成兩行而非 ellipsis 吃字）
     for (const l of geo.labels) {
       expect(l.clipped, `${l.id} 文字被截斷 @${width}`).toBe(false);
     }
-    }
-
     // 3b) 小螢幕簡化排版：窄軌道（≤360px）改成堆疊列，寬軌道維持浮動標籤；
     //     兩種模式下成本／目標都必須帶得到可讀數值（不得只剩標題）
     const expectedMode = geo.labels[0]?.mode;
@@ -145,5 +146,17 @@ for (const width of BREAKPOINTS) {
       .locator('[data-testid="holdings-detail-panel"]')
       .evaluate((el) => el.getBoundingClientRect().right);
     expect(geo.container.right, `價格軸溢出抽屜 @${width}`).toBeLessThanOrEqual(panelRight + TOL);
+    if (width === 320 || width === 390) {
+      const sizes = await page.evaluate(() => {
+        const size = (selector: string) => {
+          const el = document.querySelector<HTMLElement>(selector);
+          return el && [el.scrollWidth, el.clientWidth];
+        };
+        return [size('html'), size('[data-testid="holdings-detail-panel"]'),
+          size('[data-testid="holdings-price-axis"]'), size('[data-testid="valuation-basis"]')];
+      });
+      for (const dimension of sizes) if (dimension) expect(dimension[0]).toBeLessThanOrEqual(dimension[1]);
+      await expect(page.locator('[data-testid="valuation-band"]')).toHaveCount(0);
+    }
   });
 }
