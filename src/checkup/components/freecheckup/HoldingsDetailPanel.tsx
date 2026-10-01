@@ -33,6 +33,8 @@ import {
   KLINE_CHART_HEIGHT,
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
+import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
+import { buildCustomScenario } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
@@ -459,6 +461,7 @@ function HoldingsDetailPanelImpl({
           bandError={valuation.status === 'error'}
           stale={valuation.stale}
           ratioAsOf={valuation.view?.asOf ?? null}
+          symbol={h.code}
         />
 
         {/* 6) 30D 走勢帶（K 線；OHLC 不足時退回折線） */}
@@ -751,7 +754,10 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 
 // ──────────────────── §4.5 價格軸 ────────────────────
 
-function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, bandLoading = false, bandError = false, stale = false, ratioAsOf = null }) {
+function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, bandLoading = false, bandError = false, stale = false, ratioAsOf = null, symbol = null }) {
+  const [customInput] = useCustomMultiples(symbol);
+  const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+  const custom = useMemo(() => buildCustomScenario(band, customInput, today), [band, customInput, today]);
   const tpLabel = tpHistory
     ? `分析師目標 ${tpHistory.arrow}${Math.abs(tpHistory.deltaPct).toFixed(0)}%`
     : null;
@@ -765,16 +771,31 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
         <span>價格位置 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 等比例</small></span>
         {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
       </div>
-      <PriceSpectrum WB={WB} price={price} cost={cost} target={target} band={band} />
+      <PriceSpectrum WB={WB} price={price} cost={cost} target={target} band={band}
+        customBand={custom.status === 'ready' ? { low: custom.low, high: custom.high } : null} />
       {note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
       <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, lineHeight: 1.6 }}>
         現價、持倉成本與分析師目標價來源各異，不作為情境價的財報分母。{target != null ? '目標價為分析師估計。' : ''}
       </div>
+      {symbol && band && band.basisCount > 0 && (
+        <CustomMultiplesEditor WB={WB} symbol={symbol} scenario={band} custom={custom} today={today} />
+      )}
     </div>
   );
 }
 
 const fmtTwd = (v) => Number(v).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+
+/** 倍數信心：與分母可用數分開陳述。 */
+function confidenceText(band) {
+  const rows = band.rows.filter((r) => r.basisOk);
+  if (!rows.length) return '—';
+  const c = rows.map((r) => r.confidence);
+  if (c.every((x) => x === 'peer')) return '同業倍數';
+  if (c.some((x) => x === 'insufficient')) return `依據不足（${c.filter((x) => x === 'insufficient').length} 尺）`;
+  if (c.some((x) => x === 'low')) return '低（僅歷史情境參考）';
+  return '歷史情境參考';
+}
 
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
 function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null }) {
@@ -789,8 +810,10 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
     );
   }
   if (!band) return <div data-testid="valuation-band-headline" data-status={error ? 'error' : 'insufficient'} style={{ marginBottom: 12, color: WB.ink, fontWeight: 700 }}>估值情境：{error ? '資料暫時取不到，暫無單一合理區間' : '資料不足，暫無單一合理區間'}</div>;
+  const conf = confidenceText(band);
   const meta = [
-    `三尺可用 ${band.validCount}/3`,
+    `財報分母 ${band.basisCount}/3 已核實`,
+    `倍數信心：${conf}`,
     dateText ? `情境估值日 ${dateText}` : null,
     ratioText ? `比率資料截至 ${ratioText}${stale ? '，已逾 7 天' : ''}` : null,
   ].filter(Boolean).join('｜');
@@ -802,7 +825,9 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
           {band.status === 'consensus' ? `同業倍數三尺共同情境 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'historical' ? `歷史情境參考 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'divergent' ? '三尺方法分歧，暫無單一區間'
-            : '倍數依據或資料不足，暫無單一區間'}
+            : band.status === 'lowConfidence' ? '倍數信心低，暫不畫單一區間'
+            : band.basisCount > 0 ? '倍數依據不足，暫無單一區間'
+            : '財報分母不足，無法估算'}
         </span>
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
