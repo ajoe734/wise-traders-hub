@@ -56,6 +56,12 @@ describe('財報分母與股數核對來源文案', () => {
 });
 
 describe('選尺與現價要求', () => {
+  it('上方只顯示付費使用者可採取的白話引導', () => {
+    render(<ValuationBandHeadline WB={WB} band={scenario('official', false)} loading={false} error={false} stale={false} />);
+    expect(screen.getByTestId('valuation-reference-summary').textContent).toBe('先看現價要多少獲利，再選一把尺試算自己的價格。');
+    expect(screen.getByTestId('valuation-reference-summary').textContent).not.toMatch(/不能互相取交集|三尺回答不同問題/);
+  });
+
   it('逐尺計算現價隱含倍數，不把歷史範圍稱為高低估', () => {
     const band = scenario('official', false);
     expect(impliedMultiple(100, band.rows[0])).toBe(100);

@@ -780,7 +780,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
         現價、持倉成本與分析師目標價來源各異，不作為情境價的財報分母。{target != null ? '目標價為分析師估計。' : ''}
       </div>
       {symbol && band && band.basisCount > 0 && (
-        <CustomMultiplesEditor WB={WB} symbol={symbol} scenario={band} custom={custom} today={today} />
+        <CustomMultiplesEditor WB={WB} symbol={symbol} scenario={band} custom={custom} today={today} price={price} />
       )}
     </div>
   );
@@ -830,7 +830,7 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
         {meta}
       </div>
       <div data-testid="valuation-reference-summary" style={{ fontSize: 13, color: WB.inkSub, marginTop: 4, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
-        三尺回答不同問題；現價要求與個別歷史證據見下方，不能互相取交集。
+        先看現價要多少獲利，再選一把尺試算自己的價格。
       </div>
     </div>
   );
