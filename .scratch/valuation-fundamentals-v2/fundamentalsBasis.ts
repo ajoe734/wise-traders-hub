@@ -397,9 +397,28 @@ export type PeerMultiple = { symbol: string; name: string; multiple: number | nu
 
 const BASIS_FIELD: Record<RulerKey, 'eps' | 'bvps' | 'sps'> = { pe: 'eps', pb: 'bvps', ps: 'sps' };
 
-export function peerMultiples(key: RulerKey, peers: PeerInput[]): PeerMultiple[] {
+/** 景氣相近：營收年增差距 ≤ max(20pp, 目標年增絕對值的一半)。 */
+export function growthTolerance(targetGrowth: number): number { return Math.max(0.2, Math.abs(targetGrowth) * 0.5); }
+export function similarGrowth(g: number | null, targetGrowth: number | null): boolean {
+  if (g == null || targetGrowth == null) return false;
+  return Math.abs(g - targetGrowth) <= growthTolerance(targetGrowth);
+}
+const pp = (v: number) => `${(v * 100).toFixed(0)}%`;
+
+/** 風險／景氣可比性：同業需獲利，且營收年增與本檔相近。 */
+export function peerRiskIssue(target: CompanyBasis, peer: CompanyBasis): string | null {
+  if (!peer.ok) return peer.reason;
+  if (peer.niTtm == null || peer.niTtm <= 0) return '近四季虧損或淨利不明，獲利風險與本檔不可比';
+  if (target.growthYoY != null && !similarGrowth(peer.growthYoY, target.growthYoY)) {
+    return `營收年增 ${peer.growthYoY == null ? '不明' : pp(peer.growthYoY)}，與本檔 ${pp(target.growthYoY)} 差距超過 ${pp(growthTolerance(target.growthYoY))}，景氣不可比`;
+  }
+  return null;
+}
+
+export function peerMultiples(key: RulerKey, peers: PeerInput[], target?: CompanyBasis): PeerMultiple[] {
   return peers.map((p) => {
-    if (!p.basis.ok) return { symbol: p.symbol, name: p.name, multiple: null, excluded: p.basis.reason };
+    const risk = target ? peerRiskIssue(target, p.basis) : (p.basis.ok ? null : p.basis.reason);
+    if (risk) return { symbol: p.symbol, name: p.name, multiple: null, excluded: risk };
     if (p.basis.notApplicable[key]) return { symbol: p.symbol, name: p.name, multiple: null, excluded: p.basis.notApplicable[key]! };
     if (p.close == null) return { symbol: p.symbol, name: p.name, multiple: null, excluded: '估值日無收盤價' };
     const d = p.basis[BASIS_FIELD[key]];
@@ -564,9 +583,10 @@ export function samplesByPeriod(key: RulerKey, points: MonthPoint[]): HistorySam
 }
 
 export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peerRule: string, history: MonthPoint[] = []): ScenarioRowOut[] {
-  const regime = regimeOf(target.growthYoY);
+  const tg = target.growthYoY;
+  const similarText = tg == null ? '景氣不明' : `營收年增 ${pp(tg)}±${pp(growthTolerance(tg))}`;
   return (['pe', 'pb', 'ps'] as const).map((key) => {
-    const list = peerMultiples(key, peers);
+    const list = peerMultiples(key, peers, target);
     if (!target.ok) {
       return { key, basis: null, multiples: null, basisIssue: target.reason, multipleConfidence: null, multipleIssue: null, notApplicable: target.reason, peers: list, samples: [] };
     }
@@ -582,12 +602,12 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
     const valid = list.filter((p) => p.multiple != null);
     const all = samplesByPeriod(key, history);
     const samples = all
-      .filter((s) => regime != null && s.regime === regime)
+      .filter((s) => similarGrowth(s.growthYoY, target.growthYoY))
       .map((s) => {
         const same = s.period === target.latestPeriod;
         return { ...s, used: !same, excluded: same ? '與目前分母同一資料期，屬市場對同一份財報的定價，排除以免循環' : null };
       });
-    const otherRegime = all.filter((s) => s.regime !== regime).length;
+    const otherRegime = all.filter((s) => !similarGrowth(s.growthYoY, target.growthYoY)).length;
     const used = samples.filter((s) => s.used);
     const monthsUsed = used.reduce((a, s) => a + s.months, 0);
     let multiples: ScenarioMultiplesOut | null = null;
@@ -611,16 +631,17 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
       multiples = {
         method: 'history', label: '本公司歷史情境參考',
         low: quantile(ms, 0.25), high: quantile(ms, 0.75),
-        reason: `本公司「${REGIME_LABEL[regime!]}」資料期 ${used.length} 期（月末點 ${monthsUsed} 個，同期先取中位數）的 25–75 百分位：${used.map((s) => `${s.quarter} ${s.multiple.toFixed(1)}`).join('、')}`,
+        reason: `本公司景氣相近（${similarText}）資料期 ${used.length} 期（月末點 ${monthsUsed} 個，同期先取中位數）的 25–75 百分位：${used.map((s) => `${s.quarter} ${s.multiple.toFixed(1)}`).join('、')}`,
         source: '本公司月末收盤 ÷ 當時已過法定申報期限的同口徑分母（FinMind）',
         period: `${used[0].firstDate}～${used[used.length - 1].date}`,
         sampleSize: used.length,
-        peerComparability: `核心業務同業有效 ${valid.length} 家（需 ≥${MIN_PEERS}），改用本公司歷史${excluded ? `；同業排除：${excluded}` : ''}`,
-        cycle: `僅取與目前同屬「${REGIME_LABEL[regime!]}」的資料期；描述過去市場定價，不代表合理倍數`,
+        peerComparability: `核心業務且風險／景氣可比同業 ${valid.length} 家（需 ≥${MIN_PEERS}），改用本公司歷史${excluded ? `；同業排除：${excluded}` : ''}`,
+        cycle: `僅取營收年增與目前相近（${similarText}）的資料期；描述過去市場定價，不代表合理倍數`,
         ...risk, shareBasis: SHARE_BASIS[key],
         dispersion: disp,
         caveats: [
           '歷史情境參考，非合理價',
+          ...(disp > 2 || used.length < 6 ? ['倍數信心低'] : []),
           `獨立證據以資料期計 ${used.length} 期，不以 ${monthsUsed} 個月點或交易日數計`,
           ...(disp > 2 ? [`月點倍數最高/最低達 ${disp.toFixed(1)} 倍，極值影響大，區間僅取中段 50%`] : []),
           ...(used.length < 6 ? [`僅 ${used.length} 期，代表性有限`] : []),
@@ -628,7 +649,7 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
       };
     }
     const multipleIssue = !multiples
-      ? `核心業務同業有效 ${valid.length} 家（需 ≥${MIN_PEERS}）；本公司相近景氣期歷史 ${used.length} 期（需 ≥${MIN_HISTORY}，同資料期月點只算一期、已排除目前資料期${otherRegime ? `；另有 ${otherRegime} 期景氣不同未採用` : ''}），倍數依據不足`
+      ? `核心業務且風險／景氣可比同業 ${valid.length} 家（需 ≥${MIN_PEERS}）；本公司景氣相近（${similarText}）歷史 ${used.length} 期（需 ≥${MIN_HISTORY}，同資料期月點只算一期、已排除目前資料期${otherRegime ? `；另有 ${otherRegime} 期營收年增不相近未採用` : ''}），倍數依據不足`
       : null;
     return {
       key, basis, multiples,
