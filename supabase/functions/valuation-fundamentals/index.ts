@@ -27,7 +27,7 @@ const MAX_PEERS = 6;
 /** 目標財報抓 7 年：前 4 季需再往前 4 季才能算近四季營收年增，5 年會讓最早一年的景氣判斷全為「不明」。 */
 const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-01.4';
+export const VERSION = 'valuation-fundamentals@2026-10-01.5';
 const REQUEST_TIMEOUT_MS = 8_000;
 const TARGET_TIMEOUT_MS = 20_000;
 const OFFICIAL_TIMEOUT_MS = 60_000;
@@ -112,11 +112,13 @@ async function loadCompany(meter: Meter, symbol: string, finYears: number, price
 }
 
 /** 官方名錄最多等 OFFICIAL_WAIT_MS；逾時回 null，背景續抓供下次命中。 */
-async function officialIndexFast(meter: Meter): Promise<OfficialIndex | null> {
+async function officialIndexFast(meter: Meter, until?: Promise<unknown>): Promise<OfficialIndex | null> {
   const p = officialIndex(meter);
   // deno-lint-ignore no-explicit-any
   try { (globalThis as any).EdgeRuntime?.waitUntil?.(p.catch(() => null)); } catch { /* ignore */ }
-  return await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), OFFICIAL_WAIT_MS))]);
+  // 只算目標時：目標財報一到（+200ms）就不再等名錄，改用已發行股數後備，避免每次固定多等 3 秒。
+  const stop = until ? until.then(() => new Promise<null>((r) => setTimeout(() => r(null), 200)), () => null) : null;
+  return await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), OFFICIAL_WAIT_MS)), ...(stop ? [stop] : [])]);
 }
 
 Deno.serve(async (req) => {
@@ -140,9 +142,10 @@ Deno.serve(async (req) => {
     // 官方名錄（約 1.3MB、首次約 5 秒）與目標財報同時抓，不串接等待。
     const t0 = Date.now();
     const timings = { industryMapMs: t0 - started, officialMs: 0, targetMs: 0, peersMs: 0 };
+    const targetP = loadCompany(meter, symbol, TARGET_FIN_YEARS, 5 * 365, null, TARGET_TIMEOUT_MS).finally(() => { timings.targetMs = Date.now() - t0; });
     const [idx, targetRaw] = await Promise.all([
-      officialIndexFast(meter).finally(() => { timings.officialMs = Date.now() - t0; }),
-      loadCompany(meter, symbol, TARGET_FIN_YEARS, 5 * 365, null, TARGET_TIMEOUT_MS).finally(() => { timings.targetMs = Date.now() - t0; }),
+      officialIndexFast(meter, withPeers ? undefined : targetP).finally(() => { timings.officialMs = Date.now() - t0; }),
+      targetP,
     ]);
     const official = (s: string) => (idx ? idx(s) : null);
     // 官方名錄有資料時優先（含特別股）；否則用已發行股數後備。
