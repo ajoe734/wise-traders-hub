@@ -29,6 +29,9 @@ async function openFirstDrawer(page: Page, width: number) {
   await card.click();
   await page.locator('[data-testid="holdings-detail-panel"]').waitFor({ state: 'visible', timeout: 10_000 });
   await page.locator('[data-testid="holdings-price-axis"]').waitFor({ state: 'visible', timeout: 10_000 });
+  // 估值參考區間非同步到達會改變價格線值域與版面：等它落定再量測。
+  await page.locator('[data-testid="valuation-band-skeleton"]').waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {});
+  await page.waitForTimeout(400);
 }
 
 type Geometry = {
