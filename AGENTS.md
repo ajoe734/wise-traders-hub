@@ -28,3 +28,7 @@ Keep the drawer's single TWD price scale in the reusable PriceSpectrum presentat
 ### Domain docs
 
 Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）加 `docs/adr/`（不可逆且有取捨的決策）。See `docs/agents/domain.md`.
+
+### Valuation fundamentals
+
+Holdings-drawer PE/PB/PS denominators and multiples come only from the read-only `valuation-fundamentals` Edge Function (pure math in `supabase/functions/_shared/fundamentalsBasis.ts`, shared with Vitest); why: keeps the FinMind token server-side, keeps `stock_fundamentals` admin-only, and forbids price-derived (circular) denominators.

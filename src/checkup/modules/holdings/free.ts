@@ -48,3 +48,5 @@ export { default as HoldingCardSkeleton } from '../../components/freecheckup/_ui
 export { HoldingCardBsr } from '../../components/freecheckup/_ui/holdingCard/HoldingCardBsr';
 // 抽屜的狀態組裝 hook 只服務 free surface 的 HoldingsDetailPanel（ADR-0005 §6）
 export { useHoldingDetailViewModel } from '../../hooks/useHoldingDetailViewModel';
+// 抽屜單一 TWD 價格軸（AGENTS.md Holdings price spectrum）
+export { PriceSpectrum } from '../../components/freecheckup/PriceSpectrum';

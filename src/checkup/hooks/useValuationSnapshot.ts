@@ -13,7 +13,20 @@ import {
   buildValuationView,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
-import { buildValuationScenario, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { buildValuationScenario, type ScenarioRowInput, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+
+/** 唯讀財報情境 Edge Function；token 只在後端。 */
+export const FUNDAMENTALS_FN = 'valuation-fundamentals';
+
+type FundamentalsPayload = { ok?: boolean; asOf?: string | null; rows?: ScenarioRowInput[]; reason?: string };
+
+export function scenarioFromFundamentals(payload: FundamentalsPayload | null | undefined, fallbackAsOf: string | null, failure?: string): ValuationScenario {
+  if (!payload || !Array.isArray(payload.rows) || payload.rows.length === 0) {
+    const reason = failure || payload?.reason || '財報情境服務未回傳資料';
+    return buildValuationScenario(payload?.asOf ?? fallbackAsOf, (['pe', 'pb', 'ps'] as const).map((key) => ({ key, notApplicable: reason })));
+  }
+  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null })));
+}
 
 /** as-of 超過這麼多天視為 stale（台股連假最長約 5 個交易日）。 */
 export const VALUATION_STALE_DAYS = 7;
@@ -80,9 +93,16 @@ export function useValuationSnapshot(
           return;
         }
         if (cancelled) return;
-        // RPC 只有比率，沒有已公告的獨立 EPS/BVPS/每股營收、公告日與可比倍數理由。
-        // 不以收盤價除比率循環產出情境價，也不把產業大類當可比同業。
-        setBand(buildValuationScenario(payload.asOf ?? null, []));
+        // RPC 只有比率；PE/PB/PS 情境分母與倍數由唯讀財報服務提供（不以股價反推）。
+        let scenario: ValuationScenario;
+        try {
+          const fund = await gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, { symbol: code });
+          scenario = scenarioFromFundamentals(fund, payload.asOf ?? null);
+        } catch (e: any) {
+          scenario = scenarioFromFundamentals(null, payload.asOf ?? null, `財報情境服務暫時無法取得（${e?.message || '未知錯誤'}）`);
+        }
+        if (cancelled) return;
+        setBand(scenario);
         setView(
           buildValuationView({
             symbol: payload.symbol || code,
