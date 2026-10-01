@@ -20,9 +20,8 @@ import {
   type RulerResult,
   type TrendSeries,
   type ValuationView,
-  type ValuationPriceBand,
-  type RulerPriceRange,
 } from '@/checkup/lib/valuationRulers';
+import { SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
 
@@ -37,38 +36,23 @@ const twd = (v: number | null) =>
   v == null ? '—' : `NT$${v.toLocaleString('zh-TW', { maximumFractionDigits: v >= 100 ? 0 : 2 })}`;
 const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('zh-TW', { maximumFractionDigits: d }));
 
-/** 計算依據：一把尺一列（原始比率 → 5 年 30/70 分位 → 換算價格區間）。 */
-function BasisRow({ WB, r, range }: { WB: any; r: RulerResult; range?: RulerPriceRange }) {
-  const isYield = r.key === 'dividendYield';
-  const q = range && range.q30 != null && range.q70 != null
-    ? isYield ? `${range.q70.toFixed(2)}%–${range.q30.toFixed(2)}%` : `${num(range.q30)}–${num(range.q70)} 倍`
-    : null;
+/** 僅已公告、股數口徑相同的獨立分母與有理由的倍數才產生情境價。 */
+function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
+  const { key, basis, multiples } = row;
   return (
     <div
-      data-testid={`valuation-ruler-${r.key}`}
-      data-band={r.band}
+      data-testid={`valuation-ruler-${key}`}
       className="valuation-basis-row"
-      style={{ minWidth: 0, borderTop: `1px solid ${WB.hair}`, padding: '8px 0', fontSize: 12, color: WB.inkSub, lineHeight: 1.7 }}
+      style={{ minWidth: 0, borderTop: `1px solid ${WB.hair}`, padding: '10px 0', fontSize: 12, color: WB.inkSub, lineHeight: 1.7, overflowWrap: 'anywhere' }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ color: WB.ink, fontWeight: 700 }}>
-          {RULER_LABEL[r.key]} {fmt(r.key, r.value)}
-        </span>
-        <span data-testid={`valuation-band-${r.key}`}>
-          {r.bandLabel}
-          {r.percentile != null ? `・5 年分位 ${r.percentile.toFixed(0)}%` : ''}
-        </span>
+      <div style={{ color: WB.ink, fontWeight: 700 }}>{SCENARIO_LABELS[key]}</div>
+      <div data-testid={`valuation-basis-range-${key}`}>
+        {row.low != null && row.high != null && basis && multiples
+          ? <>{basis.kind === 'forecast' ? '預測假設' : '已公布'}{SCENARIO_BASES[key]} {twd(basis.value)} × {num(multiples.low)}–{num(multiples.high)} 倍 = <span style={{ whiteSpace: 'nowrap' }}>{twd(row.low)}–{twd(row.high)}</span></>
+          : <>無法估算：{row.reason}</>}
       </div>
-      {range && range.low != null && range.high != null ? (
-        <div data-testid={`valuation-basis-range-${r.key}`}>
-          {isYield
-            ? <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>÷</b> 歷史殖利率 30–70 分位 {q}（上下界反轉）→ <span style={{ whiteSpace: 'nowrap' }}>{twd(range.low)}–{twd(range.high)}</span></>
-            : <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>×</b> 歷史{RULER_LABEL[r.key]} 30–70 分位 {q} → <span style={{ whiteSpace: 'nowrap' }}>{twd(range.low)}–{twd(range.high)}</span></>}
-          <span style={{ color: WB.inkMute }}>（樣本 {r.sampleSize}）</span>
-        </div>
-      ) : (
-        <div style={{ color: WB.inkMute }}>不進入區間合成（{r.bandLabel}，樣本 {r.sampleSize}）</div>
-      )}
+      {basis && <div>分母：{basis.source} · {basis.period} · 公告 {basis.publishedAt} · {basis.unit} · 股數基準 {basis.shareBasis}</div>}
+      {multiples && <div>倍數：{multiples.reason} · {multiples.source} · {multiples.period} · 樣本 {multiples.sampleSize} · 同業 {multiples.peerComparability} · 景氣 {multiples.cycle} · 成長 {multiples.growth} · 獲利 {multiples.earningsStability} · 現金 {multiples.cash} · 負債 {multiples.debt}</div>}
     </div>
   );
 }
@@ -222,7 +206,7 @@ export function ValuationRulersView({
 }: {
   WB: any;
   view: ValuationView | null;
-  band?: ValuationPriceBand | null;
+   band?: ValuationScenario | null;
   /** harness / 測試用：預設展開計算依據。 */
   defaultBasisOpen?: boolean;
   status: string;
