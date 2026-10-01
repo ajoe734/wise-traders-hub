@@ -761,7 +761,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
        <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} />
       <div className="price-spectrum-heading">
-        <span>價格位置 <small style={{ fontSize: 12, fontWeight: 400, color: WB.inkSub }}>新台幣 · 等比例</small></span>
+        <span>價格位置 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 等比例</small></span>
         {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
       </div>
       <PriceSpectrum WB={WB} price={price} cost={cost} target={target} band={band} />
@@ -799,7 +799,7 @@ function ValuationBandHeadline({ WB, band, loading, error, stale }) {
           {band.status === 'consensus' ? `三尺共同支持的情境區間 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}` : '方法分歧／資料不足，暫無單一合理區間'}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
         {meta}{band.status === 'consensus' ? '｜情境非獲利保證' : ''}
       </div>
     </div>
