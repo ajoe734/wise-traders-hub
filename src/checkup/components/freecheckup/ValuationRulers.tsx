@@ -21,7 +21,7 @@ import {
   type TrendSeries,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
-import { SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
+import { buildValuationScenario, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
 
@@ -251,6 +251,8 @@ export function ValuationRulersView({
     );
   }
 
+  const scenario = band ?? buildValuationScenario(view.asOf, []);
+
   return (
     <div data-testid="valuation-rulers" style={{ marginTop: 16, minWidth: 0 }}>
       <button
@@ -269,7 +271,7 @@ export function ValuationRulersView({
         {stale ? ' · 資料已逾 7 天' : ''}
       </div>
 
-       {(band?.rows || []).map((row) => (
+       {scenario.rows.map((row) => (
          <BasisRow key={row.key} WB={WB} row={row} />
       ))}
 
@@ -279,7 +281,7 @@ export function ValuationRulersView({
       </div>
 
        <div data-testid="valuation-summary" data-overall="na" style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}>
-         三尺情境價：{band?.validCount ?? 0}/3 可用；{band?.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : '暫無單一合理區間'}
+         三尺情境價：{scenario.validCount}/3 可用；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : '暫無單一合理區間'}
        </div>
 
        <div data-testid="valuation-historical-ratios" style={{ marginTop: 8, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
