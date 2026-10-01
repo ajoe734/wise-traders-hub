@@ -38,7 +38,7 @@ export function currentPriceRequirement(price: number | null | undefined, input:
   const low = input?.multiple.low;
   const high = input?.multiple.high;
   if (!key || !Number.isFinite(price) || Number(price) <= 0 || !Number.isFinite(low) || !Number.isFinite(high) || Number(low) <= 0 || Number(high) < Number(low)) return null;
-  return `以你選的 ${Number(low):g}–${Number(high):g} 倍，現在股價 ${twd2(Number(price))} 需要${REQUIREMENT_BASIS[key]}介於 ${twd2(Number(price) / Number(high))}–${twd2(Number(price) / Number(low))}（${REQUIREMENT_PERIOD[key]}）。這是現價反推要求，不是合理價。`;
+  return `以你選的 ${Number(low)}–${Number(high)} 倍，現在股價 ${twd2(Number(price))} 需要${REQUIREMENT_BASIS[key]}介於 ${twd2(Number(price) / Number(high))}–${twd2(Number(price) / Number(low))}（${REQUIREMENT_PERIOD[key]}）。這是現價反推要求，不是合理價。`;
 }
 
 export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today, price }: {
