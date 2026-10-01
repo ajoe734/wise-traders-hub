@@ -172,7 +172,7 @@
 .price-spectrum-marker--target { z-index: 1; top: 54px; width: 10px; height: 10px; background: var(--spectrum-surface); border: 2px solid var(--spectrum-accent); transform: translate(-50%, -50%) rotate(45deg); }
 .price-spectrum-marker--cost { z-index: 1; top: 26px; width: 11px; height: 11px; background: var(--spectrum-sub); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .price-spectrum-marker--cost::after { content: ''; position: absolute; inset: 3px 2px 1px; background: var(--spectrum-surface); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.price-spectrum-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--spectrum-mute); line-height: 1.4; margin-top: -3px; }
+.price-spectrum-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--spectrum-sub); line-height: 1.4; margin-top: -3px; }
 .price-spectrum-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin-top: 14px; border-top: 1px solid var(--spectrum-hair); border-bottom: 1px solid var(--spectrum-hair); }
 .price-spectrum-legend-row { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 9px 0 10px; min-width: 0; font-size: 12px; color: var(--spectrum-sub); }
 .price-spectrum-legend-row--price { grid-column: 1 / -1; border-bottom: 1px solid var(--spectrum-hair); }

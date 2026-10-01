@@ -265,7 +265,7 @@ export function ValuationRulersView({
       </button>
       {basisOpen && (
       <div data-testid="valuation-basis" style={{ marginTop: 8, minWidth: 0 }}>
-      <div data-testid="valuation-asof" style={{ fontSize: 11, color: WB.inkMute, marginBottom: 6 }}>
+       <div data-testid="valuation-asof" style={{ fontSize: 12, color: WB.inkSub, marginBottom: 6 }}>
          比率資料日 {view.asOf ? view.asOf.split('-').join('/') : '無日期'} · 來源 {view.source || '未知'}
         {stale ? ' · 資料已逾 7 天' : ''}
       </div>
@@ -274,7 +274,7 @@ export function ValuationRulersView({
          <BasisRow key={row.key} WB={WB} row={row} />
       ))}
 
-      <div data-testid="valuation-basis-formula" style={{ fontSize: 11, color: WB.inkMute, marginTop: 6, lineHeight: 1.7 }}>
+       <div data-testid="valuation-basis-formula" style={{ fontSize: 12, color: WB.inkSub, marginTop: 6, lineHeight: 1.7 }}>
          三尺分別以已公告或明標預測的每股獲利、淨值、營收 × 有理由的倍數推算；三尺資料都可信且有共同支持區才顯示情境區間。
           {scenario.validCount === 0 ? '目前沒有通過核實的財報分母與倍數。' : ''}不能以現價除比率當作財報分母。下方歷史比率與產業同業僅供參考，不代表可比同業或合理價格。
       </div>
