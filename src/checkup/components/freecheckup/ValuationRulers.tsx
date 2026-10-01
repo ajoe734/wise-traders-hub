@@ -20,7 +20,7 @@ import {
   type TrendSeries,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
-import { buildValuationScenario, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
+import { buildValuationScenario, historyReferenceBands, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
 
@@ -39,6 +39,9 @@ const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('
 /** 僅已公告、股數口徑相同的獨立分母與有理由的倍數才產生情境價。 */
 function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
   const { key, basis, multiples } = row;
+  const reference = row.basisOk && basis && row.reference
+    ? { low: basis.value * row.reference.low, high: basis.value * row.reference.high, ...row.reference }
+    : null;
   return (
     <div
       data-testid={`valuation-ruler-${key}`}
@@ -48,7 +51,7 @@ function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
       <div style={{ color: WB.ink, fontWeight: 700 }}>{SCENARIO_LABELS[key]}</div>
       <div data-testid={`valuation-basis-value-${key}`} data-basis-ok={row.basisOk ? '1' : '0'}>
         {row.basisOk && basis
-          ? <>分母已核實：{basis.kind === 'forecast' ? '預測假設' : '已公布'}{SCENARIO_BASES[key]} <strong style={{ color: WB.ink }}>{twd2(Number(basis.value.toFixed(2)))}</strong></>
+          ? <>分母已計算：{basis.kind === 'forecast' ? '預測假設' : '已公布'}{SCENARIO_BASES[key]} <strong style={{ color: WB.ink }}>{twd2(Number(basis.value.toFixed(2)))}</strong></>
           : <>分母不適用：{row.reason}</>}
       </div>
       {row.basisOk && (
@@ -61,6 +64,9 @@ function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
       {basis?.derivation && <div data-testid={`valuation-basis-derivation-${key}`}>算式：{basis.derivation}</div>}
       {basis && <div data-testid={`valuation-basis-availability-${key}`}>分母：{basis.source} · {basis.period} · {basis.availability?.note ?? `法定申報期限 ${basis.publishedAt}（非實際公告日）`} · {basis.unit} · 股數基準 {basis.shareBasis}</div>}
       {multiples && <div data-testid={`valuation-multiples-${key}`} data-method={multiples.method ?? 'history'}><strong style={{ color: WB.ink }}>{multiplesLabel(multiples)}</strong>：{multiples.reason} · {multiples.source} · {multiples.period} · 樣本 {multiples.sampleSize} · 同業 {multiples.peerComparability} · 景氣 {multiples.cycle} · 成長 {multiples.growth} · 獲利 {multiples.earningsStability} · 現金 {multiples.cash} · 負債 {multiples.debt}</div>}
+      {reference && !multiples && <div data-testid={`valuation-reference-detail-${key}`} style={{ color: WB.ink }}>
+        {reference.label}：{twd(reference.low)}–{twd(reference.high)} · 倍數 {num(row.reference!.low)}–{num(row.reference!.high)} · {reference.sampleSize} 個獨立期 · {reference.period} · {reference.note}
+      </div>}
       {multiples?.caveats?.length ? <div data-testid={`valuation-caveats-${key}`} style={{ color: WB.ink }}>注意：{multiples.caveats.join('；')}</div> : null}
       {row.samples?.length ? (
         <details data-testid={`valuation-samples-${key}`} style={{ marginTop: 4 }}>
@@ -276,6 +282,7 @@ export function ValuationRulersView({
   }
 
   const scenario = band ?? buildValuationScenario(view.asOf, []);
+  const references = historyReferenceBands(scenario);
 
   return (
     <div data-testid="valuation-rulers" style={{ marginTop: 16, minWidth: 0 }}>
@@ -299,13 +306,23 @@ export function ValuationRulersView({
          <BasisRow key={row.key} WB={WB} row={row} />
       ))}
 
+       {references.length > 0 && (
+         <div data-testid="valuation-reference-detail-summary" style={{ fontSize: 12, color: WB.ink, marginTop: 6, lineHeight: 1.7 }}>
+           個別歷史估值參考：{references.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} ${twd(r.low)}–${twd(r.high)}（${r.sampleSize} 個獨立期，${r.period}）`).join('；')}。低信心，非合理價。
+         </div>
+       )}
+
        <div data-testid="valuation-basis-formula" style={{ fontSize: 12, color: WB.inkSub, marginTop: 6, lineHeight: 1.7 }}>
          三尺分別以已公告或明標預測的每股獲利、淨值、營收 × 有理由的倍數推算；三尺資料都可信且有共同支持區才顯示情境區間。
           {scenario.basisCount === 0 ? '目前沒有通過核實的財報分母。' : ''}不能以現價除比率當作財報分母。下方歷史比率與產業同業僅供參考，不代表可比同業或合理價格。
       </div>
 
        <div data-testid="valuation-summary" data-overall="na" style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}>
-         財報分母 {scenario.basisCount}/3 已核實；倍數區間 {scenario.validCount}/3 可算；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : scenario.status === 'historical' ? '歷史情境參考，非合理價' : '暫無單一合理區間'}
+         財報分母 {scenario.basisCount}/3 已計算；{scenario.shareVerification?.source === 'official' && !scenario.shareVerification.preferredUnknown
+           ? '股數已由官方名錄核對'
+           : scenario.shareVerification?.source === 'fallback'
+             ? `股數採後備核對${scenario.shareVerification.preferredUnknown ? '，特別股待官方確認' : ''}`
+             : '股數核對來源未明'}；倍數區間 {scenario.validCount}/3 可算；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : scenario.status === 'historical' ? '歷史情境參考，非合理價' : '暫無單一合理區間'}
        </div>
 
        <div data-testid="valuation-historical-ratios" style={{ marginTop: 8, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>

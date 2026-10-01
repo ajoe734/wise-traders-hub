@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { priceSpectrumGeometry } from './PriceSpectrum';
+import { PriceSpectrum } from './PriceSpectrum';
 import type { ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 const consensus = { status: 'consensus', low: 75, high: 100 } as ValuationScenario;
+const WB = { ink: '#292520', inkSub: '#6b645c', inkMute: '#98918a', inkLight: '#b9b4ae', hair: '#ddd8d0', accent: '#b34832', surface: '#fff' };
+const lowConfidence = (ranges: Array<[number, number]>) => ({
+  status: 'lowConfidence', low: null, high: null, validCount: 3, basisCount: 3, asOf: '2026-10-01',
+  rows: (['pe', 'pb', 'ps'] as const).map((key, i) => ({
+    key, basisOk: true, basis: { value: 1, unit: 'TWD/share', period: '2026Q2', publishedAt: '2026-10-01', source: '公開財報', kind: 'reported', shareBasis: '同口徑股數' },
+    multiples: { low: ranges[i][0], high: ranges[i][1], method: 'history', confidence: 'low', sampleSize: 5 },
+    low: ranges[i][0], high: ranges[i][1], reason: null, samples: [],
+  })),
+}) as unknown as ValuationScenario;
 
 describe('single continuous TWD price spectrum', () => {
   it('extreme gap remains proportional, never widens the scenario band', () => {
@@ -34,5 +45,26 @@ describe('single continuous TWD price spectrum', () => {
     expect(axis?.mapX(100)).toBeGreaterThan(0);
     expect(axis?.mapX(100)).toBeLessThan(100);
     expect(priceSpectrumGeometry({ price: null, cost: null, target: null })).toBeNull();
+  });
+
+  it('狹窄交集維持真實比例，只畫一條綜合段並以上下引線讀值', () => {
+    const band = lowConfidence([[100, 110], [104.98, 105.02], [102, 108]]);
+    const { container } = render(<PriceSpectrum WB={WB} price={150} cost={90} target={160} band={band} />);
+    const overlap = screen.getByTestId('reference-overlap-band');
+    expect(overlap.getAttribute('data-low')).toBe('104.98');
+    expect(overlap.getAttribute('data-high')).toBe('105.02');
+    expect(Number(overlap.getAttribute('x2')) - Number(overlap.getAttribute('x1'))).toBeLessThan(0.1);
+    expect(container.querySelectorAll('[data-testid^="reference-band-"]')).toHaveLength(0);
+    expect(screen.getByTestId('reference-overlap-low').textContent).toBe('NT$104.98');
+    expect(screen.getByTestId('reference-overlap-high').textContent).toBe('NT$105.02');
+    expect(screen.getByTestId('holdings-price-axis-label-system').textContent).toContain('低信心・非合理價');
+  });
+
+  it('三尺無交集時不畫綜合段，明示方法分歧', () => {
+    const band = lowConfidence([[75, 100], [40, 60], [50, 75]]);
+    render(<PriceSpectrum WB={WB} price={80} cost={65} target={90} band={band} />);
+    expect(screen.queryByTestId('reference-overlap-band')).toBeNull();
+    expect(screen.getByTestId('holdings-price-axis-label-reference').textContent).toContain('方法分歧');
+    expect(screen.getByTestId('holdings-price-axis-label-reference').textContent).toContain('怎麼算');
   });
 });

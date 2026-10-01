@@ -71,6 +71,11 @@ export type ValuationScenario = {
   validCount: number;
   asOf: string | null;
   rows: ScenarioRow[];
+  /** 股數核對來源只供前端精確陳述，不參與任何財報或估值計算。 */
+  shareVerification?: {
+    source: 'official' | 'fallback' | 'unknown';
+    preferredUnknown: boolean;
+  };
 };
 
 export const SCENARIO_LABELS: Record<ScenarioKey, string> = { pe: 'PE 本益比', pb: 'PB 股價淨值比', ps: 'PS 股價營收比' };
@@ -141,7 +146,7 @@ export const EMPTY_CUSTOM: CustomScenarioInput = {
 };
 
 /**
- * 自訂倍數 × 已核實分母。必須寫明來源、日期、假設；只用分母已核實的尺，至少一尺。
+ * 自訂倍數 × 可計算分母。必須寫明來源、日期、假設；只用分母可用的尺，至少一尺。
  * 多尺取交集；無交集回 divergent，不給單一區間。結果一律標 MY_SCENARIO_LABEL。
  */
 export function buildCustomScenario(scenario: ValuationScenario | null, input: CustomScenarioInput | null, today: string): CustomScenario {
@@ -151,7 +156,7 @@ export function buildCustomScenario(scenario: ValuationScenario | null, input: C
     const basis = r?.basisOk && r.basis ? r.basis.value : null;
     const has = m && m.low != null && m.high != null;
     if (!has) return { key, basis, low: null, high: null, note: null };
-    if (basis == null) return { key, basis, low: null, high: null, note: `${SCENARIO_LABELS[key]}分母未核實，不套用` };
+    if (basis == null) return { key, basis, low: null, high: null, note: `${SCENARIO_LABELS[key]}分母不可用，不套用` };
     if (!(m!.low! > 0) || !(m!.high! >= m!.low!)) return { key, basis, low: null, high: null, note: '倍數需大於 0 且上限 ≥ 下限' };
     return { key, basis, low: basis * m!.low!, high: basis * m!.high!, note: null };
   });
@@ -164,7 +169,7 @@ export function buildCustomScenario(scenario: ValuationScenario | null, input: C
   if (!input.assumption.trim()) problems.push('缺假設說明');
   rows.forEach((r) => { if (r.note) problems.push(r.note); });
   const usable = rows.filter((r) => r.low != null && r.high != null);
-  if (!usable.length) problems.push('至少需一把尺有已核實分母與倍數');
+  if (!usable.length) problems.push('至少需一把尺有可用分母與倍數');
   if (problems.length) return { status: 'invalid', low: null, high: null, problems, rows };
   const low = Math.max(...usable.map((r) => r.low!));
   const high = Math.min(...usable.map((r) => r.high!));

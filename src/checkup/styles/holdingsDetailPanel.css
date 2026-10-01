@@ -166,7 +166,13 @@
 .price-spectrum-hair { stroke: var(--spectrum-light); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .price-spectrum-band { stroke: var(--spectrum-accent); stroke-width: 9; stroke-opacity: .42; vector-effect: non-scaling-stroke; }
 .price-spectrum-band--historical { stroke-dasharray: 3 2; stroke-opacity: .3; }
-.price-spectrum-band--reference { stroke: var(--spectrum-sub); stroke-dasharray: 6 3; stroke-opacity: .75; stroke-width: 4; }
+.price-spectrum-band--reference { stroke: var(--spectrum-accent); stroke-opacity: .48; stroke-width: 6; }
+.price-spectrum-reference-leader { stroke: var(--spectrum-sub); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.price-spectrum-reference-value { position: absolute; z-index: 3; font-size: 11px; line-height: 1; color: var(--spectrum-ink); white-space: nowrap; font-weight: 700; }
+.price-spectrum-reference-value--low { top: 2px; transform: translateX(-100%); padding-right: 4px; }
+.price-spectrum-reference-value--high { top: 64px; padding-left: 4px; }
+.price-spectrum-reference-value--low.price-spectrum-reference-value--inset-left { transform: none; padding-left: 4px; padding-right: 0; }
+.price-spectrum-reference-value--high.price-spectrum-reference-value--inset-right { transform: translateX(-100%); padding-left: 0; padding-right: 4px; }
 .price-spectrum-band--custom { stroke: var(--spectrum-ink); stroke-dasharray: 1 1.5; stroke-opacity: .55; }
 .price-spectrum-band-end { stroke: var(--spectrum-ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .price-spectrum-leader { stroke: var(--spectrum-sub); stroke-width: 1; vector-effect: non-scaling-stroke; }

@@ -798,6 +798,17 @@ function confidenceText(band) {
   return '歷史情境參考';
 }
 
+/** 財報分母的可計算性與股數核對強度必須分開陳述。 */
+export function basisVerificationText(band) {
+  const lead = `財報分母 ${band.basisCount}/3 已計算`;
+  const verification = band.shareVerification;
+  if (verification?.source === 'official' && !verification.preferredUnknown) return `${lead}；股數已由官方名錄核對`;
+  if (verification?.source === 'fallback') {
+    return `${lead}；股數採後備核對${verification.preferredUnknown ? '，特別股待官方確認' : ''}`;
+  }
+  return `${lead}；股數核對來源未明`;
+}
+
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
 function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
@@ -813,7 +824,7 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
   if (!band) return <div data-testid="valuation-band-headline" data-status={error ? 'error' : 'insufficient'} style={{ marginBottom: 12, color: WB.ink, fontWeight: 700 }}>估值情境：{error ? '資料暫時取不到，暫無單一合理區間' : '資料不足，暫無單一合理區間'}</div>;
   const conf = confidenceText(band);
   const meta = [
-    `財報分母 ${band.basisCount}/3 已核實`,
+    basisVerificationText(band),
     `倍數信心：${conf}`,
     dateText ? `情境估值日 ${dateText}` : null,
     ratioText ? `比率資料截至 ${ratioText}${stale ? '，已逾 7 天' : ''}` : null,
@@ -833,7 +844,7 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
           {band.status === 'consensus' ? `同業倍數三尺共同情境 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'historical' ? `歷史情境參考 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'divergent' ? '三尺方法分歧，暫無單一區間'
-            : overlap ? `三尺重疊參考 NT$${fmtTwd(Math.round(overlap.low))}–${fmtTwd(Math.round(overlap.high))}（非合理價）`
+            : overlap ? `三尺重疊參考 NT$${fmtTwd(overlap.low)}–${fmtTwd(overlap.high)}（低信心・非合理價）`
             : refs.length ? '無單一合理區間，僅歷史參考'
             : band.status === 'lowConfidence' ? '倍數信心低，暫不畫單一區間'
             : band.basisCount > 0 ? '倍數依據不足，暫無單一區間'
@@ -845,7 +856,7 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
       </div>
       {refs.length > 0 && (
         <div data-testid="valuation-reference-summary" style={{ fontSize: 13, color: WB.ink, marginTop: 4, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
-          歷史估值參考（低信心、非合理價）：{refs.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} NT$${fmtTwd(Math.round(r.low))}–${fmtTwd(Math.round(r.high))}（${r.sampleSize} 期，${r.period}）`).join('、')}
+          三尺個別區間與來源請展開下方「怎麼算」。
           <div style={{ color: WB.inkSub, fontWeight: 600 }}>{why}</div>
         </div>
       )}

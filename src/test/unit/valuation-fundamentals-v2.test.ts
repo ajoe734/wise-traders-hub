@@ -306,10 +306,10 @@ describe('我的情境試算（僅此裝置）', () => {
     expect(c.problems.join()).toMatch(/假設/);
     expect(c.problems.join()).toMatch(/晚於今天/);
   });
-  it('對未核實分母的尺輸入倍數 → 拒絕', () => {
+  it('對不可用分母的尺輸入倍數 → 拒絕', () => {
     const c = buildCustomScenario(sc, { ...input, ps: { low: 5, high: 8 } }, '2026-10-01');
     expect(c.status).toBe('invalid');
-    expect(c.problems.join()).toMatch(/分母未核實/);
+    expect(c.problems.join()).toMatch(/分母不可用/);
   });
   it('各尺無交集 → divergent，不給單一區間', () => {
     const c = buildCustomScenario(sc, { ...input, pe: { low: 10, high: 20 }, pb: { low: 20, high: 30 } }, '2026-10-01');
