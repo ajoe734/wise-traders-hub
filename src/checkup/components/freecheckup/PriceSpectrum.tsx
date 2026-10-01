@@ -101,7 +101,7 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null }: {
         {custom && (mapX(custom.high) - mapX(custom.low) < 24
           ? <div className="price-spectrum-scenario-range price-spectrum-scenario-range--compact"
               data-testid="holdings-price-axis-label-custom" style={{ left: `${(mapX(custom.low) + mapX(custom.high)) / 2}%` }}>
-              {MY_SCENARIO_LABEL} · {custom.key?.toUpperCase() || '單尺'}<strong>{money(custom.low)}–{money(custom.high)}</strong>
+              我的 {custom.key?.toUpperCase() || '單尺'} 情境<strong>{money(custom.low)}–{money(custom.high)}</strong>
             </div>
           : <>
               <div className="price-spectrum-band-label price-spectrum-band-label--low" data-testid="custom-band-low" style={{ left: `${mapX(custom.low)}%` }}>{money(custom.low)}</div>
