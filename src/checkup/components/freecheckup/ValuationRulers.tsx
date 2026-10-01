@@ -62,8 +62,8 @@ function BasisRow({ WB, r, range }: { WB: any; r: RulerResult; range?: RulerPric
       {range && range.low != null && range.high != null ? (
         <div data-testid={`valuation-basis-range-${r.key}`}>
           {isYield
-            ? <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>÷</b> 歷史殖利率 30–70 分位 {q}（上下界反轉）→ {twd(range.low)}–{twd(range.high)}</>
-            : <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>×</b> 歷史{RULER_LABEL[r.key]} 30–70 分位 {q} → {twd(range.low)}–{twd(range.high)}</>}
+            ? <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>÷</b> 歷史殖利率 30–70 分位 {q}（上下界反轉）→ <span style={{ whiteSpace: 'nowrap' }}>{twd(range.low)}–{twd(range.high)}</span></>
+            : <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>×</b> 歷史{RULER_LABEL[r.key]} 30–70 分位 {q} → <span style={{ whiteSpace: 'nowrap' }}>{twd(range.low)}–{twd(range.high)}</span></>}
           <span style={{ color: WB.inkMute }}>（樣本 {r.sampleSize}）</span>
         </div>
       ) : (
