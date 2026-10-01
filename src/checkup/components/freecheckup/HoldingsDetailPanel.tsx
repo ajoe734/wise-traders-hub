@@ -11,7 +11,7 @@ import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useHoldingDetailViewModel } from '@/checkup/hooks/useHoldingDetailViewModel';
 import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
-import { ValuationRulersView } from './ValuationRulers';
+import { ValuationRulersView, basisVerificationText } from './ValuationRulers';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
@@ -798,19 +798,8 @@ function confidenceText(band) {
   return '歷史情境參考';
 }
 
-/** 財報分母的可計算性與股數核對強度必須分開陳述。 */
-export function basisVerificationText(band) {
-  const lead = `財報分母 ${band.basisCount}/3 已計算`;
-  const verification = band.shareVerification;
-  if (verification?.source === 'official' && !verification.preferredUnknown) return `${lead}；股數已由官方名錄核對`;
-  if (verification?.source === 'fallback') {
-    return `${lead}；股數採後備核對${verification.preferredUnknown ? '，特別股待官方確認' : ''}`;
-  }
-  return `${lead}；股數核對來源未明`;
-}
-
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
-function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false }) {
+export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
   const ratioText = ratioAsOf ? String(ratioAsOf).split('-').join('/') : null;
   if (loading && !band) {
