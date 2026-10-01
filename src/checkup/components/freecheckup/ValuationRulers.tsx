@@ -51,7 +51,7 @@ function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
       <div style={{ color: WB.ink, fontWeight: 700 }}>{SCENARIO_LABELS[key]}</div>
       <div data-testid={`valuation-basis-value-${key}`} data-basis-ok={row.basisOk ? '1' : '0'}>
         {row.basisOk && basis
-          ? <>分母已核實：{basis.kind === 'forecast' ? '預測假設' : '已公布'}{SCENARIO_BASES[key]} <strong style={{ color: WB.ink }}>{twd2(Number(basis.value.toFixed(2)))}</strong></>
+          ? <>分母已計算：{basis.kind === 'forecast' ? '預測假設' : '已公布'}{SCENARIO_BASES[key]} <strong style={{ color: WB.ink }}>{twd2(Number(basis.value.toFixed(2)))}</strong></>
           : <>分母不適用：{row.reason}</>}
       </div>
       {row.basisOk && (
@@ -318,7 +318,11 @@ export function ValuationRulersView({
       </div>
 
        <div data-testid="valuation-summary" data-overall="na" style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}>
-         財報分母 {scenario.basisCount}/3 已核實；倍數區間 {scenario.validCount}/3 可算；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : scenario.status === 'historical' ? '歷史情境參考，非合理價' : '暫無單一合理區間'}
+         財報分母 {scenario.basisCount}/3 已計算；{scenario.shareVerification?.source === 'official' && !scenario.shareVerification.preferredUnknown
+           ? '股數已由官方名錄核對'
+           : scenario.shareVerification?.source === 'fallback'
+             ? `股數採後備核對${scenario.shareVerification.preferredUnknown ? '，特別股待官方確認' : ''}`
+             : '股數核對來源未明'}；倍數區間 {scenario.validCount}/3 可算；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : scenario.status === 'historical' ? '歷史情境參考，非合理價' : '暫無單一合理區間'}
        </div>
 
        <div data-testid="valuation-historical-ratios" style={{ marginTop: 8, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
