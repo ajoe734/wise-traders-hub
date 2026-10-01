@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as F from '../../../.scratch/valuation-fundamentals-v2/fundamentalsBasis';
+import * as F from '../../../supabase/functions/_shared/fundamentalsBasis';
 import { buildCustomScenario, buildValuationScenario, EMPTY_CUSTOM } from '@/checkup/lib/valuationScenario';
 import f3443 from '../fixtures/finmind/v2/3443.json';
 import f2454 from '../fixtures/finmind/v2/2454.json';
