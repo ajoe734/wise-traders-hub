@@ -75,7 +75,7 @@ describe('ValuationRulersHarnessEntry', () => {
       expect(scope.getByTestId('valuation-asof').textContent).toContain('2026/09/18');
       // 顏色不單獨承載意義：每把尺都有文字標籤
       for (const k of ['pe', 'pb', 'ps']) {
-        expect(scope.getByTestId(`valuation-basis-range-${k}`).textContent).toContain('無法估算');
+        expect(scope.getByTestId(`valuation-basis-value-${k}`).textContent).toContain('分母不適用');
       }
       // 金融股提示與同業中位數
       expect(scope.getByTestId('valuation-financial-note')).toBeTruthy();

@@ -5,6 +5,7 @@
  * schema 變更時改 version（並視需要提供 migrate），不用再擔心壞資料把抽屜炸掉。
  */
 import { createPrefsStore } from './prefsStore';
+import { EMPTY_CUSTOM, type CustomScenarioInput } from './valuationScenario';
 
 export type HoldingPanelPrefs = {
   showThesis: boolean;
@@ -79,3 +80,28 @@ export const chipsPrefs = createPrefsStore<ChipsPrefs>({
       : DEFAULT_CHIPS_PREFS.bsrWindow,
   }),
 });
+
+/**
+ * 自訂倍數情境（老師依課程輸入）：每檔一筆，只存在這台裝置，不寫資料庫。
+ * 必須附來源、日期、假設；計算只套用已核實的財報分母（見 valuationScenario.buildCustomScenario）。
+ */
+export type CustomMultiplesPrefs = { bySymbol: Record<string, CustomScenarioInput> };
+
+const numOrNull = (v: unknown) => { const n = Number(v); return v === null || v === '' || v === undefined || !Number.isFinite(n) ? null : n; };
+const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
+export function sanitizeCustomInput(v: any): CustomScenarioInput {
+  const m = (x: any) => ({ low: numOrNull(x?.low), high: numOrNull(x?.high) });
+  return { pe: m(v?.pe), pb: m(v?.pb), ps: m(v?.ps), source: str(v?.source, 200), date: str(v?.date, 10), assumption: str(v?.assumption, 400) };
+}
+
+export const customMultiplesPrefs = createPrefsStore<CustomMultiplesPrefs>({
+  key: 'holdingPanel.customMultiples.v1',
+  defaults: { bySymbol: {} },
+  sanitize: (v) => {
+    const out: Record<string, CustomScenarioInput> = {};
+    const src = v && typeof v.bySymbol === 'object' && v.bySymbol ? v.bySymbol : {};
+    for (const [k, val] of Object.entries(src)) if (/^\d{4,6}$/.test(k)) out[k] = sanitizeCustomInput(val);
+    return { bySymbol: out };
+  },
+});
+export { EMPTY_CUSTOM };

@@ -12,10 +12,13 @@ const valid = (value: number | null | undefined): value is number =>
 export function priceSpectrumGeometry(
   values: { price?: number | null; cost?: number | null; target?: number | null },
   band?: ValuationScenario | null,
+  customBand?: { low: number | null; high: number | null } | null,
 ) {
   const consensus = (band?.status === 'consensus' || band?.status === 'historical') && valid(band.low) && valid(band.high)
     ? { low: band.low, high: band.high, kind: band.status } : null;
-  const points = [values.cost, values.target, values.price, consensus?.low, consensus?.high].filter(valid);
+  const custom = customBand && valid(customBand.low) && valid(customBand.high) && customBand.high > customBand.low
+    ? { low: customBand.low, high: customBand.high } : null;
+  const points = [values.cost, values.target, values.price, consensus?.low, consensus?.high, custom?.low, custom?.high].filter(valid);
   if (!points.length) return null;
   const smallest = Math.min(...points);
   const largest = Math.max(...points);
@@ -23,19 +26,20 @@ export function priceSpectrumGeometry(
   const min = Math.max(0, smallest * 0.95 - padding);
   const max = largest * 1.05 + padding;
   const mapX = (value: number) => ((value - min) / (max - min)) * 100;
-  return { min, max, mapX, consensus };
+  return { min, max, mapX, consensus, custom };
 }
 
-export function PriceSpectrum({ WB, price, cost, target, band }: {
+export function PriceSpectrum({ WB, price, cost, target, band, customBand = null }: {
   WB: Palette;
   price?: number | null;
   cost?: number | null;
   target?: number | null;
   band?: ValuationScenario | null;
+  customBand?: { low: number | null; high: number | null } | null;
 }) {
-  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, band), [price, cost, target, band]);
+  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, band, customBand), [price, cost, target, band, customBand]);
   if (!geometry) return null;
-  const { min, max, mapX, consensus } = geometry;
+  const { min, max, mapX, consensus, custom } = geometry;
   const markers: Marker[] = ([
     { key: 'cost', name: '成本', value: cost },
     { key: 'target', name: '目標', value: target },
@@ -46,6 +50,7 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
      consensus ? `${consensus.kind === 'consensus' ? '同業倍數三尺共同情境' : '歷史情境參考（非合理價）'} ${money(consensus.low)} 至 ${money(consensus.high)}` :
        '方法分歧或資料不足，無可用情境區間',
+     ...(custom ? [`自訂倍數情境（使用者輸入，非合理價） ${money(custom.low)} 至 ${money(custom.high)}`] : []),
   ].join('；');
 
   return (
@@ -68,6 +73,11 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
                 className="price-spectrum-band-end price-spectrum-fade" />
             ))}
           </>}
+          {custom && <>
+            <line data-testid="custom-band" data-low={custom.low} data-high={custom.high}
+              x1={mapX(custom.low)} x2={mapX(custom.high)} y1="66" y2="66" className="price-spectrum-band price-spectrum-band--custom price-spectrum-fade" />
+            {[custom.low, custom.high].map((v, i) => <line key={`c${i}`} x1={mapX(v)} x2={mapX(v)} y1="61" y2="71" className="price-spectrum-band-end price-spectrum-fade" />)}
+          </>}
           {markers.map((m) => <line key={m.key} x1={m.x} x2={m.x} y1="40" y2={m.key === 'cost' ? '26' : m.key === 'target' ? '54' : '40'}
             className="price-spectrum-leader price-spectrum-fade" />)}
         </svg>
@@ -82,6 +92,10 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
           <span className="price-spectrum-legend-caption"><span className={`price-spectrum-key price-spectrum-key--${m.key}`} aria-hidden="true" />{m.name}</span>
           <strong>{money(m.value)}</strong>
         </div>)}
+        {custom && <div className="price-spectrum-legend-row" data-testid="holdings-price-axis-label-custom">
+          <span className="price-spectrum-legend-caption">自訂倍數情境（使用者輸入，非合理價）</span>
+          <strong>{money(custom.low)}–{money(custom.high)}</strong>
+        </div>}
       </div>
     </div>
   );
