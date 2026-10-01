@@ -870,6 +870,12 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory, ban
             />
           );
         })}
+        {!compact && band?.status === 'consensus' && bandRanges[0] && (
+          <span data-testid="valuation-band-label" aria-hidden="true" style={{
+            position: 'absolute', left: `${pos(bandRanges[0].low)}%`, top: y + 10,
+            fontSize: LABEL_FONT_SIZE, color: WB.inkMute, whiteSpace: 'nowrap', pointerEvents: 'none',
+          }}>參考區間</span>
+        )}
         {/* HTML overlay：現價圓點（真實 px、永遠正圓） */}
         {markers.filter((p) => p.shape === 'dot').map((p, i) => (
           <span
@@ -931,6 +937,15 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory, ban
           data-testid="holdings-price-axis-compact"
           style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, minWidth: 0 }}
         >
+          {band?.status === 'consensus' && (
+            <div data-testid="valuation-band-compact-row" style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12, lineHeight: '16px', color: WB.inkSub }}>
+              <span aria-hidden="true" style={{ width: 10, height: 6, background: WB.ink, opacity: 0.18, alignSelf: 'center', flex: '0 0 auto' }} />
+              <span style={{ color: WB.inkMute }}>參考區間</span>
+              <span style={{ flex: '1 1 auto', textAlign: 'right', color: WB.ink, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                {fmtTwd(band.low)}–{fmtTwd(band.high)}
+              </span>
+            </div>
+          )}
           {markers.map((p, i) => {
             const row = toCompactRow({ label: p.label, text: p.text });
             return (
