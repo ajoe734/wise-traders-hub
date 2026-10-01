@@ -15,7 +15,8 @@ describe('我的情境試算：不冒稱老師、與系統情境文字區分', (
   it('有試算時同一條價軸只列出我的單尺情境', () => {
     render(<PriceSpectrum WB={WB} price={7900} cost={2566} target={3429} customBand={{ low: 2009.57, high: 2730.73, key: 'pe' }} />);
     expect(screen.queryByTestId('holdings-price-axis-label-system')).toBeNull();
-    expect(screen.getByTestId('holdings-price-axis-label-custom').textContent).toContain(MY_SCENARIO_LABEL);
+    expect(screen.getByTestId('holdings-price-axis-label-custom').textContent).toContain('我的 PE 情境');
+    expect(screen.getByTestId('price-spectrum').getAttribute('aria-label')).toContain(MY_SCENARIO_LABEL);
     expect(screen.getAllByTestId('custom-band')).toHaveLength(1);
     expect(screen.getAllByRole('img')).toHaveLength(1);
   });
