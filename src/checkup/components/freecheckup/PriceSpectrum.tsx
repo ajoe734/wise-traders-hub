@@ -1,5 +1,8 @@
 import { useMemo, type CSSProperties } from 'react';
-import { MY_SCENARIO_LABEL, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { MY_SCENARIO_LABEL, historyReferenceBands, SCENARIO_LABELS, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+
+/** 歷史參考帶的共同前綴：低信心、非合理價，和系統情境、我的試算以文字直接區分。 */
+export const REFERENCE_LABEL = '歷史估值參考（低信心，非合理價）';
 
 type Marker = { key: 'cost' | 'target' | 'price'; name: string; value: number; x: number };
 type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string; surface?: string };
@@ -18,7 +21,8 @@ export function priceSpectrumGeometry(
     ? { low: band.low, high: band.high, kind: band.status } : null;
   const custom = customBand && valid(customBand.low) && valid(customBand.high) && customBand.high > customBand.low
     ? { low: customBand.low, high: customBand.high } : null;
-  const points = [values.cost, values.target, values.price, consensus?.low, consensus?.high, custom?.low, custom?.high].filter(valid);
+  const refs = historyReferenceBands(band).filter((r) => valid(r.low) && valid(r.high));
+  const points = [values.cost, values.target, values.price, consensus?.low, consensus?.high, custom?.low, custom?.high, ...refs.flatMap((r) => [r.low, r.high])].filter(valid);
   if (!points.length) return null;
   const smallest = Math.min(...points);
   const largest = Math.max(...points);
@@ -26,7 +30,7 @@ export function priceSpectrumGeometry(
   const min = Math.max(0, smallest * 0.95 - padding);
   const max = largest * 1.05 + padding;
   const mapX = (value: number) => ((value - min) / (max - min)) * 100;
-  return { min, max, mapX, consensus, custom };
+  return { min, max, mapX, consensus, custom, refs };
 }
 
 function systemLabel(consensus: { low: number; high: number; kind: string } | null, band?: ValuationScenario | null): string {
@@ -47,7 +51,7 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
 }) {
   const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, band, customBand), [price, cost, target, band, customBand]);
   if (!geometry) return null;
-  const { min, max, mapX, consensus, custom } = geometry;
+  const { min, max, mapX, consensus, custom, refs } = geometry;
   const markers: Marker[] = ([
     { key: 'cost', name: '成本', value: cost },
     { key: 'target', name: '目標', value: target },
@@ -57,6 +61,7 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
     '新台幣等比例價格線',
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
      systemLabel(consensus, band),
+     ...refs.map((r) => `${REFERENCE_LABEL} ${SCENARIO_LABELS[r.key]} ${money(r.low)} 至 ${money(r.high)}`),
      ...(custom ? [`${MY_SCENARIO_LABEL} ${money(custom.low)} 至 ${money(custom.high)}`] : []),
   ].join('；');
 
@@ -80,6 +85,15 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
                 className="price-spectrum-band-end price-spectrum-fade" />
             ))}
           </>}
+          {refs.map((r, i) => {
+            const y = 8 + i * 7;
+            const x1 = mapX(r.low); const x2 = Math.max(mapX(r.high), x1 + 0.6);
+            return <g key={r.key}>
+              <line data-testid={`reference-band-${r.key}`} data-low={r.low} data-high={r.high}
+                x1={x1} x2={x2} y1={y} y2={y} className="price-spectrum-band price-spectrum-band--reference price-spectrum-fade" />
+              {[x1, x2].map((x, j) => <line key={j} x1={x} x2={x} y1={y - 2.5} y2={y + 2.5} className="price-spectrum-band-end price-spectrum-fade" />)}
+            </g>;
+          })}
           {custom && <>
             <line data-testid="custom-band" data-low={custom.low} data-high={custom.high}
               x1={mapX(custom.low)} x2={mapX(custom.high)} y1="66" y2="66" className="price-spectrum-band price-spectrum-band--custom price-spectrum-fade" />
@@ -103,6 +117,10 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           <span className="price-spectrum-legend-caption">系統估值情境</span>
           <strong>{systemLabel(consensus, band)}</strong>
         </div>
+        {refs.length > 0 && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-reference">
+          <span className="price-spectrum-legend-caption">{REFERENCE_LABEL}・上方虛線</span>
+          <strong>{refs.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} ${money(Math.round(r.low))}–${money(Math.round(r.high))}`).join('；')}</strong>
+        </div>}
         {custom && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-custom">
           <span className="price-spectrum-legend-caption">{MY_SCENARIO_LABEL}</span>
           <strong>{money(custom.low)}–{money(custom.high)}</strong>
