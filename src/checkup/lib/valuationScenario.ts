@@ -47,6 +47,8 @@ export type ScenarioRowInput = {
   /** 上游判定的不適用原因（虧損、股數無法核對、樣本不足）。 */ notApplicable?: string | null; samples?: ScenarioSample[];
   /** v2：分母本身的問題（與倍數信心分開）。 */ basisIssue?: string | null;
   /** v2：倍數依據不足的原因（分母仍可用）。 */ multipleIssue?: string | null;
+  /** v2.4：景氣相近期不足時的全期歷史低信心參考（倍數），非合理價、不參與合成。 */
+  reference?: { scope: 'all'; label: string; low: number; high: number; sampleSize: number; period: string; note: string } | null;
 };
 export type ScenarioRow = ScenarioRowInput & {
   low: number | null; high: number | null; reason: string | null;
@@ -92,9 +94,9 @@ function basisProblem(key: ScenarioKey, basis: ScenarioBasis | null | undefined,
 export function buildValuationScenario(asOf: string | null, inputs: ScenarioRowInput[]): ValuationScenario {
   const rows: ScenarioRow[] = (['pe', 'pb', 'ps'] as const).map((key) => {
     const input = (inputs.find((i) => i.key === key) || { key }) as ScenarioRowInput;
-    const { basis, multiples, notApplicable, samples, basisIssue, multipleIssue } = input;
+    const { basis, multiples, notApplicable, samples, basisIssue, multipleIssue, reference } = input;
     const bp = basisProblem(key, basis, asOf, notApplicable, basisIssue);
-    const common = { key, basis, multiples, samples, basisIssue: basisIssue ?? null, multipleIssue: multipleIssue ?? null, notApplicable };
+    const common = { key, basis, multiples, samples, basisIssue: basisIssue ?? null, multipleIssue: multipleIssue ?? null, notApplicable, reference: reference ?? null };
     if (bp) return { ...common, low: null, high: null, reason: bp, basisOk: false, confidence: null };
     const no = (reason: string): ScenarioRow => ({ ...common, low: null, high: null, reason, basisOk: true, confidence: 'insufficient' });
     if (!multiples) return no(multipleIssue || notApplicable || '缺有依據的估值倍數區間');
@@ -168,4 +170,20 @@ export function buildCustomScenario(scenario: ValuationScenario | null, input: C
   const high = Math.min(...usable.map((r) => r.high!));
   if (low >= high) return { status: 'divergent', low: null, high: null, problems: [], rows };
   return { status: 'ready', low, high, problems: [], rows };
+}
+
+/** 歷史估值參考帶（每尺一條，低信心、非合理價）：信心低的本公司歷史區間，或全期歷史參考。同業/一般信心區間不在此列。 */
+export type ReferenceBand = { key: ScenarioKey; low: number; high: number; label: string; sampleSize: number; period: string };
+export function historyReferenceBands(band: ValuationScenario | null | undefined): ReferenceBand[] {
+  if (!band || band.status === 'consensus' || band.status === 'historical') return [];
+  const out: ReferenceBand[] = [];
+  for (const r of band.rows) {
+    if (!r.basisOk || !r.basis) continue;
+    if (r.low != null && r.high != null && r.multiples && r.multiples.method !== 'peer') {
+      out.push({ key: r.key, low: r.low, high: r.high, label: '景氣相近期歷史參考', sampleSize: r.multiples.sampleSize, period: r.multiples.period });
+    } else if (r.reference && r.reference.low > 0 && r.reference.high >= r.reference.low) {
+      out.push({ key: r.key, low: r.basis.value * r.reference.low, high: r.basis.value * r.reference.high, label: '全期歷史參考（景氣不同）', sampleSize: r.reference.sampleSize, period: r.reference.period });
+    }
+  }
+  return out;
 }
