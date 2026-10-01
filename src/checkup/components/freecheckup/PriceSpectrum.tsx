@@ -51,7 +51,8 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
   return (
     <div className="price-spectrum" data-testid="price-spectrum" aria-label={description}
       style={{ '--spectrum-ink': WB.ink, '--spectrum-sub': WB.inkSub, '--spectrum-mute': WB.inkMute,
-        '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent } as CSSProperties}>
+        '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent,
+        '--spectrum-surface': '#fff' } as CSSProperties}>
       <div className="price-spectrum-track">
         <svg className="price-spectrum-rail" viewBox="0 0 100 80" preserveAspectRatio="none"
           role="img" aria-label={description}>
