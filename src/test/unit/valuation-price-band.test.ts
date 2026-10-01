@@ -145,3 +145,23 @@ describe('buildValuationPriceBand — 規則', () => {
     expect(roundPrice(74.72)).toBe(74.7);
   });
 });
+
+describe('計算依據說明文字（財務正確性）', () => {
+  const src = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../checkup/components/freecheckup/ValuationRulers.tsx'), 'utf8') as string;
+  it('移除無依據的精度宣稱，改為近似值說明', () => {
+    expect(src).not.toContain('萬分之一');
+    expect(src).toContain('比率經四捨五入，反推基礎值與區間均為近似值');
+  });
+  it('殖利率尺以除法呈現並註明上下界反轉', () => {
+    expect(src).toMatch(/÷<\/b> 歷史殖利率 30–70 分位 \{q\}（上下界反轉）/);
+    expect(src).toContain('收盤×殖利率÷100');
+  });
+});
+
+describe('基礎值標籤標明反推近似', () => {
+  const lib = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../checkup/lib/valuationRulers.ts'), 'utf8') as string;
+  it('三個基礎值標籤皆含「反推」與「約」', () => {
+    for (const l of ['依同日收盤與本益比反推 EPS 約', '依同日收盤與股價淨值比反推每股淨值約', '依殖利率反推每股股利約']) expect(lib).toContain(l);
+    expect(lib).not.toContain("'近 12 月每股現金股利'");
+  });
+});
