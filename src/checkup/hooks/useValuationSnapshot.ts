@@ -18,6 +18,20 @@ import { buildValuationScenario, type ScenarioRowInput, type ValuationScenario }
 /** 唯讀財報情境 Edge Function；token 只在後端。 */
 export const FUNDAMENTALS_FN = 'valuation-fundamentals';
 
+const SKIP = Symbol('skip-fundamentals');
+
+/** 本地檢查 JWT exp（含 30 秒緩衝）；解析失敗視為未過期，交由後端判定。 */
+export function isJwtExpired(token: string, nowMs: number = Date.now()): boolean {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return false;
+    const json = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof json.exp === 'number' && json.exp * 1000 <= nowMs + 30_000;
+  } catch {
+    return false;
+  }
+}
+
 type FundamentalsPayload = { ok?: boolean; asOf?: string | null; rows?: ScenarioRowInput[]; reason?: string };
 
 export function scenarioFromFundamentals(payload: FundamentalsPayload | null | undefined, fallbackAsOf: string | null, failure?: string): ValuationScenario {
@@ -96,10 +110,17 @@ export function useValuationSnapshot(
         // RPC 只有比率；PE/PB/PS 情境分母與倍數由唯讀財報服務提供（不以股價反推）。
         let scenario: ValuationScenario;
         try {
+          // 財報服務只接受有效登入；沒有或已過期的憑證就不呼叫，避免 401 噴錯。
+          const token = await gateway.auth?.getAccessToken?.().catch(() => null);
+          if (!token || isJwtExpired(token)) {
+            if (cancelled) return;
+            scenario = scenarioFromFundamentals(null, payload.asOf ?? null, '登入狀態已失效，重新登入後可查看財報情境');
+            throw SKIP;
+          }
           const fund = await gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, { symbol: code });
           scenario = scenarioFromFundamentals(fund, payload.asOf ?? null);
         } catch (e: any) {
-          scenario = scenarioFromFundamentals(null, payload.asOf ?? null, `財報情境服務暫時無法取得（${e?.message || '未知錯誤'}）`);
+          if (e !== SKIP) scenario = scenarioFromFundamentals(null, payload.asOf ?? null, `財報情境服務暫時無法取得（${e?.message || '未知錯誤'}）`);
         }
         if (cancelled) return;
         setBand(scenario);
