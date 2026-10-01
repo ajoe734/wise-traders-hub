@@ -33,6 +33,7 @@ function systemLabel(consensus: { low: number; high: number; kind: string } | nu
   if (consensus) return `${consensus.kind === 'consensus' ? '同業三尺共同情境（非保證）' : '歷史情境參考（非合理價）'} ${money(consensus.low)}–${money(consensus.high)}`;
   if (band?.status === 'lowConfidence') return '歷史情境倍數信心低，未畫區間';
   if (band?.status === 'divergent') return '方法分歧，未畫區間';
+  if (band?.status === 'insufficient' && (band.basisCount ?? 0) >= 3) return '倍數依據不足，未畫區間';
   return '資料不足，未畫區間';
 }
 
@@ -98,11 +99,11 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           <span className="price-spectrum-legend-caption"><span className={`price-spectrum-key price-spectrum-key--${m.key}`} aria-hidden="true" />{m.name}</span>
           <strong>{money(m.value)}</strong>
         </div>)}
-        <div className="price-spectrum-legend-row" data-testid="holdings-price-axis-label-system">
+        <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-system">
           <span className="price-spectrum-legend-caption">系統估值情境</span>
           <strong>{systemLabel(consensus, band)}</strong>
         </div>
-        {custom && <div className="price-spectrum-legend-row" data-testid="holdings-price-axis-label-custom">
+        {custom && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-custom">
           <span className="price-spectrum-legend-caption">{MY_SCENARIO_LABEL}</span>
           <strong>{money(custom.low)}–{money(custom.high)}</strong>
         </div>}

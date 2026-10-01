@@ -182,6 +182,9 @@
 .price-spectrum-legend-caption { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
 .price-spectrum-legend-row strong { font-size: 14px; font-weight: 700; color: var(--spectrum-ink); white-space: nowrap; }
 .price-spectrum-legend-row--price strong { font-size: 18px; }
+/* 系統情境與我的試算：獨占整列、可換行，避免窄螢幕溢出 */
+.price-spectrum-legend-row--scenario { grid-column: 1 / -1 !important; padding-left: 0 !important; border-left: 0 !important; border-top: 1px solid var(--spectrum-hair); }
+.price-spectrum-legend-row--scenario strong { white-space: normal; overflow-wrap: anywhere; }
 .price-spectrum-key { display: inline-block; flex: 0 0 auto; width: 8px; height: 8px; }
 .price-spectrum-key--price { border-radius: 50%; background: var(--spectrum-ink); }
 .price-spectrum-key--target { background: var(--spectrum-surface); border: 1px solid var(--spectrum-accent); transform: rotate(45deg) scale(.75); }
