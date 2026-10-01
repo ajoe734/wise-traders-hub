@@ -285,14 +285,14 @@ describe('分母可用數與倍數信心分開', () => {
   });
 });
 
-describe('自訂倍數情境（老師輸入）', () => {
+describe('我的情境試算（僅此裝置）', () => {
   const basis = (v: number) => ({ value: v, unit: 'TWD/share' as const, period: 'p', publishedAt: '2026-09-01', source: 's', kind: 'reported' as const, shareBasis: 'b' });
   const sc = buildValuationScenario(ASOF, [
     { key: 'pe', basis: basis(39.01), multipleIssue: 'x' },
     { key: 'pb', basis: basis(100.48), multipleIssue: 'x' },
     { key: 'ps', notApplicable: '特別股' },
   ]);
-  const input = { ...EMPTY_CUSTOM, pe: { low: 50, high: 70 }, pb: { low: 20, high: 30 }, source: '課程第 3 講', date: '2026-09-30', assumption: 'ASIC 高成長期' };
+  const input = { ...EMPTY_CUSTOM, pe: { low: 50, high: 70 }, pb: { low: 20, high: 30 }, source: '測試依據 A', date: '2026-09-30', assumption: 'ASIC 高成長期' };
   it('只乘已核實分母，多尺取交集', () => {
     const c = buildCustomScenario(sc, input, '2026-10-01');
     expect(c.status).toBe('ready');
@@ -302,7 +302,7 @@ describe('自訂倍數情境（老師輸入）', () => {
   it('缺來源／假設、日期晚於今天 → 不套用', () => {
     const c = buildCustomScenario(sc, { ...input, source: '', assumption: ' ', date: '2026-10-05' }, '2026-10-01');
     expect(c.status).toBe('invalid');
-    expect(c.problems.join()).toMatch(/來源/);
+    expect(c.problems.join()).toMatch(/依據/);
     expect(c.problems.join()).toMatch(/假設/);
     expect(c.problems.join()).toMatch(/晚於今天/);
   });
