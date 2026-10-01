@@ -5,22 +5,23 @@
  *
  * 規則（不得放寬）：
  *   - 分母只來自財報原始科目，禁止以股價÷比率反推。
- *   - 股數：資產負債表 OrdinaryShare 是「普通股股本金額」，必須 ÷ 該檔官方面額（證交所／櫃買中心
- *     公司基本資料）才是股數；面額未核實（含無面額）一律不適用，不得假設 10 元。
- *   - PE：近四季歸屬母公司淨利 ÷ 同口徑「加權平均股數」。每季加權股數 = 歸屬母公司淨利 ÷ 財報基本 EPS；
- *     與期末股數差 > 5% 視為股數基準無法核對。四季股數變動 > 0.5%（配股／減資）時改以最新一季加權股數
- *     作為追溯口徑，不直接相加不同股數基準的 EPS。
- *   - 日期：
- *       live（今日估值）：FinMind 已能讀到的最新季報即視為「已公開」，標示「資料期＋取得時間」，
- *         不把法定申報期限寫成公告日。
- *       asOf（歷史估值日）：只用「法定申報期限 ≤ 估值日」的季報（實際公告日未取得，保守不提前使用）。
+ *   - 淨利口徑：EquityAttributableToOwnersOfParent 必須核對 origin_name 為「淨利（淨損）歸屬於母公司業主」，
+ *     不得是綜合損益；並以 本期淨利 = 母公司 + 非控制權益 對帳（誤差 ≤1%）。同期多口徑、科目不明、
+ *     對不平 → 該季淨利不可用，PE 不適用。
+ *   - 股數：OrdinaryShare 是普通股股本「金額」，÷ 該檔官方面額（證交所／櫃買中心）再扣庫藏股，才是流通股數；
+ *     面額未核實一律不適用，不得假設 10 元。
+ *   - 特別股：官方名錄有特別股 → 歸屬母公司權益與淨利含特別股權益，PE、PB 不適用；PS 用普通股期末股數。
+ *   - EPS 股數基準：每季加權股數 = 母公司淨利 ÷ 基本 EPS。四季加權股數變動 > 0.5%（代表 EPS 基準不同，
+ *     可能配股／分割／增資）且無正式追溯資料 → PE 不適用，不相加不同基準 EPS、也不把最新季冒稱「追溯口徑」。
+ *   - 日期：live＝「資料期＋取得時間」；asOf（歷史）只用法定申報期限 ≤ 估值日的季報。期限不是公告日。
  *   - 倍數：
- *       peer：可比同業同日收盤 ÷ 同口徑分母，有效 ≥ 3 家，取 25–75 百分位。可進入「同業倍數情境」。
- *       history：本公司相近景氣期歷史，排除與目前分母同一資料期的樣本（那是市場對同一份財報的定價，
- *         近似循環），有效 ≥ 4 季取 25–75 百分位；只能稱「歷史情境參考」，不是合理價。
+ *       peer：核心業務同業（主分類相同為優先，題材不列條件），同日收盤 ÷ 同口徑分母，有效 ≥3 家取 P25–P75。
+ *       history：本公司「月末代表點」，每點只用當時已過法定期限的財報；同一資料期的多個月點只算一份證據
+ *         （先取該期中位數），排除與目前分母同一資料期；相近景氣期 ≥4 個資料期才取 P25–P75，
+ *         且只能叫「本公司歷史情境參考」，不是合理倍數。
  */
 
-export type FinRow = { date: string; type: string; value: number };
+export type FinRow = { date: string; type: string; value: number; origin_name?: string | null };
 export type PriceRow = { date: string; close: number };
 export type RulerKey = 'pe' | 'pb' | 'ps';
 export type ValuationMode = 'live' | 'asOf';
@@ -28,23 +29,26 @@ export type ValuationMode = 'live' | 'asOf';
 /** 官方公司基本資料（證交所 t187ap03_L／櫃買 mopsfin_t187ap03_O）。 */
 export type OfficialShares = {
   par: number | null;
-  /** 原始面額字串（例如「新台幣 10.0000元」「無面額」）。 */
   parText: string;
   issuedShares: number | null;
-  /** 民國出表日期轉西元 YYYY-MM-DD。 */
+  /** 官方特別股股數；0 = 無。 */
+  preferredShares: number | null;
+  /** 實收資本額（元），同業規模排序用。 */
+  paidInCapital: number | null;
   reportDate: string | null;
   source: 'TWSE' | 'TPEx';
 };
 
 export const SHARE_TOLERANCE = 0.05;
 export const SHARE_CHANGE_THRESHOLD = 0.005;
+export const NI_RECON_TOLERANCE = 0.01;
 export const MIN_PEERS = 3;
 export const MIN_HISTORY = 4;
 
 export function parsePar(text: string | null | undefined): number | null {
   if (!text) return null;
   const s = String(text).replace(/\s+/g, '');
-  if (!s.startsWith('新台幣')) return null; // 無面額、美金等外幣：不核實
+  if (!s.startsWith('新台幣')) return null;
   const m = /新台幣([\d.]+)元?/.exec(s);
   const v = m ? Number(m[1]) : NaN;
   return Number.isFinite(v) && v > 0 ? v : null;
@@ -56,15 +60,25 @@ export function rocToIso(roc: string | null | undefined): string | null {
   return `${Number(m[1]) + 1911}-${m[2]}-${m[3]}`;
 }
 
+const posNum = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : null; };
+
 export function officialFromTwse(row: Record<string, string> | null | undefined): OfficialShares | null {
   if (!row) return null;
-  const n = Number(row['已發行普通股數或TDR原股發行股數']);
-  return { par: parsePar(row['普通股每股面額']), parText: (row['普通股每股面額'] || '').replace(/\s+/g, ' ').trim(), issuedShares: Number.isFinite(n) && n > 0 ? n : null, reportDate: rocToIso(row['出表日期']), source: 'TWSE' };
+  const n = posNum(row['已發行普通股數或TDR原股發行股數']);
+  return {
+    par: parsePar(row['普通股每股面額']), parText: (row['普通股每股面額'] || '').replace(/\s+/g, ' ').trim(),
+    issuedShares: n && n > 0 ? n : null, preferredShares: posNum(row['特別股']), paidInCapital: posNum(row['實收資本額']),
+    reportDate: rocToIso(row['出表日期']), source: 'TWSE',
+  };
 }
 export function officialFromTpex(row: Record<string, string> | null | undefined): OfficialShares | null {
   if (!row) return null;
-  const n = Number(row['IssueShares']);
-  return { par: parsePar(row['ParValueOfCommonStock']), parText: (row['ParValueOfCommonStock'] || '').replace(/\s+/g, ' ').trim(), issuedShares: Number.isFinite(n) && n > 0 ? n : null, reportDate: rocToIso(row['Date']), source: 'TPEx' };
+  const n = posNum(row['IssueShares']);
+  return {
+    par: parsePar(row['ParValueOfCommonStock']), parText: (row['ParValueOfCommonStock'] || '').replace(/\s+/g, ' ').trim(),
+    issuedShares: n && n > 0 ? n : null, preferredShares: posNum(row['PreferredStock.shares']), paidInCapital: posNum(row['Paidin.Capital.NTDollars']),
+    reportDate: rocToIso(row['Date']), source: 'TPEx',
+  };
 }
 
 export function statutoryDeadline(periodEnd: string): string | null {
@@ -85,17 +99,55 @@ export function quarterLabel(periodEnd: string): string {
   return `${y}Q${Math.ceil(Number(m) / 3)}`;
 }
 
-function byQuarter(rows: FinRow[]): Map<string, Record<string, number>> {
-  const map = new Map<string, Record<string, number>>();
+type QRec = { v: Record<string, number>; o: Record<string, string>; conflict: Set<string> };
+function byQuarter(rows: FinRow[]): Map<string, QRec> {
+  const map = new Map<string, QRec>();
   for (const r of rows) {
     if (!r || typeof r.date !== 'string' || typeof r.type !== 'string') continue;
     const v = Number(r.value);
     if (!Number.isFinite(v)) continue;
-    const q = map.get(r.date) || {};
-    q[r.type] = v;
+    const q = map.get(r.date) || { v: {}, o: {}, conflict: new Set<string>() };
+    const origin = r.origin_name ? String(r.origin_name) : '';
+    if (r.type in q.v && (q.v[r.type] !== v || (origin && q.o[r.type] && q.o[r.type] !== origin))) q.conflict.add(r.type);
+    q.v[r.type] = v;
+    if (origin) q.o[r.type] = origin;
     map.set(r.date, q);
   }
   return map;
+}
+const EMPTY: QRec = { v: {}, o: {}, conflict: new Set() };
+const nciOf = (q: QRec) => q.v.NoncontrollingInterests ?? q.v.NonControllingInterests ?? null;
+
+export type NetIncomeResolution = { value: number | null; proxied: boolean; issue: string | null; origin: string | null };
+
+/** 母公司淨利口徑核對：origin_name、本期淨利、非控制權益三方對帳。 */
+export function resolveParentNetIncome(f: QRec, b: QRec): NetIncomeResolution {
+  const p = f.v.EquityAttributableToOwnersOfParent;
+  const po = f.o.EquityAttributableToOwnersOfParent ?? null;
+  const iat = f.v.IncomeAfterTaxes;
+  const nci = nciOf(f);
+  if (f.conflict.has('EquityAttributableToOwnersOfParent')) return { value: null, proxied: false, issue: '同期出現多個「歸屬母公司」科目口徑', origin: po };
+  if (p != null) {
+    if (po && (/綜合/.test(po) || !/淨利|淨損/.test(po))) return { value: null, proxied: false, issue: `科目「${po}」不是淨利歸屬母公司（可能為綜合損益）`, origin: po };
+    if (iat != null && iat !== 0) {
+      const expected = p + (nci ?? 0);
+      const gap = Math.abs(expected - iat) / Math.abs(iat);
+      if (gap > NI_RECON_TOLERANCE) {
+        return { value: null, proxied: false, origin: po, issue: nci != null
+          ? `母公司淨利＋非控制權益與本期淨利差 ${(gap * 100).toFixed(1)}%，口徑不一致`
+          : `母公司淨利與本期淨利差 ${(gap * 100).toFixed(1)}% 且未揭露非控制權益，口徑不明` };
+      }
+    } else if (!po) {
+      return { value: null, proxied: false, issue: '缺科目名稱且無本期淨利可對帳', origin: null };
+    }
+    return { value: p, proxied: false, issue: null, origin: po };
+  }
+  const bsNci = nciOf(b);
+  const io = f.o.IncomeAfterTaxes ?? null;
+  if (iat != null && nci == null && (bsNci == null || bsNci === 0) && (!io || /本期淨利/.test(io))) {
+    return { value: iat, proxied: true, issue: null, origin: io };
+  }
+  return { value: null, proxied: false, issue: '缺歸屬母公司淨利，且有非控制權益無法以本期淨利代用', origin: null };
 }
 
 export type QuarterLine = {
@@ -103,10 +155,15 @@ export type QuarterLine = {
   deadline: string;
   revenue: number | null;
   netIncomeParent: number | null;
+  niIssue: string | null;
+  niOrigin: string | null;
   reportedEps: number | null;
-  /** 期末普通股股數 = OrdinaryShare ÷ 面額。 */
+  /** 期末已發行普通股 = OrdinaryShare ÷ 面額。 */
+  sharesIssuedEnd: number | null;
+  treasuryShares: number;
+  /** 期末流通股數 = 已發行 − 庫藏股。 */
   sharesEnd: number | null;
-  /** 加權平均股數 = 歸屬母公司淨利 ÷ 基本 EPS（|EPS| < 0.05 時不可靠，為 null）。 */
+  /** 加權平均股數 = 母公司淨利 ÷ 基本 EPS（|EPS| < 0.05 時不可靠，為 null）。 */
   weightedShares: number | null;
   equityParent: number | null;
   proxied?: boolean;
@@ -130,13 +187,17 @@ export type CompanyBasis = {
   niTtm: number | null;
   revenueTtm: number | null;
   reportedEpsSum: number | null;
-  /** PE 用加權股數（四季平均，或股數變動時取最新一季的追溯口徑）。 */
+  /** PE 用加權股數（四季平均）；EPS 基準不一致時為 null。 */
   weightedSharesUsed: number | null;
   weightedRule: string | null;
+  /** PS 用股數與規則（無變動=同 PE；有變動=最新季末流通股數且與官方核對）。 */
+  psShares: number | null;
+  psShareRule: string | null;
   sharesEnd: number | null;
   shareChange: boolean;
-  /** 官方目前已發行股數與最近季末股數的差異（比例）；無官方資料為 null。 */
+  epsBasisRange: number | null;
   officialShareDiff: number | null;
+  preferred: boolean;
   equityParent: number | null;
   eps: number | null;
   bvps: number | null;
@@ -150,16 +211,17 @@ export type CompanyBasis = {
   debtRatio: number | null;
 };
 
-export type BasisOptions = {
-  mode: ValuationMode;
-  official: OfficialShares | null;
-  /** live 模式的資料取得時間（ISO）。 */
-  fetchedAt?: string;
-};
+export type BasisOptions = { mode: ValuationMode; official: OfficialShares | null; fetchedAt?: string };
+
+const TREASURY = 'NumberOfSharesInEntityHeldByEntityAndByItsSubsidiaries';
 
 export function computeCompanyBasis(symbol: string, fs: FinRow[], bs: FinRow[], asOf: string, opts: BasisOptions): CompanyBasis {
   const fsQ = byQuarter(fs);
   const bsQ = byQuarter(bs);
+  return basisFromQuarters(symbol, fsQ, bsQ, asOf, opts);
+}
+
+function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<string, QRec>, asOf: string, opts: BasisOptions): CompanyBasis {
   const par = opts.official?.par ?? null;
   const periods = [...fsQ.keys()]
     .filter((p) => {
@@ -169,26 +231,34 @@ export function computeCompanyBasis(symbol: string, fs: FinRow[], bs: FinRow[], 
     })
     .sort();
   const lines: QuarterLine[] = periods.map((p) => {
-    const f = fsQ.get(p) || {};
-    const b = bsQ.get(p) || {};
-    const ni = f.EquityAttributableToOwnersOfParent ?? (b.NonControllingInterests == null ? f.IncomeAfterTaxes ?? null : null);
-    const eps = f.EPS ?? null;
+    const f = fsQ.get(p) || EMPTY;
+    const b = bsQ.get(p) || EMPTY;
+    const ni = resolveParentNetIncome(f, b);
+    const eps = f.v.EPS ?? null;
+    const issued = par != null && b.v.OrdinaryShare != null && b.v.OrdinaryShare > 0 ? b.v.OrdinaryShare / par : null;
+    const treasury = Math.max(0, b.v[TREASURY] ?? 0);
+    const bsNci = nciOf(b);
     return {
       period: p,
       deadline: statutoryDeadline(p)!,
-      revenue: f.Revenue ?? null,
-      netIncomeParent: ni,
+      revenue: f.v.Revenue ?? null,
+      netIncomeParent: ni.value,
+      niIssue: ni.issue,
+      niOrigin: ni.origin,
       reportedEps: eps,
-      sharesEnd: par != null && b.OrdinaryShare != null && b.OrdinaryShare > 0 ? b.OrdinaryShare / par : null,
-      weightedShares: ni != null && eps != null && Math.abs(eps) >= 0.05 ? ni / eps : null,
-      equityParent: b.EquityAttributableToOwnersOfParent ?? (b.NonControllingInterests == null ? b.Equity ?? null : null),
-      proxied: f.EquityAttributableToOwnersOfParent == null || b.EquityAttributableToOwnersOfParent == null,
+      sharesIssuedEnd: issued,
+      treasuryShares: treasury,
+      sharesEnd: issued != null && issued > treasury ? issued - treasury : null,
+      weightedShares: ni.value != null && eps != null && Math.abs(eps) >= 0.05 ? ni.value / eps : null,
+      equityParent: b.v.EquityAttributableToOwnersOfParent ?? ((bsNci == null || bsNci === 0) ? b.v.Equity ?? null : null),
+      proxied: ni.proxied || b.v.EquityAttributableToOwnersOfParent == null,
     };
   });
   const base: CompanyBasis = {
     symbol, ok: false, reason: null, asOf, mode: opts.mode, quarters: lines.slice(-8), period: null, latestPeriod: null,
     availability: null, par, niTtm: null, revenueTtm: null, reportedEpsSum: null, weightedSharesUsed: null, weightedRule: null,
-    sharesEnd: null, shareChange: false, officialShareDiff: null, equityParent: null, eps: null, bvps: null, sps: null,
+    psShares: null, psShareRule: null, sharesEnd: null, shareChange: false, epsBasisRange: null, officialShareDiff: null,
+    preferred: false, equityParent: null, eps: null, bvps: null, sps: null,
     notApplicable: {}, growthYoY: null, netMargin: null, positiveQuarters: null, quartersObserved: 0, cashRatio: null, debtRatio: null,
   };
   if (par == null) {
@@ -201,55 +271,84 @@ export function computeCompanyBasis(symbol: string, fs: FinRow[], bs: FinRow[], 
   const contiguous = last4.every((l, i) => i === 0 || monthsBetween(last4[i - 1].period, l.period) === 3);
   if (!contiguous) return { ...base, reason: '近四季季報不連續' };
   const latest = last4[3];
-  const latestBs = bsQ.get(latest.period) || {};
+  const latestBs = bsQ.get(latest.period)?.v || {};
   if (last4.some((l) => l.sharesEnd == null)) return { ...base, reason: '缺期末普通股股本，無法取得股數' };
   for (const l of last4) {
     if (l.weightedShares != null && l.weightedShares > 0) {
       const diff = Math.abs(l.weightedShares - l.sharesEnd!) / l.sharesEnd!;
       if (diff > SHARE_TOLERANCE) {
-        return { ...base, reason: `${quarterLabel(l.period)} 淨利÷EPS 的加權股數與期末股數（股本÷面額 ${par}）差 ${(diff * 100).toFixed(1)}%，股數基準無法核對` };
+        return { ...base, reason: `${quarterLabel(l.period)} 淨利÷EPS 的加權股數與期末流通股數（股本÷面額 ${par}－庫藏股）差 ${(diff * 100).toFixed(1)}%，股數基準無法核對` };
       }
     }
   }
+  const preferred = (opts.official?.preferredShares ?? 0) > 0;
+  const notApplicable: Partial<Record<RulerKey, string>> = {};
+  const niIssue = last4.find((l) => l.niIssue);
   const ends = last4.map((l) => l.sharesEnd!);
-  const shareChange = Math.max(...ends) / Math.min(...ends) - 1 > SHARE_CHANGE_THRESHOLD;
+  const endRange = Math.max(...ends) / Math.min(...ends) - 1;
   const weights = last4.map((l) => l.weightedShares);
-  let weightedSharesUsed: number;
-  let weightedRule: string;
-  if (shareChange) {
-    weightedSharesUsed = latest.weightedShares ?? latest.sharesEnd!;
-    weightedRule = latest.weightedShares != null
-      ? `四季股數變動 >0.5%，以最新一季（${quarterLabel(latest.period)}）加權股數為追溯口徑`
-      : `四季股數變動 >0.5% 且最新季 EPS 過小，以最新季末股數為口徑`;
-  } else if (weights.every((w) => w != null && w > 0)) {
-    weightedSharesUsed = (weights as number[]).reduce((a, b) => a + b, 0) / 4;
-    weightedRule = '四季加權平均股數（淨利÷基本 EPS）之平均';
+  const allW = weights.every((w) => w != null && w > 0);
+  const epsBasisRange = allW ? Math.max(...(weights as number[])) / Math.min(...(weights as number[])) - 1 : null;
+  const shareChange = epsBasisRange != null ? epsBasisRange > SHARE_CHANGE_THRESHOLD : endRange > SHARE_CHANGE_THRESHOLD;
+  const officialIssued = opts.official?.issuedShares ?? null;
+  const officialShareDiff = officialIssued && latest.sharesIssuedEnd ? officialIssued / latest.sharesIssuedEnd - 1 : null;
+
+  let weightedSharesUsed: number | null = null;
+  let weightedRule: string | null = null;
+  let psShares: number | null = null;
+  let psShareRule: string | null = null;
+  if (!shareChange) {
+    if (allW) {
+      weightedSharesUsed = (weights as number[]).reduce((a, b) => a + b, 0) / 4;
+      weightedRule = `四季加權平均股數（淨利÷基本 EPS）之平均；四季差異 ${((epsBasisRange ?? 0) * 100).toFixed(2)}%`;
+    } else {
+      weightedSharesUsed = ends.reduce((a, b) => a + b, 0) / 4;
+      weightedRule = `部分季別無法反算加權股數，以四季期末流通股數平均代用（期末股數變動 ${(endRange * 100).toFixed(2)}%）`;
+    }
+    psShares = weightedSharesUsed; psShareRule = weightedRule;
   } else {
-    weightedSharesUsed = ends.reduce((a, b) => a + b, 0) / 4;
-    weightedRule = '部分季別 EPS 過小無法反算加權股數，以四季期末股數平均代用（股數無變動）';
+    const pctText = epsBasisRange != null ? `四季 EPS 隱含加權股數變動 ${(epsBasisRange * 100).toFixed(2)}%` : `期末股數變動 ${(endRange * 100).toFixed(2)}%`;
+    notApplicable.pe = `${pctText}（>0.5%，可能配股／分割／增減資），未取得正式追溯調整資料，不相加不同股數基準的 EPS，PE 不適用`;
+    if (officialShareDiff != null && Math.abs(officialShareDiff) <= SHARE_CHANGE_THRESHOLD) {
+      psShares = latest.sharesEnd!;
+      psShareRule = `股數有變動，以最新季末流通股數為口徑（與官方現行已發行股數差 ${(officialShareDiff * 100).toFixed(2)}%）`;
+    } else {
+      notApplicable.ps = `${pctText}，且最新季末股數無法與官方現行股數核對（${officialShareDiff == null ? '無官方股數' : `差 ${(officialShareDiff * 100).toFixed(2)}%`}），PS 不適用`;
+    }
   }
+  if (preferred) {
+    notApplicable.pe = `官方名錄有特別股 ${Math.round(opts.official!.preferredShares!).toLocaleString('en-US')} 股：歸屬母公司淨利含特別股權益，PE 不適用`;
+    notApplicable.pb = '官方名錄有特別股：歸屬母公司權益未拆出普通股權益，PB 不適用';
+    if (!notApplicable.ps) { psShares = latest.sharesEnd!; psShareRule = '有特別股，以最新季末普通股流通股數為口徑'; }
+  }
+  if (niIssue && !notApplicable.pe) notApplicable.pe = `${quarterLabel(niIssue.period)} ${niIssue.niIssue}，PE 不適用`;
+
   const sumOf = (k: 'revenue' | 'netIncomeParent' | 'reportedEps') =>
     last4.every((l) => l[k] != null) ? last4.reduce((a, l) => a + Number(l[k]), 0) : null;
   const niTtm = sumOf('netIncomeParent');
   const revenueTtm = sumOf('revenue');
   const reportedEpsSum = sumOf('reportedEps');
   const equityParent = latest.equityParent;
-  const notApplicable: Partial<Record<RulerKey, string>> = {};
-  const eps = niTtm == null ? null : niTtm / weightedSharesUsed;
-  const bvps = equityParent == null ? null : equityParent / latest.sharesEnd!;
-  const sps = revenueTtm == null ? null : revenueTtm / weightedSharesUsed;
-  if (eps == null) notApplicable.pe = '缺歸屬母公司淨利';
-  else if (eps <= 0) notApplicable.pe = '近四季歸屬母公司淨利 ≤ 0，PE 不適用';
-  if (bvps == null) notApplicable.pb = '缺歸屬母公司權益';
-  else if (bvps <= 0) notApplicable.pb = '歸屬母公司權益 ≤ 0，PB 不適用';
-  if (sps == null) notApplicable.ps = '缺營業收入（金融業等無此科目）';
-  else if (sps <= 0) notApplicable.ps = '近四季營收 ≤ 0，PS 不適用';
+  const eps = notApplicable.pe || niTtm == null || weightedSharesUsed == null ? null : niTtm / weightedSharesUsed;
+  const bvps = notApplicable.pb || equityParent == null ? null : equityParent / latest.sharesEnd!;
+  const sps = notApplicable.ps || revenueTtm == null || psShares == null ? null : revenueTtm / psShares;
+  if (!notApplicable.pe) {
+    if (niTtm == null) notApplicable.pe = '缺歸屬母公司淨利';
+    else if (eps != null && eps <= 0) notApplicable.pe = '近四季歸屬母公司淨利 ≤ 0，PE 不適用';
+  }
+  if (!notApplicable.pb) {
+    if (equityParent == null) notApplicable.pb = '缺歸屬母公司權益（且有非控制權益，不能以權益總額代用）';
+    else if (bvps != null && bvps <= 0) notApplicable.pb = '歸屬母公司權益 ≤ 0，PB 不適用';
+  }
+  if (!notApplicable.ps) {
+    if (revenueTtm == null) notApplicable.ps = '缺營業收入（金融業等無此科目）';
+    else if (sps != null && sps <= 0) notApplicable.ps = '近四季營收 ≤ 0，PS 不適用';
+  }
 
   const prev4 = lines.slice(-8, -4);
   const prevRev = prev4.length === 4 && prev4.every((l) => l.revenue != null) ? prev4.reduce((a, l) => a + Number(l.revenue), 0) : null;
   const last8 = lines.slice(-8);
   const totalAssets = latestBs.TotalAssets;
-  const officialIssued = opts.official?.issuedShares ?? null;
   const availability: Availability = opts.mode === 'live'
     ? { mode: 'live', dataPeriod: quarterLabel(latest.period), fetchedAt: opts.fetchedAt ?? asOf, deadline: latest.deadline, note: `資料期 ${quarterLabel(latest.period)}，於取得時已可公開讀取；${latest.deadline} 為法定申報期限，非實際公告日` }
     : { mode: 'asOf', dataPeriod: quarterLabel(latest.period), deadline: latest.deadline, note: `僅用法定申報期限 ${latest.deadline} 前應已公告的季報（實際公告日未取得，保守不提前使用）` };
@@ -259,9 +358,8 @@ export function computeCompanyBasis(symbol: string, fs: FinRow[], bs: FinRow[], 
     period: `${quarterLabel(last4[0].period)}～${quarterLabel(latest.period)}（近四季）`,
     latestPeriod: latest.period,
     availability,
-    niTtm, revenueTtm, reportedEpsSum, weightedSharesUsed, weightedRule,
-    sharesEnd: latest.sharesEnd, shareChange,
-    officialShareDiff: officialIssued ? officialIssued / latest.sharesEnd! - 1 : null,
+    niTtm, revenueTtm, reportedEpsSum, weightedSharesUsed, weightedRule, psShares, psShareRule,
+    sharesEnd: latest.sharesEnd, shareChange, epsBasisRange, officialShareDiff, preferred,
     equityParent, eps, bvps, sps, notApplicable,
     growthYoY: prevRev && revenueTtm != null && prevRev > 0 ? revenueTtm / prevRev - 1 : null,
     netMargin: niTtm != null && revenueTtm != null && revenueTtm > 0 ? niTtm / revenueTtm : null,
@@ -277,7 +375,6 @@ function monthsBetween(a: string, b: string): number {
   const [yb, mb] = b.split('-').map(Number);
   return (yb - ya) * 12 + (mb - ma);
 }
-function daysBetween(a: string, b: string) { return Math.round((Date.parse(b) - Date.parse(a)) / 86400000); }
 
 export function closeOn(prices: PriceRow[], date: string): number | null {
   const hit = prices.find((p) => p.date === date);
@@ -293,6 +390,7 @@ export function quantile(values: number[], p: number): number {
   const hi = Math.ceil(pos);
   return s[lo] + (s[hi] - s[lo]) * (pos - lo);
 }
+const median = (v: number[]) => quantile(v, 0.5);
 
 export type PeerInput = { symbol: string; name: string; basis: CompanyBasis; close: number | null };
 export type PeerMultiple = { symbol: string; name: string; multiple: number | null; excluded: string | null };
@@ -323,24 +421,24 @@ export function describeRisk(b: CompanyBasis) {
 
 export type ScenarioBasisOut = {
   value: number; unit: 'TWD/share'; period: string;
-  /** 前端比對用的「可得日」：live 為取得日，asOf 為法定申報期限。不是實際公告日。 */
+  /** 前端比對用「可得日」：live 為取得日，asOf 為法定申報期限。不是實際公告日。 */
   publishedAt: string;
   availability: Availability;
   source: string; kind: 'reported'; shareBasis: string; derivation: string;
 };
+/** 一個資料期 = 一份獨立證據；months 為該期的月末代表點數。 */
 export type HistorySample = {
-  period: string; quarter: string; deadline: string; date: string; close: number;
-  basis: number; multiple: number; growthYoY: number | null; netMargin: number | null;
-  cashRatio: number | null; debtRatio: number | null; regime: Regime | null;
+  period: string; quarter: string; deadline: string; date: string; firstDate: string; months: number;
+  close: number; closeMin: number; closeMax: number;
+  basis: number; multiple: number; multipleMin: number; multipleMax: number;
+  growthYoY: number | null; netMargin: number | null; cashRatio: number | null; debtRatio: number | null; regime: Regime | null;
 };
 export type ScenarioMultiplesOut = {
   method: 'peer' | 'history';
-  /** 白話名稱：「同業倍數情境」或「本公司歷史情境參考」。 */
   label: string;
   low: number; high: number; reason: string; source: string; period: string; sampleSize: number;
   peerComparability: string; cycle: string; growth: string; earningsStability: string; cash: string; debt: string;
   shareBasis: string;
-  /** 樣本最高/最低比；> 2 代表極值影響大。 */
   dispersion: number;
   caveats: string[];
 };
@@ -348,34 +446,41 @@ export type ScenarioRowOut = {
   key: RulerKey;
   basis: ScenarioBasisOut | null;
   multiples: ScenarioMultiplesOut | null;
+  /** 分母本身不適用的原因（與倍數信心分開）。 */
+  basisIssue: string | null;
+  /** 倍數信心：sufficient=有依據；insufficient=依據不足（分母仍可用）。 */
+  multipleConfidence: 'peer' | 'history' | 'insufficient' | null;
+  multipleIssue: string | null;
   notApplicable: string | null;
   peers: PeerMultiple[];
-  /** 全部相近景氣期樣本（含被排除者與原因），供展開核對。 */
   samples: Array<HistorySample & { used: boolean; excluded: string | null }>;
 };
 
 export const SHARE_BASIS = {
-  pe: '加權平均普通股（淨利÷基本 EPS；股本÷官方面額交叉核對）',
-  pb: '期末普通股（股本÷官方面額）',
-  ps: '加權平均普通股（同 PE 口徑）',
+  pe: '加權平均普通股（淨利÷基本 EPS；股本÷官方面額－庫藏股交叉核對）',
+  pb: '期末普通股流通股數（股本÷官方面額－庫藏股）',
+  ps: '同 PE 口徑；股數有變動時改最新季末流通股數並與官方核對',
 } as const;
 
 const BASIS_SOURCE: Record<RulerKey, string> = {
-  pe: 'FinMind 綜合損益表：歸屬母公司淨利（近四季加總）',
-  pb: 'FinMind 資產負債表：歸屬母公司權益（最近季末）',
-  ps: 'FinMind 綜合損益表：營業收入（近四季加總）',
+  pe: 'FinMind 綜合損益表：淨利（淨損）歸屬於母公司業主（近四季加總，已核對 origin_name 與本期淨利）',
+  pb: 'FinMind 資產負債表：歸屬於母公司業主之權益（最近季末）',
+  ps: 'FinMind 綜合損益表：營業收入（近四季加總；非月營收）',
 };
 
 const fmtInt = (v: number) => Math.round(v).toLocaleString('en-US');
 export function derivationOf(key: RulerKey, b: CompanyBasis): string {
-  const shares = key === 'pb' ? b.sharesEnd! : b.weightedSharesUsed!;
+  const shares = key === 'pb' ? b.sharesEnd! : key === 'pe' ? b.weightedSharesUsed! : b.psShares!;
   const num = key === 'pe' ? b.niTtm! : key === 'pb' ? b.equityParent! : b.revenueTtm!;
   const label = key === 'pe' ? '近四季歸屬母公司淨利' : key === 'pb' ? '歸屬母公司權益' : '近四季營業收入';
   const v = b[BASIS_FIELD[key]]!;
-  const shareLabel = key === 'pb' ? `期末股數（股本÷面額 ${b.par} 元）` : `股（${b.weightedRule}）`;
-  const check = key === 'pe' && b.reportedEpsSum != null ? `；財報基本 EPS 四季合計 ${b.reportedEpsSum.toFixed(2)} 元供核對` : '';
-  const off = key === 'pb' && b.officialShareDiff != null ? `；官方目前已發行股數與季末差 ${(b.officialShareDiff * 100).toFixed(3)}%` : '';
-  const proxy = b.quarters.slice(-4).some((q) => q.proxied) ? '；未揭露母公司歸屬科目且無非控制權益，以稅後淨利／權益總額代用' : '';
+  const latest = b.quarters.at(-1);
+  const shareLabel = key === 'pb'
+    ? `期末流通股（股本÷面額 ${b.par} 元${latest && latest.treasuryShares > 0 ? `－庫藏股 ${fmtInt(latest.treasuryShares)}` : ''}）`
+    : `股（${key === 'pe' ? b.weightedRule : b.psShareRule}）`;
+  const check = key === 'pe' && b.reportedEpsSum != null ? `；財報基本 EPS 四季合計 ${b.reportedEpsSum.toFixed(2)} 元僅供核對、未直接相加使用` : '';
+  const off = key === 'pb' && b.officialShareDiff != null ? `；官方現行已發行股數與季末差 ${(b.officialShareDiff * 100).toFixed(3)}%` : '';
+  const proxy = b.quarters.slice(-4).some((q) => q.proxied) ? '；未揭露母公司歸屬科目且無非控制權益，以本期淨利／權益總額代用' : '';
   return `${label} NT$${fmtInt(num)} ÷ ${fmtInt(shares)} ${shareLabel} = NT$${v.toFixed(2)}${check}${off}${proxy}`;
 }
 
@@ -386,37 +491,85 @@ export function regimeOf(g: number | null): Regime | null {
   return g >= 0.2 ? 'high' : g >= 0 ? 'mild' : 'decline';
 }
 
-export type HistoryPoint = {
-  date: string; deadline: string; period: string; close: number; regime: Regime | null;
+export type MonthPoint = {
+  date: string; period: string; deadline: string; close: number; regime: Regime | null;
   eps: number | null; bvps: number | null; sps: number | null;
   growthYoY: number | null; netMargin: number | null; cashRatio: number | null; debtRatio: number | null;
 };
 
-/** 公司自身歷史：每季「法定申報期限」後 10 日內首個收盤 ÷ 當時必然已公告的同口徑分母（asOf 模式）。 */
-export function historyPoints(symbol: string, fs: FinRow[], bs: FinRow[], prices: PriceRow[], asOf: string, official: OfficialShares | null): HistoryPoint[] {
-  const sorted = [...prices].filter((p) => p.close > 0).sort((a, b) => a.date.localeCompare(b.date));
-  const periods = [...new Set(fs.map((r) => r.date))].sort();
-  const out: HistoryPoint[] = [];
-  for (const p of periods) {
-    const d = statutoryDeadline(p);
-    if (!d || d >= asOf) continue;
-    const px = sorted.find((x) => x.date >= d && x.date < asOf);
-    if (!px || daysBetween(d, px.date) > 10) continue;
-    const b = computeCompanyBasis(symbol, fs, bs, d, { mode: 'asOf', official });
-    if (!b.ok || b.latestPeriod !== p) continue;
+/**
+ * 本公司歷史月末代表點：每月最後一個交易日收盤 ÷ 當日「已過法定申報期限」的同口徑分母（asOf 模式）。
+ * 相鄰交易日高度相關，所以只取月末一點；後續再以資料期為單位彙總，避免把相鄰月份當成獨立證據。
+ */
+export function monthlyHistory(symbol: string, fs: FinRow[], bs: FinRow[], prices: PriceRow[], asOf: string, official: OfficialShares | null): MonthPoint[] {
+  const fsQ = byQuarter(fs);
+  const bsQ = byQuarter(bs);
+  const sorted = [...prices].filter((p) => p.close > 0 && p.date < asOf).sort((a, b) => a.date.localeCompare(b.date));
+  const monthEnd = new Map<string, PriceRow>();
+  for (const p of sorted) monthEnd.set(p.date.slice(0, 7), p);
+  const memo = new Map<string, CompanyBasis>();
+  const allPeriods = [...fsQ.keys()].filter((p) => statutoryDeadline(p)).sort();
+  const out: MonthPoint[] = [];
+  for (const px of monthEnd.values()) {
+    const avail = allPeriods.filter((p) => statutoryDeadline(p)! <= px.date).at(-1);
+    if (!avail) continue;
+    let b = memo.get(avail);
+    if (!b) { b = basisFromQuarters(symbol, fsQ, bsQ, statutoryDeadline(avail)!, { mode: 'asOf', official }); memo.set(avail, b); }
+    if (!b.ok || b.latestPeriod !== avail) continue;
     out.push({
-      date: px.date, deadline: d, period: p, close: px.close, regime: regimeOf(b.growthYoY),
+      date: px.date, period: avail, deadline: statutoryDeadline(avail)!, close: px.close, regime: regimeOf(b.growthYoY),
       eps: b.eps, bvps: b.bvps, sps: b.sps, growthYoY: b.growthYoY, netMargin: b.netMargin, cashRatio: b.cashRatio, debtRatio: b.debtRatio,
     });
   }
   return out;
 }
 
-export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peerRule: string, history: HistoryPoint[] = []): ScenarioRowOut[] {
+/** 舊介面相容：每資料期一點（法定期限後 10 日內首個收盤）。 */
+export function historyPoints(symbol: string, fs: FinRow[], bs: FinRow[], prices: PriceRow[], asOf: string, official: OfficialShares | null): MonthPoint[] {
+  const sorted = [...prices].filter((p) => p.close > 0).sort((a, b) => a.date.localeCompare(b.date));
+  const fsQ = byQuarter(fs); const bsQ = byQuarter(bs);
+  const out: MonthPoint[] = [];
+  for (const p of [...fsQ.keys()].sort()) {
+    const d = statutoryDeadline(p);
+    if (!d || d >= asOf) continue;
+    const px = sorted.find((x) => x.date >= d && x.date < asOf);
+    if (!px || (Date.parse(px.date) - Date.parse(d)) / 86400000 > 10) continue;
+    const b = basisFromQuarters(symbol, fsQ, bsQ, d, { mode: 'asOf', official });
+    if (!b.ok || b.latestPeriod !== p) continue;
+    out.push({ date: px.date, deadline: d, period: p, close: px.close, regime: regimeOf(b.growthYoY), eps: b.eps, bvps: b.bvps, sps: b.sps, growthYoY: b.growthYoY, netMargin: b.netMargin, cashRatio: b.cashRatio, debtRatio: b.debtRatio });
+  }
+  return out;
+}
+
+/** 依資料期彙總月末點：每期一份證據（倍數取該期中位數）。 */
+export function samplesByPeriod(key: RulerKey, points: MonthPoint[]): HistorySample[] {
+  const groups = new Map<string, MonthPoint[]>();
+  for (const p of points) {
+    const d = p[BASIS_FIELD[key]];
+    if (d == null || d <= 0) continue;
+    const g = groups.get(p.period) || [];
+    g.push(p); groups.set(p.period, g);
+  }
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, g]) => {
+    const basis = g[0][BASIS_FIELD[key]]!;
+    const ms = g.map((p) => p.close / basis);
+    const closes = g.map((p) => p.close);
+    return {
+      period, quarter: quarterLabel(period), deadline: g[0].deadline, firstDate: g[0].date, date: g[g.length - 1].date, months: g.length,
+      close: median(closes), closeMin: Math.min(...closes), closeMax: Math.max(...closes),
+      basis, multiple: median(ms), multipleMin: Math.min(...ms), multipleMax: Math.max(...ms),
+      growthYoY: g[0].growthYoY, netMargin: g[0].netMargin, cashRatio: g[0].cashRatio, debtRatio: g[0].debtRatio, regime: g[0].regime,
+    };
+  });
+}
+
+export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peerRule: string, history: MonthPoint[] = []): ScenarioRowOut[] {
   const regime = regimeOf(target.growthYoY);
   return (['pe', 'pb', 'ps'] as const).map((key) => {
     const list = peerMultiples(key, peers);
-    if (!target.ok) return { key, basis: null, multiples: null, notApplicable: target.reason, peers: list, samples: [] };
+    if (!target.ok) {
+      return { key, basis: null, multiples: null, basisIssue: target.reason, multipleConfidence: null, multipleIssue: null, notApplicable: target.reason, peers: list, samples: [] };
+    }
     const na = target.notApplicable[key] ?? null;
     const value = target[BASIS_FIELD[key]];
     const basis: ScenarioBasisOut | null = na || value == null || !target.availability ? null : {
@@ -427,20 +580,16 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
     };
     const risk = describeRisk(target);
     const valid = list.filter((p) => p.multiple != null);
-    const samples = history
-      .filter((h) => regime != null && h.regime === regime)
-      .map((h) => {
-        const d = h[BASIS_FIELD[key]];
-        if (d == null || d <= 0) return null;
-        const same = h.period === target.latestPeriod;
-        return {
-          period: h.period, quarter: quarterLabel(h.period), deadline: h.deadline, date: h.date, close: h.close, basis: d,
-          multiple: h.close / d, growthYoY: h.growthYoY, netMargin: h.netMargin, cashRatio: h.cashRatio, debtRatio: h.debtRatio, regime: h.regime,
-          used: !same, excluded: same ? '與目前分母同一資料期，屬市場對同一份財報的定價，排除以免循環' : null,
-        };
-      })
-      .filter((s): s is NonNullable<typeof s> => s != null);
+    const all = samplesByPeriod(key, history);
+    const samples = all
+      .filter((s) => regime != null && s.regime === regime)
+      .map((s) => {
+        const same = s.period === target.latestPeriod;
+        return { ...s, used: !same, excluded: same ? '與目前分母同一資料期，屬市場對同一份財報的定價，排除以免循環' : null };
+      });
+    const otherRegime = all.filter((s) => s.regime !== regime).length;
     const used = samples.filter((s) => s.used);
+    const monthsUsed = used.reduce((a, s) => a + s.months, 0);
     let multiples: ScenarioMultiplesOut | null = null;
     if (valid.length >= MIN_PEERS) {
       const ms = valid.map((p) => p.multiple!);
@@ -448,61 +597,95 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
       multiples = {
         method: 'peer', label: '同業倍數情境',
         low: quantile(ms, 0.25), high: quantile(ms, 0.75),
-        reason: `可比同業 ${valid.length} 家倍數的 25–75 百分位：${valid.map((p) => `${p.name}${p.symbol} ${p.multiple!.toFixed(1)}`).join('、')}`,
+        reason: `核心業務同業 ${valid.length} 家倍數的 25–75 百分位：${valid.map((p) => `${p.name}${p.symbol} ${p.multiple!.toFixed(1)}`).join('、')}`,
         source: '同業估值日收盤 ÷ 同業同口徑財報分母（FinMind；股數經官方面額換算）',
         period: `估值日 ${target.asOf}`, sampleSize: valid.length, peerComparability: peerRule,
         cycle: `同一估值日 ${target.asOf}，同一景氣時點`, ...risk, shareBasis: SHARE_BASIS[key],
         dispersion: disp,
-        caveats: disp > 2 ? [`同業倍數最高/最低達 ${disp.toFixed(1)} 倍，區間僅取中段 50%`] : [],
+        caveats: ['同業倍數情境，非合理價', ...(disp > 2 ? [`同業倍數最高/最低達 ${disp.toFixed(1)} 倍，區間僅取中段 50%`] : [])],
       };
     } else if (used.length >= MIN_HISTORY) {
       const ms = used.map((s) => s.multiple);
-      const disp = Math.max(...ms) / Math.min(...ms);
+      const disp = Math.max(...used.map((s) => s.multipleMax)) / Math.min(...used.map((s) => s.multipleMin));
       const excluded = list.filter((p) => p.multiple == null).map((p) => `${p.name}${p.symbol}：${p.excluded}`).join('；');
       multiples = {
         method: 'history', label: '本公司歷史情境參考',
         low: quantile(ms, 0.25), high: quantile(ms, 0.75),
-        reason: `本公司「${REGIME_LABEL[regime!]}」季別 ${used.length} 筆倍數的 25–75 百分位：${used.map((s) => `${s.quarter} ${s.multiple.toFixed(1)}`).join('、')}`,
-        source: '本公司各季法定申報期限後首個收盤 ÷ 當時必然已公告的同口徑分母（FinMind）',
-        period: `${used[0].deadline}～${used[used.length - 1].deadline}`,
+        reason: `本公司「${REGIME_LABEL[regime!]}」資料期 ${used.length} 期（月末點 ${monthsUsed} 個，同期先取中位數）的 25–75 百分位：${used.map((s) => `${s.quarter} ${s.multiple.toFixed(1)}`).join('、')}`,
+        source: '本公司月末收盤 ÷ 當時已過法定申報期限的同口徑分母（FinMind）',
+        period: `${used[0].firstDate}～${used[used.length - 1].date}`,
         sampleSize: used.length,
-        peerComparability: `可比同業通過口徑檢查 ${valid.length} 家（需 ≥${MIN_PEERS}），改用本公司歷史${excluded ? `；同業排除：${excluded}` : ''}`,
-        cycle: `僅取與目前同屬「${REGIME_LABEL[regime!]}」的季別；描述過去市場定價，不代表合理倍數`,
+        peerComparability: `核心業務同業有效 ${valid.length} 家（需 ≥${MIN_PEERS}），改用本公司歷史${excluded ? `；同業排除：${excluded}` : ''}`,
+        cycle: `僅取與目前同屬「${REGIME_LABEL[regime!]}」的資料期；描述過去市場定價，不代表合理倍數`,
         ...risk, shareBasis: SHARE_BASIS[key],
         dispersion: disp,
         caveats: [
           '歷史情境參考，非合理價',
-          ...(disp > 2 ? [`樣本最高/最低達 ${disp.toFixed(1)} 倍，極值影響大，區間僅取中段 50%`] : []),
-          ...(used.length < 6 ? [`樣本僅 ${used.length} 季，代表性有限`] : []),
+          `獨立證據以資料期計 ${used.length} 期，不以 ${monthsUsed} 個月點或交易日數計`,
+          ...(disp > 2 ? [`月點倍數最高/最低達 ${disp.toFixed(1)} 倍，極值影響大，區間僅取中段 50%`] : []),
+          ...(used.length < 6 ? [`僅 ${used.length} 期，代表性有限`] : []),
         ],
       };
     }
-    const lack = !multiples
-      ? `可比同業有效 ${valid.length} 家（需 ≥${MIN_PEERS}）、相近景氣期歷史 ${used.length} 季（需 ≥${MIN_HISTORY}，已排除同資料期樣本），倍數依據不足`
+    const multipleIssue = !multiples
+      ? `核心業務同業有效 ${valid.length} 家（需 ≥${MIN_PEERS}）；本公司相近景氣期歷史 ${used.length} 期（需 ≥${MIN_HISTORY}，同資料期月點只算一期、已排除目前資料期${otherRegime ? `；另有 ${otherRegime} 期景氣不同未採用` : ''}），倍數依據不足`
       : null;
-    return { key, basis, multiples, notApplicable: na ?? lack, peers: list, samples };
+    return {
+      key, basis, multiples,
+      basisIssue: na,
+      multipleConfidence: na ? null : multiples ? multiples.method : 'insufficient',
+      multipleIssue: na ? null : multipleIssue,
+      notApplicable: na ?? multipleIssue, peers: list, samples,
+    };
   });
 }
 
-/** 同業挑選：與目標共用全部細分產業標籤。 */
-export function selectPeerCandidates(
-  target: { symbol: string; industries: string[] },
-  universe: Array<{ symbol: string; name: string; industries: string[] }>,
-): Array<{ symbol: string; name: string }> {
-  const tags = (target.industries || []).filter(Boolean);
-  if (!tags.length) return [];
+// ─────────────── 同業挑選：核心業務優先、題材不列條件、先排序再限流 ───────────────
+
+export type PeerUniverseRow = { symbol: string; name: string; industries: string[]; market_groups?: string[] | null };
+export type PeerCandidate = { symbol: string; name: string; rank: number; score: number; reasons: string[]; capital: number | null };
+export type PeerAudit = PeerCandidate & { status: 'selected' | 'over_limit' | 'excluded'; detail: string };
+
+/** 族群名稱若是題材／行情標籤（概念股、飆股），不當作商業模式相近的證據。 */
+export const isThemeGroup = (g: string) => /概念|飆股|題材/.test(g);
+
+export function rankPeerCandidates(
+  target: { symbol: string; industries: string[]; market_groups?: string[] | null },
+  universe: PeerUniverseRow[],
+  capitalOf: (symbol: string) => number | null,
+): PeerCandidate[] {
+  const core = (target.industries || [])[0];
+  if (!core) return [];
+  const tCap = capitalOf(target.symbol);
+  const tSecondary = (target.industries || []).slice(1);
+  const tGroups = (target.market_groups || []).filter((g) => !isThemeGroup(g));
   return universe
-    .filter((u) => u.symbol !== target.symbol && tags.every((t) => (u.industries || []).includes(t)))
-    .map((u) => ({ symbol: u.symbol, name: u.name }));
+    .filter((u) => u.symbol !== target.symbol && (u.industries || []).includes(core))
+    .map((u) => {
+      const reasons: string[] = [];
+      let score = 0;
+      if (u.industries[0] === core) { score += 3; reasons.push(`主業同為「${core}」`); } else { score += 1; reasons.push(`「${core}」為其次要業務（主業 ${u.industries[0]}）`); }
+      const sec = tSecondary.filter((t) => u.industries.includes(t));
+      if (sec.length) { score += sec.length; reasons.push(`共同次要業務 ${sec.join('、')}`); }
+      const grp = tGroups.filter((g) => (u.market_groups || []).includes(g));
+      if (grp.length) { score += 2 * grp.length; reasons.push(`同屬族群 ${grp.join('、')}`); }
+      return { symbol: u.symbol, name: u.name, rank: 0, score, reasons, capital: capitalOf(u.symbol) };
+    })
+    .sort((a, b) => b.score - a.score || capDist(tCap, a.capital) - capDist(tCap, b.capital) || a.symbol.localeCompare(b.symbol))
+    .map((c, i) => ({ ...c, rank: i + 1, reasons: [...c.reasons, c.capital && tCap ? `實收資本額為本檔 ${(c.capital / tCap).toFixed(2)} 倍` : '無官方資本額'] }));
+}
+function capDist(t: number | null, v: number | null) {
+  return t && v && v > 0 ? Math.abs(Math.log(v / t)) : Number.POSITIVE_INFINITY;
 }
 
-export function rankByScale<T extends { basis: CompanyBasis }>(target: CompanyBasis, peers: T[], max: number): T[] {
-  const t = target.revenueTtm;
-  if (!t || t <= 0 || peers.length <= max) return peers.slice(0, max);
-  return [...peers].sort((a, b) => scaleDistance(t, a.basis.revenueTtm) - scaleDistance(t, b.basis.revenueTtm)).slice(0, max);
-}
-function scaleDistance(t: number, v: number | null) {
-  return v && v > 0 ? Math.abs(Math.log(v / t)) : Number.POSITIVE_INFINITY;
+/** 先排序、排除不可比者，再取前 max 家；每家附原因。 */
+export function auditPeers(ranked: PeerCandidate[], listed: (symbol: string) => boolean, max: number): PeerAudit[] {
+  let taken = 0;
+  return ranked.map((c) => {
+    if (!listed(c.symbol)) return { ...c, status: 'excluded' as const, detail: '官方上市／上櫃名錄查無（興櫃或已下市）：無集中市場收盤與核實面額' };
+    if (taken < max) { taken++; return { ...c, status: 'selected' as const, detail: `入選（可比性第 ${c.rank}）` }; }
+    return { ...c, status: 'over_limit' as const, detail: `可比性排名第 ${c.rank}，超過請求上限 ${max} 家未讀取` };
+  });
 }
 
 /** 有限併發執行；每個工作各自失敗不影響其他。 */
