@@ -83,13 +83,13 @@
 - K 線與 30D RangeBand 原位保留不動；只有三張大卡改成計算依據裡的列。
 
 **邊界情況的版面**
-- 現價距離區間很遠時，主軸仍維持等比例。區間帶可能變得很窄，最窄畫 2px，並以數值主標為主要資訊。主軸下方另加一條**局部放大輔助軸**，標題寫「區間局部放大（與上方尺度不同）」，只畫區間與落在範圍內的標記；不在範圍內的標記以文字標示，例如「現價 8,385 在此範圍外 →」。啟用條件：區間寬度小於主軸寬度的 12%。
+- 現價距離區間很遠時（例如創意）：**只有一條等比例 TWD 線**，不另畫輔助軸。區間帶照真實寬度畫，只有在換算後不到 2px 時才畫成 2px 讓它看得到，並在 DOM 上標 `data-min-width="true"`。精確上下界一律寫在醒目主標，不從帶寬判讀。成本、目標、現價三個標記上下分層避碰。
 - 標記太接近（間距 <28px）：沿用既有 `holdings-price-axis-compact` 的上下錯位與 label 分層。
 - 沒有目標價：不畫目標刻度，也不顯示「目標 —」。
 - 三尺分歧（無交集或交集寬度 <3%）：主標寫「三尺分歧，無共同區間」，不給單一數字；軸上分別畫各尺的細帶並直接標示尺名。
 - 無股利：殖利率列顯示「未配息，不適用」，其餘兩尺仍可合成。
 - 金融股：計算依據註明 P/B 較具參考性，算法不變。
-- 320px：主標分兩行，局部放大軸照樣顯示，計算依據改直式列；390px 與桌面主標為單行。
+- 320px：主標分兩行，計算依據改成直式列；390px 與桌面主標為單行。
 - 狀態：skeleton（軸＋兩行灰條）、error（「估值資料暫時取不到」＋重試）；資料超過 7 天時，主標旁標示「資料日 {YYYY/MM/DD}，已逾 7 天」；資料不足時寫出原因（例如缺同日收盤價、有效尺少於 2 把）。
 
 ## 檔案清單
@@ -97,8 +97,8 @@
 - `src/checkup/lib/valuationRulers.ts`：新增 `buildValuationPriceBand`、`ValuationPriceBand` 型別、`roundPrice`，並把 contract `VALUATION_PRICE_BAND_V1` 加進 contract json。
 - `src/checkup/hooks/useValuationSnapshot.ts`：補讀 asOf 收盤價，回傳 `band`。
 - 新增 `src/checkup/components/freecheckup/ValuationPriceAxis.tsx`：合併價格軸、區間和計算依據。
-- `HoldingsDetailPanel.tsx`：L454 的 PriceAxis 和 L481 的 ValuationRulers 換成新元件。保留 testid `holdings-price-axis*`，新增 `valuation-band`、`valuation-basis`。
-- `ValuationRulers.tsx`：抽屜不再使用。檔案保留，只拿掉引用；若無其他引用就刪除。
+- `HoldingsDetailPanel.tsx`：L454 的 PriceAxis 改成新元件；L481 的 ValuationRulers 併進新元件的計算依據；K 線與 RangeBand 不動。保留 testid `holdings-price-axis*`、`valuation-distribution*`、`valuation-trend*`，新增 `valuation-band`、`valuation-basis`。
+- `ValuationRulers.tsx`：匯出 DistributionChart、TrendChart 與同業列，給計算依據重用；只移除三張大卡。
 - `holdingsDetailPanel.css`：320/380/560 media query。
 - 不碰持倉編輯／刪除的未發布檔案（HoldingEditDialog、holdingEditService、FreeCheckup 編輯接線）。
 
@@ -106,9 +106,17 @@
 
 - 單元 `src/test/unit/valuation-price-band.test.ts`：3443 和 2882 的實際向量要對上上面的區間（±0.5%）；殖利率上下界反轉；EPS≤0、未配息、樣本<250 時排除該尺；有效尺<2 回傳資料不足；無交集或交集寬度<3% 判為分歧；缺同日收盤價時不回退。
 - 既有 valuation 23 項、peer-charts 測試全部要過。
-- e2e：更新 `holdings-price-axis-*` 三支 spec，加上「現價遠高於區間」「目標缺值」「分歧」三個 fixture。抽屜指紋 json 加 `valuation-band`、移除三卡 testid。手機回歸 320/390/桌面截圖，依 FreeCheckup RWD 清單逐項跑。
+- e2e：更新 `holdings-price-axis-*` 三支 spec，新增「現價遠高於區間」「目標缺值」「分歧」三個 fixture，並斷言：
+  - 抽屜裡只有一條價格軸；
+  - 各標記與帶的 x 位置跟價格成線性比例（±1px）；
+  - 帶寬只有在真實寬度不到 2px 時才是 2px，且帶有 `data-min-width` 標記；
+  - 頁面沒有「合理價」字樣；
+  - K 線、趨勢、同業的 testid 仍然存在。
+
+  抽屜指紋 json 加入 `valuation-band`。手機回歸跑 320/390/桌面截圖，依 FreeCheckup RWD 清單逐項檢查。
+- Build 完成後的驗證：讀回 3443／2882 的原始比率與同日收盤價、執行計算單元測試、在實際 Preview 打開創意抽屜，並截 320/390/桌面三張圖。
 - Gates：全量測試、tsgo、module-boundaries、build、`check-freecheckup-rwd`、`bunx playwright test e2e/freecheckup-card.spec.ts`。
 
 ## 不做
 
-不改 DB、不跑 migration、不發布；不改估值原始資料，也不改目標價來源。
+不改 DB、不跑 migration、不發布；不改估值原始資料，也不改目標價來源。不引用 lieflat-charts 的任何程式或素材。Build 開始時把本任務登記到 roadmap.md。
