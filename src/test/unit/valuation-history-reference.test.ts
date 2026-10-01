@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as F from '../../../supabase/functions/_shared/fundamentalsBasis';
-import { buildValuationScenario, historyReferenceBands, referenceOverlap } from '@/checkup/lib/valuationScenario';
+import { buildValuationScenario, historyReferenceBands } from '@/checkup/lib/valuationScenario';
 import fx from '../fixtures/finmind/v2/3443-7y.json';
 
 /** 3443：FinMind 公開 API 2026-10-01 取得；財報／資產負債表 7 年、股價 5 年。 */
@@ -38,7 +38,7 @@ describe('3443 七年財報：TTM 年增基期補足後的景氣相近獨立期'
     expect(F.similarGrowth(0.36, target.growthYoY)).toBe(false);
     expect(F.similarGrowth(0.46, target.growthYoY)).toBe(true);
   });
-  it('低信心時仍輸出三條參考帶，三帶交集為「三尺重疊參考」', () => {
+  it('低信心時仍輸出三條逐尺參考，但不提供交集函式', () => {
     const scen = buildValuationScenario(asOf, sevenYear as any);
     expect(scen.status).toBe('lowConfidence');
     expect(scen.basisCount).toBe(3);
@@ -47,13 +47,7 @@ describe('3443 七年財報：TTM 年增基期補足後的景氣相近獨立期'
     expect(refs.map((r) => r.key)).toEqual(['pe', 'pb', 'ps']);
     const pe = sevenYear[0];
     expect(refs[0].low).toBeCloseTo(target.eps! * pe.multiples!.low, 6);
-    const o = referenceOverlap(refs)!;
-    expect(o.low).toBeCloseTo(Math.max(...refs.map((r) => r.low)), 6);
-    expect(o.high).toBeCloseTo(Math.min(...refs.map((r) => r.high)), 6);
-  });
-  it('不重疊時不給交集；不足三帶時不給交集', () => {
-    const mk = (k: any, low: number, high: number) => ({ key: k, low, high, label: '', sampleSize: 5, period: '' });
-    expect(referenceOverlap([mk('pe', 1, 2), mk('pb', 3, 4), mk('ps', 1, 4)])).toBeNull();
-    expect(referenceOverlap([mk('pe', 1, 2), mk('pb', 1, 2)])).toBeNull();
+    expect(scen.low).toBeNull();
+    expect(scen.high).toBeNull();
   });
 });

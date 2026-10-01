@@ -11,15 +11,15 @@ const rows: ScenarioRowInput[] = [
 ];
 
 describe('三尺獨立財報情境', () => {
-  it('故意分歧：75–100、40–60、50–75，不能給單一區間', () => {
+  it('三尺各自保留 75–100、40–60、50–75，但永不合成單一區間', () => {
     const result = buildValuationScenario(date, rows);
     expect(result.rows.map((r) => [r.low, r.high])).toEqual([[75, 100], [40, 60], [50, 75]]);
-    expect(result.status).toBe('divergent');
+    expect(result.status).toBe('consensus');
     expect([result.low, result.high]).toEqual([null, null]);
   });
-  it('三尺都可信且有共同支持才給情境，非兩尺交集', () => {
+  it('三尺即使重疊，也只保留逐尺證據，不產生系統價格帶', () => {
     const result = buildValuationScenario(date, [rows[0], { ...rows[1], multiples: multiple(2, 2.5) }, { ...rows[2], multiples: multiple(3, 4) }]);
-    expect([result.status, result.low, result.high]).toEqual(['consensus', 80, 100]);
+    expect([result.status, result.low, result.high]).toEqual(['consensus', null, null]);
     expect(buildValuationScenario(date, rows.slice(0, 2)).status).toBe('insufficient');
   });
   it.each(['pe', 'pb', 'ps'] as const)('%s 缺獨立分母，不以現價／比率循環補值', (key) => {
@@ -47,7 +47,7 @@ describe('三尺獨立財報情境', () => {
       expect(result.status).toBe('insufficient');
     }
   });
-  it('3443 僅有歷史 PE/PB/殖利率與收盤價時，正式情境一律資料不足', () => {
+  it('缺財報分母時逐尺寫明原因，不籠統生成價格', () => {
     const result = buildValuationScenario(date, []);
     expect(result.validCount).toBe(0);
     expect(result.rows.map((r) => r.reason)).toEqual([

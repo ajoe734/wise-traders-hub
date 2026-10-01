@@ -1,23 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { priceSpectrumGeometry } from './PriceSpectrum';
-import { PriceSpectrum } from './PriceSpectrum';
-import type { ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { priceSpectrumGeometry, PriceSpectrum } from './PriceSpectrum';
 
-const consensus = { status: 'consensus', low: 75, high: 100 } as ValuationScenario;
 const WB = { ink: '#292520', inkSub: '#6b645c', inkMute: '#98918a', inkLight: '#b9b4ae', hair: '#ddd8d0', accent: '#b34832', surface: '#fff' };
-const lowConfidence = (ranges: Array<[number, number]>) => ({
-  status: 'lowConfidence', low: null, high: null, validCount: 3, basisCount: 3, asOf: '2026-10-01',
-  rows: (['pe', 'pb', 'ps'] as const).map((key, i) => ({
-    key, basisOk: true, basis: { value: 1, unit: 'TWD/share', period: '2026Q2', publishedAt: '2026-10-01', source: '公開財報', kind: 'reported', shareBasis: '同口徑股數' },
-    multiples: { low: ranges[i][0], high: ranges[i][1], method: 'history', confidence: 'low', sampleSize: 5 },
-    low: ranges[i][0], high: ranges[i][1], reason: null, samples: [],
-  })),
-}) as unknown as ValuationScenario;
 
 describe('single continuous TWD price spectrum', () => {
-  it('extreme gap remains proportional, never widens the scenario band', () => {
-    const axis = priceSpectrumGeometry({ cost: 5100, target: 7100, price: 8385 }, consensus);
+  it('extreme gap remains proportional, never widens the personal scenario band', () => {
+    const axis = priceSpectrumGeometry({ cost: 5100, target: 7100, price: 8385 }, { low: 75, high: 100, key: 'pe' });
     expect(axis).not.toBeNull();
     if (!axis) return;
     const scale = (axis.mapX(100) - axis.mapX(75)) / (axis.mapX(8385) - axis.mapX(75));
@@ -26,18 +15,10 @@ describe('single continuous TWD price spectrum', () => {
   });
 
   it('near prices retain their true differences even when markers overlap visually', () => {
-    const axis = priceSpectrumGeometry({ cost: 100, target: 100.01, price: 100.02 }, consensus);
+    const axis = priceSpectrumGeometry({ price: 100, cost: 100.01, target: 100.02 }, { low: 99.99, high: 100.03, key: 'pe' });
     expect(axis).not.toBeNull();
     if (!axis) return;
-    expect(axis.mapX(100.01) - axis.mapX(100)).toBeCloseTo(
-      axis.mapX(100.02) - axis.mapX(100.01), 10);
-  });
-
-  it.each(['divergent', 'insufficient'] as const)('%s never renders a false consensus interval', (status) => {
-    const axis = priceSpectrumGeometry({ price: 200, cost: 170, target: 230 },
-      { ...consensus, status });
-    expect(axis?.consensus).toBeNull();
-    expect(axis?.mapX(170)).toBeLessThan(axis?.mapX(230));
+    expect(axis.mapX(100.01) - axis.mapX(100)).toBeCloseTo(axis.mapX(100.02) - axis.mapX(100.01), 10);
   });
 
   it('missing target and cost retain a finite, legible one-price scale', () => {
@@ -47,27 +28,26 @@ describe('single continuous TWD price spectrum', () => {
     expect(priceSpectrumGeometry({ price: null, cost: null, target: null })).toBeNull();
   });
 
-  it('狹窄交集維持真實比例，只畫一條綜合段並以上下引線讀值', () => {
-    const band = lowConfidence([[100, 110], [104.98, 105.02], [102, 108]]);
-    const { container } = render(<PriceSpectrum WB={WB} price={150} cost={90} target={160} band={band} />);
-    const overlap = screen.getByTestId('reference-overlap-band');
-    expect(overlap.getAttribute('data-low')).toBe('104.98');
-    expect(overlap.getAttribute('data-high')).toBe('105.02');
-    expect(Number(overlap.getAttribute('x2')) - Number(overlap.getAttribute('x1'))).toBeLessThan(0.1);
-    expect(container.querySelectorAll('[data-testid^="reference-band-"]')).toHaveLength(0);
-    expect(screen.getByTestId('reference-overlap-low').textContent).toBe('NT$104.98');
-    expect(screen.getByTestId('reference-overlap-high').textContent).toBe('NT$105.02');
-    const label = screen.getByTestId('holdings-price-axis-label-reference');
-    expect(label.textContent).toContain('三尺重疊參考・低信心・非合理價');
+  it('單尺個人情境維持真實比例，不畫任何三尺交集或系統帶', () => {
+    const { container } = render(<PriceSpectrum WB={WB} price={150} cost={90} target={160} customBand={{ low: 104.98, high: 105.02, key: 'pe' }} />);
+    const custom = screen.getByTestId('custom-band');
+    expect(custom.getAttribute('data-low')).toBe('104.98');
+    expect(custom.getAttribute('data-high')).toBe('105.02');
+    expect(custom.getAttribute('data-key')).toBe('pe');
+    expect(Number(custom.getAttribute('x2')) - Number(custom.getAttribute('x1'))).toBeLessThan(0.1);
+    expect(container.querySelector('[data-testid="reference-overlap-band"]')).toBeNull();
+    expect(container.querySelector('[data-testid="valuation-band"]')).toBeNull();
+    const label = screen.getByTestId('holdings-price-axis-label-custom');
+    expect(label.textContent).toContain('我的情境試算（僅此裝置');
+    expect(label.textContent).toContain('PE');
     expect(label.textContent).toContain('NT$104.98–NT$105.02');
-    expect(screen.queryByTestId('holdings-price-axis-label-system')).toBeNull();
   });
 
-  it('三尺無交集時不畫綜合段，明示方法分歧', () => {
-    const band = lowConfidence([[75, 100], [40, 60], [50, 75]]);
-    render(<PriceSpectrum WB={WB} price={80} cost={65} target={90} band={band} />);
+  it('沒有個人輸入時不畫任何估值段', () => {
+    render(<PriceSpectrum WB={WB} price={80} cost={65} target={90} customBand={null} />);
     expect(screen.queryByTestId('reference-overlap-band')).toBeNull();
-    expect(screen.queryByTestId('holdings-price-axis-label-reference')).toBeNull();
-    expect(screen.getByTestId('holdings-price-axis-label-system').textContent).toContain('方法分歧');
+    expect(screen.queryByTestId('valuation-band')).toBeNull();
+    expect(screen.queryByTestId('custom-band')).toBeNull();
+    expect(screen.queryByTestId('holdings-price-axis-label-system')).toBeNull();
   });
 });
