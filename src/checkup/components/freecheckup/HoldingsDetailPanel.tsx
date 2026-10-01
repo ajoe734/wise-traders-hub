@@ -13,7 +13,6 @@ import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
 import { ValuationRulersView } from './ValuationRulers';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
-import { priceVsBandText } from '@/checkup/lib/valuationRulers';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
@@ -480,7 +479,7 @@ function HoldingsDetailPanelImpl({
         {/* 8) 決策履歷 */}
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
 
-        {/* 8.4) 估值三把尺（本益比 / 股價淨值比 / 現金殖利率）＋ 同業中位數 */}
+        {/* 8.4) 財報情境三把尺 PE / PB / PS；舊比率與同業僅供歷史參考 */}
         <ValuationRulersView
           WB={WB}
           view={valuation.view}
@@ -766,30 +765,16 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
       </div>
       <PriceSpectrum WB={WB} price={price} cost={cost} target={target} band={band} />
       {note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
-      {band?.status === 'divergent' && (
-        <div data-testid="valuation-band-divergent-list" style={{ marginTop: 6, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
-          {band.ranges.filter((r) => r.low != null && r.high != null).map((r) => (
-            <span key={r.key} style={{ marginRight: 10, whiteSpace: 'nowrap' }}>
-              {r.label} NT${Number(r.low).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}–{Number(r.high).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
-            </span>
-          ))}
-        </div>
-      )}
-      {(band?.status === 'consensus' || band?.status === 'divergent') && (
-        <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 11, color: WB.inkMute, lineHeight: 1.6 }}>
-          {band.status === 'consensus'
-            ? '區間由本益比、股價淨值比、殖利率各自的 5 年 30–70 分位換算後取交集，屬模型參考，不代表應有股價，也不保證獲利。'
-            : '三把尺換算的價格範圍沒有足夠交集，因此不合成單一區間。'}
-          {target != null ? '目標價來自分析師共識，與本區間不同來源。' : ''}
-        </div>
-      )}
+      <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, lineHeight: 1.6 }}>
+        現價、持倉成本與分析師目標價來源各異，不作為情境價的財報分母。{target != null ? '目標價為分析師估計。' : ''}
+      </div>
     </div>
   );
 }
 
 const fmtTwd = (v) => Number(v).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
 
-/** 主標：歷史估值參考區間（數值是精確資訊來源；軸上淡帶只表示位置）。 */
+/** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
 function ValuationBandHeadline({ WB, band, loading, price, stale }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
   if (loading && !band) {
@@ -800,31 +785,21 @@ function ValuationBandHeadline({ WB, band, loading, price, stale }) {
       </div>
     );
   }
-  if (!band) return null;
+  if (!band) return <div data-testid="valuation-band-headline" data-status="insufficient" style={{ marginBottom: 12, color: WB.ink, fontWeight: 700 }}>估值情境：資料不足，暫無單一合理區間</div>;
   const meta = [
-    band.status === 'consensus' ? '三尺交集' : band.status === 'divergent' ? '三尺分歧' : null,
-    dateText ? `資料日 ${dateText}${stale ? '，已逾 7 天' : ''}` : null,
+    `三尺可用 ${band.validCount}/3`,
+    dateText ? `比率資料截至 ${dateText}${stale ? '，已逾 7 天' : ''}` : null,
   ].filter(Boolean).join('｜');
-  if (band.status === 'insufficient') {
-    return (
-      <div data-testid="valuation-band-headline" data-status="insufficient" style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>歷史估值參考區間</div>
-        <div style={{ fontSize: 13, color: WB.ink, fontWeight: 700, marginTop: 2 }}>資料不足：{band.reason}</div>
-        {dateText && <div style={{ fontSize: 11, color: WB.inkMute, marginTop: 2 }}>{meta}</div>}
-      </div>
-    );
-  }
-  const vs = priceVsBandText(price, band);
   return (
     <div data-testid="valuation-band-headline" data-status={band.status} style={{ marginBottom: 12, minWidth: 0 }}>
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
-        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>歷史估值參考區間（5 年分位換算）</span>
-        <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: '#292520', fontVariantNumeric: 'tabular-nums' }}>
-          {band.status === 'consensus' ? `NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}` : '三尺分歧，無共同區間'}
+        <span style={{ fontSize: 13, color: WB.inkSub }}>估值情境</span>
+        <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: WB.ink, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
+          {band.status === 'consensus' ? `三尺共同支持的情境區間 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}` : '方法分歧／資料不足，暫無單一合理區間'}
         </span>
       </div>
       <div style={{ fontSize: 12, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
-        {[vs, meta].filter(Boolean).join('｜')}
+        {meta}{band.status === 'consensus' ? '｜情境非獲利保證' : ''}
       </div>
     </div>
   );
