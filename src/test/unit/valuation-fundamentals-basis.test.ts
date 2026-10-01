@@ -39,7 +39,7 @@ describe('3443 real FinMind fixture (2026-10-01)', () => {
     expect(sc.validCount).toBe(3);
     const lows = sc.rows.map((r) => r.low!);
     const highs = sc.rows.map((r) => r.high!);
-    expect(sc.status).toBe('consensus');
+    expect(sc.status).toBe('historical') // 舊版服務倍數來自本公司歷史，只能是歷史情境參考;
     expect(sc.low).toBeCloseTo(Math.max(...lows), 6);
     expect(sc.high).toBeCloseTo(Math.min(...highs), 6);
     expect(Math.round(sc.low!)).toBe(2872);

@@ -3,7 +3,7 @@ import { buildValuationScenario, type ScenarioRowInput } from '@/checkup/lib/val
 
 const date = '2026-09-23';
 const basis = (value: number) => ({ value, unit: 'TWD/share' as const, period: '2026 FY', publishedAt: '2026-09-20', source: '公開財報', kind: 'reported' as const, shareBasis: '2026 加權平均股數' });
-const multiple = (low: number, high: number) => ({ low, high, reason: '產品與風險逐家核對', source: '公開同業財報', period: '2026 FY', sampleSize: 3, peerComparability: '同產品與風險', cycle: '相近景氣', growth: '成長已核對', earningsStability: '獲利已核對', cash: '現金已核對', debt: '負債已核對', shareBasis: '2026 加權平均股數' });
+const multiple = (low: number, high: number) => ({ low, high, reason: '產品與風險逐家核對', source: '公開同業財報', period: '2026 FY', sampleSize: 3, peerComparability: '同產品與風險', cycle: '相近景氣', growth: '成長已核對', earningsStability: '獲利已核對', cash: '現金已核對', debt: '負債已核對', shareBasis: '2026 加權平均股數', method: 'peer' as const });
 const rows: ScenarioRowInput[] = [
   { key: 'pe', basis: basis(5), multiples: multiple(15, 20) },
   { key: 'pb', basis: basis(40), multiples: multiple(1, 1.5) },
