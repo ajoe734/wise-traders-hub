@@ -814,10 +814,11 @@ export function roundPrice(v: number): number {
   return Math.round(Math.round(v / step) * step * 100) / 100;
 }
 
+/** 基礎值皆由同日收盤價÷比率反推，非財報原始值，標籤必須標明「反推、約」。 */
 const BASE_LABEL: Record<RulerKey, string> = {
-  pe: '近四季 EPS',
-  pb: '每股淨值',
-  dividendYield: '近 12 月每股現金股利',
+  pe: '依同日收盤與本益比反推 EPS 約',
+  pb: '依同日收盤與股價淨值比反推每股淨值約',
+  dividendYield: '依殖利率反推每股股利約',
 };
 
 export interface PriceBandInput {

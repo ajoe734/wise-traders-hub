@@ -41,7 +41,7 @@ const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('
 function BasisRow({ WB, r, range }: { WB: any; r: RulerResult; range?: RulerPriceRange }) {
   const isYield = r.key === 'dividendYield';
   const q = range && range.q30 != null && range.q70 != null
-    ? isYield ? `${num(range.q70)}%–${num(range.q30)}%` : `${num(range.q30)}–${num(range.q70)} 倍`
+    ? isYield ? `${range.q30.toFixed(2)}%–${range.q70.toFixed(2)}%` : `${num(range.q30)}–${num(range.q70)} 倍`
     : null;
   return (
     <div
@@ -61,7 +61,9 @@ function BasisRow({ WB, r, range }: { WB: any; r: RulerResult; range?: RulerPric
       </div>
       {range && range.low != null && range.high != null ? (
         <div data-testid={`valuation-basis-range-${r.key}`}>
-          {range.baseLabel} {num(range.base)} × 30–70 分位 {q} → {twd(range.low)}–{twd(range.high)}
+          {isYield
+            ? <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>÷</b> 歷史殖利率 30–70 分位 {q}（上下界反轉）→ {twd(range.low)}–{twd(range.high)}</>
+            : <>{range.baseLabel} {num(range.base)} <b style={{ color: WB.ink }}>×</b> 歷史{RULER_LABEL[r.key]} 30–70 分位 {q} → {twd(range.low)}–{twd(range.high)}</>}
           <span style={{ color: WB.inkMute }}>（樣本 {r.sampleSize}）</span>
         </div>
       ) : (
@@ -289,8 +291,9 @@ export function ValuationRulersView({
       ))}
 
       <div data-testid="valuation-basis-formula" style={{ fontSize: 11, color: WB.inkMute, marginTop: 6, lineHeight: 1.7 }}>
-        基礎值以估值同日收盤價反推：EPS＝收盤÷本益比、每股淨值＝收盤÷股價淨值比、每股股利＝收盤×殖利率。
-        比率僅到小數 2 位，反推誤差約萬分之一。殖利率越高對應價格越低，故上下界反轉。
+        EPS、每股淨值、每股股利皆非財報原始值，而是依估值同日收盤價反推：EPS≈收盤÷本益比、每股淨值≈收盤÷股價淨值比、每股股利≈收盤×殖利率÷100。
+        價格換算：本益比／股價淨值比尺＝基礎值×歷史倍數；殖利率尺＝每股股利÷（歷史殖利率÷100），殖利率越高對應價格越低，故上下界反轉。
+        比率經四捨五入，反推基礎值與區間均為近似值。
         至少 2 把有效尺且換算範圍有交集（寬度 ≥ 中點 3%）才合成區間；同業中位數不納入區間。
       </div>
 
