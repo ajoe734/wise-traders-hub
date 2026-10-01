@@ -38,7 +38,7 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
     const reason = failure || payload?.reason || '財報情境服務未回傳資料';
     return buildValuationScenario(payload?.asOf ?? fallbackAsOf, (['pe', 'pb', 'ps'] as const).map((key) => ({ key, notApplicable: reason })));
   }
-  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null, basisIssue: (r as any).basisIssue ?? null, multipleIssue: (r as any).multipleIssue ?? null, samples: Array.isArray(r.samples) ? r.samples : undefined })));
+  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null, basisIssue: (r as any).basisIssue ?? null, multipleIssue: (r as any).multipleIssue ?? null, samples: Array.isArray(r.samples) ? r.samples : undefined, reference: (r as any).reference ?? null })));
 }
 
 /** 財報情境前端快取：同一代碼 6 小時內共用一次結果；同時開啟的兩個元件共用同一個請求。 */
@@ -48,18 +48,21 @@ const fundCache = new Map<string, { at: number; value: FundamentalsPayload }>();
 const fundInflight = new Map<string, Promise<FundamentalsPayload>>();
 export function __resetFundamentalsCache() { fundCache.clear(); fundInflight.clear(); }
 
-export function loadFundamentals(gateway: CheckupGateway, code: string, force = false): Promise<FundamentalsPayload> {
-  const hit = fundCache.get(code);
+/** peers=false：只算目標公司（快，先畫三尺）；peers=true：含同業（慢，背景補上）。 */
+export function loadFundamentals(gateway: CheckupGateway, code: string, force = false, peers = true): Promise<FundamentalsPayload> {
+  const key = peers ? code : `${code}:target`;
+  if (!peers) { const full = fundCache.get(code); if (!force && full && Date.now() - full.at < FUNDAMENTALS_CLIENT_TTL_MS) return Promise.resolve(full.value); }
+  const hit = fundCache.get(key);
   if (!force && hit && Date.now() - hit.at < FUNDAMENTALS_CLIENT_TTL_MS) return Promise.resolve(hit.value);
-  const running = fundInflight.get(code);
+  const running = fundInflight.get(key);
   if (running) return running;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const p = Promise.race([
-    gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, { symbol: code }),
+    gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, peers ? { symbol: code } : { symbol: code, peers: false }),
     new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('逾時')), FUNDAMENTALS_TIMEOUT_MS); }),
-  ]).then((v) => { fundCache.set(code, { at: Date.now(), value: v }); return v; })
-    .finally(() => { clearTimeout(timer); fundInflight.delete(code); });
-  fundInflight.set(code, p);
+  ]).then((v) => { fundCache.set(key, { at: Date.now(), value: v }); return v; })
+    .finally(() => { clearTimeout(timer); fundInflight.delete(key); });
+  fundInflight.set(key, p);
   return p;
 }
 
@@ -75,6 +78,8 @@ export interface UseValuationSnapshotResult {
   band: ValuationScenario | null;
   /** 財報情境載入狀態（與比率 status 獨立）。 */
   bandStatus: ValuationStatus;
+  /** 目標三尺已畫、同業比較仍在背景載入。 */
+  peersPending: boolean;
   error: string | null;
   stale: boolean;
   refetch: () => void;
@@ -99,6 +104,7 @@ export function useValuationSnapshot(
   const [view, setView] = useState<ValuationView | null>(null);
   const [band, setBand] = useState<ValuationScenario | null>(null);
   const [bandStatus, setBandStatus] = useState<ValuationStatus>('idle');
+  const [peersPending, setPeersPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -118,6 +124,7 @@ export function useValuationSnapshot(
     setStatus('loading');
     setBand(null);
     setBandStatus('loading');
+    setPeersPending(false);
     setView(null);
     setError(null);
     const gateway = opts.injectedGateway || getCheckupGateway();
@@ -167,8 +174,16 @@ export function useValuationSnapshot(
         if (!token || isJwtExpired(token)) {
           scenario = scenarioFromFundamentals(null, null, '登入狀態已失效，重新登入後可查看財報情境');
         } else {
-          const fund = await loadFundamentals(gateway, code, force);
-          scenario = scenarioFromFundamentals(fund, null);
+          // 先只算目標公司（不等同業），畫出三尺後再背景補同業；同業失敗保留目標結果。
+          const first = await loadFundamentals(gateway, code, force, false);
+          scenario = scenarioFromFundamentals(first, null);
+          if (!cancelled && (first as any)?.peersIncluded === false && Array.isArray(first?.rows) && first.rows.length) {
+            setPeersPending(true);
+            loadFundamentals(gateway, code, force, true)
+              .then((full) => { if (!cancelled && Array.isArray(full?.rows) && full.rows.length) setBand(scenarioFromFundamentals(full, null)); })
+              .catch(() => { /* 同業失敗：保留目標公司三尺 */ })
+              .finally(() => { if (!cancelled) setPeersPending(false); });
+          }
         }
       } catch (e: any) {
         scenario = scenarioFromFundamentals(null, null, `財報情境服務暫時無法取得（${e?.message || '未知錯誤'}）`);
@@ -191,6 +206,7 @@ export function useValuationSnapshot(
     view,
     band,
     bandStatus,
+    peersPending,
     error,
     stale: computeStale(view?.asOf ?? null, nowMs),
     refetch,

@@ -34,7 +34,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
-import { buildCustomScenario } from '@/checkup/lib/valuationScenario';
+import { buildCustomScenario, historyReferenceBands, SCENARIO_LABELS } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
@@ -458,6 +458,7 @@ function HoldingsDetailPanelImpl({
           tpHistory={tpHistory}
           band={valuation.band}
           bandLoading={valuation.bandStatus === 'loading'}
+          peersPending={valuation.peersPending}
           bandError={valuation.status === 'error'}
           stale={valuation.stale}
           ratioAsOf={valuation.view?.asOf ?? null}
@@ -754,7 +755,7 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 
 // ──────────────────── §4.5 價格軸 ────────────────────
 
-function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, bandLoading = false, bandError = false, stale = false, ratioAsOf = null, symbol = null }) {
+function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, bandLoading = false, peersPending = false, bandError = false, stale = false, ratioAsOf = null, symbol = null }) {
   const [customInput] = useCustomMultiples(symbol);
   const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
   const custom = useMemo(() => buildCustomScenario(band, customInput, today), [band, customInput, today]);
@@ -766,7 +767,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
     : null;
   return (
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
-       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} />
+       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} peersPending={peersPending} />
       <div className="price-spectrum-heading">
         <span>價格位置 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 等比例</small></span>
         {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
@@ -798,7 +799,7 @@ function confidenceText(band) {
 }
 
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
-function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null }) {
+function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
   const ratioText = ratioAsOf ? String(ratioAsOf).split('-').join('/') : null;
   if (loading && !band) {
@@ -816,7 +817,14 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
     `倍數信心：${conf}`,
     dateText ? `情境估值日 ${dateText}` : null,
     ratioText ? `比率資料截至 ${ratioText}${stale ? '，已逾 7 天' : ''}` : null,
+    peersPending ? '同業比較背景載入中' : null,
   ].filter(Boolean).join('｜');
+  const refs = historyReferenceBands(band);
+  const overlap = refs.length >= 2 && Math.max(...refs.map((r) => r.low)) < Math.min(...refs.map((r) => r.high));
+  const why = refs.length
+    ? (refs.length < 3 ? `只有 ${refs.length} 尺有歷史參考` : !overlap ? '三尺歷史參考區間互不重疊' : '樣本少或景氣不同、倍數信心低')
+      + '，且無 ≥3 家可比同業 → 無法合成合理區間'
+    : null;
   return (
     <div data-testid="valuation-band-headline" data-status={band.status} style={{ marginBottom: 12, minWidth: 0 }}>
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
@@ -825,6 +833,7 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
           {band.status === 'consensus' ? `同業倍數三尺共同情境 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'historical' ? `歷史情境參考 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'divergent' ? '三尺方法分歧，暫無單一區間'
+            : refs.length ? '無單一合理區間，僅歷史參考'
             : band.status === 'lowConfidence' ? '倍數信心低，暫不畫單一區間'
             : band.basisCount > 0 ? '倍數依據不足，暫無單一區間'
             : '財報分母不足，無法估算'}
@@ -833,6 +842,12 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
         {meta}{band.status === 'consensus' ? '｜情境非合理價保證' : band.status === 'historical' ? '｜非合理價：描述本公司過去相近景氣期的市場定價' : ''}
       </div>
+      {refs.length > 0 && (
+        <div data-testid="valuation-reference-summary" style={{ fontSize: 13, color: WB.ink, marginTop: 4, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+          歷史估值參考（低信心、非合理價）：{refs.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} NT$${fmtTwd(Math.round(r.low))}–${fmtTwd(Math.round(r.high))}`).join('、')}
+          <div style={{ color: WB.inkSub, fontWeight: 600 }}>{why}</div>
+        </div>
+      )}
     </div>
   );
 }

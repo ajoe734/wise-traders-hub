@@ -24,8 +24,10 @@ const FINMIND = 'https://api.finmindtrade.com/api/v4/data';
 const TWSE_URL = 'https://openapi.twse.com.tw/v1/opendata/t187ap03_L';
 const TPEX_URL = 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O';
 const MAX_PEERS = 6;
+/** 目標財報抓 7 年：前 4 季需再往前 4 季才能算近四季營收年增，5 年會讓最早一年的景氣判斷全為「不明」。 */
+const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-01.3';
+export const VERSION = 'valuation-fundamentals@2026-10-01.5';
 const REQUEST_TIMEOUT_MS = 8_000;
 const TARGET_TIMEOUT_MS = 20_000;
 const OFFICIAL_TIMEOUT_MS = 60_000;
@@ -110,11 +112,13 @@ async function loadCompany(meter: Meter, symbol: string, finYears: number, price
 }
 
 /** 官方名錄最多等 OFFICIAL_WAIT_MS；逾時回 null，背景續抓供下次命中。 */
-async function officialIndexFast(meter: Meter): Promise<OfficialIndex | null> {
+async function officialIndexFast(meter: Meter, until?: Promise<unknown>): Promise<OfficialIndex | null> {
   const p = officialIndex(meter);
   // deno-lint-ignore no-explicit-any
   try { (globalThis as any).EdgeRuntime?.waitUntil?.(p.catch(() => null)); } catch { /* ignore */ }
-  return await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), OFFICIAL_WAIT_MS))]);
+  // 只算目標時：目標財報一到（+200ms）就不再等名錄，改用已發行股數後備，避免每次固定多等 3 秒。
+  const stop = until ? until.then(() => new Promise<null>((r) => setTimeout(() => r(null), 200)), () => null) : null;
+  return await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), OFFICIAL_WAIT_MS)), ...(stop ? [stop] : [])]);
 }
 
 Deno.serve(async (req) => {
@@ -124,7 +128,8 @@ Deno.serve(async (req) => {
     throw e;
   }
   let symbol = '';
-  try { symbol = String((await req.json())?.symbol ?? '').trim(); } catch { /* fallthrough */ }
+  let withPeers = true;
+  try { const body = await req.json(); symbol = String(body?.symbol ?? '').trim(); withPeers = body?.peers !== false; } catch { /* fallthrough */ }
   if (!/^\d{4,6}$/.test(symbol)) return errorResponse('symbol 必須為 4–6 位台股代碼', 400, { code: 'BAD_SYMBOL' }, req);
 
   const started = Date.now();
@@ -135,7 +140,13 @@ Deno.serve(async (req) => {
     const { data: meta, error } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').eq('symbol', symbol).maybeSingle();
     if (error) throw new Error(`industry_map: ${error.message}`);
     // 官方名錄（約 1.3MB、首次約 5 秒）與目標財報同時抓，不串接等待。
-    const [idx, targetRaw] = await Promise.all([officialIndexFast(meter), loadCompany(meter, symbol, 5, 5 * 365, null, TARGET_TIMEOUT_MS)]);
+    const t0 = Date.now();
+    const timings = { industryMapMs: t0 - started, officialMs: 0, targetMs: 0, peersMs: 0 };
+    const targetP = loadCompany(meter, symbol, TARGET_FIN_YEARS, 5 * 365, null, TARGET_TIMEOUT_MS).finally(() => { timings.targetMs = Date.now() - t0; });
+    const [idx, targetRaw] = await Promise.all([
+      officialIndexFast(meter, withPeers ? undefined : targetP).finally(() => { timings.officialMs = Date.now() - t0; }),
+      targetP,
+    ]);
     const official = (s: string) => (idx ? idx(s) : null);
     // 官方名錄有資料時優先（含特別股）；否則用已發行股數後備。
     const target = { ...targetRaw, official: official(symbol) ?? targetRaw.official };
@@ -147,13 +158,14 @@ Deno.serve(async (req) => {
     const industries: string[] = meta?.industries ?? [];
     const core = industries[0];
     let audit: ReturnType<typeof auditPeers> = [];
-    if (core) {
+    if (core && withPeers) {
       const { data: uni, error: uErr } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').contains('industries', [core]).limit(300);
       if (uErr) throw new Error(`peer_universe: ${uErr.message}`);
       const ranked = rankPeerCandidates({ symbol, industries, market_groups: meta?.market_groups ?? [] }, (uni ?? []) as any, (s) => official(s)?.paidInCapital ?? null);
       // 名錄未取得時不預先排除；讀取時以已發行股數判定是否上市櫃（興櫃無資料 → 讀取後排除）。
       audit = auditPeers(ranked, (s) => !idx || official(s) != null, MAX_PEERS);
     }
+    const tp = Date.now();
     const picked = audit.filter((a) => a.status === 'selected');
     const peerDeadline = Date.now() + PEER_BUDGET_MS;
     const settled = await mapLimit(picked, PEER_CONCURRENCY, async (c) => {
@@ -172,14 +184,16 @@ Deno.serve(async (req) => {
         a.detail = `${a.detail}；未列入：${(s.reason as Error)?.message || '逾時或讀取失敗'}`;
       }
     });
-    const peerRule = `核心業務「${core ?? '無'}」同業（主業相同優先，題材不列條件；先排序再取前 ${MAX_PEERS} 家）`
+    timings.peersMs = withPeers ? Date.now() - tp : 0;
+    const peerRule = !withPeers ? '同業延後載入中（本次只算目標公司）' : `核心業務「${core ?? '無'}」同業（主業相同優先，題材不列條件；先排序再取前 ${MAX_PEERS} 家）`
       + `；候選 ${audit.length} 家：` + audit.map((a) => `${a.name}${a.symbol}（${a.detail}）`).join('；');
     const history = monthlyHistory(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const rows = buildScenarioRows(targetBasis, peers, peerRule, history);
     return jsonResponse({
       ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
-      meta: { officialList: idx ? 'ready' : 'timeout_fallback', requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
+      peersIncluded: withPeers,
+      meta: { officialList: idx ? 'ready' : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {
     return errorResponse(e instanceof Error ? e.message : String(e), 502, { code: 'UPSTREAM_FAILED' }, req);
