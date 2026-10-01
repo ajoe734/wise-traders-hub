@@ -41,7 +41,7 @@ const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('
 function BasisRow({ WB, r, range }: { WB: any; r: RulerResult; range?: RulerPriceRange }) {
   const isYield = r.key === 'dividendYield';
   const q = range && range.q30 != null && range.q70 != null
-    ? isYield ? `${range.q30.toFixed(2)}%–${range.q70.toFixed(2)}%` : `${num(range.q30)}–${num(range.q70)} 倍`
+    ? isYield ? `${range.q70.toFixed(2)}%–${range.q30.toFixed(2)}%` : `${num(range.q30)}–${num(range.q70)} 倍`
     : null;
   return (
     <div

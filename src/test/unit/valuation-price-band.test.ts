@@ -145,3 +145,15 @@ describe('buildValuationPriceBand — 規則', () => {
     expect(roundPrice(74.72)).toBe(74.7);
   });
 });
+
+describe('計算依據說明文字（財務正確性）', () => {
+  const src = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../checkup/components/freecheckup/ValuationRulers.tsx'), 'utf8') as string;
+  it('移除無依據的精度宣稱，改為近似值說明', () => {
+    expect(src).not.toContain('萬分之一');
+    expect(src).toContain('比率經四捨五入，反推基礎值與區間均為近似值');
+  });
+  it('殖利率尺以除法呈現並註明上下界反轉', () => {
+    expect(src).toMatch(/÷<\/b> 歷史殖利率 30–70 分位 \{q\}（上下界反轉）/);
+    expect(src).toContain('收盤×殖利率÷100');
+  });
+});
