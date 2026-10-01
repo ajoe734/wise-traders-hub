@@ -34,7 +34,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
-import { buildCustomScenario } from '@/checkup/lib/valuationScenario';
+import { buildCustomScenario, historyReferenceBands, SCENARIO_LABELS } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
