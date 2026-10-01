@@ -83,7 +83,7 @@ function PeerLine({ WB, stats }: { WB: any; stats: PeerStat[] }) {
   return (
     <div data-testid="valuation-peer-row" style={{ fontSize: 11, color: WB.inkSub, marginTop: 6, lineHeight: 1.7 }}>
       {usable.map((s) => (
-        <span key={s.key} style={{ marginRight: 10, whiteSpace: 'nowrap' }} data-testid={`valuation-peer-${s.key}`}>
+        <span key={s.key} style={{ display: 'block', overflowWrap: 'anywhere' }} data-testid={`valuation-peer-${s.key}`}>
           {s.label}同業中位數 {fmt(s.key, s.median)}（n={s.n}）· {formatPremium(s.premium)}
         </span>
       ))}
