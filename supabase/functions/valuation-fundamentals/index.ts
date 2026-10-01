@@ -135,10 +135,10 @@ Deno.serve(async (req) => {
     const { data: meta, error } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').eq('symbol', symbol).maybeSingle();
     if (error) throw new Error(`industry_map: ${error.message}`);
     // 官方名錄（約 1.3MB、首次約 5 秒）與目標財報同時抓，不串接等待。
-    const [idx, quickTarget] = await Promise.all([officialIndexFast(meter), Promise.resolve(null)]);
-    void quickTarget;
+    const [idx, targetRaw] = await Promise.all([officialIndexFast(meter), loadCompany(meter, symbol, 5, 5 * 365, null, TARGET_TIMEOUT_MS)]);
     const official = (s: string) => (idx ? idx(s) : null);
-    const target = await loadCompany(meter, symbol, 5, 5 * 365, official(symbol), TARGET_TIMEOUT_MS);
+    // 官方名錄有資料時優先（含特別股）；否則用已發行股數後備。
+    const target = { ...targetRaw, official: official(symbol) ?? targetRaw.official };
     const asOf = target.prices.map((p) => p.date).sort().at(-1) ?? null;
     if (!asOf) return jsonResponse({ ok: true, symbol, asOf: null, rows: [], reason: '近期無收盤價' }, {}, req);
     const targetBasis = computeCompanyBasis(symbol, target.fs, target.bs, asOf, { mode: 'live', official: target.official, fetchedAt });
