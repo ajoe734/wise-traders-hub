@@ -752,8 +752,8 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 
 function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, bandLoading = false, stale = false }) {
   const tpLabel = tpHistory
-    ? `目標 ${Number(target).toLocaleString()} ${tpHistory.arrow}${Math.abs(tpHistory.deltaPct).toFixed(0)}%`
-    : (target != null ? `目標 ${Number(target).toLocaleString()}` : null);
+    ? `分析師目標 ${tpHistory.arrow}${Math.abs(tpHistory.deltaPct).toFixed(0)}%`
+    : null;
   const note = tpHistory && upside != null
     ? `共識 ${tpHistory.spanDays} 日內由 ${tpHistory.from.toLocaleString()} ${tpHistory.arrow === '↓' ? '下修' : '上修'}至 ${tpHistory.last.toLocaleString()}，${upside >= 0 ? '仍高於' : '低於'}現價 ${Math.abs(upside).toFixed(1)}%${upside < 0 ? '——已超漲' : ''}`
     : null;
@@ -761,7 +761,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} price={price} stale={stale} />
       <div className="price-spectrum-heading">
-        <span>價格 · TWD</span>
+        <span>價格位置 <small style={{ fontSize: 12, fontWeight: 400, color: WB.inkSub }}>新台幣 · 等比例</small></span>
         {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
       </div>
       <PriceSpectrum WB={WB} price={price} cost={cost} target={target} band={band} />

@@ -16,8 +16,10 @@ describe('single continuous TWD price spectrum', () => {
 
   it('near prices retain their true differences even when markers overlap visually', () => {
     const axis = priceSpectrumGeometry({ cost: 100, target: 100.01, price: 100.02 }, consensus);
-    expect(axis?.mapX(100.01) - axis?.mapX(100)).toBeCloseTo(
-      axis!.mapX(100.02) - axis!.mapX(100.01), 10);
+    expect(axis).not.toBeNull();
+    if (!axis) return;
+    expect(axis.mapX(100.01) - axis.mapX(100)).toBeCloseTo(
+      axis.mapX(100.02) - axis.mapX(100.01), 10);
   });
 
   it.each(['divergent', 'insufficient'] as const)('%s never renders a false consensus interval', (status) => {
