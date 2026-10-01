@@ -34,7 +34,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
-import { buildCustomScenario, historyReferenceBands, SCENARIO_LABELS } from '@/checkup/lib/valuationScenario';
+import { buildCustomScenario, historyReferenceBands, referenceOverlap, SCENARIO_LABELS } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
@@ -820,9 +820,9 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
     peersPending ? '同業比較背景載入中' : null,
   ].filter(Boolean).join('｜');
   const refs = historyReferenceBands(band);
-  const overlap = refs.length >= 2 && Math.max(...refs.map((r) => r.low)) < Math.min(...refs.map((r) => r.high));
+  const overlap = referenceOverlap(refs);
   const why = refs.length
-    ? (refs.length < 3 ? `只有 ${refs.length} 尺有歷史參考` : !overlap ? '三尺歷史參考區間互不重疊' : '樣本少或景氣不同、倍數信心低')
+    ? (refs.length < 3 ? `只有 ${refs.length} 尺有歷史參考` : !overlap ? '三尺歷史參考區間互不重疊' : '倍數信心低（樣本少或極值離散大）')
       + '，且無 ≥3 家可比同業 → 無法合成合理區間'
     : null;
   return (
@@ -833,6 +833,7 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
           {band.status === 'consensus' ? `同業倍數三尺共同情境 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'historical' ? `歷史情境參考 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
             : band.status === 'divergent' ? '三尺方法分歧，暫無單一區間'
+            : overlap ? `三尺重疊參考 NT$${fmtTwd(Math.round(overlap.low))}–${fmtTwd(Math.round(overlap.high))}（非合理價）`
             : refs.length ? '無單一合理區間，僅歷史參考'
             : band.status === 'lowConfidence' ? '倍數信心低，暫不畫單一區間'
             : band.basisCount > 0 ? '倍數依據不足，暫無單一區間'
@@ -844,7 +845,7 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
       </div>
       {refs.length > 0 && (
         <div data-testid="valuation-reference-summary" style={{ fontSize: 13, color: WB.ink, marginTop: 4, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
-          歷史估值參考（低信心、非合理價）：{refs.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} NT$${fmtTwd(Math.round(r.low))}–${fmtTwd(Math.round(r.high))}`).join('、')}
+          歷史估值參考（低信心、非合理價）：{refs.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} NT$${fmtTwd(Math.round(r.low))}–${fmtTwd(Math.round(r.high))}（${r.sampleSize} 期，${r.period}）`).join('、')}
           <div style={{ color: WB.inkSub, fontWeight: 600 }}>{why}</div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from 'react';
-import { MY_SCENARIO_LABEL, historyReferenceBands, SCENARIO_LABELS, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { MY_SCENARIO_LABEL, historyReferenceBands, referenceOverlap, SCENARIO_LABELS, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 /** 歷史參考帶的共同前綴：低信心、非合理價，和系統情境、我的試算以文字直接區分。 */
 export const REFERENCE_LABEL = '歷史估值參考（低信心，非合理價）';
@@ -119,7 +119,8 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
         </div>
         {refs.length > 0 && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-reference">
           <span className="price-spectrum-legend-caption">{REFERENCE_LABEL}・上方虛線</span>
-          <strong>{refs.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} ${money(Math.round(r.low))}–${money(Math.round(r.high))}`).join('；')}</strong>
+          <strong>{refs.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} ${money(Math.round(r.low))}–${money(Math.round(r.high))}`).join('；')}
+            {(() => { const o = referenceOverlap(refs); return o ? <span data-testid="reference-overlap">；三尺重疊參考 {money(Math.round(o.low))}–{money(Math.round(o.high))}（非合理價）</span> : null; })()}</strong>
         </div>}
         {custom && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-custom">
           <span className="price-spectrum-legend-caption">{MY_SCENARIO_LABEL}</span>
