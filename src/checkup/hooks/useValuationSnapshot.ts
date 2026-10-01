@@ -1,10 +1,10 @@
 /**
- * useValuationSnapshot —— 估值三把尺的 production seam。
+ * useValuationSnapshot —— 歷史比率與三尺財報情境的唯讀接縫。
  *
  * 契約：
  *   - 對外握手一律走 `getCheckupGateway()`（不得直接 import supabase client / fetch）。
  *   - 只讀（rpc valuation_snapshot 為 STABLE），**不做任何寫入**。
- *   - 分位 / 中位數 / 溢折價全部交給純函式 `valuationRulers.ts`，此 hook 不算數字。
+ *   - 比率的分位／同業交給 `valuationRulers.ts`；無獨立財報時 `valuationScenario.ts` 不產生價格。
  *   - harness 以 `injectedGateway` 換成 fake，達成零網路。
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -64,6 +64,8 @@ export function useValuationSnapshot(
     }
     let cancelled = false;
     setStatus('loading');
+    setBand(null);
+    setView(null);
     setError(null);
 
     const gateway = opts.injectedGateway || getCheckupGateway();

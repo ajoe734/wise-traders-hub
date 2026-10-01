@@ -1,5 +1,5 @@
 /**
- * ValuationRulers —— 估值三把尺 + 同業中位數比較（持倉抽屜內）。
+ * ValuationRulers —— PE/PB/PS 情境與獨立呈現的歷史比率、同業比較（持倉抽屜內）。
  *
  * 設計硬合約：
  *   - 顏色不單獨承載意義：每格都同時有數字 + 文字標籤（偏低／合理／偏高／不適用／資料不足）。
@@ -182,7 +182,7 @@ function PeerCharts({ WB, view }: { WB: any; view: ValuationView }) {
               fontWeight: k === key ? 700 : 400,
             }}
           >
-            {RULER_LABEL[k]}
+            {k === 'dividendYield' ? '現金殖利率（輔助）' : RULER_LABEL[k]}
             {k === key ? '（檢視中）' : ''}
           </button>
         ))}
@@ -289,7 +289,7 @@ export function ValuationRulersView({
 
       {isFinancialIndustry(view.industry) && (
         <div data-testid="valuation-financial-note" style={{ fontSize: 10, color: WB.inkMute, marginTop: 4 }}>
-           金融股本益比易受一次性損益影響；殖利率僅作輔助觀察
+           金融股 PB 股價淨值比通常較具參考性；仍須核實淨值與倍數理由。殖利率僅作輔助觀察
         </div>
       )}
 
