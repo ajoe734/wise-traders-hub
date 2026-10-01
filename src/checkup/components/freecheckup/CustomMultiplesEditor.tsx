@@ -23,10 +23,26 @@ export function useCustomMultiples(symbol: string | null | undefined): [CustomSc
 }
 
 const twd = (v: number) => `NT$${v.toLocaleString('zh-TW', { maximumFractionDigits: 2 })}`;
+const twd2 = (v: number) => `NT$${v.toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const KEYS: ScenarioKey[] = ['pe', 'pb', 'ps'];
 
-export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
-  WB: any; symbol: string; scenario: ValuationScenario | null; custom: CustomScenario; today: string;
+const REQUIREMENT_BASIS: Record<ScenarioKey, string> = { pe: '每股獲利', pb: '每股淨值', ps: '每股營收' };
+const REQUIREMENT_PERIOD: Record<ScenarioKey, string> = {
+  pe: '預期年度或 TTM 口徑，須與你填入的預期分母期間一致',
+  pb: '每股淨值口徑',
+  ps: '預期年度或 TTM 口徑，須與你填入的預期分母期間一致',
+};
+
+export function currentPriceRequirement(price: number | null | undefined, input: CustomScenarioInput | null | undefined): string | null {
+  const key = input?.primaryKey;
+  const low = input?.multiple.low;
+  const high = input?.multiple.high;
+  if (!key || !Number.isFinite(price) || Number(price) <= 0 || !Number.isFinite(low) || !Number.isFinite(high) || Number(low) <= 0 || Number(high) < Number(low)) return null;
+  return `以你選的 ${Number(low)}–${Number(high)} 倍，現在股價 ${twd2(Number(price))} 需要${REQUIREMENT_BASIS[key]}介於 ${twd2(Number(price) / Number(high))}–${twd2(Number(price) / Number(low))}（${REQUIREMENT_PERIOD[key]}）。這是現價反推要求，不是合理價。`;
+}
+
+export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today, price }: {
+  WB: any; symbol: string; scenario: ValuationScenario | null; custom: CustomScenario; today: string; price?: number | null;
 }) {
   const [saved, setSaved] = useCustomMultiples(symbol);
   const [open, setOpen] = useState(false);
@@ -38,6 +54,7 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
     setDraft((d) => ({ ...d, [key]: raw === '' ? null : Number(raw) }));
   const setMultiple = (side: 'low' | 'high', raw: string) =>
     setDraft((d) => ({ ...d, multiple: { ...d.multiple, [side]: raw === '' ? null : Number(raw) } }));
+  const requirement = currentPriceRequirement(price, open ? draft : saved);
 
   return (
     <div data-testid="custom-multiples" style={{ marginTop: 10, minWidth: 0 }}>
@@ -52,6 +69,11 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
       )}
       {custom.status === 'needsReview' && !open && (
         <div data-testid="custom-multiples-legacy" style={{ fontSize: 12, color: WB.ink, marginTop: 4 }}>舊版多尺輸入已保留；請開啟後選一把主要尺並確認預期分母，才會重新套用。</div>
+      )}
+      {requirement && (
+        <div data-testid="custom-current-price-requirement" style={{ marginTop: 6, maxWidth: '100%', fontSize: 13, lineHeight: 1.65, color: WB.ink, overflowWrap: 'anywhere' }}>
+          {requirement}
+        </div>
       )}
       {open && (
         <div data-testid="custom-multiples-form" style={{ marginTop: 6, fontSize: 12, color: WB.inkSub, lineHeight: 1.6, minWidth: 0 }}>

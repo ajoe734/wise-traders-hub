@@ -4,6 +4,8 @@ import { ValuationBandHeadline } from './HoldingsDetailPanel';
 import { ValuationRulersView, basisVerificationText, expectationGap, impliedMultiple } from './ValuationRulers';
 import { buildValuationScenario, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 import { buildValuationView } from '@/checkup/lib/valuationRulers';
+import { currentPriceRequirement } from './CustomMultiplesEditor';
+import { EMPTY_CUSTOM } from '@/checkup/lib/drawerPrefs';
 
 const WB = { ink: '#292520', inkSub: '#6b645c', inkMute: '#98918a', inkLight: '#b9b4ae', hair: '#ddd8d0', accent: '#b34832', surface: '#fff' };
 const view = buildValuationView({ symbol: 'fixture', asOf: '2026-09-23', source: '公開資料', pe: null, pb: null, dividendYield: null, industry: null, history: { pe: [], pb: [], dividendYield: [] }, peerScope: null, peerIndustry: null, peers: [], trend: [] });
@@ -56,6 +58,12 @@ describe('財報分母與股數核對來源文案', () => {
 });
 
 describe('選尺與現價要求', () => {
+  it('上方只顯示付費使用者可採取的白話引導', () => {
+    render(<ValuationBandHeadline WB={WB} band={scenario('official', false)} loading={false} error={false} stale={false} />);
+    expect(screen.getByTestId('valuation-reference-summary').textContent).toBe('先看現價要多少獲利，再選一把尺試算自己的價格。');
+    expect(screen.getByTestId('valuation-reference-summary').textContent).not.toMatch(/不能互相取交集|三尺回答不同問題/);
+  });
+
   it('逐尺計算現價隱含倍數，不把歷史範圍稱為高低估', () => {
     const band = scenario('official', false);
     expect(impliedMultiple(100, band.rows[0])).toBe(100);
@@ -75,5 +83,37 @@ describe('選尺與現價要求', () => {
     render(<ValuationRulersView WB={WB} view={view} band={band} currentPrice={80} status="ready" error={null} stale={false} onRetry={() => {}} />);
     expect(screen.getByTestId('valuation-requirement-pe').textContent).toContain('TTM 盈餘≤0，PE 不適用');
     expect(screen.getByTestId('valuation-implied-pb').textContent).toContain('現價隱含 2 倍');
+  });
+});
+
+describe('個人情境的現價反推要求', () => {
+  const input = (primaryKey: 'pe' | 'pb' | 'ps', low = 20, high = 25) => ({
+    ...EMPTY_CUSTOM,
+    primaryKey,
+    multiple: { low, high },
+  });
+
+  it('PE 以同期間年度或 TTM EPS 反推，並核對 2454 範例', () => {
+    expect(currentPriceRequirement(4980, input('pe'))).toBe('以你選的 20–25 倍，現在股價 NT$4,980.00 需要每股獲利介於 NT$199.20–NT$249.00（預期年度或 TTM 口徑，須與你填入的預期分母期間一致）。這是現價反推要求，不是合理價。');
+  });
+
+  it('PB 使用每股淨值口徑', () => {
+    expect(currentPriceRequirement(100, input('pb', 2, 4))).toContain('需要每股淨值介於 NT$25.00–NT$50.00（每股淨值口徑）');
+  });
+
+  it('PS 使用同期間年度或 TTM 每股營收口徑', () => {
+    expect(currentPriceRequirement(300, input('ps', 3, 6))).toContain('需要每股營收介於 NT$50.00–NT$100.00（預期年度或 TTM 口徑，須與你填入的預期分母期間一致）');
+  });
+
+  it.each([
+    ['無現價', null, input('pe')],
+    ['零現價', 0, input('pe')],
+    ['負現價', -1, input('pe')],
+    ['零倍數', 4980, input('pe', 0, 25)],
+    ['負倍數', 4980, input('pe', -20, 25)],
+    ['上下限顛倒', 4980, input('pe', 25, 20)],
+    ['未選尺', 4980, { ...EMPTY_CUSTOM, multiple: { low: 20, high: 25 } }],
+  ])('%s 時不顯示', (_label, price, value) => {
+    expect(currentPriceRequirement(price as number | null, value)).toBeNull();
   });
 });
