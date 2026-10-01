@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { createFakeGateway } from '@/checkup/lib/gateway/fakeGateway';
-import { useValuationSnapshot, __resetFundamentalsCache, FUNDAMENTALS_FN } from '@/checkup/hooks/useValuationSnapshot';
+import { useValuationSnapshot, __resetFundamentalsCache, FUNDAMENTALS_FN, scenarioFromFundamentals } from '@/checkup/hooks/useValuationSnapshot';
 
 const token = `x.${btoa(JSON.stringify({ exp: 4102444800 }))}.y`;
 const rpc = { symbol: '3443', asOf: '2026-09-23', pe: 214.94, pb: 83.45, dividendYield: 0.24, history: { pe: [], pb: [], dividendYield: [] }, peers: [] };
@@ -31,5 +31,17 @@ describe('useValuationSnapshot 比率與財報情境解耦', () => {
     await waitFor(() => expect(h.result.current.bandStatus).toBe('ready'));
     expect(gw.calls.invoke).toHaveLength(0);
     expect(h.result.current.band?.rows[0].reason).toMatch(/重新登入/);
+  });
+
+  it('官方名錄逾時時保留後備股數與特別股待確認狀態', () => {
+    const basis = { value: 1, unit: 'TWD/share' as const, period: '2026Q2', publishedAt: '2026-10-01', source: '公開財報', kind: 'reported' as const, shareBasis: '後備股數' };
+    const scenario = scenarioFromFundamentals({
+      ok: true,
+      asOf: '2026-10-01',
+      official: { source: 'FinMind-TWSE', preferredUnknown: true },
+      rows: (['pe', 'pb', 'ps'] as const).map((key) => ({ key, basis, multipleIssue: '樣本不足' })),
+    }, null);
+    expect(scenario.basisCount).toBe(3);
+    expect(scenario.shareVerification).toEqual({ source: 'fallback', preferredUnknown: true });
   });
 });

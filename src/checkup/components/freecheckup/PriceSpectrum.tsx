@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from 'react';
-import { MY_SCENARIO_LABEL, historyReferenceBands, referenceOverlap, SCENARIO_LABELS, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { MY_SCENARIO_LABEL, historyReferenceBands, referenceOverlap, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 /** 歷史參考帶的共同前綴：低信心、非合理價，和系統情境、我的試算以文字直接區分。 */
 export const REFERENCE_LABEL = '歷史估值參考（低信心，非合理價）';
@@ -53,6 +53,8 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
   const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, band, customBand), [price, cost, target, band, customBand]);
   if (!geometry) return null;
   const { min, max, mapX, consensus, custom, refs, reference } = geometry;
+  const referenceLowX = reference ? mapX(reference.low) : null;
+  const referenceHighX = reference ? mapX(reference.high) : null;
   const markers: Marker[] = ([
     { key: 'cost', name: '成本', value: cost },
     { key: 'target', name: '目標', value: target },
@@ -88,10 +90,10 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           </>}
           {reference && <>
             <line data-testid="reference-overlap-band" data-low={reference.low} data-high={reference.high}
-              x1={mapX(reference.low)} x2={mapX(reference.high)} y1="40" y2="40"
+              x1={referenceLowX ?? 0} x2={referenceHighX ?? 0} y1="40" y2="40"
               className="price-spectrum-band price-spectrum-band--reference price-spectrum-fade" />
-            <line x1={mapX(reference.low)} x2={mapX(reference.low)} y1="16" y2="40" className="price-spectrum-reference-leader price-spectrum-fade" />
-            <line x1={mapX(reference.high)} x2={mapX(reference.high)} y1="40" y2="64" className="price-spectrum-reference-leader price-spectrum-fade" />
+            <line x1={referenceLowX ?? 0} x2={referenceLowX ?? 0} y1="16" y2="40" className="price-spectrum-reference-leader price-spectrum-fade" />
+            <line x1={referenceHighX ?? 0} x2={referenceHighX ?? 0} y1="40" y2="64" className="price-spectrum-reference-leader price-spectrum-fade" />
           </>}
           {custom && <>
             <line data-testid="custom-band" data-low={custom.low} data-high={custom.high}
@@ -105,10 +107,10 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           data-testid={m.key === 'price' ? 'holdings-price-axis-dot' : `price-spectrum-marker-${m.key}`}
           data-value={m.value} data-x={m.x} aria-hidden="true" style={{ left: `${m.x}%` }} />)}
         {reference && <>
-          <span data-testid="reference-overlap-low" className="price-spectrum-reference-value price-spectrum-reference-value--low"
-            data-x={mapX(reference.low)} style={{ left: `${mapX(reference.low)}%` }}>{money(reference.low)}</span>
-          <span data-testid="reference-overlap-high" className="price-spectrum-reference-value price-spectrum-reference-value--high"
-            data-x={mapX(reference.high)} style={{ left: `${mapX(reference.high)}%` }}>{money(reference.high)}</span>
+          <span data-testid="reference-overlap-low" className={`price-spectrum-reference-value price-spectrum-reference-value--low${(referenceLowX ?? 0) < 24 ? ' price-spectrum-reference-value--inset-left' : ''}`}
+            data-x={referenceLowX} style={{ left: `${referenceLowX}%` }}>{money(reference.low)}</span>
+          <span data-testid="reference-overlap-high" className={`price-spectrum-reference-value price-spectrum-reference-value--high${(referenceHighX ?? 0) > 76 ? ' price-spectrum-reference-value--inset-right' : ''}`}
+            data-x={referenceHighX} style={{ left: `${referenceHighX}%` }}>{money(reference.high)}</span>
         </>}
       </div>
       <div className="price-spectrum-ends" aria-hidden="true"><span>{money(min)}</span><span>{money(max)}</span></div>
