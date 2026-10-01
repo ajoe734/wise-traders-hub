@@ -332,3 +332,17 @@ describe('mapLimit 併發上限', () => {
     expect(res.filter((r) => r.status === 'rejected')).toHaveLength(1);
   });
 });
+
+describe('官方名錄逾時後備：已發行股數推定面額', () => {
+  it('3443：股本 1,340,119,000 ÷ 134,011,911 → 10 元', () => {
+    const o = F.officialFromIssuedShares(134011911, 1340119000, '2026-10-01');
+    expect(o?.par).toBe(10); expect(o?.preferredUnknown).toBe(true);
+  });
+  it('2327：5,146,827,000 ÷ 2,058,730,688 → 2.5 元', () => {
+    expect(F.officialFromIssuedShares(2058730688, 5146827000, '2026-09-30')?.par).toBe(2.5);
+  });
+  it('對不上標準面額 → null（三尺不適用，不猜）', () => {
+    expect(F.officialFromIssuedShares(100_000_000, 730_000_000, null)).toBeNull();
+    expect(F.officialFromIssuedShares(null, 1, null)).toBeNull();
+  });
+});
