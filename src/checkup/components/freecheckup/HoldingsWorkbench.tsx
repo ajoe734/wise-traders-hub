@@ -46,6 +46,7 @@ function HoldingsWorkbench(props) {
     overrides,
     holdingSyncStates,
     onDeleteHolding,
+    onEditHolding,
     handleHoldingCardSelect,
     handleHoldingCardOpenDrawer,
     handleReportMeta,
@@ -374,6 +375,7 @@ function HoldingsWorkbench(props) {
                 tradeLog={tradeLog}
                 onReportMeta={handleReportMeta}
                 onDeleteHolding={onDeleteHolding}
+                onEditHolding={onEditHolding}
               />
             </Suspense>
           )}

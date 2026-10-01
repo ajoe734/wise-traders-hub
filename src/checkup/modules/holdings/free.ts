@@ -6,6 +6,7 @@ export { default as HoldingCard } from '../../components/freecheckup/HoldingCard
 export { default as HoldingsDetailPanel, RangeBand } from '../../components/freecheckup/HoldingsDetailPanel';
 // 單檔刪除確認視窗：consumer 是同模組的 HoldingsDetailPanel，R5 要求由 free surface 認領
 export { default as HoldingDeleteDialog } from '../../components/freecheckup/HoldingDeleteDialog';
+export { default as HoldingEditDialog } from '../../components/freecheckup/HoldingEditDialog';
 export { default as HoldingsWorkbench } from '../../components/freecheckup/HoldingsWorkbench';
 export { default as HoldingsHero } from '../../components/freecheckup/HoldingsHero';
 export { default as HoldingsSectorSummary } from '../../components/freecheckup/HoldingsSectorSummary';

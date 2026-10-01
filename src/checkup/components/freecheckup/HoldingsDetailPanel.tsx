@@ -37,6 +37,7 @@ import {
   resolveTrackMetrics, toCompactRow,
 } from '@/checkup/lib/priceAxisLabel';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
+import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
 
 /**
@@ -93,9 +94,11 @@ function HoldingsDetailPanelImpl({
   onReportMeta,
   // C 階段：單檔刪除。未注入時完全不顯示刪除入口（例如 harness / 唯讀情境）。
   onDeleteHolding,
+  onEditHolding,
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [exportPrefs, setExportPrefsRaw] = useState(loadExportPrefs);
   const setExportPrefs = useCallback((updater) => {
     setExportPrefsRaw((prev) => {
@@ -230,6 +233,12 @@ function HoldingsDetailPanelImpl({
               }}
             >回報</button>
           )}
+          {onEditHolding && h.code && (
+            <button type="button" data-testid="holding-edit-trigger" aria-label={`編輯持倉 ${h.code}`}
+              onClick={(e) => { e.stopPropagation(); setEditOpen(true); }}
+              style={{ background: 'transparent', border: 'none', padding: '4px 6px', fontSize: 12, color: WB.inkSub, cursor: 'pointer' }}
+            >編輯</button>
+          )}
           {onDeleteHolding && h.code && (
             <button
               type="button"
@@ -256,6 +265,10 @@ function HoldingsDetailPanelImpl({
         </div>
       </div>
 
+      {onEditHolding && h.code && (
+        <HoldingEditDialog open={editOpen} onOpenChange={setEditOpen} holding={h}
+          onConfirm={async (result) => onEditHolding(h.code, result)} />
+      )}
       {onDeleteHolding && h.code && (
         <HoldingDeleteDialog
           open={deleteOpen}

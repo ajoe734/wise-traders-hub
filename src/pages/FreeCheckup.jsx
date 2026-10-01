@@ -21,6 +21,7 @@ import { STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildSellTradeEntry } from "@/checkup/lib/holdingDeleteService";
+import { buildHoldingEditTrade } from "@/checkup/lib/holdingEditTrade";
 import { buildDecision, sortByDecisionPriority, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
@@ -2544,14 +2545,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     const arr = [...holdingsList];
     const idx = arr.findIndex(h => h.code === code);
 
-    const mktPrice = Number(trade?.market_price) || price; // 市價，若無則用成交價
+    const mktPrice = Number(trade?.market_price) || price; // 新標的缺行情時才用成交價
 
     if (action === "買進") {
       if (idx >= 0) {
         const h = arr[idx];
         const nq = h.qty + qty;
         const nc = calcWeightedAvgCost(h.cost, h.qty, price, qty);
-        const mp = mktPrice || h.price;
+        const mp = Number(h.price) > 0 ? Number(h.price) : mktPrice;
         // 合併 totalCost 和 fee
         const newTotalCost = (h.totalCost != null && tradeTotalCost != null)
           ? h.totalCost + tradeTotalCost
@@ -2572,9 +2573,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           totalCost: newTotalCost,
           fee: newFee,
           value, pnl, pct,
-          priceSource: trade?.priceSource === 'manual' ? 'manual' : 'screenshot',
-          priceUpdatedAt: new Date().toISOString(),
-          priceError: null,
+          priceSource: Number(h.price) > 0 ? h.priceSource : (trade?.priceSource === 'manual' ? 'manual' : 'screenshot'),
+          priceUpdatedAt: Number(h.price) > 0 ? h.priceUpdatedAt : new Date().toISOString(),
+          priceError: Number(h.price) > 0 ? h.priceError : null,
         };
       } else {
         const newH = {
@@ -2600,7 +2601,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       if (nq === 0) {
         arr.splice(idx, 1);
       } else {
-        const mp = mktPrice || h.price;
+        const mp = Number(h.price) > 0 ? Number(h.price) : mktPrice;
         // 賣出時按比例縮減 totalCost 和 fee
         const { newTotalCost, newFee } = calcRemainingCostAfterPartialSell(h.totalCost, h.fee, nq, h.qty);
         const { value, pnl, pct } = calcPnlWithNet(
@@ -2669,6 +2670,27 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }
     return result;
   }, [deleteHoldingWithPersistence, holdings, mergeTradeIntoHoldings, setHoldings, setTradeLog]);
+
+  const handleEditHolding = useCallback(async (code, result) => {
+    if (isDemo || !getCurrentUserId()) return { ok: false };
+    const held = (holdings || []).find((h) => String(h.code) === String(code));
+    if (!held) return { ok: false };
+    // 再以最新 state 驗證，以防抽屜打開後持倉已被其他操作改動。
+    const verified = buildHoldingEditTrade({
+      holding: held,
+      targetQty: Number(held.qty) + (result.entry.action === '買進' ? result.entry.qty : -result.entry.qty),
+      targetCost: result.entry.action === '買進'
+        ? Math.round(calcWeightedAvgCost(Number(held.cost), Number(held.qty), result.entry.price, result.entry.qty) * 100) / 100
+        : Number(held.cost),
+      executionPrice: result.entry.price,
+    });
+    if (!verified.ok) return { ok: false };
+    holdingsChangedByUserRef.current = true;
+    setHoldings((prev) => mergeTradeIntoHoldings(stripDemoSeedHoldings(prev || []), result.entry).map(markUserOwnedHolding));
+    setTradeLog((prev) => [result.entry, ...(prev || [])]);
+    toast.success(`已記錄${result.entry.action} ${result.entry.code} ${result.entry.qty} 股`);
+    return { ok: true };
+  }, [isDemo, holdings, mergeTradeIntoHoldings, setHoldings, setTradeLog]);
 
   const hasExplicitTradeAction = (trade) => {
     const action = String(trade?.action || "").trim();
@@ -3462,6 +3484,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setShowAll={setShowAll}
               holdingSyncStates={holdingSyncStates}
               onDeleteHolding={handleDeleteHolding}
+              onEditHolding={!isDemo && getCurrentUserId() ? handleEditHolding : undefined}
               setTab={setTab}
               tradeLog={tradeLog}
             />
