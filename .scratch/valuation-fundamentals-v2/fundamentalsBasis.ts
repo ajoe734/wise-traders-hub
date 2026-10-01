@@ -522,7 +522,10 @@ export type ScenarioRowOut = {
   notApplicable: string | null;
   peers: PeerMultiple[];
   samples: Array<HistorySample & { used: boolean; excluded: string | null }>;
+  /** 景氣相近期不足時，全期（排除目前資料期）≥4 期的低信心描述性參考；非合理價、不參與合成。 */
+  reference?: HistoryReference | null;
 };
+export type HistoryReference = { scope: 'all'; label: string; low: number; high: number; sampleSize: number; period: string; note: string };
 
 export const SHARE_BASIS = {
   pe: '加權平均普通股（淨利÷基本 EPS；股本÷官方面額－庫藏股交叉核對）',
@@ -697,6 +700,19 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
         ],
       };
     }
+    let reference: HistoryReference | null = null;
+    if (!multiples && !na) {
+      const allUsed = all.filter((s) => s.period !== target.latestPeriod);
+      if (allUsed.length >= MIN_HISTORY) {
+        const ms = allUsed.map((s) => s.multiple);
+        reference = {
+          scope: 'all', label: '全期歷史參考（景氣不同，低信心）',
+          low: quantile(ms, 0.25), high: quantile(ms, 0.75), sampleSize: allUsed.length,
+          period: `${allUsed[0].quarter}～${allUsed[allUsed.length - 1].quarter}`,
+          note: `本公司 ${allUsed.length} 個資料期（排除目前資料期）倍數 25–75 百分位；各期營收年增與目前不相近，只描述過去市場定價，非合理價`,
+        };
+      }
+    }
     const multipleIssue = !multiples
       ? `核心業務且風險／景氣可比同業 ${valid.length} 家（需 ≥${MIN_PEERS}）；本公司景氣相近（${similarText}）歷史 ${used.length} 期（需 ≥${MIN_HISTORY}，同資料期月點只算一期、已排除目前資料期${otherRegime ? `；另有 ${otherRegime} 期營收年增不相近未採用` : ''}），倍數依據不足`
       : null;
@@ -705,7 +721,7 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
       basisIssue: na,
       multipleConfidence: na ? null : multiples ? multiples.method : 'insufficient',
       multipleIssue: na ? null : multipleIssue,
-      notApplicable: na ?? multipleIssue, peers: list, samples,
+      notApplicable: na ?? multipleIssue, peers: list, samples, reference,
     };
   });
 }

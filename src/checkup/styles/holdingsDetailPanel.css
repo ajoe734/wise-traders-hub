@@ -166,7 +166,7 @@
 .price-spectrum-hair { stroke: var(--spectrum-light); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .price-spectrum-band { stroke: var(--spectrum-accent); stroke-width: 9; stroke-opacity: .42; vector-effect: non-scaling-stroke; }
 .price-spectrum-band--historical { stroke-dasharray: 3 2; stroke-opacity: .3; }
-.price-spectrum-band--reference { stroke: var(--spectrum-sub); stroke-dasharray: 2 1.5; stroke-opacity: .7; stroke-width: 2px; }
+.price-spectrum-band--reference { stroke: var(--spectrum-sub); stroke-dasharray: 6 3; stroke-opacity: .75; stroke-width: 4; }
 .price-spectrum-band--custom { stroke: var(--spectrum-ink); stroke-dasharray: 1 1.5; stroke-opacity: .55; }
 .price-spectrum-band-end { stroke: var(--spectrum-ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .price-spectrum-leader { stroke: var(--spectrum-sub); stroke-width: 1; vector-effect: non-scaling-stroke; }
