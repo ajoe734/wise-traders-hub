@@ -36,8 +36,32 @@ export type OfficialShares = {
   /** 實收資本額（元），同業規模排序用。 */
   paidInCapital: number | null;
   reportDate: string | null;
-  source: 'TWSE' | 'TPEx';
+  source: 'TWSE' | 'TPEx' | 'FinMind-TWSE';
+  /** true = 官方名錄逾時，特別股未核實（僅有已發行普通股數）。 */
+  preferredUnknown?: boolean;
 };
+
+const STANDARD_PARS = [10, 5, 2.5, 2, 1, 0.5, 0.25, 0.2, 0.1, 0.01];
+/**
+ * 官方名錄逾時的後備：已發行普通股數（FinMind TaiwanStockShareholding，源自證交所）＋最新季末普通股股本金額
+ * 推定面額；只接受與標準面額相差 ≤0.5% 的唯一值，否則回 null（三尺不適用）。特別股未核實另行處理。
+ */
+export function officialFromIssuedShares(issued: number | null, ordinaryShareAmount: number | null, date: string | null): OfficialShares | null {
+  if (!issued || issued <= 0 || !ordinaryShareAmount || ordinaryShareAmount <= 0) return null;
+  const raw = ordinaryShareAmount / issued;
+  const hits = STANDARD_PARS.filter((p) => Math.abs(raw / p - 1) <= 0.005);
+  if (hits.length !== 1) return null;
+  return {
+    par: hits[0], parText: `股本 ÷ 已發行股數推定 ${hits[0]} 元（官方名錄逾時）`, issuedShares: issued, preferredShares: null,
+    paidInCapital: ordinaryShareAmount, reportDate: date, source: 'FinMind-TWSE', preferredUnknown: true,
+  };
+}
+
+/** 最新一期資產負債表普通股股本金額（後備面額推定用）。 */
+export function latestOrdinaryShare(bs: FinRow[]): number | null {
+  const rows = bs.filter((r) => r.type === 'OrdinaryShare' && Number(r.value) > 0).sort((a, b) => a.date.localeCompare(b.date));
+  return rows.length ? Number(rows.at(-1)!.value) : null;
+}
 
 export const SHARE_TOLERANCE = 0.05;
 export const SHARE_BRACKET_SLACK = 0.02;
@@ -335,6 +359,14 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
     notApplicable.pe = `官方名錄有特別股 ${Math.round(opts.official!.preferredShares!).toLocaleString('en-US')} 股：歸屬母公司淨利含特別股權益，PE 不適用`;
     notApplicable.pb = '官方名錄有特別股：歸屬母公司權益未拆出普通股權益，PB 不適用';
     if (!notApplicable.ps) { psShares = latest.sharesEnd!; psShareRule = '有特別股，以最新季末普通股流通股數為口徑'; }
+  }
+  if (opts.official?.preferredUnknown && !preferred) {
+    // 官方名錄逾時：特別股未核實。只有每季「淨利÷EPS」隱含股數區間（含 ±0.5%）都涵蓋季末流通股數時，才視為無特別股影響。
+    const consistent = !!bounds && last4.every((l, i) => l.sharesEnd! >= bounds[i][0] * (1 - SHARE_CHANGE_THRESHOLD) && l.sharesEnd! <= bounds[i][1] * (1 + SHARE_CHANGE_THRESHOLD));
+    if (!consistent) {
+      notApplicable.pe ??= '官方名錄逾時、特別股未核實，且淨利÷EPS 隱含股數與季末流通股數不一致，PE 不適用';
+      notApplicable.pb ??= '官方名錄逾時、特別股未核實，無法確認歸屬母公司權益是否含特別股，PB 不適用';
+    }
   }
   if (niIssue && !notApplicable.pe) notApplicable.pe = `${quarterLabel(niIssue.period)} ${niIssue.niIssue}，PE 不適用`;
 

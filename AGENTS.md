@@ -31,4 +31,4 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 ### Valuation fundamentals
 
-Holdings-drawer PE/PB/PS denominators and multiples come only from the read-only `valuation-fundamentals` Edge Function (pure math in `supabase/functions/_shared/fundamentalsBasis.ts`, shared with Vitest); why: keeps the FinMind token server-side, keeps `stock_fundamentals` admin-only, and forbids price-derived (circular) denominators.
+Holdings-drawer PE/PB/PS denominators and multiples come only from the read-only `valuation-fundamentals` Edge Function (pure math in `supabase/functions/_shared/fundamentalsBasis.ts`, shared with Vitest). Share counts use official par (TWSE/TPEx list; if that list times out, FinMind issued shares ÷ capital snapped to a standard par, with preferred shares treated as unverified) and parent net income must reconcile by `origin_name`; why: keeps the FinMind token server-side, keeps `stock_fundamentals` admin-only, forbids price-derived (circular) denominators, and keeps a slow official list from blocking the drawer. Personal multiples stay device-local and are labelled as the user's own scenario, never as teacher or fair-value output.

@@ -1,6 +1,7 @@
 /**
- * valuation-fundamentals v2（待核准；套用時覆蓋 supabase/functions/valuation-fundamentals/index.ts，
- * 並將同目錄 fundamentalsBasis.ts 覆蓋 supabase/functions/_shared/fundamentalsBasis.ts）。
+ * valuation-fundamentals（版本見 VERSION；回應帶 version）。
+ * - 官方名錄只等 OFFICIAL_WAIT_MS；逾時改用 FinMind 已發行股數＋股本推定面額（特別股未核實另行判定），名錄於背景續抓暖快取。
+ * - 目標公司 FinMind 單次逾時 TARGET_TIMEOUT_MS，同業維持 REQUEST_TIMEOUT_MS。
  *
  * - 一般登入者可呼叫；只讀，不寫任何資料表。FinMind token 只在後端。
  * - 股數面額：證交所 t187ap03_L／櫃買 mopsfin_t187ap03_O 官方公司基本資料（各 1 次請求、整表快取）。
@@ -15,7 +16,7 @@ import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import {
-  auditPeers, buildScenarioRows, closeOn, computeCompanyBasis, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
+  auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
   rankPeerCandidates, type FinRow, type OfficialShares, type PeerInput, type PriceRow,
 } from '../_shared/fundamentalsBasis.ts';
 
@@ -24,8 +25,11 @@ const TWSE_URL = 'https://openapi.twse.com.tw/v1/opendata/t187ap03_L';
 const TPEX_URL = 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O';
 const MAX_PEERS = 6;
 const PEER_CONCURRENCY = 3;
+export const VERSION = 'valuation-fundamentals@2026-10-01.3';
 const REQUEST_TIMEOUT_MS = 8_000;
-const OFFICIAL_TIMEOUT_MS = 25_000;
+const TARGET_TIMEOUT_MS = 20_000;
+const OFFICIAL_TIMEOUT_MS = 60_000;
+const OFFICIAL_WAIT_MS = 3_000;
 const PEER_BUDGET_MS = 15_000;
 const CACHE_TTL_MS = 6 * 3600 * 1000;
 const OFFICIAL_TTL_MS = 12 * 3600 * 1000;
@@ -52,8 +56,8 @@ async function withTimeout<T>(ms: number, meter: Meter, run: (signal: AbortSigna
   try { return await run(ctl.signal); } catch (e) { if (ctl.signal.aborted) meter.timeouts++; throw e; } finally { clearTimeout(t); }
 }
 
-function finmind<T>(meter: Meter, dataset: string, id: string, start: string): Promise<T[]> {
-  return cached(`${dataset}:${id}:${start}`, CACHE_TTL_MS, meter, () => withTimeout(REQUEST_TIMEOUT_MS, meter, async (signal) => {
+function finmind<T>(meter: Meter, dataset: string, id: string, start: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T[]> {
+  return cached(`${dataset}:${id}:${start}`, CACHE_TTL_MS, meter, () => withTimeout(timeoutMs, meter, async (signal) => {
     meter.finmind++;
     const token = Deno.env.get('FINMIND_TOKEN') || '';
     const url = `${FINMIND}?dataset=${dataset}&data_id=${encodeURIComponent(id)}&start_date=${start}`;
@@ -91,15 +95,26 @@ async function officialIndex(meter: Meter): Promise<OfficialIndex> {
 
 const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
-async function loadCompany(meter: Meter, symbol: string, finYears: number, priceDays: number, official: OfficialShares | null) {
+async function loadCompany(meter: Meter, symbol: string, finYears: number, priceDays: number, official: OfficialShares | null, timeoutMs = REQUEST_TIMEOUT_MS) {
   const start = isoDaysAgo(finYears * 365);
-  const [fs, bs, px] = await Promise.all([
-    finmind<FinRow>(meter, 'TaiwanStockFinancialStatements', symbol, start),
-    finmind<FinRow>(meter, 'TaiwanStockBalanceSheet', symbol, start),
-    finmind<{ date: string; close: number }>(meter, 'TaiwanStockPrice', symbol, isoDaysAgo(priceDays)),
+  const [fs, bs, px, sh] = await Promise.all([
+    finmind<FinRow>(meter, 'TaiwanStockFinancialStatements', symbol, start, timeoutMs),
+    finmind<FinRow>(meter, 'TaiwanStockBalanceSheet', symbol, start, timeoutMs),
+    finmind<{ date: string; close: number }>(meter, 'TaiwanStockPrice', symbol, isoDaysAgo(priceDays), timeoutMs),
+    official ? Promise.resolve([]) : finmind<{ date: string; NumberOfSharesIssued: number }>(meter, 'TaiwanStockShareholding', symbol, isoDaysAgo(14), timeoutMs).catch(() => []),
   ]);
   const prices: PriceRow[] = px.map((p) => ({ date: p.date, close: Number(p.close) }));
-  return { fs, bs, prices, official };
+  const last = (sh as Array<{ date: string; NumberOfSharesIssued: number }>).at(-1);
+  const resolved = official ?? officialFromIssuedShares(last ? Number(last.NumberOfSharesIssued) : null, latestOrdinaryShare(bs), last?.date ?? null);
+  return { fs, bs, prices, official: resolved };
+}
+
+/** 官方名錄最多等 OFFICIAL_WAIT_MS；逾時回 null，背景續抓供下次命中。 */
+async function officialIndexFast(meter: Meter): Promise<OfficialIndex | null> {
+  const p = officialIndex(meter);
+  // deno-lint-ignore no-explicit-any
+  try { (globalThis as any).EdgeRuntime?.waitUntil?.(p.catch(() => null)); } catch { /* ignore */ }
+  return await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), OFFICIAL_WAIT_MS))]);
 }
 
 Deno.serve(async (req) => {
@@ -120,8 +135,10 @@ Deno.serve(async (req) => {
     const { data: meta, error } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').eq('symbol', symbol).maybeSingle();
     if (error) throw new Error(`industry_map: ${error.message}`);
     // 官方名錄（約 1.3MB、首次約 5 秒）與目標財報同時抓，不串接等待。
-    const [official, targetRaw] = await Promise.all([officialIndex(meter), loadCompany(meter, symbol, 5, 5 * 365, null)]);
-    const target = { ...targetRaw, official: official(symbol) };
+    const [idx, targetRaw] = await Promise.all([officialIndexFast(meter), loadCompany(meter, symbol, 5, 5 * 365, null, TARGET_TIMEOUT_MS)]);
+    const official = (s: string) => (idx ? idx(s) : null);
+    // 官方名錄有資料時優先（含特別股）；否則用已發行股數後備。
+    const target = { ...targetRaw, official: official(symbol) ?? targetRaw.official };
     const asOf = target.prices.map((p) => p.date).sort().at(-1) ?? null;
     if (!asOf) return jsonResponse({ ok: true, symbol, asOf: null, rows: [], reason: '近期無收盤價' }, {}, req);
     const targetBasis = computeCompanyBasis(symbol, target.fs, target.bs, asOf, { mode: 'live', official: target.official, fetchedAt });
@@ -134,7 +151,8 @@ Deno.serve(async (req) => {
       const { data: uni, error: uErr } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').contains('industries', [core]).limit(300);
       if (uErr) throw new Error(`peer_universe: ${uErr.message}`);
       const ranked = rankPeerCandidates({ symbol, industries, market_groups: meta?.market_groups ?? [] }, (uni ?? []) as any, (s) => official(s)?.paidInCapital ?? null);
-      audit = auditPeers(ranked, (s) => official(s) != null, MAX_PEERS);
+      // 名錄未取得時不預先排除；讀取時以已發行股數判定是否上市櫃（興櫃無資料 → 讀取後排除）。
+      audit = auditPeers(ranked, (s) => !idx || official(s) != null, MAX_PEERS);
     }
     const picked = audit.filter((a) => a.status === 'selected');
     const peerDeadline = Date.now() + PEER_BUDGET_MS;
@@ -159,9 +177,9 @@ Deno.serve(async (req) => {
     const history = monthlyHistory(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const rows = buildScenarioRows(targetBasis, peers, peerRule, history);
     return jsonResponse({
-      ok: true, symbol, name: meta?.name ?? null, asOf, fetchedAt,
+      ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
-      meta: { requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
+      meta: { officialList: idx ? 'ready' : 'timeout_fallback', requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {
     return errorResponse(e instanceof Error ? e.message : String(e), 502, { code: 'UPSTREAM_FAILED' }, req);
