@@ -59,6 +59,8 @@ export type QuarterLine = {
   sharesEnd: number | null;
   impliedShares: number | null;
   equityParent: number | null;
+  /** 母公司歸屬科目未揭露、以無非控制權益的總額代用。 */
+  proxied?: boolean;
 };
 
 export type CompanyBasis = {
@@ -97,7 +99,8 @@ export function computeCompanyBasis(symbol: string, fs: FinRow[], bs: FinRow[], 
   const lines: QuarterLine[] = periods.map((p) => {
     const f = fsQ.get(p) || {};
     const b = bsQ.get(p) || {};
-    const ni = f.EquityAttributableToOwnersOfParent ?? null;
+    // 未拆分母公司歸屬時，只在無非控制權益科目下以稅後淨利代用（仍經 EPS 反算股數核對）。
+    const ni = f.EquityAttributableToOwnersOfParent ?? (b.NonControllingInterests == null ? f.IncomeAfterTaxes ?? null : null);
     const eps = f.EPS ?? null;
     const shares = b.OrdinaryShare != null && b.OrdinaryShare > 0 ? b.OrdinaryShare / 10 : null;
     return {
@@ -108,7 +111,8 @@ export function computeCompanyBasis(symbol: string, fs: FinRow[], bs: FinRow[], 
       reportedEps: eps,
       sharesEnd: shares,
       impliedShares: ni != null && eps != null && Math.abs(eps) >= 0.05 ? ni / eps : null,
-      equityParent: b.EquityAttributableToOwnersOfParent ?? null,
+      equityParent: b.EquityAttributableToOwnersOfParent ?? (b.NonControllingInterests == null ? b.Equity ?? null : null),
+      proxied: f.EquityAttributableToOwnersOfParent == null || b.EquityAttributableToOwnersOfParent == null,
     };
   });
   const base: CompanyBasis = {
@@ -243,8 +247,9 @@ export function derivationOf(key: RulerKey, b: CompanyBasis): string {
   const label = key === 'pe' ? '近四季歸屬母公司淨利' : key === 'pb' ? '歸屬母公司權益' : '近四季營業收入';
   const v = b[BASIS_FIELD[key]]!;
   const check = key === 'pe' && b.reportedEpsSum != null ? `；財報基本 EPS 四季合計 ${b.reportedEpsSum.toFixed(2)} 元供核對` : '';
+  const proxy = b.quarters.slice(-4).some((q) => q.proxied) ? '；未揭露母公司歸屬科目且無非控制權益，以稅後淨利／權益總額代用' : '';
   const change = b.shareChange && key !== 'pb' ? '；四季股數有變動，已用平均股數' : '';
-  return `${label} NT$${fmtInt(num)} ÷ ${fmtInt(shares)} 股 = NT$${v.toFixed(2)}${check}${change}`;
+  return `${label} NT$${fmtInt(num)} ÷ ${fmtInt(shares)} 股 = NT$${v.toFixed(2)}${check}${change}${proxy}`;
 }
 
 export type Regime = 'high' | 'mild' | 'decline';
