@@ -5,8 +5,8 @@
  *   - 顏色不單獨承載意義：每格都同時有數字 + 文字標籤（偏低／合理／偏高／不適用／資料不足）。
  *   - 不出現任何買賣建議字眼。
  *   - as-of / source 永遠可見。
- *   - 不得增加抽屜寬度；手機 ≤640px 維持 3 欄極簡，靠 min-width:0 + 字級縮小防溢出。
- *   - 所有數字由 `valuationRulers.ts` 純函式算好後傳入，本檔案不做運算。
+ *   - 不得增加抽屜寬度；手機以逐尺明細換行，防止數字裁切。
+ *   - 情境價格由 `valuationScenario.ts` 算好；歷史比率與同業仍由 `valuationRulers.ts` 處理。
  */
 import { useState } from 'react';
 import {
@@ -17,7 +17,6 @@ import {
   type PeerDistribution,
   type PeerStat,
   type RulerKey,
-  type RulerResult,
   type TrendSeries,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
@@ -206,7 +205,7 @@ export function ValuationRulersView({
 }: {
   WB: any;
   view: ValuationView | null;
-   band?: ValuationScenario | null;
+  band?: ValuationScenario | null;
   /** harness / 測試用：預設展開計算依據。 */
   defaultBasisOpen?: boolean;
   status: string;
@@ -277,7 +276,7 @@ export function ValuationRulersView({
 
       <div data-testid="valuation-basis-formula" style={{ fontSize: 11, color: WB.inkMute, marginTop: 6, lineHeight: 1.7 }}>
          三尺分別以已公告或明標預測的每股獲利、淨值、營收 × 有理由的倍數推算；三尺資料都可信且有共同支持區才顯示情境區間。
-         目前只有市場比率與歷史分布，不能以現價除比率當作財報分母。下方歷史比率與產業同業僅供參考，不代表可比同業或合理價格。
+          {scenario.validCount === 0 ? '目前沒有通過核實的財報分母與倍數。' : ''}不能以現價除比率當作財報分母。下方歷史比率與產業同業僅供參考，不代表可比同業或合理價格。
       </div>
 
        <div data-testid="valuation-summary" data-overall="na" style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}>

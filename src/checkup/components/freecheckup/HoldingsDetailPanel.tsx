@@ -758,7 +758,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
     : null;
   return (
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
-      <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} price={price} stale={stale} />
+       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} stale={stale} />
       <div className="price-spectrum-heading">
         <span>價格位置 <small style={{ fontSize: 12, fontWeight: 400, color: WB.inkSub }}>新台幣 · 等比例</small></span>
         {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
@@ -775,7 +775,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
 const fmtTwd = (v) => Number(v).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
 
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
-function ValuationBandHeadline({ WB, band, loading, price, stale }) {
+function ValuationBandHeadline({ WB, band, loading, stale }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
   if (loading && !band) {
     return (
