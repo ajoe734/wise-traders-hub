@@ -276,7 +276,9 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
   if (last4.some((l) => l.sharesEnd == null)) return { ...base, reason: '缺期末普通股股本，無法取得股數' };
   // 加權平均股數必然落在「上季末～本季末」流通股數之間（放寬 2% 容納庫藏股時點與 EPS 進位）；
   // 落在外面代表面額、股本或 EPS 口徑對不上。季中增資（如世芯 2026Q2）不會被誤判。
-  for (const l of last4) {
+  const preferredEarly = (opts.official?.preferredShares ?? 0) > 0;
+  // 有特別股時基本 EPS 已扣特別股股利，淨利÷EPS 不等於普通股數，不做此核對（PE 另判不適用）。
+  for (const l of preferredEarly ? [] : last4) {
     if (l.weightedShares != null && l.weightedShares > 0) {
       const idx = lines.indexOf(l);
       const prevEnd = idx > 0 && lines[idx - 1].sharesEnd != null ? lines[idx - 1].sharesEnd! : l.sharesEnd!;
