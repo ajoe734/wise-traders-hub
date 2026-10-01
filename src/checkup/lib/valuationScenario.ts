@@ -187,3 +187,10 @@ export function historyReferenceBands(band: ValuationScenario | null | undefined
   }
   return out;
 }
+
+/** 三尺歷史參考帶的交集（需三帶齊全且重疊）；只稱「三尺重疊參考」，不是合理價。 */
+export function referenceOverlap(refs: ReferenceBand[]): { low: number; high: number } | null {
+  if (refs.length !== 3) return null;
+  const low = Math.max(...refs.map((r) => r.low)); const high = Math.min(...refs.map((r) => r.high));
+  return low < high ? { low, high } : null;
+}
