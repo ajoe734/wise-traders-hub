@@ -260,44 +260,41 @@ export function ValuationRulersView({
         onClick={() => setBasisOpen((v) => !v)}
         style={{ fontSize: 12, color: WB.inkSub, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', letterSpacing: '0.08em' }}
       >
-        {basisOpen ? '▾' : '▸'} 計算依據（三把尺、同業、趨勢）
+         {basisOpen ? '▾' : '▸'} 怎麼算（三把尺、同業參考）
       </button>
       {basisOpen && (
       <div data-testid="valuation-basis" style={{ marginTop: 8, minWidth: 0 }}>
       <div data-testid="valuation-asof" style={{ fontSize: 11, color: WB.inkMute, marginBottom: 6 }}>
-        估值日 {view.asOf ? view.asOf.split('-').join('/') : '無日期'} · 來源 {view.source || '未知'}
-        {band?.closeAtAsOf != null ? ` · 同日收盤 ${band.closeAtAsOf.toLocaleString('zh-TW')}` : ''}
+         比率資料日 {view.asOf ? view.asOf.split('-').join('/') : '無日期'} · 來源 {view.source || '未知'}
         {stale ? ' · 資料已逾 7 天' : ''}
       </div>
 
-      {view.rulers.map((r) => (
-        <BasisRow key={r.key} WB={WB} r={r} range={band?.ranges.find((x) => x.key === r.key)} />
+       {(band?.rows || []).map((row) => (
+         <BasisRow key={row.key} WB={WB} row={row} />
       ))}
 
       <div data-testid="valuation-basis-formula" style={{ fontSize: 11, color: WB.inkMute, marginTop: 6, lineHeight: 1.7 }}>
-        EPS、每股淨值、每股股利皆非財報原始值，而是依估值同日收盤價反推：EPS≈收盤÷本益比、每股淨值≈收盤÷股價淨值比、每股股利≈收盤×殖利率÷100。
-        價格換算：本益比／股價淨值比尺＝基礎值×歷史倍數；殖利率尺＝每股股利÷（歷史殖利率÷100），殖利率越高對應價格越低，故上下界反轉。
-        比率經四捨五入，反推基礎值與區間均為近似值。
-        至少 2 把有效尺且換算範圍有交集（寬度 ≥ 中點 3%）才合成區間；同業中位數不納入區間。
+         三尺分別以已公告或明標預測的每股獲利、淨值、營收 × 有理由的倍數推算；三尺資料都可信且有共同支持區才顯示情境區間。
+         目前只有市場比率與歷史分布，不能以現價除比率當作財報分母。下方歷史比率與產業同業僅供參考，不代表可比同業或合理價格。
       </div>
 
-      <div
-        data-testid="valuation-summary"
-        data-overall={view.summary.overall || 'na'}
-        style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}
-      >
-        {view.summary.text}
-      </div>
+       <div data-testid="valuation-summary" data-overall="na" style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}>
+         三尺情境價：{band?.validCount ?? 0}/3 可用；{band?.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : '暫無單一合理區間'}
+       </div>
+
+       <div data-testid="valuation-historical-ratios" style={{ marginTop: 8, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
+         歷史比率參考（非三尺情境價）：本益比 {fmt('pe', view.rulers[0]?.value ?? null)}、股價淨值比 {fmt('pb', view.rulers[1]?.value ?? null)}；現金殖利率 {fmt('dividendYield', view.rulers[2]?.value ?? null)} 僅為輔助資訊。
+       </div>
 
       {isFinancialIndustry(view.industry) && (
         <div data-testid="valuation-financial-note" style={{ fontSize: 10, color: WB.inkMute, marginTop: 4 }}>
-          金融股以股價淨值比與現金殖利率為主，本益比易受一次性損益影響
+           金融股本益比易受一次性損益影響；殖利率僅作輔助觀察
         </div>
       )}
 
       {view.peerIndustry && (
         <div data-testid="valuation-peer-scope" data-scope={view.peerScope} style={{ fontSize: 10, color: WB.inkMute, marginTop: 6 }}>
-          同業母體：{view.peerIndustry}（{peerScopeLabel(view.peerScope)}・{view.peerCount} 家）
+           產業比率參考（非已核實產品／風險可比同業）：{view.peerIndustry}（{peerScopeLabel(view.peerScope)}・{view.peerCount} 家）
           {view.peerScope === 'broad' ? '・細分同業不足，改用產業大類' : ''}
           {view.peerScope === 'fineWide' ? '・主產業同業不足，納入次要產業' : ''}
         </div>
