@@ -157,3 +157,11 @@ describe('計算依據說明文字（財務正確性）', () => {
     expect(src).toContain('收盤×殖利率÷100');
   });
 });
+
+describe('基礎值標籤標明反推近似', () => {
+  const lib = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../checkup/lib/valuationRulers.ts'), 'utf8') as string;
+  it('三個基礎值標籤皆含「反推」與「約」', () => {
+    for (const l of ['依同日收盤與本益比反推 EPS 約', '依同日收盤與股價淨值比反推每股淨值約', '依殖利率反推每股股利約']) expect(lib).toContain(l);
+    expect(lib).not.toContain("'近 12 月每股現金股利'");
+  });
+});
