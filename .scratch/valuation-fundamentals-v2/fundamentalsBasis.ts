@@ -289,7 +289,13 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
   const weights = last4.map((l) => l.weightedShares);
   const allW = weights.every((w) => w != null && w > 0);
   const epsBasisRange = allW ? Math.max(...(weights as number[])) / Math.min(...(weights as number[])) - 1 : null;
-  const shareChange = epsBasisRange != null ? epsBasisRange > SHARE_CHANGE_THRESHOLD : endRange > SHARE_CHANGE_THRESHOLD;
+  // 財報 EPS 只到小數兩位：每季隱含股數是一個區間 ni/(eps±0.005)。四季區間在放寬 0.5% 後仍無交集，才判定基準不同。
+  const bounds = allW ? last4.map((l) => {
+    const e = Math.abs(l.reportedEps!); const ni = Math.abs(l.netIncomeParent!);
+    return [ni / (e + 0.005), e > 0.005 ? ni / (e - 0.005) : Number.POSITIVE_INFINITY] as const;
+  }) : null;
+  const epsBasisConflict = bounds ? Math.max(...bounds.map((b) => b[0])) > Math.min(...bounds.map((b) => b[1])) * (1 + SHARE_CHANGE_THRESHOLD) : null;
+  const shareChange = epsBasisConflict != null ? epsBasisConflict : endRange > SHARE_CHANGE_THRESHOLD;
   const officialIssued = opts.official?.issuedShares ?? null;
   const officialShareDiff = officialIssued && latest.sharesIssuedEnd ? officialIssued / latest.sharesIssuedEnd - 1 : null;
 
@@ -300,15 +306,15 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
   if (!shareChange) {
     if (allW) {
       weightedSharesUsed = (weights as number[]).reduce((a, b) => a + b, 0) / 4;
-      weightedRule = `四季加權平均股數（淨利÷基本 EPS）之平均；四季差異 ${((epsBasisRange ?? 0) * 100).toFixed(2)}%`;
+      weightedRule = `四季加權平均股數（淨利÷基本 EPS）之平均；四季差異 ${((epsBasisRange ?? 0) * 100).toFixed(2)}%，在 EPS 進位誤差＋0.5% 內`;
     } else {
       weightedSharesUsed = ends.reduce((a, b) => a + b, 0) / 4;
       weightedRule = `部分季別無法反算加權股數，以四季期末流通股數平均代用（期末股數變動 ${(endRange * 100).toFixed(2)}%）`;
     }
     psShares = weightedSharesUsed; psShareRule = weightedRule;
   } else {
-    const pctText = epsBasisRange != null ? `四季 EPS 隱含加權股數變動 ${(epsBasisRange * 100).toFixed(2)}%` : `期末股數變動 ${(endRange * 100).toFixed(2)}%`;
-    notApplicable.pe = `${pctText}（>0.5%，可能配股／分割／增減資），未取得正式追溯調整資料，不相加不同股數基準的 EPS，PE 不適用`;
+    const pctText = epsBasisRange != null ? `四季 EPS 隱含加權股數變動 ${(epsBasisRange * 100).toFixed(2)}%（已扣除 EPS 小數兩位的進位誤差仍超過 0.5%）` : `期末股數變動 ${(endRange * 100).toFixed(2)}%`;
+    notApplicable.pe = `${pctText}，可能配股／分割／增減資，未取得正式追溯調整資料，不相加不同股數基準的 EPS，PE 不適用`;
     if (officialShareDiff != null && Math.abs(officialShareDiff) <= SHARE_CHANGE_THRESHOLD) {
       psShares = latest.sharesEnd!;
       psShareRule = `股數有變動，以最新季末流通股數為口徑（與官方現行已發行股數差 ${(officialShareDiff * 100).toFixed(2)}%）`;
@@ -459,6 +465,8 @@ export type ScenarioMultiplesOut = {
   peerComparability: string; cycle: string; growth: string; earningsStability: string; cash: string; debt: string;
   shareBasis: string;
   dispersion: number;
+  /** low：歷史樣本 <6 期或離散 >2 倍 → 只列明細，不在主圖合成區間。 */
+  confidence: 'normal' | 'low';
   caveats: string[];
 };
 export type ScenarioRowOut = {
@@ -621,7 +629,7 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
         source: '同業估值日收盤 ÷ 同業同口徑財報分母（FinMind；股數經官方面額換算）',
         period: `估值日 ${target.asOf}`, sampleSize: valid.length, peerComparability: peerRule,
         cycle: `同一估值日 ${target.asOf}，同一景氣時點`, ...risk, shareBasis: SHARE_BASIS[key],
-        dispersion: disp,
+        dispersion: disp, confidence: disp > 3 ? 'low' : 'normal',
         caveats: ['同業倍數情境，非合理價', ...(disp > 2 ? [`同業倍數最高/最低達 ${disp.toFixed(1)} 倍，區間僅取中段 50%`] : [])],
       };
     } else if (used.length >= MIN_HISTORY) {
@@ -638,7 +646,7 @@ export function buildScenarioRows(target: CompanyBasis, peers: PeerInput[], peer
         peerComparability: `核心業務且風險／景氣可比同業 ${valid.length} 家（需 ≥${MIN_PEERS}），改用本公司歷史${excluded ? `；同業排除：${excluded}` : ''}`,
         cycle: `僅取營收年增與目前相近（${similarText}）的資料期；描述過去市場定價，不代表合理倍數`,
         ...risk, shareBasis: SHARE_BASIS[key],
-        dispersion: disp,
+        dispersion: disp, confidence: disp > 2 || used.length < 6 ? 'low' : 'normal',
         caveats: [
           '歷史情境參考，非合理價',
           ...(disp > 2 || used.length < 6 ? ['倍數信心低'] : []),
