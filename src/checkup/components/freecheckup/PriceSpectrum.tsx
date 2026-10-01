@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from 'react';
-import type { ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { MY_SCENARIO_LABEL, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 type Marker = { key: 'cost' | 'target' | 'price'; name: string; value: number; x: number };
 type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string; surface?: string };
@@ -29,6 +29,13 @@ export function priceSpectrumGeometry(
   return { min, max, mapX, consensus, custom };
 }
 
+function systemLabel(consensus: { low: number; high: number; kind: string } | null, band?: ValuationScenario | null): string {
+  if (consensus) return `${consensus.kind === 'consensus' ? '同業三尺共同情境（非保證）' : '歷史情境參考（非合理價）'} ${money(consensus.low)}–${money(consensus.high)}`;
+  if (band?.status === 'lowConfidence') return '歷史情境倍數信心低，未畫區間';
+  if (band?.status === 'divergent') return '方法分歧，未畫區間';
+  return '資料不足，未畫區間';
+}
+
 export function PriceSpectrum({ WB, price, cost, target, band, customBand = null }: {
   WB: Palette;
   price?: number | null;
@@ -48,9 +55,8 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
   const description = [
     '新台幣等比例價格線',
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
-     consensus ? `${consensus.kind === 'consensus' ? '同業倍數三尺共同情境' : '歷史情境參考（非合理價）'} ${money(consensus.low)} 至 ${money(consensus.high)}` :
-       '方法分歧或資料不足，無可用情境區間',
-     ...(custom ? [`自訂倍數情境（使用者輸入，非合理價） ${money(custom.low)} 至 ${money(custom.high)}`] : []),
+     systemLabel(consensus, band),
+     ...(custom ? [`${MY_SCENARIO_LABEL} ${money(custom.low)} 至 ${money(custom.high)}`] : []),
   ].join('；');
 
   return (
@@ -92,8 +98,12 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           <span className="price-spectrum-legend-caption"><span className={`price-spectrum-key price-spectrum-key--${m.key}`} aria-hidden="true" />{m.name}</span>
           <strong>{money(m.value)}</strong>
         </div>)}
+        <div className="price-spectrum-legend-row" data-testid="holdings-price-axis-label-system">
+          <span className="price-spectrum-legend-caption">系統估值情境</span>
+          <strong>{systemLabel(consensus, band)}</strong>
+        </div>
         {custom && <div className="price-spectrum-legend-row" data-testid="holdings-price-axis-label-custom">
-          <span className="price-spectrum-legend-caption">自訂倍數情境（使用者輸入，非合理價）</span>
+          <span className="price-spectrum-legend-caption">{MY_SCENARIO_LABEL}</span>
           <strong>{money(custom.low)}–{money(custom.high)}</strong>
         </div>}
       </div>

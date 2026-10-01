@@ -82,7 +82,7 @@ export const chipsPrefs = createPrefsStore<ChipsPrefs>({
 });
 
 /**
- * 自訂倍數情境（老師依課程輸入）：每檔一筆，只存在這台裝置，不寫資料庫。
+ * 我的情境試算（使用者自行輸入，非老師發布）：每檔一筆，只存在這台裝置，不寫資料庫。
  * 必須附來源、日期、假設；計算只套用已核實的財報分母（見 valuationScenario.buildCustomScenario）。
  */
 export type CustomMultiplesPrefs = { bySymbol: Record<string, CustomScenarioInput> };

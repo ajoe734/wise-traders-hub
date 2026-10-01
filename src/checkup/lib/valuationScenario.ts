@@ -117,7 +117,10 @@ export function buildValuationScenario(asOf: string | null, inputs: ScenarioRowI
   return { status: allPeer ? 'consensus' : 'historical', low, high, validCount: 3, basisCount, asOf, rows };
 }
 
-// ─────────────── 使用者自訂倍數情境（老師依課程輸入；只存本機，不寫資料庫） ───────────────
+// ─────────────── 我的情境試算（任一使用者自行輸入；只存本機，不寫資料庫，不代表老師或平台觀點） ───────────────
+
+/** 個人試算的唯一顯示名稱；UI、價格軸圖例、無障礙描述一律引用，避免冒稱老師背書。 */
+export const MY_SCENARIO_LABEL = '我的情境試算（僅此裝置，非老師觀點、非合理價）';
 
 export type CustomMultipleInput = { low: number | null; high: number | null };
 export type CustomScenarioInput = {
@@ -137,7 +140,7 @@ export const EMPTY_CUSTOM: CustomScenarioInput = {
 
 /**
  * 自訂倍數 × 已核實分母。必須寫明來源、日期、假設；只用分母已核實的尺，至少一尺。
- * 多尺取交集；無交集回 divergent，不給單一區間。結果一律標「自訂倍數情境（使用者輸入，非合理價）」。
+ * 多尺取交集；無交集回 divergent，不給單一區間。結果一律標 MY_SCENARIO_LABEL。
  */
 export function buildCustomScenario(scenario: ValuationScenario | null, input: CustomScenarioInput | null, today: string): CustomScenario {
   const rows = (['pe', 'pb', 'ps'] as const).map((key) => {
@@ -153,7 +156,7 @@ export function buildCustomScenario(scenario: ValuationScenario | null, input: C
   const anyInput = rows.some((r) => r.low != null || r.note != null);
   if (!input || !anyInput) return { status: 'empty', low: null, high: null, problems: [], rows };
   const problems: string[] = [];
-  if (!input.source.trim()) problems.push('缺倍數來源');
+  if (!input.source.trim()) problems.push('缺倍數依據');
   if (!isDate(input.date)) problems.push('日期需為 YYYY-MM-DD');
   else if (input.date > today) problems.push('日期不可晚於今天');
   if (!input.assumption.trim()) problems.push('缺假設說明');
