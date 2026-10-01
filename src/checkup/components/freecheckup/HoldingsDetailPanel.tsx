@@ -977,7 +977,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory, ban
       {(band?.status === 'consensus' || band?.status === 'divergent') && (
         <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 11, color: WB.inkMute, lineHeight: 1.6 }}>
           {band.status === 'consensus'
-            ? '區間由本益比、股價淨值比、殖利率各自的 5 年 30–70 分位換算後取交集，屬模型參考，非合理價或獲利保證。'
+            ? '區間由本益比、股價淨值比、殖利率各自的 5 年 30–70 分位換算後取交集，屬模型參考，不代表應有股價，也不保證獲利。'
             : '三把尺換算的價格範圍沒有足夠交集，因此不合成單一區間。'}
           {target != null ? '目標價來自分析師共識，與本區間不同來源。' : ''}
         </div>
