@@ -227,6 +227,7 @@ export type ScenarioRowOut = {
   multiples: ScenarioMultiplesOut | null;
   notApplicable: string | null;
   peers: PeerMultiple[];
+  history: Array<{ period: string; date: string; close: number; multiple: number }>;
 };
 
 const BASIS_SOURCE: Record<RulerKey, string> = {
@@ -235,43 +236,84 @@ const BASIS_SOURCE: Record<RulerKey, string> = {
   ps: 'FinMind 綜合損益表：營業收入（近四季加總）÷ 資產負債表普通股股本/10',
 };
 
+export type Regime = 'high' | 'mild' | 'decline';
+export const REGIME_LABEL: Record<Regime, string> = { high: '高成長（營收年增 ≥20%）', mild: '溫和（年增 0–20%）', decline: '衰退（年增 <0）' };
+export function regimeOf(g: number | null): Regime | null {
+  if (g == null) return null;
+  return g >= 0.2 ? 'high' : g >= 0 ? 'mild' : 'decline';
+}
+
+export type HistoryPoint = { date: string; publishedAt: string; period: string; close: number; regime: Regime | null; eps: number | null; bvps: number | null; sps: number | null };
+
+/** 公司自身歷史：每個季報法定期限日後首個收盤 ÷ 當時已可得的同口徑分母。 */
+export function historyPoints(symbol: string, fs: FinRow[], bs: FinRow[], prices: PriceRow[], asOf: string): HistoryPoint[] {
+  const sorted = [...prices].filter((p) => p.close > 0).sort((a, b) => a.date.localeCompare(b.date));
+  const periods = [...new Set(fs.map((r) => r.date))].sort();
+  const out: HistoryPoint[] = [];
+  for (const p of periods) {
+    const d = statutoryDeadline(p);
+    if (!d || d >= asOf) continue;
+    const px = sorted.find((x) => x.date >= d && x.date < asOf);
+    if (!px || monthsBetween(d, px.date) > 0 && daysBetween(d, px.date) > 10) continue;
+    const b = computeCompanyBasis(symbol, fs, bs, d);
+    if (!b.ok || b.publishedAt !== d) continue;
+    out.push({ date: px.date, publishedAt: d, period: p, close: px.close, regime: regimeOf(b.growthYoY), eps: b.eps, bvps: b.bvps, sps: b.sps });
+  }
+  return out;
+}
+function daysBetween(a: string, b: string) { return Math.round((Date.parse(b) - Date.parse(a)) / 86400000); }
+
 export function buildScenarioRows(
   target: CompanyBasis,
   peers: PeerInput[],
   peerRule: string,
+  history: HistoryPoint[] = [],
 ): ScenarioRowOut[] {
+  const regime = regimeOf(target.growthYoY);
   return (['pe', 'pb', 'ps'] as const).map((key) => {
     const list = peerMultiples(key, peers);
-    if (!target.ok) return { key, basis: null, multiples: null, notApplicable: target.reason, peers: list };
+    if (!target.ok) return { key, basis: null, multiples: null, notApplicable: target.reason, peers: list, history: [] };
     const na = target.notApplicable[key] ?? null;
     const value = target[BASIS_FIELD[key]];
     const basis: ScenarioBasisOut | null = na || value == null ? null : {
       value, unit: 'TWD/share', period: target.period!, publishedAt: target.publishedAt!,
       source: BASIS_SOURCE[key], kind: 'reported', shareBasis: SHARE_BASIS[key],
     };
+    const risk = describeRisk(target);
     const valid = list.filter((p) => p.multiple != null);
+    const hist = history
+      .filter((h) => regime != null && h.regime === regime)
+      .map((h) => { const d = h[BASIS_FIELD[key]]; return d != null && d > 0 ? { ...h, multiple: h.close / d } : null; })
+      .filter((h): h is HistoryPoint & { multiple: number } => h != null);
     let multiples: ScenarioMultiplesOut | null = null;
     if (valid.length >= 3) {
       const ms = valid.map((p) => p.multiple!);
-      const risk = describeRisk(target);
       multiples = {
-        low: Math.min(...ms),
-        high: Math.max(...ms),
-        reason: `同業最低–最高：${valid.map((p) => `${p.name}${p.symbol} ${p.multiple!.toFixed(2)}`).join('、')}`,
+        low: Math.min(...ms), high: Math.max(...ms),
+        reason: `可比同業最低–最高：${valid.map((p) => `${p.name}${p.symbol} ${p.multiple!.toFixed(2)}`).join('、')}`,
         source: '同業估值日收盤 ÷ 同業同口徑財報分母（FinMind）',
-        period: `估值日 ${target.asOf}`,
-        sampleSize: valid.length,
-        peerComparability: peerRule,
+        period: `估值日 ${target.asOf}`, sampleSize: valid.length, peerComparability: peerRule,
         cycle: `同一估值日 ${target.asOf}，同一景氣時點`,
-        growth: risk.growth,
-        earningsStability: risk.earningsStability,
-        cash: risk.cash,
-        debt: risk.debt,
-        shareBasis: SHARE_BASIS[key],
+        ...risk, shareBasis: SHARE_BASIS[key],
+      };
+    } else if (hist.length >= 3) {
+      const ms = hist.map((h) => h.multiple);
+      const excluded = list.filter((p) => p.multiple == null).map((p) => `${p.name}${p.symbol}：${p.excluded}`).join('；');
+      multiples = {
+        low: Math.min(...ms), high: Math.max(...ms),
+        reason: `本公司相近景氣期歷史最低–最高：${hist.map((h) => `${h.period.slice(0, 7)} ${h.multiple.toFixed(1)}`).join('、')}`,
+        source: '本公司各季報法定公告期限後首個收盤 ÷ 當時已公告的同口徑分母（FinMind）',
+        period: `${hist[0].publishedAt}～${hist[hist.length - 1].publishedAt}`,
+        sampleSize: hist.length,
+        peerComparability: `可比同業通過口徑檢查僅 ${valid.length} 家（需 ≥3），改用本公司歷史${excluded ? `；同業排除：${excluded}` : ''}`,
+        cycle: `僅取與目前同屬「${REGIME_LABEL[regime!]}」的季別`,
+        ...risk, shareBasis: SHARE_BASIS[key],
       };
     }
-    const lack = !multiples ? `可比同業有效樣本 ${valid.length} 家（需 ≥3）` : null;
-    return { key, basis, multiples, notApplicable: na ?? lack, peers: list };
+    const lack = !multiples
+      ? `可比同業有效 ${valid.length} 家、相近景氣期歷史 ${hist.length} 季，皆不足 3，無有依據倍數`
+      : null;
+    return { key, basis, multiples, notApplicable: na ?? lack, peers: list, history: hist.map((h) => ({ period: h.period, date: h.date, close: h.close, multiple: h.multiple })) };
   });
 }
 

@@ -12,7 +12,7 @@ import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import {
-  buildScenarioRows, closeOn, computeCompanyBasis, rankByScale, selectPeerCandidates,
+  buildScenarioRows, closeOn, computeCompanyBasis, historyPoints, rankByScale, selectPeerCandidates,
   type FinRow, type PriceRow, type PeerInput,
 } from '../_shared/fundamentalsBasis.ts';
 
@@ -43,12 +43,12 @@ function isoDaysAgo(days: number) {
   return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 }
 
-async function loadCompany(symbol: string) {
-  const start = isoDaysAgo(3 * 365);
+async function loadCompany(symbol: string, priceDays = 20) {
+  const start = isoDaysAgo(5 * 365);
   const [fs, bs, px] = await Promise.all([
     finmind<FinRow>('TaiwanStockFinancialStatements', symbol, start),
     finmind<FinRow>('TaiwanStockBalanceSheet', symbol, start),
-    finmind<{ date: string; close: number }>('TaiwanStockPrice', symbol, isoDaysAgo(20)),
+    finmind<{ date: string; close: number }>('TaiwanStockPrice', symbol, isoDaysAgo(priceDays)),
   ]);
   const prices: PriceRow[] = px.map((p) => ({ date: p.date, close: Number(p.close) }));
   return { fs, bs, prices };
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const supa = serviceClient();
     const { data: meta, error } = await supa.from('stock_industry_map').select('symbol,name,industries').eq('symbol', symbol).maybeSingle();
     if (error) throw new Error(`industry_map: ${error.message}`);
-    const target = await loadCompany(symbol);
+    const target = await loadCompany(symbol, 4 * 365);
     const asOf = target.prices.map((p) => p.date).sort().at(-1) ?? null;
     if (!asOf) return jsonResponse({ ok: true, symbol, asOf: null, rows: [], reason: '近 20 日無收盤價' }, {}, req);
     const targetBasis = computeCompanyBasis(symbol, target.fs, target.bs, asOf);
@@ -100,7 +100,8 @@ Deno.serve(async (req) => {
       + (truncated ? `；候選 ${candidates.length} 家，依代碼取前 ${MAX_PREFETCH} 家後` : '')
       + (loaded.length > MAX_PEERS ? `；取近四季營收規模最接近的 ${MAX_PEERS} 家` : '')
       + '；虧損、分母≤0、股數無法核對或無收盤者不列入';
-    const rows = buildScenarioRows(targetBasis, peers, peerRule);
+    const history = historyPoints(symbol, target.fs, target.bs, target.prices, asOf);
+    const rows = buildScenarioRows(targetBasis, peers, peerRule, history);
     return jsonResponse({
       ok: true,
       symbol,
