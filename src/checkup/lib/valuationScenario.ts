@@ -177,7 +177,7 @@ export type ReferenceBand = { key: ScenarioKey; low: number; high: number; label
 export function historyReferenceBands(band: ValuationScenario | null | undefined): ReferenceBand[] {
   if (!band || band.status === 'consensus' || band.status === 'historical') return [];
   const out: ReferenceBand[] = [];
-  for (const r of band.rows) {
+  for (const r of band.rows ?? []) {
     if (!r.basisOk || !r.basis) continue;
     if (r.low != null && r.high != null && r.multiples && r.multiples.method !== 'peer') {
       out.push({ key: r.key, low: r.low, high: r.high, label: '景氣相近期歷史參考', sampleSize: r.multiples.sampleSize, period: r.multiples.period });
