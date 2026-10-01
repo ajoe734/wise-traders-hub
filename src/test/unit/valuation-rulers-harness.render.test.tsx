@@ -71,11 +71,11 @@ describe('ValuationRulersHarnessEntry', () => {
       await waitFor(() => scope.getByTestId('valuation-rulers'));
       expect(scope.getByTestId('valuation-ruler-pe')).toBeTruthy();
       expect(scope.getByTestId('valuation-ruler-pb')).toBeTruthy();
-      expect(scope.getByTestId('valuation-ruler-dividendYield')).toBeTruthy();
+      expect(scope.getByTestId('valuation-ruler-ps')).toBeTruthy();
       expect(scope.getByTestId('valuation-asof').textContent).toContain('2026/09/18');
       // 顏色不單獨承載意義：每把尺都有文字標籤
-      for (const k of ['pe', 'pb', 'dividendYield']) {
-        expect(scope.getByTestId(`valuation-band-${k}`).textContent?.trim().length).toBeGreaterThan(0);
+      for (const k of ['pe', 'pb', 'ps']) {
+        expect(scope.getByTestId(`valuation-basis-range-${k}`).textContent).toContain('無法估算');
       }
       // 金融股提示與同業中位數
       expect(scope.getByTestId('valuation-financial-note')).toBeTruthy();
