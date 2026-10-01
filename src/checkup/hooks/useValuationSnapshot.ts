@@ -108,7 +108,7 @@ export function useValuationSnapshot(
         }
         if (cancelled) return;
         // RPC 只有比率；PE/PB/PS 情境分母與倍數由唯讀財報服務提供（不以股價反推）。
-        let scenario: ValuationScenario;
+        let scenario!: ValuationScenario;
         try {
           // 財報服務只接受有效登入；沒有或已過期的憑證就不呼叫，避免 401 噴錯。
           const token = await gateway.auth?.getAccessToken?.().catch(() => null);
