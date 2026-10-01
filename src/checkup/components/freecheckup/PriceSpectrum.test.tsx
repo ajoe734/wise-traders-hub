@@ -57,14 +57,17 @@ describe('single continuous TWD price spectrum', () => {
     expect(container.querySelectorAll('[data-testid^="reference-band-"]')).toHaveLength(0);
     expect(screen.getByTestId('reference-overlap-low').textContent).toBe('NT$104.98');
     expect(screen.getByTestId('reference-overlap-high').textContent).toBe('NT$105.02');
-    expect(screen.getByTestId('holdings-price-axis-label-system').textContent).toContain('低信心・非合理價');
+    const label = screen.getByTestId('holdings-price-axis-label-reference');
+    expect(label.textContent).toContain('三尺重疊參考・低信心・非合理價');
+    expect(label.textContent).toContain('NT$104.98–NT$105.02');
+    expect(screen.queryByTestId('holdings-price-axis-label-system')).toBeNull();
   });
 
   it('三尺無交集時不畫綜合段，明示方法分歧', () => {
     const band = lowConfidence([[75, 100], [40, 60], [50, 75]]);
     render(<PriceSpectrum WB={WB} price={80} cost={65} target={90} band={band} />);
     expect(screen.queryByTestId('reference-overlap-band')).toBeNull();
-    expect(screen.getByTestId('holdings-price-axis-label-reference').textContent).toContain('方法分歧');
-    expect(screen.getByTestId('holdings-price-axis-label-reference').textContent).toContain('怎麼算');
+    expect(screen.queryByTestId('holdings-price-axis-label-reference')).toBeNull();
+    expect(screen.getByTestId('holdings-price-axis-label-system').textContent).toContain('方法分歧');
   });
 });
