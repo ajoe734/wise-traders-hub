@@ -1,7 +1,5 @@
 import { useMemo, type CSSProperties } from 'react';
-import { MY_SCENARIO_LABEL, historyReferenceBands, referenceOverlap, type ValuationScenario } from '@/checkup/lib/valuationScenario';
-
-export const REFERENCE_LABEL = '三尺重疊參考・低信心・非合理價';
+import { MY_SCENARIO_LABEL, type ScenarioKey } from '@/checkup/lib/valuationScenario';
 
 type Marker = { key: 'cost' | 'target' | 'price'; name: string; value: number; x: number };
 type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string; surface?: string };
@@ -13,16 +11,11 @@ const valid = (value: number | null | undefined): value is number =>
 /** Single continuous TWD scale. The percentage is never clamped per marker or band. */
 export function priceSpectrumGeometry(
   values: { price?: number | null; cost?: number | null; target?: number | null },
-  band?: ValuationScenario | null,
-  customBand?: { low: number | null; high: number | null } | null,
+  customBand?: { low: number | null; high: number | null; key?: ScenarioKey | null } | null,
 ) {
-  const consensus = (band?.status === 'consensus' || band?.status === 'historical') && valid(band.low) && valid(band.high)
-    ? { low: band.low, high: band.high, kind: band.status } : null;
   const custom = customBand && valid(customBand.low) && valid(customBand.high) && customBand.high > customBand.low
-    ? { low: customBand.low, high: customBand.high } : null;
-  const refs = historyReferenceBands(band).filter((r) => valid(r.low) && valid(r.high));
-  const reference = referenceOverlap(refs);
-  const points = [values.cost, values.target, values.price, consensus?.low, consensus?.high, custom?.low, custom?.high, reference?.low, reference?.high].filter(valid);
+    ? { low: customBand.low, high: customBand.high, key: customBand.key ?? null } : null;
+  const points = [values.cost, values.target, values.price, custom?.low, custom?.high].filter(valid);
   if (!points.length) return null;
   const smallest = Math.min(...points);
   const largest = Math.max(...points);
@@ -30,30 +23,19 @@ export function priceSpectrumGeometry(
   const min = Math.max(0, smallest * 0.95 - padding);
   const max = largest * 1.05 + padding;
   const mapX = (value: number) => ((value - min) / (max - min)) * 100;
-  return { min, max, mapX, consensus, custom, refs, reference };
+  return { min, max, mapX, custom };
 }
 
-function systemLabel(consensus: { low: number; high: number; kind: string } | null, band?: ValuationScenario | null): string {
-  if (consensus) return `${consensus.kind === 'consensus' ? '同業三尺共同情境（非保證）' : '歷史情境參考（非合理價）'} ${money(consensus.low)}–${money(consensus.high)}`;
-  if (band?.status === 'lowConfidence') return '歷史情境倍數信心低，未畫區間';
-  if (band?.status === 'divergent') return '方法分歧，未畫區間';
-  if (band?.status === 'insufficient' && (band.basisCount ?? 0) >= 3) return '倍數依據不足，未畫區間';
-  return '資料不足，未畫區間';
-}
-
-export function PriceSpectrum({ WB, price, cost, target, band, customBand = null }: {
+export function PriceSpectrum({ WB, price, cost, target, customBand = null }: {
   WB: Palette;
   price?: number | null;
   cost?: number | null;
   target?: number | null;
-  band?: ValuationScenario | null;
-  customBand?: { low: number | null; high: number | null } | null;
+  customBand?: { low: number | null; high: number | null; key?: ScenarioKey | null } | null;
 }) {
-  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, band, customBand), [price, cost, target, band, customBand]);
+  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, customBand), [price, cost, target, customBand]);
   if (!geometry) return null;
-  const { min, max, mapX, consensus, custom, refs, reference } = geometry;
-  const referenceLowX = reference ? mapX(reference.low) : null;
-  const referenceHighX = reference ? mapX(reference.high) : null;
+  const { min, max, mapX, custom } = geometry;
   const markers: Marker[] = ([
     { key: 'cost', name: '成本', value: cost },
     { key: 'target', name: '目標', value: target },
@@ -62,9 +44,7 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
   const description = [
     '新台幣等比例價格線',
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
-     systemLabel(consensus, band),
-     ...(reference ? [`三尺重疊參考 ${money(reference.low)} 至 ${money(reference.high)}，低信心，非合理價`] : refs.length ? ['三尺歷史參考方法分歧，未畫綜合區間'] : []),
-     ...(custom ? [`${MY_SCENARIO_LABEL} ${money(custom.low)} 至 ${money(custom.high)}`] : []),
+    ...(custom ? [`${MY_SCENARIO_LABEL}，${custom.key?.toUpperCase() || '單尺'}，${money(custom.low)} 至 ${money(custom.high)}`] : []),
   ].join('；');
 
   return (
@@ -78,26 +58,10 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           <line x1="0" x2="100" y1="40" y2="40" className="price-spectrum-hair price-spectrum-fade" />
           <line x1="0" x2="0" y1="34" y2="46" className="price-spectrum-hair price-spectrum-fade" />
           <line x1="100" x2="100" y1="34" y2="46" className="price-spectrum-hair price-spectrum-fade" />
-          {consensus && <>
-            <line data-testid="valuation-band" data-kind={consensus.kind} data-low={consensus.low} data-high={consensus.high}
-              x1={mapX(consensus.low)} x2={mapX(consensus.high)} y1="40" y2="40"
-              className={`price-spectrum-band price-spectrum-fade${consensus.kind === 'historical' ? ' price-spectrum-band--historical' : ''}`} />
-            {[consensus.low, consensus.high].map((v, index) => (
-              <line key={index} x1={mapX(v)} x2={mapX(v)} y1="31" y2="49"
-                className="price-spectrum-band-end price-spectrum-fade" />
-            ))}
-          </>}
-          {reference && <>
-            <line data-testid="reference-overlap-band" data-low={reference.low} data-high={reference.high}
-              x1={referenceLowX ?? 0} x2={referenceHighX ?? 0} y1="40" y2="40"
-              className="price-spectrum-band price-spectrum-band--reference price-spectrum-fade" />
-            <line x1={referenceLowX ?? 0} x2={referenceLowX ?? 0} y1="16" y2="40" className="price-spectrum-reference-leader price-spectrum-fade" />
-            <line x1={referenceHighX ?? 0} x2={referenceHighX ?? 0} y1="40" y2="64" className="price-spectrum-reference-leader price-spectrum-fade" />
-          </>}
           {custom && <>
             <line data-testid="custom-band" data-low={custom.low} data-high={custom.high}
-              x1={mapX(custom.low)} x2={mapX(custom.high)} y1="66" y2="66" className="price-spectrum-band price-spectrum-band--custom price-spectrum-fade" />
-            {[custom.low, custom.high].map((v, i) => <line key={`c${i}`} x1={mapX(v)} x2={mapX(v)} y1="61" y2="71" className="price-spectrum-band-end price-spectrum-fade" />)}
+              data-key={custom.key ?? ''} x1={mapX(custom.low)} x2={mapX(custom.high)} y1="40" y2="40" className="price-spectrum-band price-spectrum-band--custom" />
+            {[custom.low, custom.high].map((v, i) => <line key={`c${i}`} x1={mapX(v)} x2={mapX(v)} y1="32" y2="48" className="price-spectrum-band-end" />)}
           </>}
           {markers.map((m) => <line key={m.key} x1={m.x} x2={m.x} y1="40" y2={m.key === 'cost' ? '26' : m.key === 'target' ? '54' : '40'}
             className="price-spectrum-leader price-spectrum-fade" />)}
@@ -105,12 +69,6 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
         {markers.map((m) => <span key={m.key} className={`price-spectrum-marker price-spectrum-marker--${m.key} price-spectrum-pop`}
           data-testid={m.key === 'price' ? 'holdings-price-axis-dot' : `price-spectrum-marker-${m.key}`}
           data-value={m.value} data-x={m.x} aria-hidden="true" style={{ left: `${m.x}%` }} />)}
-        {reference && <>
-          <span data-testid="reference-overlap-low" className={`price-spectrum-reference-value price-spectrum-reference-value--low${(referenceLowX ?? 0) < 24 ? ' price-spectrum-reference-value--inset-left' : ''}`}
-            data-x={referenceLowX} style={{ left: `${referenceLowX}%` }}>{money(reference.low)}</span>
-          <span data-testid="reference-overlap-high" className={`price-spectrum-reference-value price-spectrum-reference-value--high${(referenceHighX ?? 0) > 76 ? ' price-spectrum-reference-value--inset-right' : ''}`}
-            data-x={referenceHighX} style={{ left: `${referenceHighX}%` }}>{money(reference.high)}</span>
-        </>}
       </div>
       <div className="price-spectrum-ends" aria-hidden="true"><span>{money(min)}</span><span>{money(max)}</span></div>
       <div className="price-spectrum-legend" data-testid="holdings-price-axis-compact">
@@ -119,15 +77,8 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           <span className="price-spectrum-legend-caption"><span className={`price-spectrum-key price-spectrum-key--${m.key}`} aria-hidden="true" />{m.name}</span>
           <strong>{money(m.value)}</strong>
         </div>)}
-        {reference ? <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-reference">
-          <span className="price-spectrum-legend-caption">{REFERENCE_LABEL}</span>
-          <strong>{money(reference.low)}–{money(reference.high)}</strong>
-        </div> : <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-system">
-          <span className="price-spectrum-legend-caption">估值情境</span>
-          <strong>{refs.length ? '三尺方法分歧，未畫綜合區間' : systemLabel(consensus, band)}</strong>
-        </div>}
         {custom && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-custom">
-          <span className="price-spectrum-legend-caption">{MY_SCENARIO_LABEL}</span>
+          <span className="price-spectrum-legend-caption">{MY_SCENARIO_LABEL} · {custom.key?.toUpperCase() || '單尺'}</span>
           <strong>{money(custom.low)}–{money(custom.high)}</strong>
         </div>}
       </div>

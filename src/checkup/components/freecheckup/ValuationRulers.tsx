@@ -36,6 +36,18 @@ const twd = (v: number | null) =>
 const twd2 = (v: number) => `NT$${v.toLocaleString('zh-TW', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('zh-TW', { maximumFractionDigits: d }));
 
+export function impliedMultiple(price: number | null | undefined, row: ScenarioRow): number | null {
+  if (!(price != null && Number.isFinite(price) && price > 0) || !row.basisOk || !row.basis || row.basis.value <= 0) return null;
+  return price / row.basis.value;
+}
+
+export function expectationGap(value: number | null, low: number | null, high: number | null): string {
+  if (value == null || low == null || high == null) return '缺少同口徑歷史範圍，無法比較期待差距';
+  if (value < low) return `低於歷史範圍 ${(((low / value) - 1) * 100).toFixed(0)}% 的倍數期待差距`;
+  if (value > high) return `高於歷史範圍 ${(((value / high) - 1) * 100).toFixed(0)}% 的倍數期待差距`;
+  return '落在歷史範圍內；這只是期待差距，不是高低估結論';
+}
+
 /** 分母可計算性與股數來源可信度分開陳述；主摘要與「怎麼算」共用。 */
 export function basisVerificationText(band: Pick<ValuationScenario, 'basisCount' | 'shareVerification'>): string {
   const lead = `財報分母 ${band.basisCount}/3`;
@@ -68,7 +80,7 @@ function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
       {row.basisOk && (
         <div data-testid={`valuation-basis-range-${key}`} data-confidence={row.confidence ?? ''}>
           {row.low != null && row.high != null && basis && multiples
-            ? <>{SCENARIO_BASES[key]} {twd2(Number(basis.value.toFixed(2)))} × {num(multiples.low)}–{num(multiples.high)} 倍 = <span style={{ whiteSpace: 'nowrap' }}>{twd(row.low)}–{twd(row.high)}</span>{row.confidence === 'low' ? '（倍數信心低，不合成主圖區間）' : ''}</>
+            ? <>{SCENARIO_BASES[key]} {twd2(Number(basis.value.toFixed(2)))} × {num(multiples.low)}–{num(multiples.high)} 倍 = <span style={{ whiteSpace: 'nowrap' }}>{twd(row.low)}–{twd(row.high)}</span>（逐尺證據，不是合理價）</>
             : <>倍數信心：依據不足——{row.reason}</>}
         </div>
       )}
@@ -244,6 +256,7 @@ export function ValuationRulersView({
   error,
   stale,
   onRetry,
+  currentPrice = null,
 }: {
   WB: any;
   view: ValuationView | null;
@@ -254,6 +267,7 @@ export function ValuationRulersView({
   error: string | null;
   stale: boolean;
   onRetry: () => void;
+  currentPrice?: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const [basisOpen, setBasisOpen] = useState(defaultBasisOpen);
@@ -297,6 +311,34 @@ export function ValuationRulersView({
 
   return (
     <div data-testid="valuation-rulers" style={{ marginTop: 16, minWidth: 0 }}>
+      <div data-testid="valuation-selection-summary" style={{ borderTop: `1px solid ${WB.ink}`, borderBottom: `1px solid ${WB.hair}`, padding: '12px 0 10px', marginBottom: 12 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: WB.ink }}>選尺與現價要求</div>
+        <div data-testid="valuation-selection-conclusion" style={{ fontSize: 13, color: WB.ink, fontWeight: 700, marginTop: 3 }}>尚不能判定合理價；先看每把尺要求市場相信什麼。</div>
+        <div style={{ fontSize: 11, color: WB.inkSub, lineHeight: 1.65, marginTop: 4 }}>不依粗產業自動指定主要尺：PE 看獲利品質與持續性；PB 看資產品質與 ROE；PS 看利潤率與何時能獲利。</div>
+        <div className="valuation-requirements-list">
+          {scenario.rows.map((row) => {
+            const implied = impliedMultiple(currentPrice, row);
+            const evidence = row.multiples ?? row.reference ?? null;
+            const low = evidence?.low ?? null;
+            const high = evidence?.high ?? null;
+            const peerText = row.multiples?.method === 'peer'
+              ? `同業證據：${row.multiples.peerComparability}`
+              : `同業可比性：${row.multiples?.peerComparability || '0 家或不足 3 家，未驗證'}`;
+            return <div key={row.key} data-testid={`valuation-requirement-${row.key}`} className="valuation-requirement-row">
+              <div className="valuation-requirement-key">{row.key.toUpperCase()}<span>{row.basisOk ? '可計算' : '不可用'}</span></div>
+              <div>
+                {row.basisOk && row.basis && implied != null ? <>
+                  <strong data-testid={`valuation-implied-${row.key}`}>現價隱含 {num(implied)} 倍</strong>
+                  <span>＝現價 {twd2(Number(currentPrice))} ÷ {SCENARIO_BASES[row.key]} {twd2(Number(row.basis.value.toFixed(2)))}</span>
+                  <span>{low != null && high != null ? `同口徑歷史參考 ${num(low)}–${num(high)} 倍 · ${evidence?.sampleSize ?? 0} 個獨立期` : '歷史相近景氣期證據不足'}</span>
+                  <span>{peerText}</span>
+                  <span data-testid={`valuation-expectation-gap-${row.key}`}>{expectationGap(implied, low, high)}</span>
+                </> : <strong>{row.reason || '缺可核實分母'}</strong>}
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>
       <button
         type="button"
         data-testid="valuation-basis-toggle"
@@ -319,17 +361,17 @@ export function ValuationRulersView({
 
        {references.length > 0 && (
          <div data-testid="valuation-reference-detail-summary" style={{ fontSize: 12, color: WB.ink, marginTop: 6, lineHeight: 1.7 }}>
-           個別歷史估值參考：{references.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} ${twd(r.low)}–${twd(r.high)}（${r.sampleSize} 個獨立期，${r.period}）`).join('；')}。低信心，非合理價。
+           個別歷史倍數換算參考：{references.map((r) => `${SCENARIO_LABELS[r.key].split(' ')[0]} ${twd(r.low)}–${twd(r.high)}（${r.sampleSize} 個獨立期，${r.period}）`).join('；')}。每尺回答不同問題，不互相取交集；低信心，非合理價。
          </div>
        )}
 
        <div data-testid="valuation-basis-formula" style={{ fontSize: 12, color: WB.inkSub, marginTop: 6, lineHeight: 1.7 }}>
-         三尺分別以已公告或明標預測的每股獲利、淨值、營收 × 有理由的倍數推算；三尺資料都可信且有共同支持區才顯示情境區間。
-          {scenario.basisCount === 0 ? '目前沒有通過核實的財報分母。' : ''}不能以現價除比率當作財報分母。下方歷史比率與產業同業僅供參考，不代表可比同業或合理價格。
+         PE＝價格 ÷ 同期間年化或 TTM EPS；PB＝價格 ÷ 每股淨值；PS＝價格 ÷ 同期間每股營收。三尺不可混用期間，也不互相取交集。
+          {scenario.basisCount === 0 ? '目前沒有通過核實的財報分母。' : ''}現價除以已核實分母只用來讀取市場隱含條件；歷史分位與產業樣本不自動等於合理倍數或合理價格。
       </div>
 
        <div data-testid="valuation-summary" data-overall="na" style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}>
-         {basisVerificationText(scenario)}；倍數區間 {scenario.validCount}/3 可算；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : scenario.status === 'historical' ? '歷史情境參考，非合理價' : '暫無單一合理區間'}
+         {basisVerificationText(scenario)}；歷史／同業倍數證據 {scenario.validCount}/3 尺；尚不能判定合理價
        </div>
 
        <div data-testid="valuation-historical-ratios" style={{ marginTop: 8, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
@@ -385,13 +427,15 @@ export default function ValuationRulers({
   WB,
   stockCode,
   injectedGateway,
+  currentPrice,
 }: {
   WB: any;
   stockCode?: string | null;
   injectedGateway?: CheckupGateway;
+  currentPrice?: number | null;
 }) {
   const { status, view, band, error, stale, refetch } = useValuationSnapshot(stockCode, { injectedGateway });
   return (
-    <ValuationRulersView WB={WB} view={view} band={band} status={status} error={error} stale={stale} onRetry={refetch} />
+    <ValuationRulersView WB={WB} view={view} band={band} status={status} error={error} stale={stale} onRetry={refetch} currentPrice={currentPrice} />
   );
 }

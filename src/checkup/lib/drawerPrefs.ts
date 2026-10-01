@@ -83,7 +83,7 @@ export const chipsPrefs = createPrefsStore<ChipsPrefs>({
 
 /**
  * 我的情境試算（使用者自行輸入，非老師發布）：每檔一筆，只存在這台裝置，不寫資料庫。
- * 必須附來源、日期、假設；計算只套用已核實的財報分母（見 valuationScenario.buildCustomScenario）。
+ * 必須附來源、日期、假設與推翻條件；只允許一把目前分母可用的主要尺（見 valuationScenario.buildCustomScenario）。
  */
 export type CustomMultiplesPrefs = { bySymbol: Record<string, CustomScenarioInput> };
 
@@ -91,12 +91,27 @@ const numOrNull = (v: unknown) => { const n = Number(v); return v === null || v 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
 export function sanitizeCustomInput(v: any): CustomScenarioInput {
   const m = (x: any) => ({ low: numOrNull(x?.low), high: numOrNull(x?.high) });
-  return { pe: m(v?.pe), pb: m(v?.pb), ps: m(v?.ps), source: str(v?.source, 200), date: str(v?.date, 10), assumption: str(v?.assumption, 400) };
+  const key = ['pe', 'pb', 'ps'].includes(v?.primaryKey) ? v.primaryKey : null;
+  const legacy = v?.legacy || (v && (v.pe || v.pb || v.ps) ? {
+    pe: m(v.pe), pb: m(v.pb), ps: m(v.ps), source: str(v.source, 200), date: str(v.date, 10), assumption: str(v.assumption, 400),
+  } : null);
+  return {
+    version: 2,
+    primaryKey: key,
+    expectedBasis: numOrNull(v?.expectedBasis),
+    multiple: m(v?.multiple),
+    stressBasis: numOrNull(v?.stressBasis),
+    stressMultiple: numOrNull(v?.stressMultiple),
+    source: str(v?.source, 200), date: str(v?.date, 10), assumption: str(v?.assumption, 400),
+    invalidation: str(v?.invalidation, 400), legacy,
+  };
 }
 
 export const customMultiplesPrefs = createPrefsStore<CustomMultiplesPrefs>({
   key: 'holdingPanel.customMultiples.v1',
+  version: 2,
   defaults: { bySymbol: {} },
+  migrate: (raw) => raw && typeof raw === 'object' ? raw as CustomMultiplesPrefs : null,
   sanitize: (v) => {
     const out: Record<string, CustomScenarioInput> = {};
     const src = v && typeof v.bySymbol === 'object' && v.bySymbol ? v.bySymbol : {};

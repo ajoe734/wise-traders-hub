@@ -34,7 +34,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
-import { buildCustomScenario, historyReferenceBands, referenceOverlap, SCENARIO_LABELS } from '@/checkup/lib/valuationScenario';
+import { buildCustomScenario } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
@@ -494,6 +494,7 @@ function HoldingsDetailPanelImpl({
           error={valuation.error}
           stale={valuation.stale}
           onRetry={valuation.refetch}
+          currentPrice={Number(h.price)}
         />
 
         {/* 8.5) 籌碼面（僅台股）— 關鍵分點／BSR surface 已自持倉抽屜移除 */}
@@ -772,8 +773,8 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
         <span>價格位置 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 等比例</small></span>
         {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
       </div>
-      <PriceSpectrum WB={WB} price={price} cost={cost} target={target} band={band}
-        customBand={custom.status === 'ready' ? { low: custom.low, high: custom.high } : null} />
+      <PriceSpectrum WB={WB} price={price} cost={cost} target={target}
+        customBand={custom.status === 'ready' ? { low: custom.low, high: custom.high, key: custom.key } : null} />
       {note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
       <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, lineHeight: 1.6 }}>
         現價、持倉成本與分析師目標價來源各異，不作為情境價的財報分母。{target != null ? '目標價為分析師估計。' : ''}
@@ -785,14 +786,12 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
   );
 }
 
-const fmtTwd = (v) => Number(v).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
-
-/** 倍數信心：與分母可用數分開陳述。 */
+/** 倍數證據：與分母可用數分開陳述。 */
 function confidenceText(band) {
   const rows = band.rows.filter((r) => r.basisOk);
   if (!rows.length) return '—';
   const c = rows.map((r) => r.confidence);
-  if (c.every((x) => x === 'peer')) return '同業倍數';
+  if (c.every((x) => x === 'peer')) return '有同業證據';
   if (c.some((x) => x === 'insufficient')) return `依據不足（${c.filter((x) => x === 'insufficient').length} 尺）`;
   if (c.some((x) => x === 'low')) return '低（僅歷史情境參考）';
   return '歷史情境參考';
@@ -810,7 +809,7 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
       </div>
     );
   }
-  if (!band) return <div data-testid="valuation-band-headline" data-status={error ? 'error' : 'insufficient'} style={{ marginBottom: 12, color: WB.ink, fontWeight: 700 }}>估值情境：{error ? '資料暫時取不到，暫無單一合理區間' : '資料不足，暫無單一合理區間'}</div>;
+  if (!band) return <div data-testid="valuation-band-headline" data-status={error ? 'error' : 'insufficient'} style={{ marginBottom: 12, color: WB.ink, fontWeight: 700 }}>估值判讀：{error ? '資料暫時取不到，尚不能判定合理價' : '尚未取得可核實分母，不能判讀現價要求'}</div>;
   const conf = confidenceText(band);
   const meta = [
     basisVerificationText(band),
@@ -819,36 +818,20 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
     ratioText ? `比率資料截至 ${ratioText}${stale ? '，已逾 7 天' : ''}` : null,
     peersPending ? '同業比較背景載入中' : null,
   ].filter(Boolean).join('｜');
-  const refs = historyReferenceBands(band);
-  const overlap = referenceOverlap(refs);
-  const why = refs.length
-    ? (refs.length < 3 ? `只有 ${refs.length} 尺有歷史參考` : !overlap ? '三尺歷史參考區間互不重疊' : '倍數信心低（樣本少或極值離散大）')
-      + '，且無 ≥3 家可比同業 → 無法合成合理區間'
-    : null;
   return (
     <div data-testid="valuation-band-headline" data-status={band.status} style={{ marginBottom: 12, minWidth: 0 }}>
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
-        <span style={{ fontSize: 13, color: WB.inkSub }}>估值情境</span>
+        <span style={{ fontSize: 13, color: WB.inkSub }}>估值判讀</span>
         <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: WB.ink, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
-          {band.status === 'consensus' ? `同業倍數三尺共同情境 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
-            : band.status === 'historical' ? `歷史情境參考 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
-            : band.status === 'divergent' ? '三尺方法分歧，暫無單一區間'
-            : overlap ? `三尺重疊參考 NT$${fmtTwd(overlap.low)}–${fmtTwd(overlap.high)}（低信心・非合理價）`
-            : refs.length ? '無單一合理區間，僅歷史參考'
-            : band.status === 'lowConfidence' ? '倍數信心低，暫不畫單一區間'
-            : band.basisCount > 0 ? '倍數依據不足，暫無單一區間'
-            : '財報分母不足，無法估算'}
+          {band.basisCount > 0 ? '尚不能判定合理價' : '財報分母不足，無法判讀現價要求'}
         </span>
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
-        {meta}{band.status === 'consensus' ? '｜情境非合理價保證' : band.status === 'historical' ? '｜非合理價：描述本公司過去相近景氣期的市場定價' : ''}
+        {meta}
       </div>
-      {refs.length > 0 && (
-        <div data-testid="valuation-reference-summary" style={{ fontSize: 13, color: WB.ink, marginTop: 4, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
-          三尺個別區間與來源請展開下方「怎麼算」。
-          <div style={{ color: WB.inkSub, fontWeight: 600 }}>{why}</div>
-        </div>
-      )}
+      <div data-testid="valuation-reference-summary" style={{ fontSize: 13, color: WB.inkSub, marginTop: 4, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+        三尺回答不同問題；現價要求與個別歷史證據見下方，不能互相取交集。
+      </div>
     </div>
   );
 }

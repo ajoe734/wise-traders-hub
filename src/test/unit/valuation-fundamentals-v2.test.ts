@@ -242,7 +242,7 @@ describe('2454 不同產業手算', () => {
     expect(rows[0].multiples!.low).toBeCloseTo(F.quantile(used.map((s) => s.multiple), 0.25), 9);
     const sc = scenarioOf(rows);
     expect(sc.basisCount).toBe(3);
-    expect(['lowConfidence', 'divergent']).toContain(sc.status);
+    expect(sc.status).toBe('lowConfidence');
   });
 });
 
@@ -274,14 +274,15 @@ describe('分母可用數與倍數信心分開', () => {
     expect(sc.validCount).toBe(0);
     expect(sc.rows.every((r) => r.confidence === 'insufficient')).toBe(true);
   });
-  it('課程分歧算式 75–100／40–60／50–75 → divergent', () => {
+  it('三尺各自算 75–100／40–60／50–75，但不求交集', () => {
     const m = (lo: number, hi: number) => ({ low: lo, high: hi, reason: 'r', source: 's', period: 'p', sampleSize: 4, peerComparability: 'c', cycle: 'c', growth: 'g', earningsStability: 'e', cash: 'c', debt: 'd', shareBasis: 'b', method: 'peer' as const });
     const sc = buildValuationScenario(ASOF, [
       { key: 'pe', basis: basis(5), multiples: m(15, 20) },
       { key: 'pb', basis: basis(40), multiples: m(1, 1.5) },
       { key: 'ps', basis: basis(25), multiples: m(2, 3) },
     ]);
-    expect(sc.status).toBe('divergent');
+    expect(sc.status).toBe('consensus');
+    expect([sc.low, sc.high]).toEqual([null, null]);
   });
 });
 
@@ -292,12 +293,13 @@ describe('我的情境試算（僅此裝置）', () => {
     { key: 'pb', basis: basis(100.48), multipleIssue: 'x' },
     { key: 'ps', notApplicable: '特別股' },
   ]);
-  const input = { ...EMPTY_CUSTOM, pe: { low: 50, high: 70 }, pb: { low: 20, high: 30 }, source: '測試依據 A', date: '2026-09-30', assumption: 'ASIC 高成長期' };
-  it('只乘已核實分母，多尺取交集', () => {
+  const input = { ...EMPTY_CUSTOM, primaryKey: 'pe' as const, expectedBasis: 42, multiple: { low: 50, high: 70 }, stressBasis: 35, stressMultiple: 40, source: '測試依據 A', date: '2026-09-30', assumption: 'ASIC 高成長期', invalidation: '毛利率跌破門檻' };
+  it('只用一把主要尺的明示預期分母，並算壓力結果', () => {
     const c = buildCustomScenario(sc, input, '2026-10-01');
     expect(c.status).toBe('ready');
-    expect(c.low).toBeCloseTo(Math.max(39.01 * 50, 100.48 * 20), 9);
-    expect(c.high).toBeCloseTo(Math.min(39.01 * 70, 100.48 * 30), 9);
+    expect(c.low).toBe(42 * 50);
+    expect(c.high).toBe(42 * 70);
+    expect(c.stress).toBe(35 * 40);
   });
   it('缺來源／假設、日期晚於今天 → 不套用', () => {
     const c = buildCustomScenario(sc, { ...input, source: '', assumption: ' ', date: '2026-10-05' }, '2026-10-01');
@@ -307,13 +309,13 @@ describe('我的情境試算（僅此裝置）', () => {
     expect(c.problems.join()).toMatch(/晚於今天/);
   });
   it('對不可用分母的尺輸入倍數 → 拒絕', () => {
-    const c = buildCustomScenario(sc, { ...input, ps: { low: 5, high: 8 } }, '2026-10-01');
+    const c = buildCustomScenario(sc, { ...input, primaryKey: 'ps' }, '2026-10-01');
     expect(c.status).toBe('invalid');
     expect(c.problems.join()).toMatch(/分母不可用/);
   });
-  it('各尺無交集 → divergent，不給單一區間', () => {
-    const c = buildCustomScenario(sc, { ...input, pe: { low: 10, high: 20 }, pb: { low: 20, high: 30 } }, '2026-10-01');
-    expect(c.status).toBe('divergent');
+  it('舊版多尺資料保留但要求重新確認，不靜默套用', () => {
+    const c = buildCustomScenario(sc, { ...EMPTY_CUSTOM, legacy: { pe: { low: 10, high: 20 }, pb: { low: 2, high: 3 }, ps: { low: null, high: null }, source: '舊資料', date: '2026-09-01', assumption: '舊假設' } }, '2026-10-01');
+    expect(c.status).toBe('needsReview');
     expect(c.low).toBeNull();
   });
 });

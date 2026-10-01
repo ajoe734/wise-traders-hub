@@ -165,15 +165,7 @@
 .price-spectrum-rail { position: absolute; top: 0; left: 0; display: block; width: 100%; height: 80px; overflow: visible; }
 .price-spectrum-hair { stroke: var(--spectrum-light); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .price-spectrum-band { stroke: var(--spectrum-accent); stroke-width: 9; stroke-opacity: .42; vector-effect: non-scaling-stroke; }
-.price-spectrum-band--historical { stroke-dasharray: 3 2; stroke-opacity: .3; }
-.price-spectrum-band--reference { stroke: var(--spectrum-accent); stroke-opacity: .48; stroke-width: 6; }
-.price-spectrum-reference-leader { stroke: var(--spectrum-sub); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.price-spectrum-reference-value { position: absolute; z-index: 3; font-size: 11px; line-height: 1; color: var(--spectrum-ink); white-space: nowrap; font-weight: 700; }
-.price-spectrum-reference-value--low { top: 2px; transform: translateX(-100%); padding-right: 4px; }
-.price-spectrum-reference-value--high { top: 64px; padding-left: 4px; }
-.price-spectrum-reference-value--low.price-spectrum-reference-value--inset-left { transform: none; padding-left: 4px; padding-right: 0; }
-.price-spectrum-reference-value--high.price-spectrum-reference-value--inset-right { transform: translateX(-100%); padding-left: 0; padding-right: 4px; }
-.price-spectrum-band--custom { stroke: var(--spectrum-ink); stroke-dasharray: 1 1.5; stroke-opacity: .55; }
+.price-spectrum-band--custom { stroke: var(--spectrum-accent); stroke-opacity: .46; stroke-width: 7; }
 .price-spectrum-band-end { stroke: var(--spectrum-ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .price-spectrum-leader { stroke: var(--spectrum-sub); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .price-spectrum-marker { position: absolute; top: 40px; display: block; box-sizing: border-box; transform: translate(-50%, -50%); pointer-events: none; }
@@ -201,14 +193,18 @@
   .price-spectrum-legend-row--price { grid-column: auto; border-bottom: 0; }
   .price-spectrum-legend-row--cost { padding-left: 16px; border-left: 1px solid var(--spectrum-hair); }
 }
-@keyframes price-spectrum-pop { from { opacity: 0; scale: .25; } to { opacity: 1; scale: 1; } }
-@keyframes price-spectrum-fade { from { opacity: 0; } to { opacity: 1; } }
-.price-spectrum-pop { animation: price-spectrum-pop 440ms cubic-bezier(.2,.7,.3,1.15) both; }
-.price-spectrum-fade { animation: price-spectrum-fade 700ms ease both; }
-.price-spectrum-marker--target { animation-delay: 90ms; }
-.price-spectrum-marker--price { animation-delay: 180ms; }
-@media (prefers-reduced-motion: reduce) {
-  .price-spectrum-pop, .price-spectrum-fade { animation: none; }
+.valuation-requirements-list { margin-top: 10px; }
+.valuation-requirement-row { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-top: 1px solid var(--spectrum-hair, currentColor); font-size: 12px; line-height: 1.6; }
+.valuation-requirement-key { color: var(--spectrum-ink, currentColor); font-weight: 700; }
+.valuation-requirement-key span { display: block; color: var(--spectrum-sub, currentColor); font-size: 10px; font-weight: 400; }
+.valuation-requirement-row > div:last-child { display: grid; gap: 1px; color: var(--spectrum-sub, currentColor); }
+.valuation-requirement-row strong { color: var(--spectrum-ink, currentColor); }
+.custom-scenario-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.custom-scenario-grid--stress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.custom-scenario-grid label { display: grid; gap: 2px; }
+@media (max-width: 390px) {
+  .valuation-requirement-row { grid-template-columns: 58px minmax(0, 1fr); gap: 8px; }
+  .custom-scenario-grid, .custom-scenario-grid--stress { grid-template-columns: 1fr; }
 }
 
 /* ── 30 日走勢：轉折 marker 聚焦狀態 ─────────────────────────────

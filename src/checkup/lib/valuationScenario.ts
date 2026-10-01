@@ -59,9 +59,10 @@ export type ScenarioRow = ScenarioRowInput & {
 };
 export type ValuationScenario = {
   /**
-   * consensus：三尺皆為可比同業倍數且有交集（同業倍數情境，仍非保證）。
-   * historical：三尺有效且有交集，但至少一尺倍數來自本公司歷史 → 只能稱「歷史情境參考」。
-   * lowConfidence：三尺分母與倍數區間都算得出，但至少一尺倍數信心低 → 只列明細，不合成。
+   * 此狀態只描述逐尺證據品質，不代表三尺可合成單一價格。
+   * consensus：至少一尺有可比同業證據；historical：至少一尺只有公司歷史證據；
+   * lowConfidence：至少一尺只有低信心歷史證據；insufficient：沒有可用倍數證據。
+   * divergent 保留給舊資料相容，前端不得再把三尺交集或分歧當估值結論。
    */
   status: 'consensus' | 'historical' | 'lowConfidence' | 'insufficient' | 'divergent';
   /** 財報分母通過核實的尺數（與倍數信心分開顯示）。 */
@@ -115,13 +116,15 @@ export function buildValuationScenario(asOf: string | null, inputs: ScenarioRowI
   });
   const basisCount = rows.filter((r) => r.basisOk).length;
   const valid = rows.filter((row) => row.low != null && row.high != null);
-  if (valid.length !== 3) return { status: 'insufficient', low: null, high: null, validCount: valid.length, basisCount, asOf, rows };
-  const low = Math.max(...valid.map((r) => Number(r.low)));
-  const high = Math.min(...valid.map((r) => Number(r.high)));
-  if (low >= high) return { status: 'divergent', low: null, high: null, validCount: 3, basisCount, asOf, rows };
-  if (valid.some((r) => r.confidence === 'low')) return { status: 'lowConfidence', low: null, high: null, validCount: 3, basisCount, asOf, rows };
-  const allPeer = valid.every((r) => r.multiples?.method === 'peer');
-  return { status: allPeer ? 'consensus' : 'historical', low, high, validCount: 3, basisCount, asOf, rows };
+  const status: ValuationScenario['status'] = valid.length !== 3
+    ? 'insufficient'
+    : valid.some((r) => r.confidence === 'low')
+      ? 'lowConfidence'
+      : valid.some((r) => r.multiples?.method !== 'peer')
+        ? 'historical'
+        : 'consensus';
+  // 三把尺回答不同問題，禁止在此把各尺價格區間求交集。
+  return { status, low: null, high: null, validCount: valid.length, basisCount, asOf, rows };
 }
 
 // ─────────────── 我的情境試算（任一使用者自行輸入；只存本機，不寫資料庫，不代表老師或平台觀點） ───────────────
@@ -131,50 +134,74 @@ export const MY_SCENARIO_LABEL = '我的情境試算（僅此裝置，非老師�
 
 export type CustomMultipleInput = { low: number | null; high: number | null };
 export type CustomScenarioInput = {
-  pe: CustomMultipleInput; pb: CustomMultipleInput; ps: CustomMultipleInput;
-  source: string; date: string; assumption: string;
+  version: 2;
+  primaryKey: ScenarioKey | null;
+  expectedBasis: number | null;
+  multiple: CustomMultipleInput;
+  stressBasis: number | null;
+  stressMultiple: number | null;
+  source: string;
+  date: string;
+  assumption: string;
+  invalidation: string;
+  /** v1 多尺資料只保留供使用者確認，永不自動套用。 */
+  legacy?: {
+    pe: CustomMultipleInput; pb: CustomMultipleInput; ps: CustomMultipleInput;
+    source: string; date: string; assumption: string;
+  } | null;
 };
 export type CustomScenario = {
-  status: 'ready' | 'divergent' | 'invalid' | 'empty';
+  status: 'ready' | 'invalid' | 'empty' | 'needsReview';
   low: number | null; high: number | null;
+  stress: number | null;
+  key: ScenarioKey | null;
   problems: string[];
   rows: Array<{ key: ScenarioKey; basis: number | null; low: number | null; high: number | null; note: string | null }>;
 };
 
 export const EMPTY_CUSTOM: CustomScenarioInput = {
-  pe: { low: null, high: null }, pb: { low: null, high: null }, ps: { low: null, high: null }, source: '', date: '', assumption: '',
+  version: 2, primaryKey: null, expectedBasis: null, multiple: { low: null, high: null },
+  stressBasis: null, stressMultiple: null, source: '', date: '', assumption: '', invalidation: '', legacy: null,
 };
 
 /**
- * 自訂倍數 × 可計算分母。必須寫明來源、日期、假設；只用分母可用的尺，至少一尺。
- * 多尺取交集；無交集回 divergent，不給單一區間。結果一律標 MY_SCENARIO_LABEL。
+ * 單一主要尺的預期分母 × 倍數。必須寫明來源、日期、假設、推翻條件與壓力輸入。
+ * 財報分母只用來確認該尺目前可用，不代替使用者明示的未來分母。
  */
 export function buildCustomScenario(scenario: ValuationScenario | null, input: CustomScenarioInput | null, today: string): CustomScenario {
   const rows = (['pe', 'pb', 'ps'] as const).map((key) => {
     const r = scenario?.rows.find((x) => x.key === key);
-    const m = input?.[key];
-    const basis = r?.basisOk && r.basis ? r.basis.value : null;
-    const has = m && m.low != null && m.high != null;
-    if (!has) return { key, basis, low: null, high: null, note: null };
-    if (basis == null) return { key, basis, low: null, high: null, note: `${SCENARIO_LABELS[key]}分母不可用，不套用` };
-    if (!(m!.low! > 0) || !(m!.high! >= m!.low!)) return { key, basis, low: null, high: null, note: '倍數需大於 0 且上限 ≥ 下限' };
-    return { key, basis, low: basis * m!.low!, high: basis * m!.high!, note: null };
+    return { key, basis: r?.basisOk && r.basis ? r.basis.value : null, low: null, high: null, note: null };
   });
-  const anyInput = rows.some((r) => r.low != null || r.note != null);
-  if (!input || !anyInput) return { status: 'empty', low: null, high: null, problems: [], rows };
+  const empty = { low: null, high: null, stress: null, key: null, problems: [], rows };
+  if (!input) return { status: 'empty', ...empty };
+  if (input.legacy && !input.primaryKey) return { status: 'needsReview', ...empty };
+  if (!input.primaryKey && input.expectedBasis == null && input.multiple.low == null && input.multiple.high == null) return { status: 'empty', ...empty };
   const problems: string[] = [];
+  const key = input.primaryKey;
+  const selected = key ? scenario?.rows.find((r) => r.key === key) : null;
+  if (!key) problems.push('請選一把主要尺');
+  else if (!selected?.basisOk) problems.push(`${SCENARIO_LABELS[key]}分母不可用：${selected?.reason || '缺可核實分母'}`);
+  if (!(input.expectedBasis != null && Number.isFinite(input.expectedBasis) && input.expectedBasis > 0)) problems.push('請填大於 0 的預期每股分母');
+  if (!(input.multiple.low != null && input.multiple.high != null && input.multiple.low > 0 && input.multiple.high >= input.multiple.low)) problems.push('倍數需大於 0 且上限 ≥ 下限');
+  if (!(input.stressBasis != null && Number.isFinite(input.stressBasis) && input.stressBasis > 0)) problems.push('請填大於 0 的壓力分母');
+  if (!(input.stressMultiple != null && Number.isFinite(input.stressMultiple) && input.stressMultiple > 0)) problems.push('請填大於 0 的壓力倍數');
+  if (input.expectedBasis != null && input.stressBasis != null && input.stressBasis > input.expectedBasis) problems.push('壓力分母不得高於預期分母');
+  if (input.multiple.low != null && input.stressMultiple != null && input.stressMultiple > input.multiple.low) problems.push('壓力倍數不得高於情境倍數下限');
   if (!input.source.trim()) problems.push('缺倍數依據');
   if (!isDate(input.date)) problems.push('日期需為 YYYY-MM-DD');
   else if (input.date > today) problems.push('日期不可晚於今天');
   if (!input.assumption.trim()) problems.push('缺假設說明');
-  rows.forEach((r) => { if (r.note) problems.push(r.note); });
-  const usable = rows.filter((r) => r.low != null && r.high != null);
-  if (!usable.length) problems.push('至少需一把尺有可用分母與倍數');
-  if (problems.length) return { status: 'invalid', low: null, high: null, problems, rows };
-  const low = Math.max(...usable.map((r) => r.low!));
-  const high = Math.min(...usable.map((r) => r.high!));
-  if (low >= high) return { status: 'divergent', low: null, high: null, problems: [], rows };
-  return { status: 'ready', low, high, problems: [], rows };
+  if (!input.invalidation.trim()) problems.push('缺推翻條件');
+  if (problems.length || !key || input.expectedBasis == null || input.multiple.low == null || input.multiple.high == null || input.stressBasis == null || input.stressMultiple == null) {
+    return { status: 'invalid', low: null, high: null, stress: null, key, problems, rows };
+  }
+  return {
+    status: 'ready', key, problems: [], rows,
+    low: input.expectedBasis * input.multiple.low,
+    high: input.expectedBasis * input.multiple.high,
+    stress: input.stressBasis * input.stressMultiple,
+  };
 }
 
 /** 歷史估值參考帶（每尺一條，低信心、非合理價）：信心低的本公司歷史區間，或全期歷史參考。同業/一般信心區間不在此列。 */
@@ -193,9 +220,3 @@ export function historyReferenceBands(band: ValuationScenario | null | undefined
   return out;
 }
 
-/** 三尺歷史參考帶的交集（需三帶齊全且重疊）；只稱「三尺重疊參考」，不是合理價。 */
-export function referenceOverlap(refs: ReferenceBand[]): { low: number; high: number } | null {
-  if (refs.length !== 3) return null;
-  const low = Math.max(...refs.map((r) => r.low)); const high = Math.min(...refs.map((r) => r.high));
-  return low < high ? { low, high } : null;
-}
