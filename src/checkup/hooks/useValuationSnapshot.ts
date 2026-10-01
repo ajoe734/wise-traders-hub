@@ -31,14 +31,26 @@ export function isJwtExpired(token: string, nowMs: number = Date.now()): boolean
   }
 }
 
-type FundamentalsPayload = { ok?: boolean; asOf?: string | null; rows?: ScenarioRowInput[]; reason?: string };
+type FundamentalsPayload = {
+  ok?: boolean;
+  asOf?: string | null;
+  rows?: ScenarioRowInput[];
+  reason?: string;
+  official?: { source?: 'TWSE' | 'TPEx' | 'FinMind-TWSE'; preferredUnknown?: boolean } | null;
+};
 
 export function scenarioFromFundamentals(payload: FundamentalsPayload | null | undefined, fallbackAsOf: string | null, failure?: string): ValuationScenario {
   if (!payload || !Array.isArray(payload.rows) || payload.rows.length === 0) {
     const reason = failure || payload?.reason || '財報情境服務未回傳資料';
     return buildValuationScenario(payload?.asOf ?? fallbackAsOf, (['pe', 'pb', 'ps'] as const).map((key) => ({ key, notApplicable: reason })));
   }
-  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null, basisIssue: (r as any).basisIssue ?? null, multipleIssue: (r as any).multipleIssue ?? null, samples: Array.isArray(r.samples) ? r.samples : undefined, reference: (r as any).reference ?? null })));
+  const scenario = buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null, basisIssue: (r as any).basisIssue ?? null, multipleIssue: (r as any).multipleIssue ?? null, samples: Array.isArray(r.samples) ? r.samples : undefined, reference: (r as any).reference ?? null })));
+  const source = payload.official?.source;
+  scenario.shareVerification = {
+    source: source === 'TWSE' || source === 'TPEx' ? 'official' : source === 'FinMind-TWSE' ? 'fallback' : 'unknown',
+    preferredUnknown: payload.official?.preferredUnknown === true,
+  };
+  return scenario;
 }
 
 /** 財報情境前端快取：同一代碼 6 小時內共用一次結果；同時開啟的兩個元件共用同一個請求。 */

@@ -71,6 +71,11 @@ export type ValuationScenario = {
   validCount: number;
   asOf: string | null;
   rows: ScenarioRow[];
+  /** 股數核對來源只供前端精確陳述，不參與任何財報或估值計算。 */
+  shareVerification?: {
+    source: 'official' | 'fallback' | 'unknown';
+    preferredUnknown: boolean;
+  };
 };
 
 export const SCENARIO_LABELS: Record<ScenarioKey, string> = { pe: 'PE 本益比', pb: 'PB 股價淨值比', ps: 'PS 股價營收比' };
