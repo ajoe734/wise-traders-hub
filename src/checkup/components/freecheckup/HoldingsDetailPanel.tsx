@@ -455,7 +455,7 @@ function HoldingsDetailPanelImpl({
           upside={displayUpside}
           tpHistory={tpHistory}
           band={valuation.band}
-          bandLoading={valuation.status === 'loading'}
+          bandLoading={valuation.bandStatus === 'loading'}
           bandError={valuation.status === 'error'}
           stale={valuation.stale}
           ratioAsOf={valuation.view?.asOf ?? null}
@@ -799,11 +799,14 @@ function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = nu
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
         <span style={{ fontSize: 13, color: WB.inkSub }}>估值情境</span>
         <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: WB.ink, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
-          {band.status === 'consensus' ? `三尺共同支持的情境區間 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}` : '方法分歧／資料不足，暫無單一合理區間'}
+          {band.status === 'consensus' ? `同業倍數三尺共同情境 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
+            : band.status === 'historical' ? `歷史情境參考 NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}`
+            : band.status === 'divergent' ? '三尺方法分歧，暫無單一區間'
+            : '倍數依據或資料不足，暫無單一區間'}
         </span>
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
-        {meta}{band.status === 'consensus' ? '｜情境非獲利保證' : ''}
+        {meta}{band.status === 'consensus' ? '｜情境非合理價保證' : band.status === 'historical' ? '｜非合理價：描述本公司過去相近景氣期的市場定價' : ''}
       </div>
     </div>
   );

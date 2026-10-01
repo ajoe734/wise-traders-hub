@@ -13,8 +13,8 @@ export function priceSpectrumGeometry(
   values: { price?: number | null; cost?: number | null; target?: number | null },
   band?: ValuationScenario | null,
 ) {
-  const consensus = band?.status === 'consensus' && valid(band.low) && valid(band.high)
-    ? { low: band.low, high: band.high } : null;
+  const consensus = (band?.status === 'consensus' || band?.status === 'historical') && valid(band.low) && valid(band.high)
+    ? { low: band.low, high: band.high, kind: band.status } : null;
   const points = [values.cost, values.target, values.price, consensus?.low, consensus?.high].filter(valid);
   if (!points.length) return null;
   const smallest = Math.min(...points);
@@ -44,7 +44,7 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
   const description = [
     '新台幣等比例價格線',
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
-     consensus ? `三尺共同支持的情境區間 ${money(consensus.low)} 至 ${money(consensus.high)}` :
+     consensus ? `${consensus.kind === 'consensus' ? '同業倍數三尺共同情境' : '歷史情境參考（非合理價）'} ${money(consensus.low)} 至 ${money(consensus.high)}` :
        '方法分歧或資料不足，無可用情境區間',
   ].join('；');
 
@@ -60,9 +60,9 @@ export function PriceSpectrum({ WB, price, cost, target, band }: {
           <line x1="0" x2="0" y1="34" y2="46" className="price-spectrum-hair price-spectrum-fade" />
           <line x1="100" x2="100" y1="34" y2="46" className="price-spectrum-hair price-spectrum-fade" />
           {consensus && <>
-            <line data-testid="valuation-band" data-low={consensus.low} data-high={consensus.high}
+            <line data-testid="valuation-band" data-kind={consensus.kind} data-low={consensus.low} data-high={consensus.high}
               x1={mapX(consensus.low)} x2={mapX(consensus.high)} y1="40" y2="40"
-              className="price-spectrum-band price-spectrum-fade" />
+              className={`price-spectrum-band price-spectrum-fade${consensus.kind === 'historical' ? ' price-spectrum-band--historical' : ''}`} />
             {[consensus.low, consensus.high].map((v, index) => (
               <line key={index} x1={mapX(v)} x2={mapX(v)} y1="31" y2="49"
                 className="price-spectrum-band-end price-spectrum-fade" />

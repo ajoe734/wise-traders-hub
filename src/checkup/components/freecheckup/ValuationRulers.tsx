@@ -20,7 +20,7 @@ import {
   type TrendSeries,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
-import { buildValuationScenario, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
+import { buildValuationScenario, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
 
@@ -52,8 +52,22 @@ function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
           : <>無法估算：{row.reason}</>}
       </div>
       {basis?.derivation && <div data-testid={`valuation-basis-derivation-${key}`}>算式：{basis.derivation}</div>}
-      {basis && <div>分母：{basis.source} · {basis.period} · 公告 {basis.publishedAt} · {basis.unit} · 股數基準 {basis.shareBasis}</div>}
-      {multiples && <div>倍數：{multiples.reason} · {multiples.source} · {multiples.period} · 樣本 {multiples.sampleSize} · 同業 {multiples.peerComparability} · 景氣 {multiples.cycle} · 成長 {multiples.growth} · 獲利 {multiples.earningsStability} · 現金 {multiples.cash} · 負債 {multiples.debt}</div>}
+      {basis && <div data-testid={`valuation-basis-availability-${key}`}>分母：{basis.source} · {basis.period} · {basis.availability?.note ?? `法定申報期限 ${basis.publishedAt}（非實際公告日）`} · {basis.unit} · 股數基準 {basis.shareBasis}</div>}
+      {multiples && <div data-testid={`valuation-multiples-${key}`} data-method={multiples.method ?? 'history'}><strong style={{ color: WB.ink }}>{multiplesLabel(multiples)}</strong>：{multiples.reason} · {multiples.source} · {multiples.period} · 樣本 {multiples.sampleSize} · 同業 {multiples.peerComparability} · 景氣 {multiples.cycle} · 成長 {multiples.growth} · 獲利 {multiples.earningsStability} · 現金 {multiples.cash} · 負債 {multiples.debt}</div>}
+      {multiples?.caveats?.length ? <div data-testid={`valuation-caveats-${key}`} style={{ color: WB.ink }}>注意：{multiples.caveats.join('；')}</div> : null}
+      {row.samples?.length ? (
+        <details data-testid={`valuation-samples-${key}`} style={{ marginTop: 4 }}>
+          <summary style={{ cursor: 'pointer', color: WB.ink }}>相近景氣期樣本 {row.samples.length} 季</summary>
+          {row.samples.map((s) => (
+            <div key={s.quarter} style={{ overflowWrap: 'anywhere' }}>
+              {s.quarter}：{s.date} 收盤 {twd2(s.close)} ÷ {SCENARIO_BASES[key]} {twd2(Number(s.basis.toFixed(2)))} = {num(s.multiple, 1)} 倍
+              {' '}· 營收年增 {s.growthYoY == null ? '—' : `${Math.round(s.growthYoY * 100)}%`} · 淨利率 {s.netMargin == null ? '—' : `${(s.netMargin * 100).toFixed(1)}%`}
+              {' '}· 現金 {s.cashRatio == null ? '—' : `${Math.round(s.cashRatio * 100)}%`} · 負債 {s.debtRatio == null ? '—' : `${Math.round(s.debtRatio * 100)}%`}
+              {s.excluded ? <> · <strong style={{ color: WB.ink }}>排除：{s.excluded}</strong></> : null}
+            </div>
+          ))}
+        </details>
+      ) : null}
     </div>
   );
 }

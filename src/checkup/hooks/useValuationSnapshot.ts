@@ -18,7 +18,6 @@ import { buildValuationScenario, type ScenarioRowInput, type ValuationScenario }
 /** 唯讀財報情境 Edge Function；token 只在後端。 */
 export const FUNDAMENTALS_FN = 'valuation-fundamentals';
 
-const SKIP = Symbol('skip-fundamentals');
 
 /** 本地檢查 JWT exp（含 30 秒緩衝）；解析失敗視為未過期，交由後端判定。 */
 export function isJwtExpired(token: string, nowMs: number = Date.now()): boolean {
@@ -39,7 +38,29 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
     const reason = failure || payload?.reason || '財報情境服務未回傳資料';
     return buildValuationScenario(payload?.asOf ?? fallbackAsOf, (['pe', 'pb', 'ps'] as const).map((key) => ({ key, notApplicable: reason })));
   }
-  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null })));
+  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null, samples: Array.isArray(r.samples) ? r.samples : undefined })));
+}
+
+/** 財報情境前端快取：同一代碼 6 小時內共用一次結果；同時開啟的兩個元件共用同一個請求。 */
+export const FUNDAMENTALS_CLIENT_TTL_MS = 6 * 3600 * 1000;
+export const FUNDAMENTALS_TIMEOUT_MS = 25_000;
+const fundCache = new Map<string, { at: number; value: FundamentalsPayload }>();
+const fundInflight = new Map<string, Promise<FundamentalsPayload>>();
+export function __resetFundamentalsCache() { fundCache.clear(); fundInflight.clear(); }
+
+export function loadFundamentals(gateway: CheckupGateway, code: string, force = false): Promise<FundamentalsPayload> {
+  const hit = fundCache.get(code);
+  if (!force && hit && Date.now() - hit.at < FUNDAMENTALS_CLIENT_TTL_MS) return Promise.resolve(hit.value);
+  const running = fundInflight.get(code);
+  if (running) return running;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const p = Promise.race([
+    gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, { symbol: code }),
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('逾時')), FUNDAMENTALS_TIMEOUT_MS); }),
+  ]).then((v) => { fundCache.set(code, { at: Date.now(), value: v }); return v; })
+    .finally(() => { clearTimeout(timer); fundInflight.delete(code); });
+  fundInflight.set(code, p);
+  return p;
 }
 
 /** as-of 超過這麼多天視為 stale（台股連假最長約 5 個交易日）。 */
@@ -52,6 +73,8 @@ export interface UseValuationSnapshotResult {
   view: ValuationView | null;
   /** 公開財報分母與可比倍數均核實後，才會產生三尺情境區間。 */
   band: ValuationScenario | null;
+  /** 財報情境載入狀態（與比率 status 獨立）。 */
+  bandStatus: ValuationStatus;
   error: string | null;
   stale: boolean;
   refetch: () => void;
@@ -75,6 +98,7 @@ export function useValuationSnapshot(
   const [status, setStatus] = useState<ValuationStatus>('idle');
   const [view, setView] = useState<ValuationView | null>(null);
   const [band, setBand] = useState<ValuationScenario | null>(null);
+  const [bandStatus, setBandStatus] = useState<ValuationStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -86,73 +110,73 @@ export function useValuationSnapshot(
       setStatus('idle');
       setView(null);
       setBand(null);
+      setBandStatus('idle');
       setError(null);
       return;
     }
     let cancelled = false;
     setStatus('loading');
     setBand(null);
+    setBandStatus('loading');
     setView(null);
     setError(null);
-
     const gateway = opts.injectedGateway || getCheckupGateway();
+    const force = tick > 0;
+
+    // 比率（快）與財報情境（慢）各自獨立：比率先畫，財報到了再補，不互相阻塞。
     Promise.resolve(gateway.rpc('valuation_snapshot', { _symbol: code }))
-      .then(async (raw: any) => {
+      .then((raw: any) => {
         if (cancelled) return;
         const payload = Array.isArray(raw) ? raw[0] : raw;
-        if (!payload) {
-          setView(null);
-          setBand(null);
-          setStatus('ready');
-          return;
+        if (payload) {
+          setView(
+            buildValuationView({
+              symbol: payload.symbol || code,
+              asOf: payload.asOf ?? null,
+              source: payload.source ?? null,
+              pe: payload.pe ?? null,
+              pb: payload.pb ?? null,
+              dividendYield: payload.dividendYield ?? null,
+              industry: payload.industry ?? null,
+              history: {
+                pe: payload?.history?.pe || [],
+                pb: payload?.history?.pb || [],
+                dividendYield: payload?.history?.dividendYield || [],
+              },
+              peerScope: payload.peerScope ?? null,
+              peerIndustry: payload.peerIndustry ?? null,
+              peers: payload.peers || [],
+              trend: Array.isArray(payload?.trend) ? payload.trend : [],
+            }),
+          );
         }
-        if (cancelled) return;
-        // RPC 只有比率；PE/PB/PS 情境分母與倍數由唯讀財報服務提供（不以股價反推）。
-        let scenario!: ValuationScenario;
-        try {
-          // 財報服務只接受有效登入；沒有或已過期的憑證就不呼叫，避免 401 噴錯。
-          const token = await gateway.auth?.getAccessToken?.().catch(() => null);
-          if (!token || isJwtExpired(token)) {
-            if (cancelled) return;
-            scenario = scenarioFromFundamentals(null, payload.asOf ?? null, '登入狀態已失效，重新登入後可查看財報情境');
-            throw SKIP;
-          }
-          const fund = await gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, { symbol: code });
-          scenario = scenarioFromFundamentals(fund, payload.asOf ?? null);
-        } catch (e: any) {
-          if (e !== SKIP) scenario = scenarioFromFundamentals(null, payload.asOf ?? null, `財報情境服務暫時無法取得（${e?.message || '未知錯誤'}）`);
-        }
-        if (cancelled) return;
-        setBand(scenario);
-        setView(
-          buildValuationView({
-            symbol: payload.symbol || code,
-            asOf: payload.asOf ?? null,
-            source: payload.source ?? null,
-            pe: payload.pe ?? null,
-            pb: payload.pb ?? null,
-            dividendYield: payload.dividendYield ?? null,
-            industry: payload.industry ?? null,
-            history: {
-              pe: payload?.history?.pe || [],
-              pb: payload?.history?.pb || [],
-              dividendYield: payload?.history?.dividendYield || [],
-            },
-            peerScope: payload.peerScope ?? null,
-            peerIndustry: payload.peerIndustry ?? null,
-            peers: payload.peers || [],
-            trend: Array.isArray(payload?.trend) ? payload.trend : [],
-          }),
-        );
         setStatus('ready');
       })
       .catch((e: any) => {
         if (cancelled) return;
         setView(null);
-        setBand(null);
         setError(e?.message || '估值資料暫時取不到');
         setStatus('error');
       });
+
+    (async () => {
+      let scenario: ValuationScenario;
+      try {
+        // 財報服務只接受有效登入；沒有或已過期的憑證就不呼叫，避免 401。
+        const token = await gateway.auth?.getAccessToken?.().catch(() => null);
+        if (!token || isJwtExpired(token)) {
+          scenario = scenarioFromFundamentals(null, null, '登入狀態已失效，重新登入後可查看財報情境');
+        } else {
+          const fund = await loadFundamentals(gateway, code, force);
+          scenario = scenarioFromFundamentals(fund, null);
+        }
+      } catch (e: any) {
+        scenario = scenarioFromFundamentals(null, null, `財報情境服務暫時無法取得（${e?.message || '未知錯誤'}）`);
+      }
+      if (cancelled) return;
+      setBand(scenario);
+      setBandStatus('ready');
+    })();
 
     return () => {
       cancelled = true;
@@ -166,6 +190,7 @@ export function useValuationSnapshot(
     status,
     view,
     band,
+    bandStatus,
     error,
     stale: computeStale(view?.asOf ?? null, nowMs),
     refetch,
