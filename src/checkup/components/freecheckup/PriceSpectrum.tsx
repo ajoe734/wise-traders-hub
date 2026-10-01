@@ -1,8 +1,7 @@
 import { useMemo, type CSSProperties } from 'react';
 import { MY_SCENARIO_LABEL, historyReferenceBands, referenceOverlap, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 
-/** 歷史參考帶的共同前綴：低信心、非合理價，和系統情境、我的試算以文字直接區分。 */
-export const REFERENCE_LABEL = '歷史估值參考（低信心，非合理價）';
+export const REFERENCE_LABEL = '三尺重疊參考・低信心・非合理價';
 
 type Marker = { key: 'cost' | 'target' | 'price'; name: string; value: number; x: number };
 type Palette = { ink: string; inkSub: string; inkMute: string; inkLight: string; hair: string; accent: string; surface?: string };
@@ -120,13 +119,12 @@ export function PriceSpectrum({ WB, price, cost, target, band, customBand = null
           <span className="price-spectrum-legend-caption"><span className={`price-spectrum-key price-spectrum-key--${m.key}`} aria-hidden="true" />{m.name}</span>
           <strong>{money(m.value)}</strong>
         </div>)}
-        <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-system">
-          <span className="price-spectrum-legend-caption">三尺綜合線</span>
-          <strong>{reference ? `三尺重疊參考 ${money(reference.low)}–${money(reference.high)}（低信心・非合理價）` : systemLabel(consensus, band)}</strong>
-        </div>
-        {refs.length > 0 && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-reference">
+        {reference ? <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-reference">
           <span className="price-spectrum-legend-caption">{REFERENCE_LABEL}</span>
-          <strong>{reference ? '個別 PE／PB／PS 區間請展開「怎麼算」' : '方法分歧，沒有共同區間；個別區間請展開「怎麼算」'}</strong>
+          <strong>{money(reference.low)}–{money(reference.high)}</strong>
+        </div> : <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-system">
+          <span className="price-spectrum-legend-caption">估值情境</span>
+          <strong>{refs.length ? '三尺方法分歧，未畫綜合區間' : systemLabel(consensus, band)}</strong>
         </div>}
         {custom && <div className="price-spectrum-legend-row price-spectrum-legend-row--scenario" data-testid="holdings-price-axis-label-custom">
           <span className="price-spectrum-legend-caption">{MY_SCENARIO_LABEL}</span>
