@@ -40,6 +40,7 @@ export type OfficialShares = {
 };
 
 export const SHARE_TOLERANCE = 0.05;
+export const SHARE_BRACKET_SLACK = 0.02;
 export const SHARE_CHANGE_THRESHOLD = 0.005;
 export const NI_RECON_TOLERANCE = 0.01;
 export const MIN_PEERS = 3;
@@ -273,11 +274,17 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
   const latest = last4[3];
   const latestBs = bsQ.get(latest.period)?.v || {};
   if (last4.some((l) => l.sharesEnd == null)) return { ...base, reason: '缺期末普通股股本，無法取得股數' };
+  // 加權平均股數必然落在「上季末～本季末」流通股數之間（放寬 2% 容納庫藏股時點與 EPS 進位）；
+  // 落在外面代表面額、股本或 EPS 口徑對不上。季中增資（如世芯 2026Q2）不會被誤判。
   for (const l of last4) {
     if (l.weightedShares != null && l.weightedShares > 0) {
-      const diff = Math.abs(l.weightedShares - l.sharesEnd!) / l.sharesEnd!;
-      if (diff > SHARE_TOLERANCE) {
-        return { ...base, reason: `${quarterLabel(l.period)} 淨利÷EPS 的加權股數與期末流通股數（股本÷面額 ${par}－庫藏股）差 ${(diff * 100).toFixed(1)}%，股數基準無法核對` };
+      const idx = lines.indexOf(l);
+      const prevEnd = idx > 0 && lines[idx - 1].sharesEnd != null ? lines[idx - 1].sharesEnd! : l.sharesEnd!;
+      const lo = Math.min(prevEnd, l.sharesEnd!) * (1 - SHARE_BRACKET_SLACK);
+      const hi = Math.max(prevEnd, l.sharesEnd!) * (1 + SHARE_BRACKET_SLACK);
+      if (l.weightedShares < lo || l.weightedShares > hi) {
+        const diff = Math.abs(l.weightedShares - l.sharesEnd!) / l.sharesEnd!;
+        return { ...base, reason: `${quarterLabel(l.period)} 淨利÷EPS 的加權股數 ${Math.round(l.weightedShares).toLocaleString('en-US')} 不在上季末～本季末流通股數（股本÷面額 ${par}－庫藏股）之間（與季末差 ${(diff * 100).toFixed(1)}%），股數基準無法核對` };
       }
     }
   }
