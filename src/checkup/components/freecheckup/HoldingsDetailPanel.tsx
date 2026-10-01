@@ -46,7 +46,7 @@ import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteD
  *   1) 操作列（sticky、全文字化）
  *   2) 識別（`代號 · 產業 · 策略` + serif 名稱 26px + 30D sparkline）
  *   3) 報酬塔 + 持有脈絡（tradeLog 推導；資料未通時顯示 placeholder）
- *   4) 建議印章行（上下 1px ink 線、serif「建議 —— …」+ 中文急迫度、手機 sticky）
+ *   4) 觀察狀態行（上下 1px ink 線、serif「目前觀察 —— …」+ 關注程度、手機 sticky）
  *   5) 一條價格軸（目標 accent / 成本 灰 / 現價 ink 圓點，同一尺 ±5%）+ 目標價修正方向
  *   6) 30D 走勢帶（sparkline + 現價 accent 點 + `低 — 高`）
  *   8) 決策履歷（thesisTracking 表格；資料未通時顯示 placeholder）
@@ -68,8 +68,6 @@ const saveExportPrefs = (p) => holdingExportPrefs.save(p);
 
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
-const URGENCY_LABEL = { now: '立即', soon: '儘快', monitor: '觀察', low: '低' };
-const ACTION_LABEL = { exit: '出場', review: '檢視', hold: '續抱' };
 
 function HoldingsDetailPanelImpl({
   selected,
@@ -409,7 +407,7 @@ function HoldingsDetailPanelImpl({
           )}
         </div>
 
-        {/* 4) 建議印章行 — 上下 1px ink 線、手機 sticky */}
+        {/* 4) 觀察狀態行 — 上下 1px ink 線、手機 sticky */}
         <div
           className="holdings-detail-decision"
           data-testid="decision-stamp"
@@ -417,11 +415,11 @@ function HoldingsDetailPanelImpl({
             margin: '0 0 20px',
             padding: '10px 0',
             borderTop: `1px solid ${WB.ink}`, borderBottom: `1px solid ${WB.ink}`,
-            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
+            display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
             background: WB.surface,
           }}>
-          <span style={{ fontFamily: SERIF, fontSize: 17, color: WB.ink, letterSpacing: '0.02em' }}>
-            建議 <span style={{ margin: '0 8px', color: WB.inkLight }}>——</span>
+          <span style={{ fontFamily: SERIF, fontSize: 17, color: WB.ink, letterSpacing: '0.02em', minWidth: 0 }}>
+            目前觀察 <span style={{ margin: '0 8px', color: WB.inkLight }}>——</span>
             <span style={{ color: actionKind === 'exit' || actionKind === 'review' ? WB.accent : WB.ink, fontWeight: 500 }}>
               {actionLabel}
             </span>
@@ -429,9 +427,9 @@ function HoldingsDetailPanelImpl({
           <span style={{
             fontSize: 12, letterSpacing: '0.14em',
             color: urgencyAccent ? WB.accent : WB.inkMute,
-            fontFamily: SERIF,
+            fontFamily: SERIF, marginLeft: 'auto',
           }}>
-            急迫度 · {urgencyLabel}
+            關注程度 · {urgencyLabel}
           </span>
         </div>
 
