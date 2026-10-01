@@ -1,10 +1,10 @@
 /**
- * CustomMultiplesEditor —— 老師依課程輸入倍數情境（只存本機，不寫資料庫）。
- * 只能套在已核實的財報分母；必填來源、日期、假設；結果一律標「自訂倍數情境（使用者輸入，非合理價）」。
+ * CustomMultiplesEditor —— 我的情境試算：使用者自行輸入倍數（只存本機，不寫資料庫，不代表老師或平台）。
+ * 只能套在已核實的財報分母；必填來源、日期、假設；結果一律標 MY_SCENARIO_LABEL。無預設倍數、無預設來源。
  */
 import { useEffect, useState } from 'react';
 import { customMultiplesPrefs, EMPTY_CUSTOM, sanitizeCustomInput } from '@/checkup/lib/drawerPrefs';
-import { SCENARIO_BASES, SCENARIO_LABELS, type CustomScenario, type CustomScenarioInput, type ScenarioKey, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { MY_SCENARIO_LABEL, SCENARIO_BASES, SCENARIO_LABELS, type CustomScenario, type CustomScenarioInput, type ScenarioKey, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 
 export function useCustomMultiples(symbol: string | null | undefined): [CustomScenarioInput | null, (v: CustomScenarioInput | null) => void] {
   // load() 每次回傳新物件，不能直接當 useSyncExternalStore 快照；改用 state + subscribe。
@@ -40,15 +40,15 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
     <div data-testid="custom-multiples" style={{ marginTop: 10, minWidth: 0 }}>
       <button type="button" data-testid="custom-multiples-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}
         style={{ fontSize: 12, color: WB.inkSub, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}>
-        {open ? '▾' : '▸'} 自訂倍數情境（依課程輸入，只存在這台裝置）
+        {open ? '▾' : '▸'} 我的情境試算（僅此裝置）
       </button>
       {custom.status === 'ready' && !open && (
         <div data-testid="custom-multiples-summary" style={{ fontSize: 12, color: WB.inkSub, marginTop: 2, overflowWrap: 'anywhere' }}>
-          自訂倍數情境 {twd(custom.low!)}–{twd(custom.high!)}（使用者輸入，非合理價）· 來源 {saved?.source} · {saved?.date}
+          {MY_SCENARIO_LABEL} {twd(custom.low!)}–{twd(custom.high!)} · 我填的依據 {saved?.source} · {saved?.date}
         </div>
       )}
       {custom.status === 'divergent' && !open && (
-        <div data-testid="custom-multiples-summary" style={{ fontSize: 12, color: WB.inkSub, marginTop: 2 }}>自訂倍數各尺無交集，暫無單一區間</div>
+        <div data-testid="custom-multiples-summary" style={{ fontSize: 12, color: WB.inkSub, marginTop: 2 }}>我的試算各尺無交集，暫無單一區間</div>
       )}
       {open && (
         <div data-testid="custom-multiples-form" style={{ marginTop: 6, fontSize: 12, color: WB.inkSub, lineHeight: 1.6, minWidth: 0 }}>
@@ -70,13 +70,13 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
               </div>
             );
           })}
-          <label style={{ display: 'block', marginBottom: 6 }}>倍數來源（課程、講義頁碼、報告）
-            <input aria-label="倍數來源" value={draft.source} maxLength={200} onChange={(e) => setDraft({ ...draft, source: e.target.value })} style={field} />
+          <label style={{ display: 'block', marginBottom: 6 }}>我的倍數依據（自填，例如報告名稱或頁碼）
+            <input aria-label="我的倍數依據" value={draft.source} maxLength={200} onChange={(e) => setDraft({ ...draft, source: e.target.value })} style={field} />
           </label>
-          <label style={{ display: 'block', marginBottom: 6 }}>來源日期（YYYY-MM-DD）
-            <input aria-label="來源日期" value={draft.date} maxLength={10} placeholder={today} onChange={(e) => setDraft({ ...draft, date: e.target.value })} style={field} />
+          <label style={{ display: 'block', marginBottom: 6 }}>依據日期（YYYY-MM-DD）
+            <input aria-label="依據日期" value={draft.date} maxLength={10} placeholder={today} onChange={(e) => setDraft({ ...draft, date: e.target.value })} style={field} />
           </label>
-          <label style={{ display: 'block', marginBottom: 6 }}>假設（為何這個倍數適用）
+          <label style={{ display: 'block', marginBottom: 6 }}>我的假設（為何這個倍數適用）
             <textarea aria-label="假設說明" value={draft.assumption} maxLength={400} rows={2} onChange={(e) => setDraft({ ...draft, assumption: e.target.value })} style={{ ...field, resize: 'vertical' }} />
           </label>
           {custom.problems.length > 0 && saved && (
@@ -89,7 +89,7 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today }: {
               style={{ fontSize: 12, padding: '3px 10px', border: `1px solid ${WB.hair}`, background: 'transparent', color: WB.inkSub, cursor: 'pointer' }}>清除</button>
           </div>
           <div style={{ marginTop: 6 }}>
-            結果標示為「自訂倍數情境（使用者輸入，非合理價）」，只乘已核實的每股分母；多把尺取交集，無交集就不給單一區間。
+            這是你自己輸入的試算，只存在這台裝置；不是老師發布的觀點，也不是系統算出的合理價。只乘已核實的每股分母；多把尺取交集，無交集就不給單一區間。清除後價格軸上的試算帶會一起消失。
           </div>
         </div>
       )}
