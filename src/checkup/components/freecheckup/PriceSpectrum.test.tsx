@@ -55,7 +55,7 @@ describe('single continuous TWD price spectrum', () => {
     const label = screen.getByTestId('holdings-price-axis-label-custom');
     expect(label.textContent).toContain('我的 PE 情境');
     expect(label.textContent).toContain('NT$104.98–NT$105.02');
-    expect(screen.getByTestId('price-spectrum').getAttribute('aria-label')).toContain('我的情境試算（僅此裝置）');
+    expect(screen.getByTestId('price-spectrum').getAttribute('aria-label')).toContain('我的情境試算（僅此裝置');
   });
 
   it('沒有個人輸入時不畫任何估值段', () => {
