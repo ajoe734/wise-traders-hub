@@ -76,6 +76,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   showAll: _opt('any'), setShowAll: _opt('any'),
   holdingSyncStates: _opt('any'), // { [code]: { syncing?: bool, error?: string } }
   onDeleteHolding: _opt('function'),
+  onEditHolding: _opt('function'),
   tradeLog: _opt('array'),        // A2: 抽屜資料源，傳給 HoldingsDetailPanel
 };
 
@@ -132,6 +133,7 @@ function HoldingsTab(props) {
     showAll, setShowAll,
     holdingSyncStates,
     onDeleteHolding,
+    onEditHolding,
     // navigation
     setTab,
     // A2 抽屜資料源通線
@@ -437,6 +439,7 @@ function HoldingsTab(props) {
               overrides={overrides}
               holdingSyncStates={holdingSyncStates}
               onDeleteHolding={onDeleteHolding}
+              onEditHolding={onEditHolding}
               handleHoldingCardSelect={handleHoldingCardSelect}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
               handleReportMeta={handleReportMeta}

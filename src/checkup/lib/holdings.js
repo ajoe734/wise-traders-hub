@@ -250,7 +250,7 @@ export function applyTradeEntryToHoldings(rows, trade, quotes = null) {
       arr[idx] = {
         ...h,
         qty: nq,
-        price,
+        price: toSafeNumber(h.price) > 0 ? h.price : price,
         cost: Math.round(nc * 100) / 100,
         totalCost: newTotalCost,
         fee: newFee,
@@ -286,7 +286,7 @@ export function applyTradeEntryToHoldings(rows, trade, quotes = null) {
       arr[idx] = {
         ...h,
         qty: nq,
-        price,
+        price: toSafeNumber(h.price) > 0 ? h.price : price,
         totalCost: newTotalCost,
         fee: newFee,
       }
