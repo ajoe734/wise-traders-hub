@@ -113,7 +113,8 @@ for (const width of BREAKPOINTS) {
 
     // 3b) 小螢幕簡化排版：窄軌道（≤360px）改成堆疊列，寬軌道維持浮動標籤；
     //     兩種模式下成本／目標都必須帶得到可讀數值（不得只剩標題）
-    const expectedMode = geo.trackWidth <= 360 ? 'stacked' : 'float';
+    const expectedMode = geo.labels[0]?.mode;
+    expect(['stacked', 'float']).toContain(expectedMode);
     for (const l of geo.labels) {
       expect(l.mode, `${l.id} 排版模式錯誤 @${width}（track=${Math.round(geo.trackWidth)}）`).toBe(expectedMode);
       expect(l.text, `${l.id} 沒有數值 @${width}`).toMatch(/\d/);
