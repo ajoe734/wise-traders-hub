@@ -16,6 +16,8 @@ const TOL = 0.5;
 
 async function openFirstDrawer(page: Page, width: number) {
   await page.setViewportSize({ width, height: 844 });
+  // 幾何檢查需要最終尺寸，不應取到 pop 動畫縮放中的圓點。
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript(() => {
     localStorage.setItem('checkup-coach-seen-v1', '1');
     localStorage.setItem('holdings-intro-video-seen-v2', '1');
