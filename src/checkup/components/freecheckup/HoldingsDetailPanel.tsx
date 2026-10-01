@@ -11,7 +11,9 @@ import { useHoldingShareExport } from '@/checkup/hooks/useHoldingShareExport';
 import { useHoldingDetailViewModel } from '@/checkup/hooks/useHoldingDetailViewModel';
 import HoldingExportCard from './HoldingExportCard';
 import ChipsSection from './ChipsSection';
-import ValuationRulers from './ValuationRulers';
+import { ValuationRulersView } from './ValuationRulers';
+import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
+import { priceVsBandText } from '@/checkup/lib/valuationRulers';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
@@ -122,6 +124,8 @@ function HoldingsDetailPanelImpl({
   const dec = decisionsMap[h.code];
   const meta = stockMeta[h.code] || null;
   const baseTarget = targets && avgTarget && h.code ? avgTarget(h.code) : null;
+  // 估值快照只抓一次，同時供價格軸（參考區間）與計算依據使用。
+  const valuation = useValuationSnapshot(h?.code);
 
   // C2：所有推導收斂到 useHoldingDetailViewModel（純函式在 lib/holdingDetailViewModel.ts）。
   const vm = useHoldingDetailViewModel({
@@ -455,6 +459,9 @@ function HoldingsDetailPanelImpl({
           baseTarget={baseTarget}
           upside={displayUpside}
           tpHistory={tpHistory}
+          band={valuation.band}
+          bandLoading={valuation.status === 'loading'}
+          stale={valuation.stale}
         />
 
         {/* 6) 30D 走勢帶（K 線；OHLC 不足時退回折線） */}
@@ -478,7 +485,15 @@ function HoldingsDetailPanelImpl({
         {thesisRows && <ThesisHistory WB={WB} rows={thesisRows} />}
 
         {/* 8.4) 估值三把尺（本益比 / 股價淨值比 / 現金殖利率）＋ 同業中位數 */}
-        <ValuationRulers WB={WB} stockCode={h.code} />
+        <ValuationRulersView
+          WB={WB}
+          view={valuation.view}
+          band={valuation.band}
+          status={valuation.status}
+          error={valuation.error}
+          stale={valuation.stale}
+          onRetry={valuation.refetch}
+        />
 
         {/* 8.5) 籌碼面（僅台股）— 關鍵分點／BSR surface 已自持倉抽屜移除 */}
         <ChipsSection WB={WB} stockCode={h.code} showBsr={false} />
@@ -739,7 +754,7 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 
 // ──────────────────── §4.5 價格軸 ────────────────────
 
-function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
+function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory, band = null, bandLoading = false, stale = false }) {
   // 量測軌道實寬 → 標籤字寬 / 換行 / 錨定規則的唯一輸入（見 lib/priceAxisLabel.ts）
   const trackRef = useRef(null);
   const [trackWidth, setTrackWidth] = useState(320);
@@ -753,7 +768,14 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const pts = [cost, price, target].filter((v) => Number.isFinite(Number(v)) && Number(v) > 0).map(Number);
+  // 參考區間的邊界也納入同一條等比例軸的值域（不斷軸、不壓縮）。
+  const bandRanges = band?.status === 'consensus' && band.low != null && band.high != null
+    ? [{ key: 'band', label: '參考區間', low: band.low, high: band.high }]
+    : band?.status === 'divergent'
+      ? band.ranges.filter((r) => r.low != null && r.high != null).map((r) => ({ key: r.key, label: r.label, low: r.low, high: r.high }))
+      : [];
+  const pts = [cost, price, target, ...bandRanges.flatMap((b) => [b.low, b.high])]
+    .filter((v) => Number.isFinite(Number(v)) && Number(v) > 0).map(Number);
   if (pts.length < 2) return null;
   const lo = Math.min(...pts) * 0.95;
   const hi = Math.max(...pts) * 1.05;
@@ -792,6 +814,7 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
   const anyWrapped = markers.some((p) => p.side === 'top' && p.box.wrap);
   return (
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
+      <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} price={price} stale={stale} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>價格</span>
         {tpLabel && (
@@ -816,6 +839,43 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
               stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
           ))}
         </svg>
+        {/* 參考區間淡色帶：真實寬度；只有換算後 < 2px 才補到 2px 讓它看得見（data-min-width 標記）。
+            精確上下界寫在主標，不從帶寬判讀。 */}
+        {bandRanges.map((b, i) => {
+          const x1 = pos(b.low);
+          const x2 = pos(b.high);
+          const realPx = ((x2 - x1) / 100) * trackWidth;
+          const minW = realPx < 2;
+          const divergent = band?.status === 'divergent';
+          const h2 = divergent ? 4 : 10;
+          return (
+            <span
+              key={`band-${b.key}`}
+              data-testid={divergent ? `valuation-band-ruler-${b.key}` : 'valuation-band'}
+              data-low={b.low}
+              data-high={b.high}
+              data-min-width={minW ? 'true' : 'false'}
+              title={`${b.label} NT$${Number(b.low).toLocaleString()}–${Number(b.high).toLocaleString()}`}
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: `${x1}%`,
+                width: minW ? 2 : `${x2 - x1}%`,
+                top: divergent ? y - 8 + i * 6 : y - h2 / 2,
+                height: h2,
+                background: WB.ink,
+                opacity: divergent ? 0.22 : 0.12,
+                pointerEvents: 'none',
+              }}
+            />
+          );
+        })}
+        {!compact && band?.status === 'consensus' && bandRanges[0] && (
+          <span data-testid="valuation-band-label" aria-hidden="true" style={{
+            position: 'absolute', left: `${pos(bandRanges[0].low)}%`, top: y + 10,
+            fontSize: LABEL_FONT_SIZE, color: WB.inkMute, whiteSpace: 'nowrap', pointerEvents: 'none',
+          }}>參考區間</span>
+        )}
         {/* HTML overlay：現價圓點（真實 px、永遠正圓） */}
         {markers.filter((p) => p.shape === 'dot').map((p, i) => (
           <span
@@ -877,6 +937,15 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           data-testid="holdings-price-axis-compact"
           style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, minWidth: 0 }}
         >
+          {band?.status === 'consensus' && (
+            <div data-testid="valuation-band-compact-row" style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12, lineHeight: '16px', color: WB.inkSub }}>
+              <span aria-hidden="true" style={{ width: 10, height: 6, background: WB.ink, opacity: 0.18, alignSelf: 'center', flex: '0 0 auto' }} />
+              <span style={{ color: WB.inkMute }}>參考區間</span>
+              <span style={{ flex: '1 1 auto', textAlign: 'right', color: WB.ink, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                {fmtTwd(band.low)}–{fmtTwd(band.high)}
+              </span>
+            </div>
+          )}
           {markers.map((p, i) => {
             const row = toCompactRow({ label: p.label, text: p.text });
             return (
@@ -911,6 +980,66 @@ function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory }) {
           {note}
         </div>
       )}
+      {band?.status === 'divergent' && (
+        <div data-testid="valuation-band-divergent-list" style={{ marginTop: 6, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
+          {bandRanges.map((b) => (
+            <span key={b.key} style={{ marginRight: 10, whiteSpace: 'nowrap' }}>
+              {b.label} NT${Number(b.low).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}–{Number(b.high).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+            </span>
+          ))}
+        </div>
+      )}
+      {(band?.status === 'consensus' || band?.status === 'divergent') && (
+        <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 11, color: WB.inkMute, lineHeight: 1.6 }}>
+          {band.status === 'consensus'
+            ? '區間由本益比、股價淨值比、殖利率各自的 5 年 30–70 分位換算後取交集，屬模型參考，不代表應有股價，也不保證獲利。'
+            : '三把尺換算的價格範圍沒有足夠交集，因此不合成單一區間。'}
+          {target != null ? '目標價來自分析師共識，與本區間不同來源。' : ''}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const fmtTwd = (v) => Number(v).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+
+/** 主標：歷史估值參考區間（數值是精確資訊來源；軸上淡帶只表示位置）。 */
+function ValuationBandHeadline({ WB, band, loading, price, stale }) {
+  const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
+  if (loading && !band) {
+    return (
+      <div data-testid="valuation-band-skeleton" aria-busy="true" style={{ marginBottom: 12 }}>
+        <div style={{ height: 18, width: '62%', background: WB.hair, marginBottom: 6 }} />
+        <div style={{ height: 12, width: '44%', background: WB.hair }} />
+      </div>
+    );
+  }
+  if (!band) return null;
+  const meta = [
+    band.status === 'consensus' ? '三尺交集' : band.status === 'divergent' ? '三尺分歧' : null,
+    dateText ? `資料日 ${dateText}${stale ? '，已逾 7 天' : ''}` : null,
+  ].filter(Boolean).join('｜');
+  if (band.status === 'insufficient') {
+    return (
+      <div data-testid="valuation-band-headline" data-status="insufficient" style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>歷史估值參考區間</div>
+        <div style={{ fontSize: 13, color: WB.ink, fontWeight: 700, marginTop: 2 }}>資料不足：{band.reason}</div>
+        {dateText && <div style={{ fontSize: 11, color: WB.inkMute, marginTop: 2 }}>{meta}</div>}
+      </div>
+    );
+  }
+  const vs = priceVsBandText(price, band);
+  return (
+    <div data-testid="valuation-band-headline" data-status={band.status} style={{ marginBottom: 12, minWidth: 0 }}>
+      <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
+        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>歷史估值參考區間（5 年分位換算）</span>
+        <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: '#292520', fontVariantNumeric: 'tabular-nums' }}>
+          {band.status === 'consensus' ? `NT$${fmtTwd(band.low)}–${fmtTwd(band.high)}` : '三尺分歧，無共同區間'}
+        </span>
+      </div>
+      <div style={{ fontSize: 12, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
+        {[vs, meta].filter(Boolean).join('｜')}
+      </div>
     </div>
   );
 }

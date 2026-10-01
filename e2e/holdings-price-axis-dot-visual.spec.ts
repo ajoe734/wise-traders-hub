@@ -31,6 +31,7 @@ async function openPanel(page: Page, w: number, h: number) {
   await page
     .locator('[data-testid="holdings-detail-panel"]')
     .waitFor({ state: 'visible', timeout: 10_000 });
+  await page.locator('[data-testid="valuation-band-skeleton"]').waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {});
   await page.waitForTimeout(500);
 }
 

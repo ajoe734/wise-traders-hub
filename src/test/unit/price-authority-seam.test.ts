@@ -59,6 +59,8 @@ const SEAM_ALLOWLIST = new Set([
   // 歷史區間績效／回測監控讀的是「指定日期」的歷史快照，不是當下顯示價。
   'src/hooks/usePeriodPerformance.ts',
   'src/hooks/company/useBacktestMonitor.ts',
+  // 估值參考區間：只讀「估值日當天」收盤價反推 EPS/BVPS/DPS，不是當下顯示價。
+  'src/checkup/hooks/useValuationSnapshot.ts',
 ]);
 
 function walk(dir: string, acc: string[] = []): string[] {
