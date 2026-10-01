@@ -33,11 +33,7 @@ import {
   resistanceLabelTop,
   KLINE_CHART_HEIGHT,
 } from '@/checkup/lib/klineLayout';
-import {
-  resolveLabelBox, assignLanes, laneTopOffset,
-  LABEL_FONT_SIZE, LABEL_LINE_HEIGHT,
-  resolveTrackMetrics, toCompactRow,
-} from '@/checkup/lib/priceAxisLabel';
+import { PriceSpectrum } from './PriceSpectrum';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
@@ -754,237 +750,27 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 
 // ──────────────────── §4.5 價格軸 ────────────────────
 
-function PriceAxis({ WB, price, cost, target, baseTarget, upside, tpHistory, band = null, bandLoading = false, stale = false }) {
-  // 量測軌道實寬 → 標籤字寬 / 換行 / 錨定規則的唯一輸入（見 lib/priceAxisLabel.ts）
-  const trackRef = useRef(null);
-  const [trackWidth, setTrackWidth] = useState(320);
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return undefined;
-    const measure = () => setTrackWidth(Math.round(el.getBoundingClientRect().width) || 320);
-    measure();
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  // 參考區間的邊界也納入同一條等比例軸的值域（不斷軸、不壓縮）。
-  const bandRanges = band?.status === 'consensus' && band.low != null && band.high != null
-    ? [{ key: 'band', label: '參考區間', low: band.low, high: band.high }]
-    : band?.status === 'divergent'
-      ? band.ranges.filter((r) => r.low != null && r.high != null).map((r) => ({ key: r.key, label: r.label, low: r.low, high: r.high }))
-      : [];
-  const pts = [cost, price, target, ...bandRanges.flatMap((b) => [b.low, b.high])]
-    .filter((v) => Number.isFinite(Number(v)) && Number(v) > 0).map(Number);
-  if (pts.length < 2) return null;
-  const lo = Math.min(...pts) * 0.95;
-  const hi = Math.max(...pts) * 1.05;
-  const pos = (v) => Number.isFinite(Number(v)) ? ((Number(v) - lo) / (hi - lo)) * 100 : null;
-  const labelPos = (v) => {
-    const x = pos(v);
-    return x == null ? null : Math.min(92, Math.max(8, x));
-  };
+function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, bandLoading = false, stale = false }) {
   const tpLabel = tpHistory
     ? `目標 ${Number(target).toLocaleString()} ${tpHistory.arrow}${Math.abs(tpHistory.deltaPct).toFixed(0)}%`
     : (target != null ? `目標 ${Number(target).toLocaleString()}` : null);
   const note = tpHistory && upside != null
     ? `共識 ${tpHistory.spanDays} 日內由 ${tpHistory.from.toLocaleString()} ${tpHistory.arrow === '↓' ? '下修' : '上修'}至 ${tpHistory.last.toLocaleString()}，${upside >= 0 ? '仍高於' : '低於'}現價 ${Math.abs(upside).toFixed(1)}%${upside < 0 ? '——已超漲' : ''}`
     : null;
-  // 小螢幕（窄軌道）→ 簡化排版：軌道變矮、標籤改成軸下方堆疊列（見 lib/priceAxisLabel.ts）
-  const { compact, height: H, axisY: y } = resolveTrackMetrics(trackWidth);
-  const markers = [
-    { v: cost, color: WB.inkLight, label: '成本', shape: 'tick', side: 'top' },
-    { v: target, color: WB.accent, label: '目標', shape: 'tick', side: 'top' },
-    { v: price, color: WB.ink, label: '現價', shape: 'dot', side: 'bottom' },
-  ]
-    .map((p) => ({ ...p, x: pos(p.v), lx: labelPos(p.v) }))
-    .filter((p) => p.x != null)
-    .map((p) => {
-      const text = `${p.label} ${Number(p.v).toFixed(2)}`;
-      return { ...p, text, box: resolveLabelBox({ text, lxPct: Number(p.lx), containerWidth: trackWidth, fontSize: LABEL_FONT_SIZE }) };
-    });
-  // 上方標籤在抽屜寬度下容易互撞（例如成本 507、目標 710），且字串長度會變
-  // （「目標 1,234.56 ↓12%」比「目標 90」寬得多）。lane 分配改由估算字寬決定，
-  // 不再用固定 26% 門檻，因此不同字串長度不會造成錯位或誤判不碰撞。
-  const laneByLabel = assignLanes(
-    markers.filter((p) => p.side === 'top').map((p) => ({ label: p.label, text: p.text, lxPct: Number(p.lx) })),
-    trackWidth,
-    LABEL_FONT_SIZE,
-  );
-  const anyWrapped = markers.some((p) => p.side === 'top' && p.box.wrap);
   return (
     <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} price={price} stale={stale} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: WB.inkMute, letterSpacing: '0.14em' }}>價格</span>
-        {tpLabel && (
-          <span style={{
-            fontSize: 12, color: tpHistory?.arrow === '↓' ? WB.accent : WB.inkSub,
-            fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
-          }}>{tpLabel}</span>
-        )}
+      <div className="price-spectrum-heading">
+        <span>價格 · TWD</span>
+        {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
       </div>
-      <div ref={trackRef} style={{ position: 'relative', height: H, minWidth: 0, overflow: 'hidden' }}>
-        {/* ⚠️ 禁止在 preserveAspectRatio="none" 的 SVG 內使用 <circle>/<rect> 等填色幾何形狀：
-            X/Y 非等比縮放會把「圓」拉成扁橢圓（越寬螢幕越扁）。
-            解法：只有 stroke 幾何（line、polyline）能留在 SVG 內（配 vector-effect="non-scaling-stroke"），
-            其他圓點／方塊一律用 HTML overlay <div> 以真實 px 尺寸繪製。 */}
-        <svg width="100%" height={H} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none"
-          aria-hidden="true"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: H, overflow: 'hidden' }}>
-          <line x1="0" y1={y} x2="100" y2={y} stroke={WB.hair} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          {markers.filter((p) => p.shape === 'tick').map((p, i) => (
-            <line key={`tick-${i}`}
-              x1={`${p.x}%`} y1={y - 5} x2={`${p.x}%`} y2={y + 5}
-              stroke={p.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-          ))}
-        </svg>
-        {/* 參考區間淡色帶：真實寬度；只有換算後 < 2px 才補到 2px 讓它看得見（data-min-width 標記）。
-            精確上下界寫在主標，不從帶寬判讀。 */}
-        {bandRanges.map((b, i) => {
-          const x1 = pos(b.low);
-          const x2 = pos(b.high);
-          const realPx = ((x2 - x1) / 100) * trackWidth;
-          const minW = realPx < 2;
-          const divergent = band?.status === 'divergent';
-          const h2 = divergent ? 4 : 10;
-          return (
-            <span
-              key={`band-${b.key}`}
-              data-testid={divergent ? `valuation-band-ruler-${b.key}` : 'valuation-band'}
-              data-low={b.low}
-              data-high={b.high}
-              data-min-width={minW ? 'true' : 'false'}
-              title={`${b.label} NT$${Number(b.low).toLocaleString()}–${Number(b.high).toLocaleString()}`}
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                left: `${x1}%`,
-                width: minW ? 2 : `${x2 - x1}%`,
-                top: divergent ? y - 8 + i * 6 : y - h2 / 2,
-                height: h2,
-                background: WB.ink,
-                opacity: divergent ? 0.22 : 0.12,
-                pointerEvents: 'none',
-              }}
-            />
-          );
-        })}
-        {!compact && band?.status === 'consensus' && bandRanges[0] && (
-          <span data-testid="valuation-band-label" aria-hidden="true" style={{
-            position: 'absolute', left: `${pos(bandRanges[0].low)}%`, top: y + 10,
-            fontSize: LABEL_FONT_SIZE, color: WB.inkMute, whiteSpace: 'nowrap', pointerEvents: 'none',
-          }}>參考區間</span>
-        )}
-        {/* HTML overlay：現價圓點（真實 px、永遠正圓） */}
-        {markers.filter((p) => p.shape === 'dot').map((p, i) => (
-          <span
-            key={`dot-${i}`}
-            data-testid="holdings-price-axis-dot"
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: `${p.x}%`,
-              top: y,
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: p.color,
-              transform: 'translate(-50%, -50%)',
-              pointerEvents: 'none',
-            }}
-          />
-        ))}
-        {!compact && markers.map((p, i) => (
-          <span
-            key={`label-${i}`}
-             data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
-            data-label-anchor={p.box.anchor}
-            data-label-lines={p.box.lines}
-            data-label-mode="float"
-            style={{
-              position: 'absolute',
-              /* 字寬規則單一資料源：resolveLabelBox 依估算字寬決定貼左／置中／貼右，
-                 短字串能真正對準刻度，長字串改為兩行而非被截斷，皆不會越界。 */
-              left: p.box.left,
-              top: p.side === 'top'
-                ? 3 + laneTopOffset(laneByLabel.get(p.label) ?? 0, anyWrapped)
-                : y + 10,
-              transform: p.box.transform,
-              maxWidth: p.box.maxWidth,
-              display: '-webkit-box',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: p.box.lines,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: p.box.wrap ? 'normal' : 'nowrap',
-              overflowWrap: 'anywhere',
-              textAlign: p.box.anchor === 'end' ? 'right' : 'left',
-              fontSize: LABEL_FONT_SIZE,
-              color: WB.inkSub,
-              letterSpacing: '0.02em',
-              fontVariantNumeric: 'tabular-nums',
-              lineHeight: `${LABEL_LINE_HEIGHT}px`,
-              pointerEvents: 'none',
-            }}
-          >{p.text}</span>
-        ))}
-      </div>
-      {/* compact：軸下方堆疊列。名稱／數值分欄對齊，數值用 tabular-nums，
-          不截斷、不重疊，窄螢幕仍能明確讀到成本與目標價。 */}
-      {compact && (
-        <div
-          data-testid="holdings-price-axis-compact"
-          style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, minWidth: 0 }}
-        >
-          {band?.status === 'consensus' && (
-            <div data-testid="valuation-band-compact-row" style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12, lineHeight: '16px', color: WB.inkSub }}>
-              <span aria-hidden="true" style={{ width: 10, height: 6, background: WB.ink, opacity: 0.18, alignSelf: 'center', flex: '0 0 auto' }} />
-              <span style={{ color: WB.inkMute }}>參考區間</span>
-              <span style={{ flex: '1 1 auto', textAlign: 'right', color: WB.ink, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
-                {fmtTwd(band.low)}–{fmtTwd(band.high)}
-              </span>
-            </div>
-          )}
-          {markers.map((p, i) => {
-            const row = toCompactRow({ label: p.label, text: p.text });
-            return (
-              <div
-                key={`row-${i}`}
-                data-testid={`holdings-price-axis-label-${p.label === '成本' ? 'cost' : p.label === '目標' ? 'target' : 'price'}`}
-                data-label-mode="stacked"
-                style={{
-                  display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0,
-                  fontSize: 12, lineHeight: '16px', color: WB.inkSub, letterSpacing: '0.02em',
-                }}
-              >
-                <span aria-hidden="true" style={{
-                  width: 6, height: 6, borderRadius: '50%', background: p.color, flex: '0 0 auto',
-                  alignSelf: 'center',
-                }} />
-                <span style={{ flex: '0 0 auto', color: WB.inkMute }}>{row.name}</span>
-                <span style={{
-                  flex: '1 1 auto', textAlign: 'right', color: WB.ink, fontWeight: 500,
-                  fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere',
-                }}>
-                  {row.value}
-                  {row.note ? <span style={{ marginLeft: 6, color: WB.accent }}>{row.note}</span> : null}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {note && (
-        <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>
-          {note}
-        </div>
-      )}
+      <PriceSpectrum WB={WB} price={price} cost={cost} target={target} band={band} />
+      {note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
       {band?.status === 'divergent' && (
         <div data-testid="valuation-band-divergent-list" style={{ marginTop: 6, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
-          {bandRanges.map((b) => (
-            <span key={b.key} style={{ marginRight: 10, whiteSpace: 'nowrap' }}>
-              {b.label} NT${Number(b.low).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}–{Number(b.high).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+          {band.ranges.filter((r) => r.low != null && r.high != null).map((r) => (
+            <span key={r.key} style={{ marginRight: 10, whiteSpace: 'nowrap' }}>
+              {r.label} NT${Number(r.low).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}–{Number(r.high).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
             </span>
           ))}
         </div>
