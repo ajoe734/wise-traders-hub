@@ -214,7 +214,7 @@ export function describeRisk(b: CompanyBasis) {
 
 export type ScenarioBasisOut = {
   value: number; unit: 'TWD/share'; period: string; publishedAt: string; source: string;
-  kind: 'reported'; shareBasis: string;
+  kind: 'reported'; shareBasis: string; derivation: string;
 };
 export type ScenarioMultiplesOut = {
   low: number; high: number; reason: string; source: string; period: string; sampleSize: number;
@@ -235,6 +235,17 @@ const BASIS_SOURCE: Record<RulerKey, string> = {
   pb: 'FinMind 資產負債表：歸屬母公司權益 ÷ 普通股股本/10',
   ps: 'FinMind 綜合損益表：營業收入（近四季加總）÷ 資產負債表普通股股本/10',
 };
+
+const fmtInt = (v: number) => Math.round(v).toLocaleString('en-US');
+export function derivationOf(key: RulerKey, b: CompanyBasis): string {
+  const shares = key === 'pb' ? b.sharesEnd! : b.sharesAvg!;
+  const num = key === 'pe' ? b.niTtm! : key === 'pb' ? b.equityParent! : b.revenueTtm!;
+  const label = key === 'pe' ? '近四季歸屬母公司淨利' : key === 'pb' ? '歸屬母公司權益' : '近四季營業收入';
+  const v = b[BASIS_FIELD[key]]!;
+  const check = key === 'pe' && b.reportedEpsSum != null ? `；財報基本 EPS 四季合計 ${b.reportedEpsSum.toFixed(2)} 元供核對` : '';
+  const change = b.shareChange && key !== 'pb' ? '；四季股數有變動，已用平均股數' : '';
+  return `${label} NT$${fmtInt(num)} ÷ ${fmtInt(shares)} 股 = NT$${v.toFixed(2)}${check}${change}`;
+}
 
 export type Regime = 'high' | 'mild' | 'decline';
 export const REGIME_LABEL: Record<Regime, string> = { high: '高成長（營收年增 ≥20%）', mild: '溫和（年增 0–20%）', decline: '衰退（年增 <0）' };
@@ -278,6 +289,7 @@ export function buildScenarioRows(
     const basis: ScenarioBasisOut | null = na || value == null ? null : {
       value, unit: 'TWD/share', period: target.period!, publishedAt: target.publishedAt!,
       source: BASIS_SOURCE[key], kind: 'reported', shareBasis: SHARE_BASIS[key],
+      derivation: derivationOf(key, target),
     };
     const risk = describeRisk(target);
     const valid = list.filter((p) => p.multiple != null);

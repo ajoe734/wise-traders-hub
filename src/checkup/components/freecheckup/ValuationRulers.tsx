@@ -33,6 +33,7 @@ function fmt(key: string, v: number | null): string {
 
 const twd = (v: number | null) =>
   v == null ? '—' : `NT$${v.toLocaleString('zh-TW', { maximumFractionDigits: v >= 100 ? 0 : 2 })}`;
+const twd2 = (v: number) => `NT$${v.toLocaleString('zh-TW', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('zh-TW', { maximumFractionDigits: d }));
 
 /** 僅已公告、股數口徑相同的獨立分母與有理由的倍數才產生情境價。 */
@@ -47,9 +48,10 @@ function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
       <div style={{ color: WB.ink, fontWeight: 700 }}>{SCENARIO_LABELS[key]}</div>
       <div data-testid={`valuation-basis-range-${key}`}>
         {row.low != null && row.high != null && basis && multiples
-          ? <>{basis.kind === 'forecast' ? '預測假設' : '已公布'}{SCENARIO_BASES[key]} {twd(basis.value)} × {num(multiples.low)}–{num(multiples.high)} 倍 = <span style={{ whiteSpace: 'nowrap' }}>{twd(row.low)}–{twd(row.high)}</span></>
+          ? <>{basis.kind === 'forecast' ? '預測假設' : '已公布'}{SCENARIO_BASES[key]} {twd2(basis.value)} × {num(multiples.low)}–{num(multiples.high)} 倍 = <span style={{ whiteSpace: 'nowrap' }}>{twd(row.low)}–{twd(row.high)}</span></>
           : <>無法估算：{row.reason}</>}
       </div>
+      {basis?.derivation && <div data-testid={`valuation-basis-derivation-${key}`}>算式：{basis.derivation}</div>}
       {basis && <div>分母：{basis.source} · {basis.period} · 公告 {basis.publishedAt} · {basis.unit} · 股數基準 {basis.shareBasis}</div>}
       {multiples && <div>倍數：{multiples.reason} · {multiples.source} · {multiples.period} · 樣本 {multiples.sampleSize} · 同業 {multiples.peerComparability} · 景氣 {multiples.cycle} · 成長 {multiples.growth} · 獲利 {multiples.earningsStability} · 現金 {multiples.cash} · 負債 {multiples.debt}</div>}
     </div>
