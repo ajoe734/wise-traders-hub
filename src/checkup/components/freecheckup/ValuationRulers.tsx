@@ -36,6 +36,17 @@ const twd = (v: number | null) =>
 const twd2 = (v: number) => `NT$${v.toLocaleString('zh-TW', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const num = (v: number | null, d = 2) => (v == null ? '—' : v.toLocaleString('zh-TW', { maximumFractionDigits: d }));
 
+/** 分母可計算性與股數來源可信度分開陳述；主摘要與「怎麼算」共用。 */
+export function basisVerificationText(band: Pick<ValuationScenario, 'basisCount' | 'shareVerification'>): string {
+  const lead = `財報分母 ${band.basisCount}/3`;
+  const verification = band.shareVerification;
+  if (verification?.source === 'official' && !verification.preferredUnknown) return `${lead} 已核實`;
+  if (verification?.source === 'fallback') {
+    return `${lead} 已計算；股數採 FinMind 後備核對${verification.preferredUnknown ? '，特別股待官方確認' : ''}`;
+  }
+  return `${lead} 已計算`;
+}
+
 /** 僅已公告、股數口徑相同的獨立分母與有理由的倍數才產生情境價。 */
 function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
   const { key, basis, multiples } = row;
@@ -318,11 +329,7 @@ export function ValuationRulersView({
       </div>
 
        <div data-testid="valuation-summary" data-overall="na" style={{ marginTop: 8, fontSize: 12, color: WB.ink, fontWeight: 700 }}>
-         財報分母 {scenario.basisCount}/3 已計算；{scenario.shareVerification?.source === 'official' && !scenario.shareVerification.preferredUnknown
-           ? '股數已由官方名錄核對'
-           : scenario.shareVerification?.source === 'fallback'
-             ? `股數採後備核對${scenario.shareVerification.preferredUnknown ? '，特別股待官方確認' : ''}`
-             : '股數核對來源未明'}；倍數區間 {scenario.validCount}/3 可算；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : scenario.status === 'historical' ? '歷史情境參考，非合理價' : '暫無單一合理區間'}
+         {basisVerificationText(scenario)}；倍數區間 {scenario.validCount}/3 可算；{scenario.status === 'consensus' ? '共同支持區僅為情境，非獲利保證' : scenario.status === 'historical' ? '歷史情境參考，非合理價' : '暫無單一合理區間'}
        </div>
 
        <div data-testid="valuation-historical-ratios" style={{ marginTop: 8, fontSize: 11, color: WB.inkSub, lineHeight: 1.7 }}>
