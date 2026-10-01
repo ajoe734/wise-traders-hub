@@ -38,7 +38,7 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
     const reason = failure || payload?.reason || '財報情境服務未回傳資料';
     return buildValuationScenario(payload?.asOf ?? fallbackAsOf, (['pe', 'pb', 'ps'] as const).map((key) => ({ key, notApplicable: reason })));
   }
-  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null, samples: Array.isArray(r.samples) ? r.samples : undefined })));
+  return buildValuationScenario(payload.asOf ?? fallbackAsOf, payload.rows.map((r) => ({ key: r.key, basis: r.basis ?? null, multiples: r.multiples ?? null, notApplicable: r.notApplicable ?? null, basisIssue: (r as any).basisIssue ?? null, multipleIssue: (r as any).multipleIssue ?? null, samples: Array.isArray(r.samples) ? r.samples : undefined })));
 }
 
 /** 財報情境前端快取：同一代碼 6 小時內共用一次結果；同時開啟的兩個元件共用同一個請求。 */

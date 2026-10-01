@@ -5,6 +5,7 @@
  * schema 變更時改 version（並視需要提供 migrate），不用再擔心壞資料把抽屜炸掉。
  */
 import { createPrefsStore } from './prefsStore';
+import { EMPTY_CUSTOM, type CustomScenarioInput } from './valuationScenario';
 
 export type HoldingPanelPrefs = {
   showThesis: boolean;
@@ -84,7 +85,6 @@ export const chipsPrefs = createPrefsStore<ChipsPrefs>({
  * 自訂倍數情境（老師依課程輸入）：每檔一筆，只存在這台裝置，不寫資料庫。
  * 必須附來源、日期、假設；計算只套用已核實的財報分母（見 valuationScenario.buildCustomScenario）。
  */
-import { EMPTY_CUSTOM, type CustomScenarioInput } from './valuationScenario';
 export type CustomMultiplesPrefs = { bySymbol: Record<string, CustomScenarioInput> };
 
 const numOrNull = (v: unknown) => { const n = Number(v); return v === null || v === '' || v === undefined || !Number.isFinite(n) ? null : n; };
