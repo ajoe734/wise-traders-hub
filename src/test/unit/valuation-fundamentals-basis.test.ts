@@ -32,7 +32,9 @@ describe('3443 real FinMind fixture (2026-10-01)', () => {
     const rows = buildScenarioRows(b, [], 'rule', hist);
     const pe = rows[0].multiples!;
     expect(pe.sampleSize).toBe(4);
-    expect(pe.low).toBeCloseTo(1735 / (4142474000 / 134011900), 4); // 2023-11-14 close ÷ 當時 EPS
+    const p2311 = hist.find((h) => h.publishedAt === '2023-11-14')!;
+    expect(p2311.close).toBe(1735);
+    expect(pe.low).toBeCloseTo(1735 / p2311.eps!, 6); // 2023-11-14 收盤 ÷ 當時已公告 EPS
     const sc = buildValuationScenario(AS_OF, rows.map((r) => ({ key: r.key, basis: r.basis, multiples: r.multiples, notApplicable: r.notApplicable })));
     expect(sc.validCount).toBe(3);
     const lows = sc.rows.map((r) => r.low!);
