@@ -24,9 +24,6 @@ Issues 以本地 markdown 檔管理，放在 `.scratch/<feature-slug>/`。See `d
 
 Keep the drawer's single TWD price scale in the reusable PriceSpectrum presentation component; valuation calculation and fetching stay in their existing modules, so visual changes cannot alter financial inputs.
 
-### Drawer valuation scenarios
-
-Compute PE/PB/PS scenarios only from independently disclosed per-share fundamentals with publication dates and justified comparable multiples; keep historic PER/PBR/yield analytics separate, because deriving denominators from price and ratios is circular.
 
 ### Domain docs
 
