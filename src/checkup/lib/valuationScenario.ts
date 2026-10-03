@@ -1,4 +1,5 @@
-import { PERIOD_RE, periodMismatch } from './forwardValuation';
+import { PERIOD_RE, periodMismatch, isForwardPeriod } from './forwardValuation';
+import { taipeiDateIso } from '@/lib/taipeiWeek';
 /** 持倉抽屜的財報情境價：只接受獨立揭露的每股數字，不接受股價／當前比率反推值。 */
 export type ScenarioKey = 'pe' | 'pb' | 'ps';
 export type ScenarioBasis = {
@@ -119,7 +120,9 @@ export function basisDateLabel(basis: ScenarioBasis, asOf: string | null): strin
   const av = basis.availability;
   if (basis.announcedAt) return `實際公告日 ${basis.announcedAt.split('-').join('/')} · 行情日 ${asOf ? asOf.split('-').join('/') : '不明'}`;
   if (av?.mode !== 'live' || !av.fetchedAt) return null;
-  return `財報取得日 ${av.fetchedAt.slice(0, 10).split('-').join('/')} · 行情日 ${asOf ? asOf.split('-').join('/') : '不明'} · 實際公告日未核，非歷史時點還原`;
+  const t = Date.parse(av.fetchedAt);
+  const fetchedDay = Number.isFinite(t) ? taipeiDateIso(t) : av.fetchedAt.slice(0, 10);
+  return `財報取得日 ${fetchedDay.split('-').join('/')}（台灣時間） · 行情日 ${asOf ? asOf.split('-').join('/') : '不明'} · 實際公告日未核，非歷史時點還原`;
 }
 
 function basisProblem(key: ScenarioKey, basis: ScenarioBasis | null | undefined, asOf: string | null, notApplicable?: string | null, basisIssue?: string | null, now: number = Date.now()): string | null {
@@ -225,7 +228,8 @@ export function buildCustomScenario(scenario: ValuationScenario | null, input: C
   const key = input.primaryKey;
   const selected = key ? scenario?.rows.find((r) => r.key === key) : null;
   if (!key) problems.push('請選一把主要尺');
-  else if (!selected?.basisOk) problems.push(`${SCENARIO_LABELS[key]}分母不可用：${selected?.reason || '缺可核實分母'}`);
+  // 明示前瞻分母（FY／未來四季）× 同期間前瞻倍數：按使用者填的具名前瞻資料驗證，不因歷史 TTM 分母缺口否決；其他口徑仍需歷史分母可用。
+  else if (!(isForwardPeriod(input.basisPeriod) && input.multipleKind === 'forward') && !selected?.basisOk) problems.push(`${SCENARIO_LABELS[key]}分母不可用：${selected?.reason || '缺可核實分母'}`);
   if (!(input.expectedBasis != null && Number.isFinite(input.expectedBasis) && input.expectedBasis > 0)) problems.push('請填大於 0 的預期每股分母');
   if (!(input.multiple.low != null && input.multiple.high != null && input.multiple.low > 0 && input.multiple.high >= input.multiple.low)) problems.push('倍數需大於 0 且上限 ≥ 下限');
   if (!(input.stressBasis != null && Number.isFinite(input.stressBasis) && input.stressBasis > 0)) problems.push('請填大於 0 的壓力分母');
