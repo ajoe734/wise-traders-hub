@@ -104,6 +104,10 @@ export function sanitizeCustomInput(v: any): CustomScenarioInput {
     stressMultiple: numOrNull(v?.stressMultiple),
     source: str(v?.source, 200), date: str(v?.date, 10), assumption: str(v?.assumption, 400),
     invalidation: str(v?.invalidation, 400), legacy,
+    basisPeriod: str(v?.basisPeriod, 12), basisSource: str(v?.basisSource, 200), basisDate: str(v?.basisDate, 10),
+    multipleKind: v?.multipleKind === 'forward' || v?.multipleKind === 'ttm' ? v.multipleKind : null,
+    ownSamples: str(v?.ownSamples, 200), peerMultiple: numOrNull(v?.peerMultiple),
+    peerSource: str(v?.peerSource, 200), peerAdjustment: str(v?.peerAdjustment, 400),
   };
 }
 
