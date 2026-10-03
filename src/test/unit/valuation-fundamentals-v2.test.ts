@@ -296,7 +296,7 @@ describe('我的情境試算（僅此裝置）', () => {
   ]);
   const input = { ...EMPTY_CUSTOM, primaryKey: 'pe' as const, expectedBasis: 42, multiple: { low: 50, high: 70 }, stressBasis: 35, stressMultiple: 40, source: '測試依據 A', date: '2026-09-30', assumption: 'ASIC 高成長期', invalidation: '毛利率跌破門檻' };
   it('只用一把主要尺的明示預期分母，並算壓力結果', () => {
-    const c = buildCustomScenario(sc, input, '2026-10-01');
+    const c = buildCustomScenario(sc, { ...input, basisPeriod: 'FY2027', basisSource: '具名共識', basisDate: '2026-09-21', multipleKind: 'forward' }, '2026-10-01');
     expect(c.status).toBe('ready');
     expect(c.low).toBe(42 * 50);
     expect(c.high).toBe(42 * 70);
