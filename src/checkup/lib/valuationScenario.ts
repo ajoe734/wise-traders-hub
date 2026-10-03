@@ -13,6 +13,8 @@ export type ScenarioBasis = {
   derivation?: string;
   /** 可得性說明：live=資料期＋取得時間；asOf=法定申報期限（非實際公告日）。 */
   availability?: { mode: 'live' | 'asOf'; dataPeriod: string; deadline: string; fetchedAt?: string; note: string } | null;
+  /** 真正的實際公告日（若來源有提供）；有則一律以它對行情日驗證。 */
+  announcedAt?: string | null;
 };
 export type ScenarioSample = {
   quarter: string; deadline: string; date: string; close: number; basis: number; multiple: number;
@@ -90,21 +92,50 @@ const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
   new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
 
-function basisProblem(key: ScenarioKey, basis: ScenarioBasis | null | undefined, asOf: string | null, notApplicable?: string | null, basisIssue?: string | null): string | null {
+/**
+ * 日期判定：法定申報期限不是實際公告日，不能拿來證明資料早於行情日。
+ * 1. 有實際公告日 → 必須 ≤ 行情日。
+ * 2. live（今日估值）→ 驗真實取得時間 fetchedAt 合法且不晚於本次分析時間；屬「最新可讀資料」，實際公告日未核，非歷史時點還原。
+ * 3. 其他（asOf／歷史）→ publishedAt 必須 ≤ 行情日，不使用未來已知資料。
+ */
+export function basisDateProblem(basis: ScenarioBasis, asOf: string | null, now: number = Date.now()): string | null {
+  if (!asOf || !isDate(asOf)) return '行情日不明';
+  if (basis.announcedAt != null && basis.announcedAt !== '') {
+    return isDate(basis.announcedAt) && basis.announcedAt <= asOf ? null : '實際公告日晚於行情日或日期不明';
+  }
+  const av = basis.availability;
+  if (av?.mode === 'live') {
+    const t = av.fetchedAt ? Date.parse(av.fetchedAt) : NaN;
+    if (!Number.isFinite(t)) return '財報取得時間不明';
+    if (t > now) return '財報取得時間晚於本次分析時間';
+    return null;
+  }
+  if (!basis.publishedAt || !isDate(basis.publishedAt) || basis.publishedAt > asOf) return '公告日晚於估值日或日期不明';
+  return null;
+}
+
+/** live 模式的日期標示：取得日與行情日分開，明示實際公告日未核。 */
+export function basisDateLabel(basis: ScenarioBasis, asOf: string | null): string | null {
+  const av = basis.availability;
+  if (basis.announcedAt) return `實際公告日 ${basis.announcedAt.split('-').join('/')} · 行情日 ${asOf ? asOf.split('-').join('/') : '不明'}`;
+  if (av?.mode !== 'live' || !av.fetchedAt) return null;
+  return `財報取得日 ${av.fetchedAt.slice(0, 10).split('-').join('/')} · 行情日 ${asOf ? asOf.split('-').join('/') : '不明'} · 實際公告日未核，非歷史時點還原`;
+}
+
+function basisProblem(key: ScenarioKey, basis: ScenarioBasis | null | undefined, asOf: string | null, notApplicable?: string | null, basisIssue?: string | null, now: number = Date.now()): string | null {
   if (!basis) return basisIssue || notApplicable || `缺已公開、可核對的${SCENARIO_BASES[key]}與公告日`;
   if (!Number.isFinite(basis.value) || basis.value <= 0) return `${SCENARIO_BASES[key]}≤0，不適用`;
-  // live 模式的 publishedAt 是「取得時間」：週末/休市時會晚於最近交易日 asOf。此時改以法定申報期限（資料期已公開）核對，不提前使用未公開資料。
-  const liveOk = basis.availability?.mode === 'live' && !!asOf && isDate(basis.availability.deadline) && basis.availability.deadline <= asOf;
-  if (!basis.publishedAt || !asOf || !isDate(basis.publishedAt) || !isDate(asOf) || (basis.publishedAt > asOf && !liveOk)) return '公告日晚於估值日或日期不明';
+  const dp = basisDateProblem(basis, asOf, now);
+  if (dp) return dp;
   if (!basis.period || !basis.source || basis.unit !== 'TWD/share' || !basis.shareBasis) return '缺幣別、期間、來源或股數基準';
   return null;
 }
 
-export function buildValuationScenario(asOf: string | null, inputs: ScenarioRowInput[]): ValuationScenario {
+export function buildValuationScenario(asOf: string | null, inputs: ScenarioRowInput[], now: number = Date.now()): ValuationScenario {
   const rows: ScenarioRow[] = (['pe', 'pb', 'ps'] as const).map((key) => {
     const input = (inputs.find((i) => i.key === key) || { key }) as ScenarioRowInput;
     const { basis, multiples, notApplicable, samples, basisIssue, multipleIssue, reference } = input;
-    const bp = basisProblem(key, basis, asOf, notApplicable, basisIssue);
+    const bp = basisProblem(key, basis, asOf, notApplicable, basisIssue, now);
     const common = { key, basis, multiples, samples, basisIssue: basisIssue ?? null, multipleIssue: multipleIssue ?? null, notApplicable, reference: reference ?? null };
     if (bp) return { ...common, low: null, high: null, reason: bp, basisOk: false, confidence: null };
     const no = (reason: string): ScenarioRow => ({ ...common, low: null, high: null, reason, basisOk: true, confidence: 'insufficient' });
