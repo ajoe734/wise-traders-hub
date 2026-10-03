@@ -3,7 +3,7 @@
 // ToAlpha FY2027：聯發科 35.03 倍、創意 71.03 倍（批次日期未核）；前瞻快照 18.9565/21.0554/27.6305 為近一年六次 FY2027 快照之部分值。
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { buildCustomScenario, buildValuationScenario, EMPTY_CUSTOM, type CustomScenarioInput } from './valuationScenario';
+import { buildCustomScenario, buildValuationScenario, basisDateLabel, EMPTY_CUSTOM, type CustomScenarioInput } from './valuationScenario';
 import { buildForwardEvidence, nearYearTtm, periodMismatch, PROBABILITY_UNKNOWN } from './forwardValuation';
 import { currentPriceRequirement, ForwardEvidencePanel } from '@/checkup/components/freecheckup/CustomMultiplesEditor';
 import { sanitizeCustomInput } from './drawerPrefs';

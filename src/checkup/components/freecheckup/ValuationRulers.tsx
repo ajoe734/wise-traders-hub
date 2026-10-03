@@ -20,7 +20,7 @@ import {
   type TrendSeries,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
-import { buildValuationScenario, historyReferenceBands, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
+import { buildValuationScenario, basisDateLabel, historyReferenceBands, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
 import { nearYearTtm, fmtX } from '@/checkup/lib/forwardValuation';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
