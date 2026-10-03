@@ -83,3 +83,16 @@ describe('前瞻／同業／近一年證據', () => {
     expect(container.innerHTML).toBe('');
   });
 });
+
+describe('週末取得時間晚於最近交易日', () => {
+  const live = (deadline: string) => ({ ...basis(60.69), publishedAt: '2026-10-03', availability: { mode: 'live' as const, dataPeriod: '2026Q2', deadline, fetchedAt: '2026-10-03', note: '資料期＋取得時間' } });
+  it('live 且法定期限已過 → 分母可用', () => {
+    expect(buildValuationScenario('2026-10-02', [{ key: 'pe', basis: live('2026-08-14') }]).rows[0].basisOk).toBe(true);
+  });
+  it('live 但法定期限晚於估值日 → 仍拒絕', () => {
+    expect(buildValuationScenario('2026-10-02', [{ key: 'pe', basis: live('2026-11-14') }]).rows[0].basisOk).toBe(false);
+  });
+  it('非 live 的公告日晚於估值日 → 拒絕', () => {
+    expect(buildValuationScenario('2026-10-02', [{ key: 'pe', basis: { ...basis(1), publishedAt: '2026-10-03' } }]).rows[0].basisOk).toBe(false);
+  });
+});

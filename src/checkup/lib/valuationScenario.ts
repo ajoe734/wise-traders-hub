@@ -93,7 +93,9 @@ const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
 function basisProblem(key: ScenarioKey, basis: ScenarioBasis | null | undefined, asOf: string | null, notApplicable?: string | null, basisIssue?: string | null): string | null {
   if (!basis) return basisIssue || notApplicable || `缺已公開、可核對的${SCENARIO_BASES[key]}與公告日`;
   if (!Number.isFinite(basis.value) || basis.value <= 0) return `${SCENARIO_BASES[key]}≤0，不適用`;
-  if (!basis.publishedAt || !asOf || !isDate(basis.publishedAt) || !isDate(asOf) || basis.publishedAt > asOf) return '公告日晚於估值日或日期不明';
+  // live 模式的 publishedAt 是「取得時間」：週末/休市時會晚於最近交易日 asOf。此時改以法定申報期限（資料期已公開）核對，不提前使用未公開資料。
+  const liveOk = basis.availability?.mode === 'live' && !!asOf && isDate(basis.availability.deadline) && basis.availability.deadline <= asOf;
+  if (!basis.publishedAt || !asOf || !isDate(basis.publishedAt) || !isDate(asOf) || (basis.publishedAt > asOf && !liveOk)) return '公告日晚於估值日或日期不明';
   if (!basis.period || !basis.source || basis.unit !== 'TWD/share' || !basis.shareBasis) return '缺幣別、期間、來源或股數基準';
   return null;
 }
