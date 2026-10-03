@@ -1,3 +1,4 @@
+import { PERIOD_RE, periodMismatch } from './forwardValuation';
 /** 持倉抽屜的財報情境價：只接受獨立揭露的每股數字，不接受股價／當前比率反推值。 */
 export type ScenarioKey = 'pe' | 'pb' | 'ps';
 export type ScenarioBasis = {
@@ -92,7 +93,9 @@ const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
 function basisProblem(key: ScenarioKey, basis: ScenarioBasis | null | undefined, asOf: string | null, notApplicable?: string | null, basisIssue?: string | null): string | null {
   if (!basis) return basisIssue || notApplicable || `缺已公開、可核對的${SCENARIO_BASES[key]}與公告日`;
   if (!Number.isFinite(basis.value) || basis.value <= 0) return `${SCENARIO_BASES[key]}≤0，不適用`;
-  if (!basis.publishedAt || !asOf || !isDate(basis.publishedAt) || !isDate(asOf) || basis.publishedAt > asOf) return '公告日晚於估值日或日期不明';
+  // live 模式的 publishedAt 是「取得時間」：週末/休市時會晚於最近交易日 asOf。此時改以法定申報期限（資料期已公開）核對，不提前使用未公開資料。
+  const liveOk = basis.availability?.mode === 'live' && !!asOf && isDate(basis.availability.deadline) && basis.availability.deadline <= asOf;
+  if (!basis.publishedAt || !asOf || !isDate(basis.publishedAt) || !isDate(asOf) || (basis.publishedAt > asOf && !liveOk)) return '公告日晚於估值日或日期不明';
   if (!basis.period || !basis.source || basis.unit !== 'TWD/share' || !basis.shareBasis) return '缺幣別、期間、來源或股數基準';
   return null;
 }
@@ -144,6 +147,15 @@ export type CustomScenarioInput = {
   date: string;
   assumption: string;
   invalidation: string;
+  /** 前瞻補強（v2 欄位，舊資料缺值時要求補填，不靜默改寫）。 */
+  basisPeriod?: string;
+  basisSource?: string;
+  basisDate?: string;
+  multipleKind?: 'forward' | 'ttm' | null;
+  ownSamples?: string;
+  peerMultiple?: number | null;
+  peerSource?: string;
+  peerAdjustment?: string;
   /** v1 多尺資料只保留供使用者確認，永不自動套用。 */
   legacy?: {
     pe: CustomMultipleInput; pb: CustomMultipleInput; ps: CustomMultipleInput;
@@ -162,6 +174,7 @@ export type CustomScenario = {
 export const EMPTY_CUSTOM: CustomScenarioInput = {
   version: 2, primaryKey: null, expectedBasis: null, multiple: { low: null, high: null },
   stressBasis: null, stressMultiple: null, source: '', date: '', assumption: '', invalidation: '', legacy: null,
+  basisPeriod: '', basisSource: '', basisDate: '', multipleKind: null, ownSamples: '', peerMultiple: null, peerSource: '', peerAdjustment: '',
 };
 
 /**
@@ -188,6 +201,13 @@ export function buildCustomScenario(scenario: ValuationScenario | null, input: C
   if (!(input.stressMultiple != null && Number.isFinite(input.stressMultiple) && input.stressMultiple > 0)) problems.push('請填大於 0 的壓力倍數');
   if (input.expectedBasis != null && input.stressBasis != null && input.stressBasis > input.expectedBasis) problems.push('壓力分母不得高於預期分母');
   if (input.multiple.low != null && input.stressMultiple != null && input.stressMultiple > input.multiple.low) problems.push('壓力倍數不得高於情境倍數下限');
+  if (!PERIOD_RE.test(input.basisPeriod ?? '')) problems.push('請選預期分母期間（年度或未來四季）');
+  if (!(input.basisSource ?? '').trim()) problems.push('缺預期分母來源');
+  if (!isDate(input.basisDate ?? '')) problems.push('分母資料日需為 YYYY-MM-DD');
+  else if ((input.basisDate as string) > today) problems.push('分母資料日不可晚於今天');
+  if (input.multipleKind !== 'forward' && input.multipleKind !== 'ttm') problems.push('請選倍數口徑（同期間前瞻或 TTM）');
+  const mm = periodMismatch(key, input.basisPeriod, input.multipleKind ?? null);
+  if (mm) problems.push(mm);
   if (!input.source.trim()) problems.push('缺倍數依據');
   if (!isDate(input.date)) problems.push('日期需為 YYYY-MM-DD');
   else if (input.date > today) problems.push('日期不可晚於今天');

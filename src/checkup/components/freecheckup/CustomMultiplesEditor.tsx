@@ -6,6 +6,34 @@ import { useEffect, useState } from 'react';
 import { customMultiplesPrefs, EMPTY_CUSTOM, sanitizeCustomInput } from '@/checkup/lib/drawerPrefs';
 import { MY_SCENARIO_LABEL, SCENARIO_BASES, SCENARIO_LABELS, type CustomScenario, type CustomScenarioInput, type ScenarioKey, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 import { Button } from '@/components/ui/button';
+import { buildForwardEvidence, fmtX, periodOptions } from '@/checkup/lib/forwardValuation';
+
+/** 前瞻／近一年／同業三種證據的可比狀態；接在個人單尺試算上（不產生系統合理價）。 */
+export function ForwardEvidencePanel({ WB, scenario, input }: { WB: any; scenario: ValuationScenario | null; input: CustomScenarioInput | null }) {
+  const key = input?.primaryKey;
+  if (!key) return null;
+  const ev = buildForwardEvidence(scenario, key, input);
+  const fb = ev.forwardBasis;
+  return (
+    <div data-testid="forward-evidence" data-key={key} style={{ marginTop: 8, borderLeft: `1px solid ${WB.ink}`, paddingLeft: 10, fontSize: 12, lineHeight: 1.7, color: WB.inkSub, overflowWrap: 'anywhere', minWidth: 0 }}>
+      <div data-testid="forward-evidence-basis" data-status={fb.status}>
+        <strong style={{ color: WB.ink }}>前瞻分母</strong>：{fb.status === 'missing' ? fb.note
+          : <>{fb.period} {SCENARIO_BASES[key]} {twd2(fb.value)} · 來源 {fb.source} · 資料日 {fb.date}{fb.status === 'user' ? '（你填的）' : ''}</>}
+      </div>
+      <div data-testid="forward-evidence-own">
+        <strong style={{ color: WB.ink }}>本身近一年倍數</strong>：
+        {ev.ownForward ? <>同期間前瞻快照 {fmtX(ev.ownForward.low)}–{fmtX(ev.ownForward.high)} 倍（中位 {fmtX(ev.ownForward.median)}，{ev.ownForward.note}）；</> : <>同期間前瞻快照未填；</>}
+        {ev.ownTtm ? <>TTM {fmtX(ev.ownTtm.low)}–{fmtX(ev.ownTtm.high)} 倍（{ev.ownTtm.n} 期，{ev.ownTtm.from}～{ev.ownTtm.to}）只作歷史背景，不乘前瞻分母</> : <>近一年 TTM 歷史期不足</>}
+      </div>
+      <div data-testid="forward-evidence-peer">
+        <strong style={{ color: WB.ink }}>同業</strong>：{ev.systemPeer.text}
+        {ev.userPeer && <span data-testid="forward-evidence-user-peer" data-adjusted={ev.userPeer.adjusted ? '1' : '0'}>；你填的{ev.userPeer.text} · 來源 {ev.userPeer.source}{ev.userPeer.vsUserLow ? ` · ${ev.userPeer.vsUserLow}` : ''}</span>}
+      </div>
+      {ev.mismatch && <div data-testid="forward-evidence-mismatch" style={{ color: WB.ink, fontWeight: 700 }}>期間不一致：{ev.mismatch}</div>}
+      <div data-testid="forward-evidence-probability">{ev.probability}</div>
+    </div>
+  );
+}
 
 export function useCustomMultiples(symbol: string | null | undefined): [CustomScenarioInput | null, (v: CustomScenarioInput | null) => void] {
   // load() 每次回傳新物件，不能直接當 useSyncExternalStore 快照；改用 state + subscribe。
@@ -64,8 +92,11 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today, pri
       </button>
       {custom.status === 'ready' && !open && (
         <div data-testid="custom-multiples-summary" style={{ fontSize: 12, color: WB.inkSub, marginTop: 2, overflowWrap: 'anywhere' }}>
-          {MY_SCENARIO_LABEL} · {custom.key?.toUpperCase()} {custom.low == null ? '—' : twd(custom.low)}–{custom.high == null ? '—' : twd(custom.high)} · 壓力 {custom.stress == null ? '—' : twd(custom.stress)} · 我填的依據 {saved?.source} · {saved?.date}
+          {MY_SCENARIO_LABEL} · {custom.key?.toUpperCase()} {custom.low == null ? '—' : twd(custom.low)}–{custom.high == null ? '—' : twd(custom.high)} · 壓力 {custom.stress == null ? '—' : twd(custom.stress)} · {saved?.basisPeriod} 分母 {saved?.expectedBasis == null ? '—' : twd(saved.expectedBasis)}（{saved?.basisSource}） · 我填的倍數依據 {saved?.source} · {saved?.date}
         </div>
+      )}
+      {custom.status === 'invalid' && saved && !open && (
+        <div data-testid="custom-multiples-incomplete" style={{ fontSize: 12, color: WB.ink, marginTop: 4 }}>已保存的試算仍在此裝置，但尚未套用：{custom.problems.slice(0, 3).join('、')}。</div>
       )}
       {custom.status === 'needsReview' && !open && (
         <div data-testid="custom-multiples-legacy" style={{ fontSize: 12, color: WB.ink, marginTop: 4 }}>舊版多尺輸入已保留；請開啟後選一把主要尺並確認預期分母，才會重新套用。</div>
@@ -75,6 +106,7 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today, pri
           {requirement}
         </div>
       )}
+      <ForwardEvidencePanel WB={WB} scenario={scenario} input={open ? draft : saved} />
       {open && (
         <div data-testid="custom-multiples-form" style={{ marginTop: 6, fontSize: 12, color: WB.inkSub, lineHeight: 1.6, minWidth: 0 }}>
           {draft.legacy && <div data-testid="custom-multiples-legacy-detail" style={{ borderLeft: `2px solid ${WB.accent}`, paddingLeft: 8, marginBottom: 10, color: WB.ink }}>舊版內容仍保存在此裝置，未套用。重新儲存後才會改成單尺情境。</div>}
@@ -96,6 +128,32 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today, pri
             <label>倍數下限<input aria-label="倍數下限" inputMode="decimal" value={draft.multiple.low ?? ''} onChange={(e) => setMultiple('low', e.target.value)} style={field} /></label>
             <label>倍數上限<input aria-label="倍數上限" inputMode="decimal" value={draft.multiple.high ?? ''} onChange={(e) => setMultiple('high', e.target.value)} style={field} /></label>
           </div>
+          <div className="custom-scenario-grid">
+            <label>分母期間<select aria-label="預期分母期間" value={draft.basisPeriod ?? ''} onChange={(e) => setDraft({ ...draft, basisPeriod: e.target.value })} style={field}>
+              <option value="">請選</option>
+              {periodOptions(today, draft.primaryKey).map((p) => <option key={p} value={p}>{p}</option>)}
+            </select></label>
+            <label>倍數口徑<select aria-label="倍數口徑" value={draft.multipleKind ?? ''} onChange={(e) => setDraft({ ...draft, multipleKind: (e.target.value || null) as any })} style={field}>
+              <option value="">請選</option><option value="forward">同期間前瞻</option><option value="ttm">TTM（已公布）</option>
+            </select></label>
+            <label>分母資料日<input aria-label="分母資料日" value={draft.basisDate ?? ''} maxLength={10} placeholder={today} onChange={(e) => setDraft({ ...draft, basisDate: e.target.value })} style={field} /></label>
+          </div>
+          <label style={{ display: 'block', marginBottom: 6 }}>預期分母來源（具名，例如共識機構與日期；已含在共識的成長不要再疊加，單季不要直接乘四）
+            <input aria-label="預期分母來源" value={draft.basisSource ?? ''} maxLength={200} onChange={(e) => setDraft({ ...draft, basisSource: e.target.value })} style={field} />
+          </label>
+          <details data-testid="custom-forward-optional" style={{ marginBottom: 6 }}>
+            <summary style={{ cursor: 'pointer', color: WB.ink }}>同業與近一年同口徑倍數（選填）</summary>
+            <label style={{ display: 'block', margin: '6px 0' }}>本身近一年同口徑倍數（逗號分隔）
+              <input aria-label="本身近一年倍數" value={draft.ownSamples ?? ''} maxLength={200} onChange={(e) => setDraft({ ...draft, ownSamples: e.target.value })} style={field} />
+            </label>
+            <div className="custom-scenario-grid custom-scenario-grid--stress">
+              <label>同業同期間倍數<input aria-label="同業同期間倍數" inputMode="decimal" value={draft.peerMultiple ?? ''} onChange={(e) => setDraft({ ...draft, peerMultiple: e.target.value === '' ? null : Number(e.target.value) })} style={field} /></label>
+              <label>同業來源<input aria-label="同業來源" value={draft.peerSource ?? ''} maxLength={200} onChange={(e) => setDraft({ ...draft, peerSource: e.target.value })} style={field} /></label>
+            </div>
+            <label style={{ display: 'block', marginBottom: 6 }}>折溢價理由（成長／產品／客戶／風險；未填只列未調整參照）
+              <input aria-label="折溢價理由" value={draft.peerAdjustment ?? ''} maxLength={400} onChange={(e) => setDraft({ ...draft, peerAdjustment: e.target.value })} style={field} />
+            </label>
+          </details>
           <div style={{ color: WB.ink, fontWeight: 700, margin: '10px 0 4px' }}>壓力測試</div>
           <div className="custom-scenario-grid custom-scenario-grid--stress">
             <label>較低分母<input aria-label="壓力分母" inputMode="decimal" value={draft.stressBasis ?? ''} onChange={(e) => setNumber('stressBasis', e.target.value)} style={field} /></label>

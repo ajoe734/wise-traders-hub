@@ -21,6 +21,7 @@ import {
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
 import { buildValuationScenario, historyReferenceBands, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
+import { nearYearTtm, fmtX } from '@/checkup/lib/forwardValuation';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
 
@@ -315,6 +316,11 @@ export function ValuationRulersView({
         <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: WB.ink }}>選尺與現價要求</div>
         <div data-testid="valuation-selection-conclusion" style={{ fontSize: 13, color: WB.ink, fontWeight: 700, marginTop: 3 }}>尚不能判定合理價；先看每把尺要求市場相信什麼。</div>
         <div style={{ fontSize: 11, color: WB.inkSub, lineHeight: 1.65, marginTop: 4 }}>不依粗產業自動指定主要尺：PE 看獲利品質與持續性；PB 看資產品質與 ROE；PS 看利潤率與何時能獲利。</div>
+        <div data-testid="valuation-forward-gap" style={{ fontSize: 12, color: WB.ink, lineHeight: 1.65, marginTop: 6 }}>
+          {scenario.rows.some((r) => r.basis?.kind === 'forecast')
+            ? '已有前瞻分母：只與同期間前瞻倍數相乘。'
+            : '目前只有已公布分母：下方是歷史位置與現價要求；前瞻獲利與同業同期間倍數尚缺，需在「我的情境試算」自填具名來源後才算條件情境價。'}
+        </div>
         <div className="valuation-requirements-list">
           {scenario.rows.map((row) => {
             const implied = impliedMultiple(currentPrice, row);
@@ -331,6 +337,7 @@ export function ValuationRulersView({
                   <strong data-testid={`valuation-implied-${row.key}`}>現價隱含 {num(implied)} 倍</strong>
                   <span>＝現價 {twd2(Number(currentPrice))} ÷ {SCENARIO_BASES[row.key]} {twd2(Number(row.basis.value.toFixed(2)))}</span>
                   <span>{low != null && high != null ? `同口徑歷史參考 ${num(low)}–${num(high)} 倍 · ${evidence?.sampleSize ?? 0} 個獨立期` : '歷史相近景氣期證據不足'}</span>
+                  {(() => { const ny = nearYearTtm(row, scenario.asOf); return <span data-testid={`valuation-near-year-${row.key}`}>{ny ? `近一年 TTM ${fmtX(ny.low)}–${fmtX(ny.high)} 倍（${ny.n} 期，${ny.from}～${ny.to}）· 歷史背景，不乘前瞻分母` : '近一年 TTM 歷史期不足'}</span>; })()}
                   <span>{peerText}</span>
                   <span data-testid={`valuation-expectation-gap-${row.key}`}>{expectationGap(implied, low, high)}</span>
                 </> : <strong>{row.reason || '缺可核實分母'}</strong>}
