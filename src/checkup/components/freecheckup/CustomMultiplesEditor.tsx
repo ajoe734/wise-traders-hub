@@ -95,6 +95,9 @@ export function CustomMultiplesEditor({ WB, symbol, scenario, custom, today, pri
           {MY_SCENARIO_LABEL} · {custom.key?.toUpperCase()} {custom.low == null ? '—' : twd(custom.low)}–{custom.high == null ? '—' : twd(custom.high)} · 壓力 {custom.stress == null ? '—' : twd(custom.stress)} · {saved?.basisPeriod} 分母 {saved?.expectedBasis == null ? '—' : twd(saved.expectedBasis)}（{saved?.basisSource}） · 我填的倍數依據 {saved?.source} · {saved?.date}
         </div>
       )}
+      {custom.status === 'invalid' && saved && !open && (
+        <div data-testid="custom-multiples-incomplete" style={{ fontSize: 12, color: WB.ink, marginTop: 4 }}>已保存的試算仍在此裝置，但尚未套用：{custom.problems.slice(0, 3).join('、')}。</div>
+      )}
       {custom.status === 'needsReview' && !open && (
         <div data-testid="custom-multiples-legacy" style={{ fontSize: 12, color: WB.ink, marginTop: 4 }}>舊版多尺輸入已保留；請開啟後選一把主要尺並確認預期分母，才會重新套用。</div>
       )}
