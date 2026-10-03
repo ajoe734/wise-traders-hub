@@ -109,7 +109,39 @@ describe('財報取得時間 vs 行情日（法定期限不代替實際公告日
     expect(ok({ ...basis(1), publishedAt: '2026-08-14', availability: { mode: 'asOf' as const, dataPeriod: '2026Q2', deadline: '2026-08-14', note: '' } }).basisOk).toBe(true);
   });
   it('日期標示：取得日與行情日分開並明示未核', () => {
-    expect(basisDateLabel(live('2026-10-03T12:00:00Z') as any, '2026-10-02')).toBe('財報取得日 2026/10/03 · 行情日 2026/10/02 · 實際公告日未核，非歷史時點還原');
+    expect(basisDateLabel(live('2026-10-03T12:00:00Z') as any, '2026-10-02')).toBe('財報取得日 2026/10/03（台灣時間） · 行情日 2026/10/02 · 實際公告日未核，非歷史時點還原');
     expect(basisDateLabel({ ...basis(1) } as any, '2026-10-02')).toBeNull();
+  });
+});
+
+describe('3661 歷史 PE 缺口不否決明示前瞻分母', () => {
+  const s3661 = buildValuationScenario('2026-10-02', [
+    { key: 'pe', notApplicable: '四季加權股數變動 1.13% > 0.5%，近四季 EPS 非同一股數口徑' },
+    { key: 'pb', notApplicable: '官方名錄逾時，特別股未核實' },
+    { key: 'ps', basis: basis(268.24), multipleIssue: '同業 0 家' },
+  ]);
+  it('歷史三尺仍標原缺口', () => {
+    expect(s3661.rows[0].basisOk).toBe(false);
+    expect(s3661.rows[0].reason).toMatch(/1\.13%/);
+  });
+  it('正：具名 FY2027 EPS＋來源／日期＋同期間前瞻倍數 → 可算 3733.80–4667.25', () => {
+    const c = buildCustomScenario(s3661, input(), '2026-10-04');
+    expect(c.status).toBe('ready');
+    expect(c.low).toBeCloseTo(3733.8, 2); expect(c.high).toBeCloseTo(4667.25, 2);
+  });
+  it('反：缺分母來源 → 不偽裝前瞻完整', () => {
+    const c = buildCustomScenario(s3661, input({ basisSource: '' }), '2026-10-04');
+    expect(c.status).toBe('invalid'); expect(c.problems).toContain('缺預期分母來源');
+  });
+  it('反：TTM 期間分母仍需歷史分母可用 → 擋下並帶原缺口', () => {
+    const c = buildCustomScenario(s3661, input({ basisPeriod: 'TTM', multipleKind: 'ttm' }), '2026-10-04');
+    expect(c.status).toBe('invalid'); expect(c.problems.join()).toMatch(/1\.13%/);
+  });
+});
+
+describe('取得日依台灣時區', () => {
+  it('UTC 2026-10-03T20:17Z → 2026/10/04（台灣時間）', () => {
+    const b = { ...basis(1), availability: { mode: 'live' as const, dataPeriod: '2026Q2', deadline: '2026-08-14', fetchedAt: '2026-10-03T20:17:00Z', note: '' } };
+    expect(basisDateLabel(b as any, '2026-10-02')).toBe('財報取得日 2026/10/04（台灣時間） · 行情日 2026/10/02 · 實際公告日未核，非歷史時點還原');
   });
 });
