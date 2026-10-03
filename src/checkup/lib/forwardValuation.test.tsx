@@ -3,7 +3,7 @@
 // ToAlpha FY2027：聯發科 35.03 倍、創意 71.03 倍（批次日期未核）；前瞻快照 18.9565/21.0554/27.6305 為近一年六次 FY2027 快照之部分值。
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { buildCustomScenario, buildValuationScenario, EMPTY_CUSTOM, type CustomScenarioInput } from './valuationScenario';
+import { buildCustomScenario, buildValuationScenario, basisDateLabel, EMPTY_CUSTOM, type CustomScenarioInput } from './valuationScenario';
 import { buildForwardEvidence, nearYearTtm, periodMismatch, PROBABILITY_UNKNOWN } from './forwardValuation';
 import { currentPriceRequirement, ForwardEvidencePanel } from '@/checkup/components/freecheckup/CustomMultiplesEditor';
 import { sanitizeCustomInput } from './drawerPrefs';
@@ -84,15 +84,32 @@ describe('前瞻／同業／近一年證據', () => {
   });
 });
 
-describe('週末取得時間晚於最近交易日', () => {
-  const live = (deadline: string) => ({ ...basis(60.69), publishedAt: '2026-10-03', availability: { mode: 'live' as const, dataPeriod: '2026Q2', deadline, fetchedAt: '2026-10-03', note: '資料期＋取得時間' } });
-  it('live 且法定期限已過 → 分母可用', () => {
-    expect(buildValuationScenario('2026-10-02', [{ key: 'pe', basis: live('2026-08-14') }]).rows[0].basisOk).toBe(true);
+describe('財報取得時間 vs 行情日（法定期限不代替實際公告日）', () => {
+  const NOW = Date.parse('2026-10-04T04:00:00+08:00');
+  const live = (fetchedAt: string | undefined, deadline = '2026-08-14') => ({ ...basis(60.69), publishedAt: '2026-10-03', availability: { mode: 'live' as const, dataPeriod: '2026Q2', deadline, fetchedAt, note: '資料期＋取得時間' } });
+  const ok = (b: any, asOf = '2026-10-02') => buildValuationScenario(asOf, [{ key: 'pe', basis: b }], NOW).rows[0];
+  it('live 取得時間合法且不晚於分析時間 → 可用（即使晚於行情日）', () => {
+    expect(ok(live('2026-10-03T12:00:00Z')).basisOk).toBe(true);
   });
-  it('live 但法定期限晚於估值日 → 仍拒絕', () => {
-    expect(buildValuationScenario('2026-10-02', [{ key: 'pe', basis: live('2026-11-14') }]).rows[0].basisOk).toBe(false);
+  it('live 不再看法定期限：期限已過但無取得時間 → 拒絕', () => {
+    const r = ok(live(undefined));
+    expect(r.basisOk).toBe(false);
+    expect(r.reason).toBe('財報取得時間不明');
   });
-  it('非 live 的公告日晚於估值日 → 拒絕', () => {
-    expect(buildValuationScenario('2026-10-02', [{ key: 'pe', basis: { ...basis(1), publishedAt: '2026-10-03' } }]).rows[0].basisOk).toBe(false);
+  it('live 取得時間非法 → 拒絕', () => { expect(ok(live('not-a-date')).basisOk).toBe(false); });
+  it('live 取得時間晚於本次分析時間 → 拒絕', () => {
+    expect(ok(live('2026-10-05T00:00:00Z')).reason).toBe('財報取得時間晚於本次分析時間');
+  });
+  it('有實際公告日且 ≤ 行情日 → 可用；晚於行情日 → 拒絕（live 亦同）', () => {
+    expect(ok({ ...live('2026-10-03T00:00:00Z'), announcedAt: '2026-08-10' }).basisOk).toBe(true);
+    expect(ok({ ...live('2026-10-03T00:00:00Z'), announcedAt: '2026-10-03' }).reason).toBe('實際公告日晚於行情日或日期不明');
+  });
+  it('asOf／歷史模式公告日晚於行情日 → 拒絕；早於 → 可用', () => {
+    expect(ok({ ...basis(1), publishedAt: '2026-10-03' }).basisOk).toBe(false);
+    expect(ok({ ...basis(1), publishedAt: '2026-08-14', availability: { mode: 'asOf' as const, dataPeriod: '2026Q2', deadline: '2026-08-14', note: '' } }).basisOk).toBe(true);
+  });
+  it('日期標示：取得日與行情日分開並明示未核', () => {
+    expect(basisDateLabel(live('2026-10-03T12:00:00Z') as any, '2026-10-02')).toBe('財報取得日 2026/10/03 · 行情日 2026/10/02 · 實際公告日未核，非歷史時點還原');
+    expect(basisDateLabel({ ...basis(1) } as any, '2026-10-02')).toBeNull();
   });
 });

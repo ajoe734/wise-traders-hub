@@ -20,7 +20,7 @@ import {
   type TrendSeries,
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
-import { buildValuationScenario, historyReferenceBands, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
+import { buildValuationScenario, basisDateLabel, historyReferenceBands, multiplesLabel, SCENARIO_BASES, SCENARIO_LABELS, type ValuationScenario, type ScenarioRow } from '@/checkup/lib/valuationScenario';
 import { nearYearTtm, fmtX } from '@/checkup/lib/forwardValuation';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
@@ -61,7 +61,7 @@ export function basisVerificationText(band: Pick<ValuationScenario, 'basisCount'
 }
 
 /** 僅已公告、股數口徑相同的獨立分母與有理由的倍數才產生情境價。 */
-function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
+function BasisRow({ WB, row, asOf }: { WB: any; row: ScenarioRow; asOf: string | null }) {
   const { key, basis, multiples } = row;
   const reference = row.basisOk && basis && row.reference
     ? { low: basis.value * row.reference.low, high: basis.value * row.reference.high, ...row.reference }
@@ -85,6 +85,7 @@ function BasisRow({ WB, row }: { WB: any; row: ScenarioRow }) {
             : <>倍數信心：依據不足——{row.reason}</>}
         </div>
       )}
+      {basis && basisDateLabel(basis, asOf) && <div data-testid={`valuation-basis-dates-${key}`} style={{ color: WB.ink }}>{basisDateLabel(basis, asOf)}</div>}
       {basis?.derivation && <div data-testid={`valuation-basis-derivation-${key}`}>算式：{basis.derivation}</div>}
       {basis && <div data-testid={`valuation-basis-availability-${key}`}>分母：{basis.source} · {basis.period} · {basis.availability?.note ?? `法定申報期限 ${basis.publishedAt}（非實際公告日）`} · {basis.unit} · 股數基準 {basis.shareBasis}</div>}
       {multiples && <div data-testid={`valuation-multiples-${key}`} data-method={multiples.method ?? 'history'}><strong style={{ color: WB.ink }}>{multiplesLabel(multiples)}</strong>：{multiples.reason} · {multiples.source} · {multiples.period} · 樣本 {multiples.sampleSize} · 同業 {multiples.peerComparability} · 景氣 {multiples.cycle} · 成長 {multiples.growth} · 獲利 {multiples.earningsStability} · 現金 {multiples.cash} · 負債 {multiples.debt}</div>}
@@ -363,7 +364,7 @@ export function ValuationRulersView({
       </div>
 
        {scenario.rows.map((row) => (
-         <BasisRow key={row.key} WB={WB} row={row} />
+         <BasisRow key={row.key} WB={WB} row={row} asOf={scenario.asOf} />
       ))}
 
        {references.length > 0 && (
