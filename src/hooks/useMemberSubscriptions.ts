@@ -38,11 +38,20 @@ export function useMemberSubscriptions() {
       const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('member_subscriptions')
-        .select('*, expert_plans(*, experts(id, slug, name, avatar_url, role, status, line_oa_id, line_channel_name, qr_code_url))')
+        .select('*, expert_plans(*, experts(id, slug, name, avatar_url, role, status))')
         .eq('user_id', effectiveUserId)
         .eq('status', 'active')
         .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
       if (error) throw error;
+      const expertIds = Array.from(new Set((data || []).map((s: any) => s.expert_plans?.experts?.id).filter(Boolean)));
+      const channelMap = new Map<string, any>();
+      if (expertIds.length) {
+        const { data: chs } = await supabase
+          .from('expert_line_channels' as any)
+          .select('expert_id, line_oa_id, qr_code_url, channel_name')
+          .in('expert_id', expertIds);
+        for (const c of (chs as any[]) || []) channelMap.set(c.expert_id, c);
+      }
       const rows = (data || [])
         .map((s: any) => {
           const ep = s.expert_plans;
@@ -59,9 +68,9 @@ export function useMemberSubscriptions() {
               avatar_url: e.avatar_url ?? null,
               role: e.role,
               status: e.status || 'active',
-              line_oa_id: e.line_oa_id ?? null,
-              line_channel_name: e.line_channel_name ?? null,
-              qr_code_url: e.qr_code_url ?? null,
+              line_oa_id: channelMap.get(e.id)?.line_oa_id ?? null,
+              line_channel_name: channelMap.get(e.id)?.channel_name ?? null,
+              qr_code_url: channelMap.get(e.id)?.qr_code_url ?? null,
             },
             raw: s,
           } as MemberSubscriptionRow;
