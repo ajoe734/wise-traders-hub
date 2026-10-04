@@ -107,9 +107,10 @@ describe('filterExpertRows（狀態過濾邏輯）', () => {
     expect(result[0].id).toBe('e2');
   });
 
-  it('tester mode：active 專家 → 過濾移除（tester 僅預覽 draft）', () => {
+  it('tester mode：active 專家 → 保留（tester 看正式 + draft）', () => {
     const result = filterExpertRows([activeExpert], 'tester');
-    expect(result).toHaveLength(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('e1');
   });
 
   it('tester mode：suspended 專家 → 過濾移除（3.7-3）', () => {
