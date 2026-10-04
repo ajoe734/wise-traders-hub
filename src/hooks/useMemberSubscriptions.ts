@@ -68,9 +68,9 @@ export function useMemberSubscriptions() {
               avatar_url: e.avatar_url ?? null,
               role: e.role,
               status: e.status || 'active',
-              line_oa_id: e.line_oa_id ?? null,
-              line_channel_name: e.line_channel_name ?? null,
-              qr_code_url: e.qr_code_url ?? null,
+              line_oa_id: channelMap.get(e.id)?.line_oa_id ?? null,
+              line_channel_name: channelMap.get(e.id)?.channel_name ?? null,
+              qr_code_url: channelMap.get(e.id)?.qr_code_url ?? null,
             },
             raw: s,
           } as MemberSubscriptionRow;
