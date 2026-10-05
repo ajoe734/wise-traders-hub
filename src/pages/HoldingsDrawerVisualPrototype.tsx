@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { PriceSpectrum } from '@/checkup/components/freecheckup/PriceSpectrum';
 import { RangeBand } from '@/checkup/components/freecheckup/HoldingsDetailPanel';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
@@ -43,27 +44,14 @@ const INSTITUTIONAL = [
   { name: '自營商', values: [5, -49, -199, -1239] },
 ];
 
-function ValuationEvidence({ dense }: { dense: boolean }) {
-  return (
-    <section className="hdvp-section hdvp-valuation" aria-label="估值三把尺">
-      <header className="hdvp-section-heading">
-        <div><span>估值三把尺</span><small>各自成立，不取交集</small></div>
-        <time>資料日 2026/10/05</time>
-      </header>
-      {(['PE 本益比', 'PB 股淨比', 'PS 股銷比'] as const).map((label, index) => (
-        <div className="hdvp-ruler" key={label} style={{ '--delay': `${index * 90}ms` } as React.CSSProperties}>
-          <div className="hdvp-ruler-label"><strong>{label}</strong><span>無法估算</span></div>
-          <div className="hdvp-ruler-track" aria-hidden="true"><i /></div>
-          <div className="hdvp-ruler-copy">
-            <span>缺可核實分母</span>
-            {dense && <span>來源／期間／樣本數尚未通過檢查</span>}
-          </div>
-        </div>
-      ))}
-      <div className="hdvp-yield"><span>現金殖利率</span><span>僅列輔助 · 資料不足</span></div>
-    </section>
-  );
-}
+type ScaleMode = 'target' | 'pe' | 'pb' | 'ps';
+
+const SCALE_MODES: Array<{ key: ScaleMode; label: string }> = [
+  { key: 'target', label: '目標價' },
+  { key: 'pe', label: 'PE' },
+  { key: 'pb', label: 'PB' },
+  { key: 'ps', label: 'PS' },
+];
 
 function InstitutionalFlow({ bars }: { bars: boolean }) {
   const max = 3718;
@@ -104,13 +92,29 @@ function InstitutionalFlow({ bars }: { bars: boolean }) {
 }
 
 function PriceSection() {
+  const [mode, setMode] = useState<ScaleMode>('target');
+  const hasEstimate = mode === 'target';
   return (
-    <section className="hdvp-section hdvp-price" aria-label="單一等比例價格軸">
+    <section className="hdvp-section hdvp-price" aria-label="目標價與估值三尺共用價格軸">
       <header className="hdvp-section-heading">
-        <div><span>價格位置</span><small>新台幣 · 單一等比例軸</small></div>
+        <div><span>價格與估值</span><small>新台幣 · 單一等比例軸</small></div>
         <time>LIVE · 2026/10/05</time>
       </header>
-      <PriceSpectrum WB={WB} price={PRICE} cost={COST} target={TARGET} />
+      <div className="hdvp-scale-switch" role="group" aria-label="切換估值尺">
+        {SCALE_MODES.map((item) => (
+          <Button key={item.key} type="button" variant="ghost" size="sm"
+            aria-pressed={mode === item.key} onClick={() => setMode(item.key)}>
+            {item.label}
+          </Button>
+        ))}
+      </div>
+      <div key={mode} className="hdvp-spectrum-transition" data-testid={`unified-spectrum-${mode}`}>
+        <PriceSpectrum WB={WB} price={PRICE} cost={COST} target={hasEstimate ? TARGET : null} />
+        <div className="hdvp-scale-status" aria-live="polite">
+          {hasEstimate ? <><strong>目標價 NT$3,429</strong><span>沿用持倉設定</span></> : <><strong>{mode.toUpperCase()} 無法估算</strong><span>缺可核實分母與同期間倍數，價格軸不畫假區間</span></>}
+        </div>
+      </div>
+      <div className="hdvp-yield"><span>現金殖利率</span><span>僅列輔助 · 資料不足</span></div>
     </section>
   );
 }
@@ -127,7 +131,6 @@ function MarketChart() {
 
 function Drawer({ direction }: { direction: Direction }) {
   const research = direction === 'research';
-  const priceFirst = direction === 'price';
   return (
     <article className={`hdvp-drawer hdvp-${direction}`} data-testid="drawer-visual-prototype" data-direction={direction}>
       <header className="hdvp-toolbar"><span>持倉判讀</span><span>{DIRECTIONS.find((item) => item.key === direction)?.label}</span></header>
@@ -137,7 +140,8 @@ function Drawer({ direction }: { direction: Direction }) {
           <div className="hdvp-return"><strong>+64.78%</strong><span>+4,988</span></div>
         </section>
         <section className="hdvp-decision"><span>目前觀察</span><strong>續抱，等待量價確認</strong><small>關注程度 · 中</small></section>
-        {research ? <><MarketChart /><ValuationEvidence dense /><PriceSection /></> : priceFirst ? <><PriceSection /><MarketChart /><ValuationEvidence dense={false} /></> : <><PriceSection /><MarketChart /><ValuationEvidence dense={false} /></>}
+        <PriceSection />
+        <MarketChart />
         <InstitutionalFlow bars={!research} />
         <footer className="hdvp-source">固定原型資料 · 僅比較構圖與動畫語法 · 不改金融計算</footer>
       </main>

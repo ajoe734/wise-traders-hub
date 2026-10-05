@@ -53,15 +53,13 @@
 .hdvp-price .price-spectrum-direct-label strong { font-weight: 500; }
 .hdvp-price .price-spectrum-direct-label--price span, .hdvp-price .price-spectrum-direct-label--price strong { font-weight: 500; }
 .hdvp-price .price-spectrum-scenario-prompt { color: var(--ink-mute); }
-.hdvp-ruler { padding: 11px 0; border-top: 1px solid var(--hair); }
-.hdvp-ruler-label { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.hdvp-ruler-label strong { font-size: 12px; font-weight: 500; }
-.hdvp-ruler-label span { font-size: 11px; color: var(--ink-sub); }
-.hdvp-ruler-track { position: relative; height: 15px; margin: 7px 0 4px; }
-.hdvp-ruler-track::before { content: ''; position: absolute; left: 0; right: 0; top: 7px; height: 1px; background: var(--hair-strong); }
-.hdvp-ruler-track::after { content: ''; position: absolute; left: 0; top: 4px; width: 1px; height: 7px; background: var(--ink-sub); box-shadow: 50px 0 0 var(--hair-strong), 100px 0 0 var(--hair-strong), 150px 0 0 var(--hair-strong), 200px 0 0 var(--hair-strong), 250px 0 0 var(--hair-strong), 300px 0 0 var(--hair-strong), 352px 0 0 var(--ink-sub); }
-.hdvp-ruler-track i { position: absolute; left: 0; top: 7px; width: 46%; height: 1px; background: var(--ink); transform-origin: left; animation: hdvp-rule-in 640ms cubic-bezier(.22, 1, .36, 1) var(--delay) both; }
-.hdvp-ruler-copy { display: flex; justify-content: space-between; gap: 8px; color: var(--ink-mute); font-size: 10px; }
+.hdvp-scale-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 8px; border-bottom: 1px solid var(--hair-strong); }
+.hdvp-scale-switch button { min-width: 0; height: 32px; padding: 0 4px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--ink-mute); background: transparent; font-size: 11px; font-weight: 400; }
+.hdvp-scale-switch button[aria-pressed='true'] { color: var(--ink); border-bottom-color: var(--accent); background: transparent; }
+.hdvp-spectrum-transition { animation: hdvp-spectrum-switch 440ms cubic-bezier(.22, 1, .36, 1) both; }
+.hdvp-scale-status { min-height: 38px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-top: 1px solid var(--hair); }
+.hdvp-scale-status strong { color: var(--ink); font-size: 11px; font-weight: 500; }
+.hdvp-scale-status span { color: var(--ink-mute); font-size: 10px; text-align: right; }
 .hdvp-yield { display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--hair); color: var(--ink-mute); font-size: 11px; }
 .hdvp-flow-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; font-variant-numeric: tabular-nums; }
 .hdvp-flow-table th, .hdvp-flow-table td { padding: 7px 3px; border-bottom: 1px solid var(--hair); text-align: right; font-weight: 400; }
@@ -87,7 +85,7 @@
 @keyframes hdvp-chart-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 @keyframes hdvp-bar-in { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
 @keyframes hdvp-dot-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.2); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-@keyframes hdvp-rule-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes hdvp-spectrum-switch { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 @keyframes hdvp-flow-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @media (max-width: 560px) {
   .hdvp-page { padding: 12px 0 48px; }
