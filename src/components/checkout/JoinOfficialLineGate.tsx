@@ -73,7 +73,7 @@ export function JoinOfficialLineGate() {
         <div className="space-y-2">
           <Button
             asChild
-            className="w-full bg-[#06C755] hover:bg-[#06C755]/90 text-white"
+            className="w-full bg-[#06C755] hover:bg-[#06C755]/90 text-primary-foreground"
             onClick={() => trackEvent('line_gate_join_click' as any, {} as any)}
           >
             <a href={OFFICIAL_LINE.addUrl} target="_blank" rel="noopener noreferrer">加入官方 LINE 好友</a>

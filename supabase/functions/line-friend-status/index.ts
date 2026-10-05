@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   if (error || !u.user) return json({ error: 'unauthorized' }, 401);
 
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const { data: prof } = await admin.from('profiles').select('line_user_id').eq('id', u.user.id).maybeSingle();
+  const { data: prof } = await admin.from('profiles').select('line_user_id').eq('user_id', u.user.id).maybeSingle();
   const lineUserId = (prof as any)?.line_user_id;
   const token = Deno.env.get('PLATFORM_LINE_CHANNEL_TOKEN');
   if (!lineUserId || !token) return json({ isFriend: false, reason: !lineUserId ? 'no_line' : 'no_token' });
