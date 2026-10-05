@@ -231,6 +231,70 @@ describe('fetchSubscriberSignals（依訂閱狀態查詢 expert_signals）', () 
   });
 });
 
+describe('fetchSubscriberSignals — tester（管理員測試帳號）分支', () => {
+  it('tester 無訂閱 → 跳過訂閱查詢，直接列出所有 active 老師的已發布訊號', async () => {
+    const expertsMock = createQueryMock({
+      data: [{ id: 'expert-a' }, { id: 'expert-b' }],
+      error: null,
+    });
+    const signalsMock = createQueryMock({
+      data: [
+        { id: 'sig-1', instrument: '2330', action: 'buy', expert_id: 'expert-a' },
+        { id: 'sig-2', instrument: 'AAPL', action: 'buy', expert_id: 'expert-b' },
+      ],
+      error: null,
+    });
+    const supabase = {
+      from: vi.fn()
+        .mockReturnValueOnce(expertsMock)
+        .mockReturnValueOnce(signalsMock),
+    };
+
+    const result = await fetchSubscriberSignals(supabase as any, 'user-tester', true);
+
+    expect(result.hasSubscription).toBe(true);
+    expect(result.signals).toHaveLength(2);
+    // 不查 member_subscriptions：第一張表就是 experts
+    expect(supabase.from).toHaveBeenCalledTimes(2);
+    expect(supabase.from).toHaveBeenNthCalledWith(1, 'experts');
+    expect(supabase.from).toHaveBeenNthCalledWith(2, 'expert_signals');
+    expect(signalsMock.in).toHaveBeenCalledWith('expert_id', ['expert-a', 'expert-b']);
+  });
+
+  it('tester 但 experts 查詢失敗 → hasSubscription=false，不查 expert_signals', async () => {
+    const expertsMock = createQueryMock({ data: null, error: { message: 'experts error' } });
+    const supabase = { from: vi.fn().mockReturnValue(expertsMock) };
+
+    const result = await fetchSubscriberSignals(supabase as any, 'user-tester', true);
+
+    expect(result.signals).toEqual([]);
+    expect(result.hasSubscription).toBe(false);
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it('tester 但沒有任何 active 老師 → hasSubscription=true，signals=[]', async () => {
+    const expertsMock = createQueryMock({ data: [], error: null });
+    const supabase = { from: vi.fn().mockReturnValue(expertsMock) };
+
+    const result = await fetchSubscriberSignals(supabase as any, 'user-tester', true);
+
+    expect(result.hasSubscription).toBe(true);
+    expect(result.signals).toEqual([]);
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it('非 tester 行為不變：無訂閱 → hasSubscription=false', async () => {
+    const memberSubsMock = createQueryMock({ data: [], error: null });
+    const supabase = { from: vi.fn().mockReturnValue(memberSubsMock) };
+
+    const result = await fetchSubscriberSignals(supabase as any, 'user-normal', false);
+
+    expect(result.hasSubscription).toBe(false);
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+    expect(supabase.from).toHaveBeenCalledWith('member_subscriptions');
+  });
+});
+
 // ── drift-detection ───────────────────────────────────────────────────────────
 
 describe('drift-detection: has_active_subscription_after T+7 邏輯存在於 migration SQL', () => {
