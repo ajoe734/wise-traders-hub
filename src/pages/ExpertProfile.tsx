@@ -445,8 +445,8 @@ const ExpertProfile = () => {
                         <span className="text-muted-foreground">/ 月</span>
                       </div>
                       {plan.priceYearly && (
-                        <p className="text-xs text-muted-foreground line-through opacity-60">
-                          年繳 NT$ {formatPrice(plan.priceYearly)}（省 {Math.round((1 - plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%）── 尚未開放
+                        <p className="text-xs text-muted-foreground">
+                          年繳 NT$ {formatPrice(plan.priceYearly)}（省 {Math.round((1 - plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%）
                         </p>
                       )}
                       <div className={cn("flex items-start gap-2 p-3 rounded-lg text-sm", isFollowerType ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor")}>
