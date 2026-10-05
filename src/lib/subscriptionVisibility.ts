@@ -55,6 +55,33 @@ export async function fetchSubscriberSignals(
   if (!userId) return { signals: [], hasSubscription: false };
   const nowIso = new Date().toISOString();
 
+  // tester（管理員測試帳號）：跳過訂閱門檻，直接列出所有 active 老師的已發布訊號。
+  // view-as 時 isTester 已在上層強制為 false，不會走到這裡。
+  if (isTester) {
+    const { data: activeExperts, error: expertsError } = await supabase
+      .from('experts')
+      .select('id')
+      .eq('status', 'active');
+
+    if (expertsError) return { signals: [], hasSubscription: false };
+
+    const allExpertIds = (activeExperts || []).map((e: any) => e.id);
+    if (allExpertIds.length === 0) return { signals: [], hasSubscription: true };
+
+    const { data, error } = await supabase
+      .from('expert_signals')
+      .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url, asset_class, currency)')
+      .eq('status', 'published')
+      .in('expert_id', allExpertIds)
+      .order('published_at', { ascending: false })
+      .limit(50);
+
+    return {
+      signals: gateSignalEconomics(!error && data ? (data as Record<string, unknown>[]) : [], projection),
+      hasSubscription: true,
+    };
+  }
+
   const { data: activeSubs, error: subsError } = await supabase
     .from('member_subscriptions')
     .select('plan_id, expert_plans(expert_id)')
