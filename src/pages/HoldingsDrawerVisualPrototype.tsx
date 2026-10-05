@@ -29,9 +29,9 @@ function makeOhlc() {
 }
 
 const INSTITUTIONAL = [
-  { name: '外資', values: [-84, 88, -980, -3481] },
-  { name: '投信', values: [19, 79, 107, 3718] },
-  { name: '自營商', values: [5, -49, -199, -1239] },
+  { name: '外資', tone: 'foreign', values: [-84, 88, -980, -3481] },
+  { name: '投信', tone: 'trust', values: [19, 79, 107, 3718] },
+  { name: '自營商', tone: 'dealer', values: [5, -49, -199, -1239] },
 ];
 
 type ScaleMode = 'target' | 'pe' | 'pb' | 'ps';
@@ -102,8 +102,8 @@ function InstitutionalFlow({ bars }: { bars: boolean }) {
       {bars ? (
         <div className="hdvp-flow-bars">
           {INSTITUTIONAL.map((row, rowIndex) => (
-            <div className="hdvp-flow-row" key={row.name}>
-              <strong>{row.name}</strong>
+            <div className={`hdvp-flow-row is-${row.tone}`} key={row.name}>
+              <strong><i aria-hidden="true" />{row.name}</strong>
               <div className="hdvp-flow-track">
                 <i className="hdvp-flow-zero" />
                 {row.values.map((value, index) => {
@@ -122,7 +122,7 @@ function InstitutionalFlow({ bars }: { bars: boolean }) {
       ) : (
         <table className="hdvp-flow-table">
           <thead><tr><th>類別</th><th>1日</th><th>5日</th><th>20日</th><th>60日</th></tr></thead>
-          <tbody>{INSTITUTIONAL.map((row) => <tr key={row.name}><th>{row.name}</th>{row.values.map((value, index) => <td key={index} className={value >= 0 ? 'is-positive' : 'is-negative'}>{value > 0 ? '+' : ''}{value}</td>)}</tr>)}</tbody>
+          <tbody>{INSTITUTIONAL.map((row) => <tr className={`is-${row.tone}`} key={row.name}><th><i aria-hidden="true" />{row.name}</th>{row.values.map((value, index) => <td key={index}>{value > 0 ? '+' : ''}{value}</td>)}</tr>)}</tbody>
         </table>
       )}
     </section>
