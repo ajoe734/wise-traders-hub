@@ -33,10 +33,13 @@ export function layoutSpectrumMarkers(markers: Marker[]): MarkerLayout[] {
 export function priceSpectrumGeometry(
   values: { price?: number | null; cost?: number | null; target?: number | null },
   customBand?: { low: number | null; high: number | null; key?: ScenarioKey | null } | null,
+  rulerBand?: { low: number | null; high: number | null; key?: ScenarioKey | null } | null,
 ) {
   const custom = customBand && valid(customBand.low) && valid(customBand.high) && customBand.high > customBand.low
     ? { low: customBand.low, high: customBand.high, key: customBand.key ?? null } : null;
-  const points = [values.cost, values.target, values.price, custom?.low, custom?.high].filter(valid);
+  const ruler = rulerBand && valid(rulerBand.low) && valid(rulerBand.high) && rulerBand.high > rulerBand.low
+    ? { low: rulerBand.low, high: rulerBand.high, key: rulerBand.key ?? null } : null;
+  const points = [values.cost, values.target, values.price, custom?.low, custom?.high, ruler?.low, ruler?.high].filter(valid);
   if (!points.length) return null;
   const smallest = Math.min(...points);
   const largest = Math.max(...points);
@@ -44,19 +47,20 @@ export function priceSpectrumGeometry(
   const min = Math.max(0, smallest * 0.95 - padding);
   const max = largest * 1.05 + padding;
   const mapX = (value: number) => ((value - min) / (max - min)) * 100;
-  return { min, max, mapX, custom };
+  return { min, max, mapX, custom, ruler };
 }
 
-export function PriceSpectrum({ WB, price, cost, target, customBand = null }: {
+export function PriceSpectrum({ WB, price, cost, target, customBand = null, rulerBand = null }: {
   WB: Palette;
   price?: number | null;
   cost?: number | null;
   target?: number | null;
   customBand?: { low: number | null; high: number | null; key?: ScenarioKey | null } | null;
+  rulerBand?: { low: number | null; high: number | null; key?: ScenarioKey | null; label: string } | null;
 }) {
-  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, customBand), [price, cost, target, customBand]);
+  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, customBand, rulerBand), [price, cost, target, customBand, rulerBand]);
   if (!geometry) return null;
-  const { min, max, mapX, custom } = geometry;
+  const { min, max, mapX, custom, ruler } = geometry;
   const markers: Marker[] = ([
     { key: 'cost', name: '成本', value: cost },
     { key: 'target', name: '目標', value: target },
@@ -67,6 +71,7 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null }: {
     '新台幣等比例價格線',
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
     ...(custom ? [`${MY_SCENARIO_LABEL}，${custom.key?.toUpperCase() || '單尺'}，${money(custom.low)} 至 ${money(custom.high)}`] : []),
+    ...(ruler && rulerBand ? [`${rulerBand.label}，${money(ruler.low)} 至 ${money(ruler.high)}`] : []),
   ].join('；');
 
   return (
@@ -80,6 +85,17 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null }: {
           <line x1="0" x2="100" y1="88" y2="88" className="price-spectrum-hair price-spectrum-fade" />
           <line x1="0" x2="0" y1="82" y2="94" className="price-spectrum-hair price-spectrum-fade" />
           <line x1="100" x2="100" y1="82" y2="94" className="price-spectrum-hair price-spectrum-fade" />
+          {Array.from({ length: 21 }, (_, index) => {
+            const x = index * 5;
+            const major = index % 5 === 0;
+            return <line key={`tick-${index}`} x1={x} x2={x} y1={major ? 81 : 84} y2={major ? 95 : 92}
+              className={`price-spectrum-tick${major ? ' is-major' : ''}`} style={{ '--tick-index': index } as CSSProperties} />;
+          })}
+          {ruler && rulerBand && <>
+            <line data-testid="ruler-band" data-low={ruler.low} data-high={ruler.high} data-key={ruler.key ?? ''}
+              x1={mapX(ruler.low)} x2={mapX(ruler.high)} y1="88" y2="88" className="price-spectrum-band price-spectrum-band--ruler" />
+            {[ruler.low, ruler.high].map((v, i) => <line key={`r${i}`} x1={mapX(v)} x2={mapX(v)} y1="81" y2="95" className="price-spectrum-band-end" />)}
+          </>}
           {custom && <>
             <line data-testid="custom-band" data-low={custom.low} data-high={custom.high}
               data-key={custom.key ?? ''} x1={mapX(custom.low)} x2={mapX(custom.high)} y1="88" y2="88" className="price-spectrum-band price-spectrum-band--custom" />
@@ -95,6 +111,7 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null }: {
         {laidOutMarkers.map((m) => <div key={`label-${m.key}`}
           className={`price-spectrum-direct-label price-spectrum-direct-label--${m.key} price-spectrum-direct-label--${m.lane} price-spectrum-direct-label--${m.align}`}
           data-testid={`holdings-price-axis-label-${m.key}`} data-lane={m.lane} data-x={m.x}
+          data-label-mode="float"
           style={{ left: `${m.x}%` }}>
           <span>{m.name}</span><strong>{money(m.value)}</strong>
         </div>)}
@@ -107,9 +124,13 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null }: {
               <div className="price-spectrum-band-label price-spectrum-band-label--low" data-testid="custom-band-low" style={{ left: `${mapX(custom.low)}%` }}>{money(custom.low)}</div>
               <div className="price-spectrum-band-label price-spectrum-band-label--high" data-testid="custom-band-high" style={{ left: `${mapX(custom.high)}%` }}>{money(custom.high)}</div>
             </>)}
+        {ruler && rulerBand && <div className="price-spectrum-scenario-range" data-testid="holdings-price-axis-label-ruler"
+          style={{ left: `${(mapX(ruler.low) + mapX(ruler.high)) / 2}%` }}>
+          {rulerBand.label}<strong>{money(ruler.low)}–{money(ruler.high)}</strong>
+        </div>}
       </div>
       <div className="price-spectrum-ends" aria-hidden="true"><span>{money(min)}</span><span>{money(max)}</span></div>
-      {!custom && <div className="price-spectrum-scenario-prompt" data-testid="price-spectrum-scenario-prompt">選一把尺，試算你的情境價</div>}
+      {!custom && !ruler && <div className="price-spectrum-scenario-prompt" data-testid="price-spectrum-scenario-prompt">選一把尺，試算你的情境價</div>}
     </div>
   );
 }

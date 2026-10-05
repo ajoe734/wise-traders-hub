@@ -166,6 +166,9 @@
 .price-spectrum-hair { stroke: var(--spectrum-light); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .price-spectrum-band { stroke: var(--spectrum-accent); stroke-width: 9; stroke-opacity: .42; vector-effect: non-scaling-stroke; }
 .price-spectrum-band--custom { stroke: var(--spectrum-accent); stroke-opacity: .46; stroke-width: 7; }
+.price-spectrum-band--ruler { stroke: var(--spectrum-ink); stroke-opacity: .28; stroke-width: 7; }
+.price-spectrum-tick { stroke: var(--spectrum-light); stroke-width: .6; opacity: .52; vector-effect: non-scaling-stroke; animation: price-spectrum-tick-in 420ms cubic-bezier(.22, 1, .36, 1) calc(var(--tick-index) * 10ms) both; transform-box: fill-box; transform-origin: center bottom; }
+.price-spectrum-tick.is-major { stroke: var(--spectrum-sub); stroke-width: 1; opacity: .78; }
 .price-spectrum-band-end { stroke: var(--spectrum-ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .price-spectrum-leader { stroke: var(--spectrum-sub); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .price-spectrum-marker { position: absolute; top: 88px; display: block; box-sizing: border-box; transform: translate(-50%, -50%); pointer-events: none; }
@@ -191,6 +194,18 @@
 .price-spectrum-scenario-range { position: absolute; top: 101px; display: grid; width: max-content; max-width: 210px; transform: translateX(-50%); text-align: center; font-size: 10px; color: var(--spectrum-sub); }
 .price-spectrum-scenario-range strong { font-size: 12px; white-space: nowrap; color: var(--spectrum-ink); }
 .price-spectrum-scenario-prompt { margin-top: 8px; padding-top: 9px; border-top: 1px solid var(--spectrum-hair); font-size: 12px; color: var(--spectrum-sub); }
+.price-scale-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 8px; border-bottom: 1px solid var(--spectrum-hair); }
+.price-scale-switch button { min-width: 0; height: 32px; padding: 0 4px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--spectrum-sub); background: transparent; font-size: 11px; font-weight: 400; }
+.price-scale-switch button[aria-pressed='true'] { color: var(--spectrum-ink); border-bottom-color: var(--spectrum-accent); }
+.price-spectrum-transition { animation: price-spectrum-switch 440ms cubic-bezier(.22, 1, .36, 1) both; }
+.price-scale-status { min-height: 38px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-top: 1px solid var(--spectrum-hair); }
+.price-scale-status strong { color: var(--spectrum-ink); font-size: 11px; font-weight: 600; }
+.price-scale-status span { color: var(--spectrum-sub); font-size: 10px; text-align: right; }
+.chips-institutional-legend { display: flex; gap: 12px; margin-bottom: 7px; font-size: 10px; }
+.chips-institutional-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.chips-institutional-legend i { width: 8px; height: 2px; background: currentColor; }
+@keyframes price-spectrum-switch { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes price-spectrum-tick-in { from { opacity: 0; transform: scaleY(0); } to { opacity: .52; transform: scaleY(1); } }
 .valuation-requirements-list { margin-top: 10px; }
 .valuation-requirement-row { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-top: 1px solid var(--spectrum-hair, currentColor); font-size: 12px; line-height: 1.6; }
 .valuation-requirement-key { color: var(--spectrum-ink, currentColor); font-weight: 700; }
@@ -203,6 +218,8 @@
 @media (max-width: 390px) {
   .valuation-requirement-row { grid-template-columns: 58px minmax(0, 1fr); gap: 8px; }
   .custom-scenario-grid, .custom-scenario-grid--stress { grid-template-columns: 1fr; }
+  .price-scale-status { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .price-scale-status span { text-align: left; }
 }
 
 /* ── 30 日走勢：轉折 marker 聚焦狀態 ─────────────────────────────
@@ -230,6 +247,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hk-marker, .hk-bar { transition: none; }
+  .price-spectrum-transition, .price-spectrum-tick { animation: none; }
   .hk-marker--focus {
     transform: var(--hk-marker-t, translate(-50%, 0)) scale(1.16);
   }

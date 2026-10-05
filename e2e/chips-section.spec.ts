@@ -129,11 +129,11 @@ test.describe('ChipsSection · 全覆蓋', () => {
     // 值格式：正號 + 千分位 + 沒有 "股"
     const d1For = await page.getByTestId('chips-inst-foreign_net-d1').innerText();
     expect(d1For).toMatch(/^\+\d/);
-    // 台灣慣例紅色 (#C43D3D) 正值
+    // 法人顏色表示身份，不依正負改成行情紅綠
     const color = await page
       .getByTestId('chips-inst-foreign_net-d1')
       .evaluate((el) => getComputedStyle(el).color);
-    expect(color).toMatch(/196,\s*61,\s*61/);
+    expect(color).toMatch(/34,\s*33,\s*32/);
 
     // BSR
     const bsr = page.getByTestId('chips-bsr');
@@ -315,11 +315,11 @@ test.describe('ChipsSection · 全覆蓋', () => {
     await expect(page.getByTestId('chips-data-source')).toHaveText(
       /資料來源[:：].*TWSE.*TPEx/,
     );
-    // 負值 (d60 total 是負) → 綠色
+    // 同一法人負值仍維持身份深墨色，方向由負號表達
     const negColor = await page
       .getByTestId('chips-inst-foreign_net-d60')
       .evaluate((el) => getComputedStyle(el).color);
-    expect(negColor).toMatch(/46,\s*122,\s*75/);
+    expect(negColor).toMatch(/34,\s*33,\s*31/);
   });
 
   test('N. 開抽屜不得觸發 ensure_bsr_queued（BSR 對前端唯讀）', async ({ page }) => {

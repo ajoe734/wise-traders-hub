@@ -92,6 +92,11 @@
     /* 台股慣例：紅漲綠跌 */
     --success: 4 82% 56%; /* 紅色 - 上漲/獲利 */
     --success-light: 4 82% 95%;
+
+    /* Holdings institutional identity — direction is shown by the zero line, never by color. */
+    --holdings-flow-foreign: 30 4% 13%;
+    --holdings-flow-trust: 51 4% 42%;
+    --holdings-flow-dealer: 53 6% 74%;
     
     --warning: 38 92% 50%;
     --warning-light: 38 92% 95%;

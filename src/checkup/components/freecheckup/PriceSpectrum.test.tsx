@@ -72,4 +72,25 @@ describe('single continuous TWD price spectrum', () => {
     expect(screen.getByTestId('holdings-price-axis-label-target').getAttribute('data-x')).toBe(
       screen.getByTestId('price-spectrum-marker-target').getAttribute('data-x'));
   });
+
+  it('所選估值尺與目標價共用同一條等比例軸，且不把尺區間冒稱個人情境', () => {
+    render(<PriceSpectrum WB={WB} price={150} cost={90} target={null}
+      rulerBand={{ low: 110, high: 140, key: 'pb', label: 'PB 歷史情境參考' }} />);
+    const band = screen.getByTestId('ruler-band');
+    expect(band.getAttribute('data-key')).toBe('pb');
+    expect(band.getAttribute('data-low')).toBe('110');
+    expect(band.getAttribute('data-high')).toBe('140');
+    expect(screen.getByTestId('holdings-price-axis-label-ruler').textContent).toContain('PB 歷史情境參考');
+    expect(screen.queryByTestId('custom-band')).toBeNull();
+    expect(screen.getByTestId('price-spectrum').getAttribute('aria-label')).toContain('PB 歷史情境參考');
+  });
+
+  it('估值尺資料不足時只保留成本與現價，不畫假區間或目標價', () => {
+    render(<PriceSpectrum WB={WB} price={150} cost={90} target={null} rulerBand={null} />);
+    expect(screen.queryByTestId('ruler-band')).toBeNull();
+    expect(screen.queryByTestId('custom-band')).toBeNull();
+    expect(screen.queryByTestId('holdings-price-axis-label-target')).toBeNull();
+    expect(screen.getByTestId('holdings-price-axis-label-price')).toBeVisible();
+    expect(screen.getByTestId('holdings-price-axis-label-cost')).toBeVisible();
+  });
 });

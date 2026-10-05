@@ -22,7 +22,11 @@ Issues 以本地 markdown 檔管理，放在 `.scratch/<feature-slug>/`。See `d
 
 ### Holdings price spectrum
 
-Keep the drawer's single TWD price scale in the reusable PriceSpectrum presentation component; valuation calculation and fetching stay in their existing modules, so visual changes cannot alter financial inputs.
+Keep target price and the independently selected PE/PB/PS scenario on the drawer's single TWD scale in the reusable PriceSpectrum presentation component; valuation calculation and fetching stay in their existing modules, so visual changes cannot alter financial inputs or intersect rulers.
+
+### Holdings institutional palette
+
+Use fixed identity colors for foreign investors, investment trusts, and dealers in every drawer institutional surface; show direction with the zero line and signed values, preserving red/green exclusively for market-price and volume direction.
 
 ### Holdings visual prototypes
 
