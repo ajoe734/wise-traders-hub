@@ -32,6 +32,6 @@ export function evaluateMarketDayGate(
     skip,
     reason: skip ? 'already_full' : null,
     lowRows: upserted > 0 && upserted < minRows,
-    empty: upserted === 0,
+    empty: !skip && upserted === 0,
   };
 }
