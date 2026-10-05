@@ -111,6 +111,7 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null, rule
         {laidOutMarkers.map((m) => <div key={`label-${m.key}`}
           className={`price-spectrum-direct-label price-spectrum-direct-label--${m.key} price-spectrum-direct-label--${m.lane} price-spectrum-direct-label--${m.align}`}
           data-testid={`holdings-price-axis-label-${m.key}`} data-lane={m.lane} data-x={m.x}
+          data-label-mode="float"
           style={{ left: `${m.x}%` }}>
           <span>{m.name}</span><strong>{money(m.value)}</strong>
         </div>)}
