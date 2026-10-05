@@ -212,46 +212,80 @@ Deno.serve(async (req: Request) => {
 
   // 全市場單日：一次取回當日所有個股（含上櫃），供同業中位數使用。
   if (mode === 'market_day') {
+    const t0 = Date.now();
     const end = String(body?.date || new Date().toISOString().slice(0, 10));
     const startD = String(body?.start_date || end);
+    const force = body?.force === true;
+
+    // Gate：當日已有足量資料（晚間補跑 cron 不重複打 FinMind）。
+    let existingCount: number | null = null;
+    try {
+      const { count, error } = await supa
+        .from('tw_valuation_daily')
+        .select('*', { count: 'exact', head: true })
+        .eq('trade_date', end);
+      if (!error) existingCount = count ?? 0;
+    } catch { /* gate 失敗不阻擋主流程 */ }
+
+    const preGate = evaluateMarketDayGate(existingCount, 1, MARKET_DAY_MIN_ROWS, force);
+    if (preGate.skip) {
+      await logJob(supa, 'skipped', { date: end, existing: existingCount, reason: preGate.reason }, Date.now() - t0);
+      return new Response(JSON.stringify({ ok: true, mode, date: end, skipped: 'already_full', existing: existingCount }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const url = `${FINMIND}?dataset=TaiwanStockPER&start_date=${startD}&end_date=${end}${token ? `&token=${token}` : ''}`;
-    const res = await fetchWithRetry(url, {}, { source: 'finmind_per_market', policy: { maxAttempts: 3 } });
-    const json = await res.json();
-    if (json?.status !== 200 || !Array.isArray(json?.data)) {
-      return new Response(JSON.stringify({ error: 'finmind_market_day_failed', detail: String(json?.msg || '').slice(0, 200) }), {
+    try {
+      const res = await fetchWithRetry(url, {}, { source: 'finmind_per_market', policy: { maxAttempts: 3 } });
+      const json = await res.json();
+      if (json?.status !== 200 || !Array.isArray(json?.data)) {
+        throw new Error(`finmind_market_day_failed: ${String(json?.msg || '').slice(0, 200)}`);
+      }
+      const seenKey = new Set<string>();
+      const all: Row[] = [];
+      for (const d of json.data as Record<string, unknown>[]) {
+        const key = `${d.stock_id}|${d.date}`;
+        if (seenKey.has(key)) continue;
+        seenKey.add(key);
+        all.push({
+          symbol: String(d.stock_id),
+          trade_date: String(d.date),
+          per: positive(d.PER),
+          pbr: positive(d.PBR),
+          dividend_yield: nonNegative(d.dividend_yield),
+          market: null,
+          source: 'finmind',
+        });
+      }
+      let n = 0;
+      for (let i = 0; i < all.length; i += 1000) {
+        const chunk = all.slice(i, i + 1000);
+        const { error } = await supa.from('tw_valuation_daily').upsert(chunk, { onConflict: 'symbol,trade_date' });
+        if (error) {
+          throw new Error(`upsert_failed: ${error.message}`);
+        }
+        n += chunk.length;
+      }
+      const gate = evaluateMarketDayGate(existingCount, n, MARKET_DAY_MIN_ROWS, force);
+      if (gate.lowRows) {
+        await alertLowRows(supa, end, n);
+        await logJob(supa, 'success', { date: end, upserted: n, low_rows: true }, Date.now() - t0);
+      } else if (gate.empty) {
+        await logJob(supa, 'empty', { date: end, upserted: 0 }, Date.now() - t0);
+      } else {
+        await logJob(supa, 'success', { date: end, upserted: n }, Date.now() - t0);
+      }
+      return new Response(JSON.stringify({ ok: true, mode, date: end, upserted: n, low_rows: gate.lowRows }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (e) {
+      const msg = String((e as Error).message).slice(0, 300);
+      await logJob(supa, 'failed', { date: end, error: msg }, Date.now() - t0);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const seenKey = new Set<string>();
-    const all: Row[] = [];
-    for (const d of json.data as Record<string, unknown>[]) {
-      const key = `${d.stock_id}|${d.date}`;
-      if (seenKey.has(key)) continue;
-      seenKey.add(key);
-      all.push({
-        symbol: String(d.stock_id),
-        trade_date: String(d.date),
-        per: positive(d.PER),
-        pbr: positive(d.PBR),
-        dividend_yield: nonNegative(d.dividend_yield),
-        market: null,
-        source: 'finmind',
-      });
-    }
-    let n = 0;
-    for (let i = 0; i < all.length; i += 1000) {
-      const chunk = all.slice(i, i + 1000);
-      const { error } = await supa.from('tw_valuation_daily').upsert(chunk, { onConflict: 'symbol,trade_date' });
-      if (error) {
-        return new Response(JSON.stringify({ error: error.message, upserted: n }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      n += chunk.length;
-    }
-    return new Response(JSON.stringify({ ok: true, mode, date: end, upserted: n }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
 
 
