@@ -79,6 +79,41 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
   };
   if (!userId) return { signals: [] as JournalSignal[], hasSubscription: false, diag };
 
+  // tester（管理員測試帳號）：跳過訂閱門檻，直接列出所有 active 導師的週記。
+  // view-as 時 isTester 已在上層強制為 false，不會走到這裡。
+  if (isTester) {
+    const { data: activeMentors } = await supabase
+      .from('experts')
+      .select('id, name, role, status')
+      .eq('role', 'mentor')
+      .eq('status', 'active');
+
+    const mentorIds = (activeMentors || []).map((e: any) => e.id);
+    (activeMentors || []).forEach((e: any) => {
+      diag.subscribedExperts.push({ expert_id: e.id, name: e.name, role: e.role, status: e.status, published_count: 0, included: true, reason: '測試者：顯示全部老師' });
+    });
+
+    if (mentorIds.length === 0) {
+      return { signals: [] as JournalSignal[], hasSubscription: true, diag };
+    }
+
+    const projection = await fetchProjectionStatusForExperts(mentorIds);
+    const { signals: fetched, error } = await journalRepo.forSubscriber<JournalSignal>(
+      supabase as any,
+      { mentorIds, limit: 100, projection },
+    );
+    if (error) {
+      console.error('Error fetching journals:', error);
+    }
+
+    const signals = fetched;
+    const countMap = new Map<string, number>();
+    signals.forEach(s => countMap.set(s.expert_id, (countMap.get(s.expert_id) || 0) + 1));
+    diag.subscribedExperts.forEach(s => { if (s.included) s.published_count = countMap.get(s.expert_id) || 0; });
+
+    return { signals, hasSubscription: true, diag };
+  }
+
   const { data: subs } = await supabase
     .rpc('has_active_subscription', { _user_id: userId });
 
