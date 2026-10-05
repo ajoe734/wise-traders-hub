@@ -101,10 +101,14 @@ export function PlanInfoCard({
               <p className="text-sm text-muted-foreground">每月</p>
             </button>
             <button
-              disabled
+              onClick={() => plan.price_yearly && setBillingCycle('yearly')}
+              disabled={!plan.price_yearly}
               className={cn(
                 "p-4 rounded-lg border-2 text-left transition-colors relative",
-                "border-border opacity-50 cursor-not-allowed"
+                billingCycle === 'yearly'
+                  ? isAdvisor ? "border-primary bg-primary/5" : "border-mentor bg-mentor-light/30"
+                  : isAdvisor ? "border-border hover:border-primary/50" : "border-border hover:border-mentor/50",
+                !plan.price_yearly && "opacity-50 cursor-not-allowed"
               )}
             >
               {plan.price_yearly && (
@@ -116,7 +120,7 @@ export function PlanInfoCard({
               <p className="text-2xl font-bold mt-1">
                 NT$ {formatPrice(plan.price_yearly || plan.price_monthly * 12)}
               </p>
-              <p className="text-sm text-muted-foreground">尚未開放</p>
+              <p className="text-sm text-muted-foreground">{plan.price_yearly ? '每年' : '尚未開放'}</p>
             </button>
           </div>
         </CardContent>
