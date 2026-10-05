@@ -319,7 +319,12 @@ test.describe('ChipsSection · 全覆蓋', () => {
     const negColor = await page
       .getByTestId('chips-inst-foreign_net-d60')
       .evaluate((el) => getComputedStyle(el).color);
-    expect(negColor).toMatch(/34,\s*33,\s*31/);
+    expect(negColor).toMatch(/34,\s*33,\s*32/);
+    // 同一法人正值（d20 +3,500）必須與負值同色
+    const posColor = await page
+      .getByTestId('chips-inst-foreign_net-d20')
+      .evaluate((el) => getComputedStyle(el).color);
+    expect(posColor).toBe(negColor);
   });
 
   test('N. 開抽屜不得觸發 ensure_bsr_queued（BSR 對前端唯讀）', async ({ page }) => {

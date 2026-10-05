@@ -20,7 +20,7 @@ import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs
 import { useFreshness } from '@/checkup/lib/freshness';
 import { buildVolumeAnalysis } from '@/checkup/lib/volumeAnalysis';
 import { buildDailyCloseStatus } from '@/checkup/lib/marketDataStatus';
-import { getSparkOhlc } from '@/checkup/lib/holdingDetailViewModel';
+import { ACTION_LABEL, getSparkOhlc } from '@/checkup/lib/holdingDetailViewModel';
 import { rollingLots, buildTooltipRows, resistanceBadge, buildVolumeMetrics } from '@/checkup/lib/volumeReadout';
 import { barIndexFromX, barCenterPct, fmtKlineDate, fmtKlineNum } from '@/checkup/lib/klineTooltip';
 import { resolveKlineXScale, KLINE_SLOTS } from '@/checkup/lib/klineXScale';

@@ -421,6 +421,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // 正式抽屜目標價／PE／PB／PS 共用估值尺切換（spec 內自行 setViewportSize）
+      name: 'holdings-price-scale-modes',
+      testMatch: /holdings-price-scale-modes\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // overridePrice 換價後 HoldingCard 必須重算 todayPnl / todayPct / 保留 yesterday
       name: 'desktop-holdings-override-price',
       testMatch: /holdings-override-price-recompute\.spec\.ts/,

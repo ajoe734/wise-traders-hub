@@ -59,7 +59,7 @@ const SignalArithmeticHarnessEntry = lazy(() => import("../pages/SignalArithmeti
 const HoldingDeleteHarnessEntry = lazy(() => import("../pages/HoldingDeleteHarnessEntry"));
 const HoldingDeleteSellHarnessEntry = lazy(() => import("../pages/HoldingDeleteSellHarnessEntry"));
 const ValuationRulersHarnessEntry = lazy(() => import("../pages/ValuationRulersHarnessEntry"));
-const HoldingsDrawerVisualPrototype = lazy(() => import("../pages/HoldingsDrawerVisualPrototype"));
+const HoldingsDrawerVisualPrototype = lazy(() => import("../pages/HoldingsDrawerVisualPrototypeHarnessEntry"));
 
 interface HarnessRouteGuardProps {
   children?: ReactNode;

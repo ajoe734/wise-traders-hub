@@ -50,6 +50,8 @@ vi.mock('@/integrations/supabase/client', () => {
     // 現行 hook 在 .eq('status','active') 之後還會鏈一個 .or(...)，
     // 讓 .or 才回傳 thenable，避免中間吞掉。
     or: vi.fn(() => Promise.resolve(resultPayload)),
+    // LINE 頻道改由 expert_line_channels 另查合併
+    in: vi.fn(() => Promise.resolve({ data: [], error: null })),
   };
   return {
     supabase: {

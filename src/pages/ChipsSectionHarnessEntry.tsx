@@ -207,7 +207,7 @@ export default function ChipsSectionHarnessEntry() {
         {tick > 0 ? ` · tick=${tick}` : ''}
       </div>
       <Suspense fallback={<div data-testid="chips-harness-loading">loading harness…</div>}>
-        <ChipsSection WB={WB} stockCode={code} showBsr={showBsr} />
+        <ChipsSection WB={WB} stockCode={code} showBsr={showBsr} defaultBsrOpen={params.get('bsrCollapsed') !== '1'} />
       </Suspense>
     </div>
   );

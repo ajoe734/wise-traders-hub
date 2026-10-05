@@ -82,6 +82,9 @@ function overlaps(a: { left: number; right: number; top: number; bottom: number 
 for (const width of BREAKPOINTS) {
   test(`價格軸標籤與現價圓點不跑版 @ ${width}px`, async ({ page }) => {
     await openFirstDrawer(page, width);
+    // 抽屜滑入與估值資料落定期間可能短暫重排；等圓點取得最終尺寸再量。
+    await expect.poll(async () => (await page.getByTestId('holdings-price-axis-dot').first().boundingBox())?.width ?? 0,
+      { timeout: 5_000 }).toBeGreaterThan(4);
     const geo = await readGeometry(page);
 
     // 1) 三個標籤存在

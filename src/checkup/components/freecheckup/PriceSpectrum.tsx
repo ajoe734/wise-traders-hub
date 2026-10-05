@@ -105,7 +105,7 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null, rule
             x1={m.x} x2={m.x} y1="88" y2={m.lane === 'above' ? '50' : '126'}
             className={`price-spectrum-leader price-spectrum-leader--${m.key}`} />)}
         </svg>
-        {laidOutMarkers.map((m) => <span key={`marker-${m.key}`} className={`price-spectrum-marker price-spectrum-marker--${m.key} price-spectrum-pop`}
+        {laidOutMarkers.map((m) => <span key={`marker-${m.key}`} className={`price-spectrum-marker price-spectrum-marker--${m.key}`}
           data-testid={m.key === 'price' ? 'holdings-price-axis-dot' : `price-spectrum-marker-${m.key}`}
           data-value={m.value} data-x={m.x} aria-hidden="true" style={{ left: `${m.x}%` }} />)}
         {laidOutMarkers.map((m) => <div key={`label-${m.key}`}
