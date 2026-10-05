@@ -16,6 +16,47 @@ import { serviceClient, type SupabaseClient } from '../_shared/supabaseClients.t
 import { corsHeaders } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+import { evaluateMarketDayGate, MARKET_DAY_MIN_ROWS } from '../_shared/valuationSyncGate.ts';
+
+/** 每次執行寫 system_jobs_log（成功／失敗／跳過），避免 cron 靜默失敗。 */
+async function logJob(
+  supa: SupabaseClient,
+  status: 'success' | 'failed' | 'skipped' | 'empty',
+  detail: Record<string, unknown>,
+  durationMs: number,
+): Promise<void> {
+  try {
+    await supa.from('system_jobs_log').insert({
+      job_name: 'valuation_sync',
+      status,
+      detail,
+      duration_ms: Math.round(durationMs),
+    });
+  } catch (e) {
+    console.warn('[valuation-sync] logJob failed:', (e as Error).message);
+  }
+}
+
+/** 寫入筆數異常偏低時落 system_alerts（kind=valuation_market_day_low_rows）。 */
+async function alertLowRows(
+  supa: SupabaseClient,
+  date: string,
+  upserted: number,
+): Promise<void> {
+  try {
+    await supa.from('system_alerts').insert({
+      kind: 'valuation_market_day_low_rows',
+      level: 'warning',
+      title: '估值全市場更新筆數偏低',
+      message: `${date} 僅寫入 ${upserted} 筆（健康門檻 ${MARKET_DAY_MIN_ROWS}），可能為 FinMind 當日資料未出全，需補跑。`,
+      metric_value: upserted,
+      threshold: MARKET_DAY_MIN_ROWS,
+      detail: { date, upserted },
+    });
+  } catch (e) {
+    console.warn('[valuation-sync] alertLowRows failed:', (e as Error).message);
+  }
+}
 
 const FINMIND = 'https://api.finmindtrade.com/api/v4/data';
 const TWSE_BWIBBU = 'https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL';
@@ -171,46 +212,80 @@ Deno.serve(async (req: Request) => {
 
   // 全市場單日：一次取回當日所有個股（含上櫃），供同業中位數使用。
   if (mode === 'market_day') {
+    const t0 = Date.now();
     const end = String(body?.date || new Date().toISOString().slice(0, 10));
     const startD = String(body?.start_date || end);
+    const force = body?.force === true;
+
+    // Gate：當日已有足量資料（晚間補跑 cron 不重複打 FinMind）。
+    let existingCount: number | null = null;
+    try {
+      const { count, error } = await supa
+        .from('tw_valuation_daily')
+        .select('*', { count: 'exact', head: true })
+        .eq('trade_date', end);
+      if (!error) existingCount = count ?? 0;
+    } catch { /* gate 失敗不阻擋主流程 */ }
+
+    const preGate = evaluateMarketDayGate(existingCount, 1, MARKET_DAY_MIN_ROWS, force);
+    if (preGate.skip) {
+      await logJob(supa, 'skipped', { date: end, existing: existingCount, reason: preGate.reason }, Date.now() - t0);
+      return new Response(JSON.stringify({ ok: true, mode, date: end, skipped: 'already_full', existing: existingCount }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const url = `${FINMIND}?dataset=TaiwanStockPER&start_date=${startD}&end_date=${end}${token ? `&token=${token}` : ''}`;
-    const res = await fetchWithRetry(url, {}, { source: 'finmind_per_market', policy: { maxAttempts: 3 } });
-    const json = await res.json();
-    if (json?.status !== 200 || !Array.isArray(json?.data)) {
-      return new Response(JSON.stringify({ error: 'finmind_market_day_failed', detail: String(json?.msg || '').slice(0, 200) }), {
+    try {
+      const res = await fetchWithRetry(url, {}, { source: 'finmind_per_market', policy: { maxAttempts: 3 } });
+      const json = await res.json();
+      if (json?.status !== 200 || !Array.isArray(json?.data)) {
+        throw new Error(`finmind_market_day_failed: ${String(json?.msg || '').slice(0, 200)}`);
+      }
+      const seenKey = new Set<string>();
+      const all: Row[] = [];
+      for (const d of json.data as Record<string, unknown>[]) {
+        const key = `${d.stock_id}|${d.date}`;
+        if (seenKey.has(key)) continue;
+        seenKey.add(key);
+        all.push({
+          symbol: String(d.stock_id),
+          trade_date: String(d.date),
+          per: positive(d.PER),
+          pbr: positive(d.PBR),
+          dividend_yield: nonNegative(d.dividend_yield),
+          market: null,
+          source: 'finmind',
+        });
+      }
+      let n = 0;
+      for (let i = 0; i < all.length; i += 1000) {
+        const chunk = all.slice(i, i + 1000);
+        const { error } = await supa.from('tw_valuation_daily').upsert(chunk, { onConflict: 'symbol,trade_date' });
+        if (error) {
+          throw new Error(`upsert_failed: ${error.message}`);
+        }
+        n += chunk.length;
+      }
+      const gate = evaluateMarketDayGate(existingCount, n, MARKET_DAY_MIN_ROWS, force);
+      if (gate.lowRows) {
+        await alertLowRows(supa, end, n);
+        await logJob(supa, 'success', { date: end, upserted: n, low_rows: true }, Date.now() - t0);
+      } else if (gate.empty) {
+        await logJob(supa, 'empty', { date: end, upserted: 0 }, Date.now() - t0);
+      } else {
+        await logJob(supa, 'success', { date: end, upserted: n }, Date.now() - t0);
+      }
+      return new Response(JSON.stringify({ ok: true, mode, date: end, upserted: n, low_rows: gate.lowRows }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (e) {
+      const msg = String((e as Error).message).slice(0, 300);
+      await logJob(supa, 'failed', { date: end, error: msg }, Date.now() - t0);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const seenKey = new Set<string>();
-    const all: Row[] = [];
-    for (const d of json.data as Record<string, unknown>[]) {
-      const key = `${d.stock_id}|${d.date}`;
-      if (seenKey.has(key)) continue;
-      seenKey.add(key);
-      all.push({
-        symbol: String(d.stock_id),
-        trade_date: String(d.date),
-        per: positive(d.PER),
-        pbr: positive(d.PBR),
-        dividend_yield: nonNegative(d.dividend_yield),
-        market: null,
-        source: 'finmind',
-      });
-    }
-    let n = 0;
-    for (let i = 0; i < all.length; i += 1000) {
-      const chunk = all.slice(i, i + 1000);
-      const { error } = await supa.from('tw_valuation_daily').upsert(chunk, { onConflict: 'symbol,trade_date' });
-      if (error) {
-        return new Response(JSON.stringify({ error: error.message, upserted: n }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      n += chunk.length;
-    }
-    return new Response(JSON.stringify({ ok: true, mode, date: end, upserted: n }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
 
 
