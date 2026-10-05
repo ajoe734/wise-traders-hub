@@ -13,6 +13,7 @@ import { resolveBsrRetryNote } from '@/checkup/lib/bsrProviderPresentation';
 import { formatSharesAsLots, SHARES_PER_LOT } from '@/lib/lotSize';
 import { chipsPrefs, type BsrWindowKey } from '@/checkup/lib/drawerPrefs';
 import { readinessCountLabel, windowCoverageText } from '@/checkup/lib/readinessLabel';
+import { institutionalTone } from './institutionalPalette';
 
 // 過期自動重抓的狀態文案（單一資料源：useTwChipsDetail 的 AutoRefreshState）
 const AUTO_STATE_BADGE: Record<string, string> = {
@@ -29,12 +30,6 @@ const AUTO_STATE_TEXT: Record<string, string> = {
 };
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
-
-// 台灣慣例：正值紅、負值綠
-function tone(WB: any, n: number | null | undefined) {
-  if (n == null || n === 0) return WB.inkMute;
-  return n > 0 ? '#C43D3D' : '#2E7A4B';
-}
 
 function fmtShares(n: number | null | undefined) {
   // 張股換算單一資料源：@/lib/lotSize（1 張 = SHARES_PER_LOT 股）
@@ -522,7 +517,9 @@ export default function ChipsSection({
             { label: '自營商', k: 'dealer_net' },
           ].map((row) => (
             <React.Fragment key={row.k}>
-              <div style={{ color: WB.inkSub }}>{row.label}</div>
+              <div style={{ color: institutionalTone(row.k), display: 'flex', alignItems: 'center', gap: 6 }}>
+                <i aria-hidden="true" style={{ width: 8, height: 2, background: institutionalTone(row.k), flex: '0 0 auto' }} />{row.label}
+              </div>
               {WINDOWS.map((w) => {
                 const cell = data?.institutional?.[w.key];
                 const val = cell?.[row.k as 'foreign_net'];
@@ -537,7 +534,7 @@ export default function ChipsSection({
                     title={isPartial ? `僅 ${rd.have}/${rd.need} 個交易日` : undefined}
                     style={{
                       textAlign: 'right',
-                      color: isReady ? tone(WB, val ?? null) : WB.inkMute,
+                       color: isReady ? institutionalTone(row.k) : WB.inkMute,
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >

@@ -14,6 +14,7 @@ import ChipsSection from './ChipsSection';
 import { ValuationRulersView, basisVerificationText } from './ValuationRulers';
 import { useValuationSnapshot } from '@/checkup/hooks/useValuationSnapshot';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
 import '@/checkup/styles/holdingsDetailPanel.css';
 import { holdingPanelPrefs, holdingExportPrefs } from '@/checkup/lib/drawerPrefs';
 import { useFreshness } from '@/checkup/lib/freshness';
@@ -756,10 +757,39 @@ function ExportMenu({ WB, prefs, setPrefs, onExport, onCopy, busy }) {
 
 // ──────────────────── §4.5 價格軸 ────────────────────
 
+const PRICE_SCALE_MODES = [
+  { key: 'target', label: '目標價' },
+  { key: 'pe', label: 'PE' },
+  { key: 'pb', label: 'PB' },
+  { key: 'ps', label: 'PS' },
+];
+
+export function selectedRulerBand(band, mode) {
+  if (!band || mode === 'target') return null;
+  const row = band.rows?.find((item) => item.key === mode);
+  if (!row || !(row.low > 0) || !(row.high >= row.low)) return null;
+  const evidence = row.multiples ?? row.reference ?? null;
+  const prefix = mode.toUpperCase();
+  const historical = !row.multiples || row.multiples.method !== 'peer';
+  return {
+    low: row.low,
+    high: row.high,
+    key: mode,
+    label: historical ? `${prefix} 歷史情境參考` : `${prefix} 同業情境`,
+    detail: `${evidence?.sampleSize ?? 0} 個獨立期 · ${evidence?.period || '期間不明'}`,
+  };
+}
+
 function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, bandLoading = false, peersPending = false, bandError = false, stale = false, ratioAsOf = null, symbol = null }) {
+  const [mode, setMode] = useState('target');
   const [customInput] = useCustomMultiples(symbol);
   const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
   const custom = useMemo(() => buildCustomScenario(band, customInput, today), [band, customInput, today]);
+  const ruler = useMemo(() => selectedRulerBand(band, mode), [band, mode]);
+  const selectedRow = band?.rows?.find((item) => item.key === mode) ?? null;
+  const selectedCustom = custom.status === 'ready' && custom.key === mode
+    ? { low: custom.low, high: custom.high, key: custom.key }
+    : null;
   const tpLabel = tpHistory
     ? `分析師目標 ${tpHistory.arrow}${Math.abs(tpHistory.deltaPct).toFixed(0)}%`
     : null;
@@ -767,17 +797,39 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, ba
     ? `共識 ${tpHistory.spanDays} 日內由 ${tpHistory.from.toLocaleString()} ${tpHistory.arrow === '↓' ? '下修' : '上修'}至 ${tpHistory.last.toLocaleString()}，${upside >= 0 ? '仍高於' : '低於'}現價 ${Math.abs(upside).toFixed(1)}%${upside < 0 ? '——已超漲' : ''}`
     : null;
   return (
-    <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0 }}>
+    <div data-testid="holdings-price-axis" style={{ margin: '0 0 20px', minWidth: 0,
+      '--spectrum-ink': WB.ink, '--spectrum-sub': WB.inkSub, '--spectrum-mute': WB.inkMute,
+      '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent,
+      '--spectrum-surface': WB.surface }}>
        <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} peersPending={peersPending} />
       <div className="price-spectrum-heading">
-        <span>價格位置 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 等比例</small></span>
-        {tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
+        <span>價格與估值 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 單一等比例軸</small></span>
+        {mode === 'target' && tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
       </div>
-      <PriceSpectrum WB={WB} price={price} cost={cost} target={target}
-        customBand={custom.status === 'ready' ? { low: custom.low, high: custom.high, key: custom.key } : null} />
-      {note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
+      <div className="price-scale-switch" aria-label="切換價格與估值尺">
+        {PRICE_SCALE_MODES.map((item) => <Button key={item.key} type="button" variant="ghost" size="sm"
+          data-testid={`price-scale-mode-${item.key}`} aria-pressed={mode === item.key}
+          onClick={() => setMode(item.key)}>{item.label}</Button>)}
+      </div>
+      <div key={mode} className="price-spectrum-transition">
+        <PriceSpectrum WB={WB} price={price} cost={cost} target={mode === 'target' ? target : null}
+          customBand={selectedCustom} rulerBand={selectedCustom ? null : ruler} />
+      </div>
+      <div className="price-scale-status" data-testid="price-scale-status" aria-live="polite">
+        {mode === 'target' ? <>
+          <strong>{target != null ? `目標價 NT$${Number(target).toLocaleString('zh-TW')}` : '尚無分析師目標價'}</strong>
+          <span>目標價為分析師估計，不作為財報分母</span>
+        </> : selectedCustom ? <>
+          <strong>我的 {mode.toUpperCase()} 情境（僅此裝置）</strong><span>具名來源 · 同期間口徑</span>
+        </> : ruler ? <>
+          <strong>{ruler.label}</strong><span>{ruler.detail}</span>
+        </> : <>
+          <strong>{mode.toUpperCase()} 無法估算</strong><span>{selectedRow?.reason || '缺可核實分母與同期間倍數'}，價格軸不畫假區間</span>
+        </>}
+      </div>
+      {mode === 'target' && note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
       <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, lineHeight: 1.6 }}>
-        現價、持倉成本與分析師目標價來源各異，不作為情境價的財報分母。{target != null ? '目標價為分析師估計。' : ''}
+        現價與持倉成本只供定位；PE／PB／PS 各自獨立，不取交集，也不反推財報分母。
       </div>
       {symbol && band && band.basisCount > 0 && (
         <CustomMultiplesEditor WB={WB} symbol={symbol} scenario={band} custom={custom} today={today} price={price} />

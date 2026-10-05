@@ -1,6 +1,6 @@
 // @ts-nocheck
 // ChipsTrendChart — 籌碼面趨勢圖 + 歷史 scrubber
-// 1) 三大法人：柱體恆為「每日淨買賣」（紅正 / 綠負），視窗 5/20/60 只影響右下讀值的滾動加總
+// 1) 三大法人：外資／投信／自營商固定身份色，方向由零線與正負號呈現
 // 2) 分點集中度：每日柱狀（Top15 買超集中度 %），>70% 紅色，保留 70% 警戒虛線
 // 3) Scrubber：拖曳選日，圓點對齊柱頂
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -10,10 +10,11 @@ import type {
   WindowReadinessPayload,
   ReadinessState,
 } from '@/checkup/hooks/useTwChipsDetail';
+import { INSTITUTIONAL_PALETTE, type InstitutionalKey } from './institutionalPalette';
 
 const SERIF = '"Source Serif 4", "Noto Serif TC", Georgia, serif';
 const UP = '#C43D3D';
-const DOWN = '#2E7A4B';
+const INST_KEYS: InstitutionalKey[] = ['foreign_net', 'trust_net', 'dealer_net'];
 
 type Mode = 'inst' | 'bsr';
 type Window = 1 | 5 | 20 | 60;
@@ -120,7 +121,9 @@ export default function ChipsTrendChart({
 
   // 座標映射
   const xs = (i: number) => PAD_L + (i * (w - PAD_L - PAD_R)) / Math.max(series.length - 1, 1);
-  const values = validPts.map((p) => p.value as number);
+  const values = mode === 'inst'
+    ? inst.flatMap((point) => INST_KEYS.map((key) => point[key])).filter((value) => value != null && Number.isFinite(value))
+    : validPts.map((p) => p.value as number);
   let vMin = Math.min(...values, 0);
   let vMax = Math.max(...values, 0);
   if (mode === 'bsr') {
@@ -185,7 +188,10 @@ export default function ChipsTrendChart({
       </div>
 
       {mode === 'inst' && (
-        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+        <><div className="chips-institutional-legend" aria-label="法人身份色圖例">
+          {[['foreign_net', '外資'], ['trust_net', '投信'], ['dealer_net', '自營商']].map(([key, label]) =>
+            <span key={key} style={{ color: INSTITUTIONAL_PALETTE[key as InstitutionalKey] }}><i aria-hidden="true" />{label}</span>)}
+        </div><div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
           {([1, 5, 20, 60] as Window[]).map((wv) => {
             const disabled = wv > instLen;
             return (
@@ -201,7 +207,7 @@ export default function ChipsTrendChart({
               </SegBtn>
             );
           })}
-        </div>
+        </div></>
       )}
 
       <div ref={wrapRef} style={{ width: '100%' }}>
@@ -242,7 +248,7 @@ export default function ChipsTrendChart({
                     y={Math.min(ys(v), yZero)}
                     width={barW}
                     height={Math.max(1, Math.abs(ys(v) - yZero))}
-                    fill={mode === 'bsr' ? (v > 70 ? UP : WB.ink) : v >= 0 ? UP : DOWN}
+                    fill={mode === 'bsr' ? (v > 70 ? UP : WB.ink) : INSTITUTIONAL_PALETTE.foreign_net}
                     opacity={0.75}
                   />
                 )}
@@ -288,8 +294,25 @@ export default function ChipsTrendChart({
             const fill =
               mode === 'bsr'
                 ? (v > 70 ? UP : WB.ink)
-                : v >= 0 ? UP : DOWN;
+                : INSTITUTIONAL_PALETTE.foreign_net;
             const inWindow = i >= windowStart && i <= windowEnd;
+            if (mode === 'inst') {
+              const daily = p.raw as Record<InstitutionalKey, number>;
+              const groupWidth = Math.max(3, barW);
+              const memberWidth = Math.max(1, groupWidth / 3 - 0.5);
+              return <g key={i} data-window-active={inWindow ? 'true' : 'false'}>
+                {INST_KEYS.map((key, memberIndex) => {
+                  const memberValue = Number(daily[key]);
+                  if (!Number.isFinite(memberValue)) return null;
+                  const memberY = ys(memberValue);
+                  return <rect key={key} data-institution={key}
+                    x={xs(i) - groupWidth / 2 + memberIndex * (memberWidth + 0.5)}
+                    y={Math.min(memberY, yZero)} width={memberWidth}
+                    height={Math.max(1, Math.abs(memberY - yZero))}
+                    fill={INSTITUTIONAL_PALETTE[key]} opacity={inWindow ? 0.9 : 0.24} />;
+                })}
+              </g>;
+            }
             return (
               <rect
                 key={i}
@@ -337,12 +360,14 @@ export default function ChipsTrendChart({
                 strokeDasharray="2 3"
                 opacity={0.5}
               />
-              <circle
-                cx={xs(activeIdx)}
-                cy={ys(activeVal)}
-                r={3.5}
-                fill={mode === 'bsr' ? ((activeVal as number) > 70 ? UP : WB.ink) : activeVal >= 0 ? UP : DOWN}
-              />
+              {mode === 'inst'
+                ? INST_KEYS.map((key) => {
+                    const value = Number((activePt.raw as Record<InstitutionalKey, number>)[key]);
+                    return Number.isFinite(value) ? <circle key={key} data-institution-cursor={key}
+                      cx={xs(activeIdx)} cy={ys(value)} r={2.7} fill={INSTITUTIONAL_PALETTE[key]} /> : null;
+                  })
+                : <circle cx={xs(activeIdx)} cy={ys(activeVal)} r={3.5}
+                    fill={(activeVal as number) > 70 ? UP : WB.ink} />}
             </>
           )}
 
@@ -448,9 +473,7 @@ export default function ChipsTrendChart({
             <span
               data-testid="chips-trend-readout-value"
               style={{
-                color: readoutVal == null || Number.isNaN(readoutVal)
-                  ? WB.inkMute
-                  : (readoutVal as number) >= 0 ? UP : DOWN,
+                 color: readoutVal == null || Number.isNaN(readoutVal) ? WB.inkMute : WB.ink,
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
