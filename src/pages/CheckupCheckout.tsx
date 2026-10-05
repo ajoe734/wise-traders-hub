@@ -1,3 +1,4 @@
+import { JoinOfficialLineGate } from "@/components/checkout/JoinOfficialLineGate";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { PortalLayout } from "@/components/layouts/PortalLayout";
@@ -207,6 +208,7 @@ export default function CheckupCheckout() {
 
   return (
     <PortalLayout hideAppEntry hideHeader>
+      <JoinOfficialLineGate />
       <div className="container max-w-2xl py-8 space-y-6">
         <Button variant="ghost" size="sm" onClick={() => navigate("/pricing")} className="-ml-2 gap-2">
           <ArrowLeft className="h-4 w-4" /> 返回方案
