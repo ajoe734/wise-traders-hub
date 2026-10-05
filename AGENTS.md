@@ -24,6 +24,10 @@ Issues 以本地 markdown 檔管理，放在 `.scratch/<feature-slug>/`。See `d
 
 Keep the drawer's single TWD price scale in the reusable PriceSpectrum presentation component; valuation calculation and fetching stay in their existing modules, so visual changes cannot alter financial inputs.
 
+### Holdings visual prototypes
+
+Keep unapproved drawer design directions on runtime-guarded `/e2e/*` fixture routes and reuse production chart primitives; why: visual comparison must not alter live financial behavior or expose fabricated data on published hosts.
+
 
 ### Domain docs
 
