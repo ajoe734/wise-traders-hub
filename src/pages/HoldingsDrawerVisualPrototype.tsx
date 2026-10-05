@@ -1,18 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { PriceSpectrum } from '@/checkup/components/freecheckup/PriceSpectrum';
 import { RangeBand } from '@/checkup/components/freecheckup/HoldingsDetailPanel';
 import { WB } from '@/pages/_freeCheckup/constants.jsx';
 import './holdingsDrawerVisualPrototype.css';
-
-type Direction = 'research' | 'price' | 'balanced';
-
-const DIRECTIONS: Array<{ key: Direction; label: string; note: string }> = [
-  { key: 'research', label: 'A 研究手稿', note: '估值證據優先' },
-  { key: 'price', label: 'B 價格先行', note: '價格位置優先' },
-  { key: 'balanced', label: 'C 平衡判讀', note: '維持現行節奏' },
-];
 
 const PRICE = 4229.3;
 const COST = 2566.67;
@@ -52,6 +42,54 @@ const SCALE_MODES: Array<{ key: ScaleMode; label: string }> = [
   { key: 'pb', label: 'PB' },
   { key: 'ps', label: 'PS' },
 ];
+
+const AXIS_MIN = 2400;
+const AXIS_MAX = 4500;
+const axisX = (value: number) => 28 + ((value - AXIS_MIN) / (AXIS_MAX - AXIS_MIN)) * 344;
+
+function LieflatPriceAxis({ showTarget }: { showTarget: boolean }) {
+  const ticks = Array.from({ length: 43 }, (_, index) => index);
+  const costX = axisX(COST);
+  const targetX = axisX(TARGET);
+  const priceX = axisX(PRICE);
+
+  return (
+    <svg className="hdvp-lieflat-axis" viewBox="0 0 400 174" role="img" aria-label={showTarget
+      ? '等比例新台幣價格軸，成本 2566.67 元、目標價 3429 元、現價 4229.3 元'
+      : '等比例新台幣價格軸，成本 2566.67 元、現價 4229.3 元，所選估值資料不足'}>
+      <line className="hdvp-axis-floor" x1="28" y1="91" x2="372" y2="91" />
+      {ticks.map((tick) => {
+        const x = 28 + (tick / 42) * 344;
+        const major = tick % 7 === 0;
+        return <line key={tick} className={major ? 'hdvp-axis-tick is-major' : 'hdvp-axis-tick'}
+          x1={x} y1={major ? 80 : 84} x2={x} y2={major ? 102 : 98}
+          style={{ '--tick-delay': `${tick * 11}ms` } as React.CSSProperties} />;
+      })}
+      <g className="hdvp-axis-marker hdvp-axis-cost" style={{ '--marker-delay': '180ms' } as React.CSSProperties}>
+        <line x1={costX} y1="76" x2={costX} y2="35" />
+        <path d={`M ${costX - 5} 76 L ${costX} 68 L ${costX + 5} 76 Z`} />
+        <text x={costX} y="20">成本</text>
+        <text className="hdvp-axis-value" x={costX} y="32">NT$2,566.67</text>
+      </g>
+      {showTarget && (
+        <g className="hdvp-axis-marker hdvp-axis-target" style={{ '--marker-delay': '300ms' } as React.CSSProperties}>
+          <line x1={targetX} y1="102" x2={targetX} y2="137" />
+          <rect x={targetX - 4} y="87" width="8" height="8" />
+          <text x={targetX} y="151">目標</text>
+          <text className="hdvp-axis-value" x={targetX} y="164">NT$3,429</text>
+        </g>
+      )}
+      <g className="hdvp-axis-marker hdvp-axis-now" style={{ '--marker-delay': '420ms' } as React.CSSProperties}>
+        <line x1={priceX} y1="76" x2={priceX} y2="30" />
+        <circle cx={priceX} cy="91" r="5.5" />
+        <text x={priceX} y="16">現價</text>
+        <text className="hdvp-axis-value" x={priceX} y="29">NT$4,229.3</text>
+      </g>
+      <text className="hdvp-axis-bound" x="28" y="121">NT$2,400</text>
+      <text className="hdvp-axis-bound" x="372" y="121" textAnchor="end">NT$4,500</text>
+    </svg>
+  );
+}
 
 function InstitutionalFlow({ bars }: { bars: boolean }) {
   const max = 3718;
@@ -109,7 +147,7 @@ function PriceSection() {
         ))}
       </div>
       <div key={mode} className="hdvp-spectrum-transition" data-testid={`unified-spectrum-${mode}`}>
-        <PriceSpectrum WB={WB} price={PRICE} cost={COST} target={hasEstimate ? TARGET : null} />
+        <LieflatPriceAxis showTarget={hasEstimate} />
         <div className="hdvp-scale-status" aria-live="polite">
           {hasEstimate ? <><strong>目標價 NT$3,429</strong><span>沿用持倉設定</span></> : <><strong>{mode.toUpperCase()} 無法估算</strong><span>缺可核實分母與同期間倍數，價格軸不畫假區間</span></>}
         </div>
@@ -129,20 +167,19 @@ function MarketChart() {
   );
 }
 
-function Drawer({ direction }: { direction: Direction }) {
-  const research = direction === 'research';
+function Drawer() {
   return (
-    <article className={`hdvp-drawer hdvp-${direction}`} data-testid="drawer-visual-prototype" data-direction={direction}>
-      <header className="hdvp-toolbar"><span>持倉判讀</span><span>{DIRECTIONS.find((item) => item.key === direction)?.label}</span></header>
+    <article className="hdvp-drawer" data-testid="drawer-visual-prototype" data-direction="lieflat">
+      <header className="hdvp-toolbar"><span>持倉判讀</span><span>LIEFLAT · WIRE</span></header>
       <main>
         <section className="hdvp-identity">
-          <div><span>3443 · 半導體業 · 持有中</span><h1>創意</h1></div>
-          <div className="hdvp-return"><strong>+64.78%</strong><span>+4,988</span></div>
+          <div><span>3443 · 半導體業</span><h1>創意</h1><small>持有中 · 成本 NT$2,566.67</small></div>
+          <div className="hdvp-return"><span>未實現損益</span><strong>+64.78%</strong><small>+4,988</small></div>
         </section>
-        <section className="hdvp-decision"><span>目前觀察</span><strong>續抱，等待量價確認</strong><small>關注程度 · 中</small></section>
+        <section className="hdvp-decision"><span>目前觀察</span><strong>續抱，等待量價確認</strong><small>關注程度 · 中</small><i aria-hidden="true" /></section>
         <PriceSection />
         <MarketChart />
-        <InstitutionalFlow bars={!research} />
+        <InstitutionalFlow bars />
         <footer className="hdvp-source">固定原型資料 · 僅比較構圖與動畫語法 · 不改金融計算</footer>
       </main>
     </article>
@@ -150,15 +187,9 @@ function Drawer({ direction }: { direction: Direction }) {
 }
 
 export default function HoldingsDrawerVisualPrototype() {
-  const [params] = useSearchParams();
-  const raw = params.get('direction');
-  const direction: Direction = raw === 'research' || raw === 'price' || raw === 'balanced' ? raw : 'research';
   return (
     <div className="hdvp-page">
-      <nav aria-label="預覽方向" className="hdvp-switcher">
-        {DIRECTIONS.map((item) => <Link key={item.key} to={`?direction=${item.key}`} aria-current={direction === item.key ? 'page' : undefined}><strong>{item.label}</strong><span>{item.note}</span></Link>)}
-      </nav>
-      <Drawer direction={direction} />
+      <Drawer />
     </div>
   );
 }
