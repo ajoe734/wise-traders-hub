@@ -16,6 +16,47 @@ import { serviceClient, type SupabaseClient } from '../_shared/supabaseClients.t
 import { corsHeaders } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+import { evaluateMarketDayGate, MARKET_DAY_MIN_ROWS } from '../_shared/valuationSyncGate.ts';
+
+/** 每次執行寫 system_jobs_log（成功／失敗／跳過），避免 cron 靜默失敗。 */
+async function logJob(
+  supa: SupabaseClient,
+  status: 'success' | 'failed' | 'skipped' | 'empty',
+  detail: Record<string, unknown>,
+  durationMs: number,
+): Promise<void> {
+  try {
+    await supa.from('system_jobs_log').insert({
+      job_name: 'valuation_sync',
+      status,
+      detail,
+      duration_ms: Math.round(durationMs),
+    });
+  } catch (e) {
+    console.warn('[valuation-sync] logJob failed:', (e as Error).message);
+  }
+}
+
+/** 寫入筆數異常偏低時落 system_alerts（kind=valuation_market_day_low_rows）。 */
+async function alertLowRows(
+  supa: SupabaseClient,
+  date: string,
+  upserted: number,
+): Promise<void> {
+  try {
+    await supa.from('system_alerts').insert({
+      kind: 'valuation_market_day_low_rows',
+      level: 'warning',
+      title: '估值全市場更新筆數偏低',
+      message: `${date} 僅寫入 ${upserted} 筆（健康門檻 ${MARKET_DAY_MIN_ROWS}），可能為 FinMind 當日資料未出全，需補跑。`,
+      metric_value: upserted,
+      threshold: MARKET_DAY_MIN_ROWS,
+      detail: { date, upserted },
+    });
+  } catch (e) {
+    console.warn('[valuation-sync] alertLowRows failed:', (e as Error).message);
+  }
+}
 
 const FINMIND = 'https://api.finmindtrade.com/api/v4/data';
 const TWSE_BWIBBU = 'https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL';
