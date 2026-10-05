@@ -1,20 +1,20 @@
 # 01 — 持倉抽屜三方向視覺原型
 
-Status: ready-for-agent
+Status: ready-for-human
 Priority: P1
 Category: enhancement
 Blocked by: None — can start immediately
 
 ## What to build
 
-提供三個使用真實持倉抽屜圖表元件與固定 3443 資料的獨立預覽，讓使用者先比較視覺方向，再決定是否修改正式介面。
+使用真實持倉抽屜行情元件與固定 3443 資料，提供已選定的 Lieflat valuation drawer 預覽，讓使用者確認後再決定是否修改正式介面。
 
 ## 驗收標準
 
-- [ ] 三方向皆為 390px 完整抽屜，可用網址參數切換並可分別截圖。
+- [ ] 390px 完整抽屜套用已選定的 Lieflat valuation drawer 方向並可截圖。
 - [ ] 固定資料包含價格軸、30 日 OHLC 與量能、PE/PB/PS 三尺、現金殖利率輔助、三大法人。
 - [ ] 目標價與 PE／PB／PS 共用同一條 NT$ 價格軸；切換時動畫更新內容，資料不足不畫假區間。
-- [ ] wire 灰階＋品牌橘；行情紅漲綠跌；無陰影、漸層、深色區塊、藍紫金。
+- [ ] 除 K 線、成交量、法人籌碼外，圖卡採 lieflat-charts wire 灰階＋品牌橘與原版可數刻度語法；行情紅漲綠跌；無陰影、漸層、深色區塊、藍紫金。
 - [ ] 560／390／380px 無水平溢出，768px 資訊層級正常。
 - [ ] 動畫支援 prefers-reduced-motion。
 
@@ -26,7 +26,7 @@ Blocked by: None — can start immediately
 
 深連結與導向：
 
-- 進入點：直接開啟預覽網址並以 `direction=research|price|balanced` 切換。
+- 進入點：直接開啟預覽網址。
 - 失敗導向：正式與自訂網域顯示 NotFound。
 - 是否需要更新 `public/sitemap.xml`：否。
 
@@ -57,4 +57,4 @@ Blocked by: None — can start immediately
 
 ## Comments
 
-- 使用者選定方向後，另開正式實作工作項目。
+- 使用者已選定 Lieflat valuation drawer；確認預覽後另開正式實作工作項目。
