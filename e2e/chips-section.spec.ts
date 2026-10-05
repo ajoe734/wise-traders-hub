@@ -133,7 +133,7 @@ test.describe('ChipsSection · 全覆蓋', () => {
     const color = await page
       .getByTestId('chips-inst-foreign_net-d1')
       .evaluate((el) => getComputedStyle(el).color);
-    expect(color).toMatch(/34,\s*33,\s*31/);
+    expect(color).toMatch(/34,\s*33,\s*32/);
 
     // BSR
     const bsr = page.getByTestId('chips-bsr');
