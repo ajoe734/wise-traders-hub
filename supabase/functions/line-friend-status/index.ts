@@ -1,5 +1,5 @@
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -8,14 +8,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const auth = req.headers.get('Authorization') || '';
   if (!auth.startsWith('Bearer ')) return json({ error: 'unauthorized' }, 401);
-  const url = Deno.env.get('SUPABASE_URL')!;
-  const userClient = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: auth } },
-  });
-  const { data: u, error } = await userClient.auth.getUser();
+  const { data: u, error } = await userClient(req).auth.getUser();
   if (error || !u.user) return json({ error: 'unauthorized' }, 401);
 
-  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const admin = serviceClient();
   const { data: prof } = await admin.from('profiles').select('line_user_id').eq('user_id', u.user.id).maybeSingle();
   const lineUserId = (prof as any)?.line_user_id;
   const token = Deno.env.get('PLATFORM_LINE_CHANNEL_TOKEN');

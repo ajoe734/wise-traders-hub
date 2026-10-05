@@ -130,6 +130,7 @@ export default function ChipsSection({
   WB,
   stockCode,
   showBsr = true,
+  defaultBsrOpen = false,
 }: {
   WB: any;
   stockCode: string;
@@ -139,6 +140,8 @@ export default function ChipsSection({
    * 後端管線與其他 surface（harness／其他頁面）維持原樣，故以 prop 控制而非刪碼。
    */
   showBsr?: boolean;
+  /** 分點品質列初始是否展開；正式頁面預設收合，僅 Preview harness 驗收展開內容時使用。 */
+  defaultBsrOpen?: boolean;
 }) {
   if (!isTaiwanStockCode(stockCode)) return null;
 
@@ -214,7 +217,7 @@ export default function ChipsSection({
 
   // VALUATION_THREE_RULERS_PLAN_V1 §F：分點細節降級成一行 data-quality badge，
   // 主要版面讓給估值三把尺。展開後內容與 testid 完全不變（e2e 合約不破）。
-  const [bsrOpen, setBsrOpen] = React.useState(false);
+  const [bsrOpen, setBsrOpen] = React.useState(defaultBsrOpen);
   // 視窗覆蓋計數一律走 readinessLabel（分子夾在分母內，杜絕 27/5）
   const bsrPartialText = windowCoverageText(bsrWinReadiness, bsrWinDays);
   const bsrCompactText = data?.bsr_as_of
