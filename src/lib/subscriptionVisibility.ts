@@ -74,7 +74,7 @@ export async function fetchSubscriberSignals(
       .eq('status', 'published')
       .in('expert_id', allExpertIds)
       .order('published_at', { ascending: false })
-      .limit(50);
+      .limit(200);
 
     return {
       signals: gateSignalEconomics(!error && data ? (data as Record<string, unknown>[]) : [], projection),

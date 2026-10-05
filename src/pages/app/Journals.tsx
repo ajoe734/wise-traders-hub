@@ -100,7 +100,7 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
     const projection = await fetchProjectionStatusForExperts(mentorIds);
     const { signals: fetched, error } = await journalRepo.forSubscriber<JournalSignal>(
       supabase as any,
-      { mentorIds, limit: 100, projection },
+      { mentorIds, limit: 300, projection },
     );
     if (error) {
       console.error('Error fetching journals:', error);
