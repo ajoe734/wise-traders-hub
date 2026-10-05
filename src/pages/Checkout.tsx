@@ -1,3 +1,4 @@
+import { JoinOfficialLineGate } from '@/components/checkout/JoinOfficialLineGate';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -492,6 +493,7 @@ function CheckoutUnavailableState({ planId, hasPlan }: { planId: string | undefi
         : 'missing';
   return (
     <PortalLayout hideAppEntry hideHeader>
+      <JoinOfficialLineGate />
       <CheckoutUnavailable reason={reason} expertName={status?.expert_name ?? null} />
     </PortalLayout>
   );
