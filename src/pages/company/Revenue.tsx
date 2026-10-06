@@ -105,6 +105,8 @@ const CompanyRevenue = () => {
             checkupPlanMap={checkupPlanMap}
             profileMap={profileMap}
           />
+
+          <PayrollTab />
         </Tabs>
 
         <RefundDialog
