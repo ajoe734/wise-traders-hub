@@ -56,3 +56,7 @@ The whole-market daily valuation sync (`valuation-sync` `market_day`) skips its 
 ### Forward valuation evidence
 
 Forward/peer valuation evidence for the holdings drawer lives in the pure `src/checkup/lib/forwardValuation.ts`; a scenario price is computed only from a named-source forward (or TTM) per-share basis × a multiple of the same period kind, and period mismatches (historical TTM multiple × forward basis) block the scenario; why: the current provider only returns reported TTM/quarter-end denominators, so forward numbers must be user-sourced and never inferred, and peer medians/highs stay unadjusted references unless a premium/discount reason is given.
+
+### Expert monthly payroll
+
+Monthly teacher payouts are computed only by the pure `src/lib/expertPayroll.ts` from `revenue_splits.expert_amount` grouped by Taipei payment month; marking a month paid snapshots it in `expert_payouts` (admin-only), and later refunds become next-month clawbacks; why: paid months must never change after money leaves, and split ratios stay owned by the existing split rules.
