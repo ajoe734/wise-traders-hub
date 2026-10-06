@@ -166,6 +166,9 @@ export function useExpertHoldingsBundle(
     ...gated,
     projection,
     loading: query.isLoading,
+    isError: query.isError,
+    isFetching: query.isFetching,
+    dataUpdatedAt: query.dataUpdatedAt || null,
     refetch: query.refetch,
   };
 }

@@ -32,6 +32,10 @@ Use fixed identity colors for foreign investors, investment trusts, and dealers 
 
 Keep unapproved drawer design directions on runtime-guarded `/e2e/*` fixture routes and reuse production chart primitives; why: visual comparison must not alter live financial behavior or expose fabricated data on published hosts.
 
+### Journal current holdings
+
+Render the journal-detail current-holdings grid only from `useExpertHoldingsBundle` and its public projection gate; why: weekly editorial data must not become a second holdings ledger or leak unverified economic numbers.
+
 
 ### Domain docs
 

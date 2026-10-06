@@ -60,6 +60,7 @@ const HoldingDeleteHarnessEntry = lazy(() => import("../pages/HoldingDeleteHarne
 const HoldingDeleteSellHarnessEntry = lazy(() => import("../pages/HoldingDeleteSellHarnessEntry"));
 const ValuationRulersHarnessEntry = lazy(() => import("../pages/ValuationRulersHarnessEntry"));
 const HoldingsDrawerVisualPrototype = lazy(() => import("../pages/HoldingsDrawerVisualPrototypeHarnessEntry"));
+const JournalCurrentHoldingsHarnessEntry = lazy(() => import("../pages/JournalCurrentHoldingsHarnessEntry"));
 
 interface HarnessRouteGuardProps {
   children?: ReactNode;
@@ -102,6 +103,7 @@ export const harnessRoutes = () => [
   <Route key="e2e-holding-delete-sell" path="/e2e/holding-delete-sell-harness" element={guarded(<HoldingDeleteSellHarnessEntry />)} />,
   <Route key="e2e-valuation-rulers" path="/e2e/valuation-rulers-harness" element={guarded(<ValuationRulersHarnessEntry />)} />,
   <Route key="e2e-holdings-drawer-visual" path="/e2e/holdings-drawer-visual-prototype" element={guarded(<HoldingsDrawerVisualPrototype />)} />,
+  <Route key="e2e-journal-current-holdings" path="/e2e/journal-current-holdings-harness" element={guarded(<JournalCurrentHoldingsHarnessEntry />)} />,
 ];
 
 /** Nested harness route. Always registered; runtime-host guarded. */

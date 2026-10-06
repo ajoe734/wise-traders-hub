@@ -17,6 +17,7 @@ import { UnavailableContent } from '@/components/UnavailableContent';
 import {
   TradeItem,
   PreviewDiagnosticsBlock,
+  CurrentHoldingsGrid,
   useJournalDetail,
   useJournalPdfExport,
 } from './_journalDetail';
@@ -195,6 +196,12 @@ const JournalDetail = () => {
             highlightAt={new Date(signal.published_at)}
           />
         )}
+
+        <CurrentHoldingsGrid
+          expertId={signal.expert_id}
+          currency={signal.experts.currency}
+          assetClass={signal.experts.asset_class}
+        />
 
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
