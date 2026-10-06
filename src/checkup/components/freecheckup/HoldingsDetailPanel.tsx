@@ -870,13 +870,14 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
     ratioText ? `比率資料截至 ${ratioText}${stale ? '，已逾 7 天' : ''}` : null,
     peersPending ? '同業比較背景載入中' : null,
   ].filter(Boolean).join('｜');
+  const hasPeerEvidence = !!band.rows?.some((r) => r.multiples?.method === 'peer');
   return (
     <div data-testid="valuation-band-headline" data-status={band.status} style={{ marginBottom: 12, minWidth: 0 }}>
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
         <span style={{ fontSize: 13, color: WB.inkSub }}>估值判讀</span>
         <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: WB.ink, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
           {band.basisCount > 0
-            ? (band.status === 'lowConfidence' ? '同業倍數不足，僅歷史情境參考' : '尚不能判定合理價')
+            ? (hasPeerEvidence ? '尚不能判定合理價' : '同業倍數不足，僅歷史情境參考')
             : '財報分母不足，無法判讀現價要求'}
         </span>
       </div>
