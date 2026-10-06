@@ -14,6 +14,7 @@ import { LineChannelDialog } from '@/pages/_companyAnalysts/LineChannelDialog';
 import { AccountCredentialsDialog } from '@/pages/_companyAnalysts/AccountCredentialsDialog';
 import { SubscribersDialog } from '@/pages/_companyAnalysts/SubscribersDialog';
 import { ReminderTimeDialog } from '@/pages/_companyAnalysts/ReminderTimeDialog';
+import { ExpertSplitPanel } from '@/pages/_companyAnalysts/ExpertSplitPanel';
 import { describeFunctionFailure, formatFailure } from '@/lib/functionError';
 
 const CompanyAnalysts = () => {
@@ -209,6 +210,8 @@ const CompanyAnalysts = () => {
           onAdopt={handleAdopt}
           onOpenReminder={(exp) => setReminderExpert(exp)}
         />
+
+        <ExpertSplitPanel experts={experts} />
       </div>
 
 

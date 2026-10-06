@@ -76,3 +76,20 @@ describe('1.30 calcSplit', () => {
     expect(r.channel_reserve).toBe(0);
   });
 });
+
+import { calcSplit as calcSplit2 } from '@/lib/revenueSplit';
+describe('expert_override 層級', () => {
+  const defaults = { standard: { pct_platform: 55, pct_expert: 45 }, checkup: { pct_platform: 100, pct_expert: 0 } };
+  it('無方案覆寫時採老師比例', () => {
+    const r = calcSplit2({ productKind: 'expert_plan', gross: 1000, discount: 0, expertOverride: { pct_platform: 40, pct_expert: 60 }, defaults });
+    expect(r.rule_source).toBe('expert_override'); expect(r.expert_amount).toBe(600);
+  });
+  it('方案覆寫優先於老師比例', () => {
+    const r = calcSplit2({ productKind: 'expert_plan', gross: 1000, discount: 0, planOverride: { pct_platform: 70, pct_expert: 30 }, expertOverride: { pct_platform: 40, pct_expert: 60 }, defaults });
+    expect(r.rule_source).toBe('plan_override'); expect(r.expert_amount).toBe(300);
+  });
+  it('健檢不受老師比例影響', () => {
+    const r = calcSplit2({ productKind: 'checkup', gross: 1000, discount: 0, expertOverride: { pct_platform: 40, pct_expert: 60 }, defaults });
+    expect(r.expert_amount).toBe(0);
+  });
+});

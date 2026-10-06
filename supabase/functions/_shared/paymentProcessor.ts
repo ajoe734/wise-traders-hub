@@ -286,6 +286,19 @@ export async function writeRevenueSplit(supabase: any, p: WriteSplitParams) {
     }
   }
 
+  // 老師級預設：expert_split_settings[expert_id]（方案覆寫不存在時）
+  let expertOverride: { pct_platform: number; pct_expert: number } | null = null;
+  if (!planOverride && p.expertId && p.productKind === 'expert_plan') {
+    const { data } = await supabase
+      .from('expert_split_settings')
+      .select('pct_platform, pct_expert')
+      .eq('expert_id', p.expertId)
+      .maybeSingle();
+    if (data && data.pct_platform != null && data.pct_expert != null) {
+      expertOverride = { pct_platform: data.pct_platform, pct_expert: data.pct_expert };
+    }
+  }
+
   const split = calcSplit({
     productKind: p.productKind,
     gross: p.gross,
@@ -293,6 +306,7 @@ export async function writeRevenueSplit(supabase: any, p: WriteSplitParams) {
     discountSource: p.discountReason,
     attribution: p.attribution,
     planOverride,
+    expertOverride,
     defaults,
   });
 

@@ -117,6 +117,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminSignals = lazy(() => import("./pages/admin/Signals"));
 const AdminSignalEditor = lazy(() => import("./pages/admin/SignalEditor"));
 const AdminSubscribers = lazy(() => import("./pages/admin/Subscribers"));
+const AdminPayroll = lazy(() => import("./pages/admin/Payroll"));
 const AdminProfile = lazy(() => import("./pages/admin/Profile"));
 const AdminPerformance = lazy(() => import("./pages/admin/Performance"));
 const AdminReasonTemplates = lazy(() => import("./pages/admin/ReasonTemplates"));
@@ -412,6 +413,7 @@ const AppShell = () => (
             <Route path="/admin/:expertSlug/signals/new" element={<ProtectedRoute><AdminSignalEditor /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signals/edit/:batchId" element={<ProtectedRoute><AdminSignalEditor /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/plans" element={<ProtectedRoute><AdminPlans /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/payroll" element={<ProtectedRoute><AdminPayroll /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />

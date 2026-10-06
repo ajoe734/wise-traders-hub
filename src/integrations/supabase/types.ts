@@ -2641,6 +2641,55 @@ export type Database = {
           },
         ]
       }
+      expert_split_settings: {
+        Row: {
+          created_at: string
+          expert_id: string
+          pct_expert: number
+          pct_platform: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          expert_id: string
+          pct_expert: number
+          pct_platform: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          expert_id?: string
+          pct_expert?: number
+          pct_platform?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_split_settings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_split_settings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_split_settings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+        ]
+      }
       experts: {
         Row: {
           asset_class: string

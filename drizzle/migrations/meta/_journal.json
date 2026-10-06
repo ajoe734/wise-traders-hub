@@ -197,6 +197,13 @@
       "when": 1791295061024,
       "tag": "0027_create_expert_payouts",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791304813717,
+      "tag": "0028_expert_split_settings_and_payout_self_read",
+      "breakpoints": true
     }
   ]
 }

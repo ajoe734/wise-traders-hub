@@ -3,7 +3,7 @@
  *
  * 架構（v2，已停用導流分潤）：
  *   - 健檢商品：平台 100%
- *   - 一般方案：plan_split_overrides[plan_id] 覆寫優先，否則用全站 split_standard
+ *   - 一般方案：plan_split_overrides[plan_id] > expert_split_settings[expert_id] > 全站 split_standard
  *   - attribution（utm_source 等）僅作行銷追蹤紀錄，不影響分潤
  */
 
@@ -26,6 +26,8 @@ export interface SplitInput {
   } | null;
   /** 來自 plan_split_overrides，優先於 standard default */
   planOverride?: SplitRule | null;
+  /** 來自 expert_split_settings，方案覆寫不存在時使用 */
+  expertOverride?: SplitRule | null;
   defaults: {
     standard: SplitRule;
     checkup: SplitRule;
@@ -37,7 +39,7 @@ export interface SplitOutput {
   platform_amount: number;
   expert_amount: number;
   channel_reserve: number;
-  rule_source: 'plan_override' | 'standard_default' | 'checkup_default';
+  rule_source: 'plan_override' | 'expert_override' | 'standard_default' | 'checkup_default';
   rule_snapshot: SplitRule;
 }
 
@@ -55,8 +57,10 @@ export function calcSplit(input: SplitInput): SplitOutput {
     };
   }
 
-  const rule = input.planOverride ?? input.defaults.standard;
-  const source: SplitOutput['rule_source'] = input.planOverride ? 'plan_override' : 'standard_default';
+  const rule = input.planOverride ?? input.expertOverride ?? input.defaults.standard;
+  const source: SplitOutput['rule_source'] = input.planOverride
+    ? 'plan_override'
+    : input.expertOverride ? 'expert_override' : 'standard_default';
 
   const platform = Math.round((net * rule.pct_platform) / 100);
   const expert = net - platform; // 殘差給 expert
