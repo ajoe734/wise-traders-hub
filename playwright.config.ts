@@ -187,6 +187,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // /app/journal/:id 純教學週記圖文、空內容與新持股區塊共存回歸
+      name: 'desktop-journal-detail-teaching-render',
+      testMatch: /journal-detail-teaching-render\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
       // 回歸：master-brcto owner ?preview=1 → RPC 成功且不觸發 expert_signals.currency schema 錯誤
       name: 'desktop-journal-detail-owner-preview-brcto',
       testMatch: /journal-detail-owner-preview-brcto\.spec\.ts/,
