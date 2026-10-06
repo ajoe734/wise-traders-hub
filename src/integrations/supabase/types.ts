@@ -4075,6 +4075,84 @@ export type Database = {
           },
         ]
       }
+      position_event_reconstruction_issues: {
+        Row: {
+          actual_quantity: number
+          detected_at: string
+          expert_id: string
+          replay_quantity: number
+          symbol: string
+        }
+        Insert: {
+          actual_quantity?: number
+          detected_at?: string
+          expert_id: string
+          replay_quantity?: number
+          symbol: string
+        }
+        Update: {
+          actual_quantity?: number
+          detected_at?: string
+          expert_id?: string
+          replay_quantity?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
+      position_events: {
+        Row: {
+          action: string
+          asset_class: string
+          created_at: string
+          currency: string
+          event_at: string
+          expert_id: string
+          id: string
+          instrument: string
+          quantity_after: number
+          quantity_delta: number
+          quantity_unit: string
+          source_kind: string
+          source_signal_id: string | null
+          symbol: string
+          trade_price: number | null
+        }
+        Insert: {
+          action: string
+          asset_class: string
+          created_at?: string
+          currency: string
+          event_at: string
+          expert_id: string
+          id?: string
+          instrument: string
+          quantity_after: number
+          quantity_delta: number
+          quantity_unit: string
+          source_kind?: string
+          source_signal_id?: string | null
+          symbol: string
+          trade_price?: number | null
+        }
+        Update: {
+          action?: string
+          asset_class?: string
+          created_at?: string
+          currency?: string
+          event_at?: string
+          expert_id?: string
+          id?: string
+          instrument?: string
+          quantity_after?: number
+          quantity_delta?: number
+          quantity_unit?: string
+          source_kind?: string
+          source_signal_id?: string | null
+          symbol?: string
+          trade_price?: number | null
+        }
+        Relationships: []
+      }
       price_parity_events: {
         Row: {
           cache_price: number | null

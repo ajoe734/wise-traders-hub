@@ -110,6 +110,7 @@ const AppExplore = lazy(() => import("./pages/app/Explore"));
 const AppExpertDetail = lazy(() => import("./pages/app/ExpertDetail"));
 const AppCheckout = lazy(() => import("./pages/app/AppCheckout"));
 const AppSubscriptions = lazy(() => import("./pages/app/SubscribedExpertsList"));
+const AppHoldings = lazy(() => import("./pages/app/MemberHoldings"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
@@ -338,7 +339,7 @@ const AppShell = () => (
             <Route path="/app/signal/:id" element={<ProtectedRoute subscriberOnly><AppSignalDetail /></ProtectedRoute>} />
             <Route path="/app/journal/:id" element={<ProtectedRoute subscriberOnly><AppJournalDetail /></ProtectedRoute>} />
             <Route path="/app/account" element={<ProtectedRoute subscriberOnly><AppAccount /></ProtectedRoute>} />
-            <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
+            <Route path="/app/holdings" element={<ProtectedRoute subscriberOnly><AppHoldings /></ProtectedRoute>} />
             <Route path="/app/explore" element={<ProtectedRoute subscriberOnly><AppExplore /></ProtectedRoute>} />
             <Route path="/app/expert/:slug" element={<ProtectedRoute subscriberOnly><AppExpertDetail /></ProtectedRoute>} />
             <Route path="/app/checkout/:slug/:planId" element={<ProtectedRoute subscriberOnly><AppCheckout /></ProtectedRoute>} />

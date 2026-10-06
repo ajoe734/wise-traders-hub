@@ -70,6 +70,14 @@ type SwitchRow = {
   updated_at: string;
 };
 
+type UpstreamQuotaRow = {
+  source: string;
+  remaining: number | null;
+  quota_limit: number | null;
+  reset_at: string | null;
+  observed_at: string;
+};
+
 const STATE_META: Record<string, { label: string; color: string; Icon: typeof ShieldCheck }> = {
   closed:    { label: '正常 (closed)',       color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', Icon: ShieldCheck },
   half_open: { label: '半開探測 (half_open)', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',       Icon: ShieldQuestion },
@@ -112,6 +120,16 @@ export default function DataSourceHealth() {
       return (data ?? []) as PoolRow[];
     },
     refetchInterval: 15_000,
+  });
+
+  const { data: upstreamQuota, refetch: refetchUpstreamQuota } = useQuery({
+    queryKey: ['company', 'finmind-upstream-quota'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('finmind_upstream_quota').select('source, remaining, quota_limit, reset_at, observed_at').order('observed_at', { ascending: false }).limit(1).maybeSingle();
+      if (error) throw error;
+      return data as UpstreamQuotaRow | null;
+    },
+    refetchInterval: 60_000,
   });
 
   const { data: switches, refetch: refetchSwitches } = useQuery({
@@ -227,7 +245,7 @@ export default function DataSourceHealth() {
             PR-7 熔斷 + PR-8 三 pool 配額 + PR-9 緊急開關；guardian 每 5 分鐘自動巡檢。
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { refetch(); refetchPools(); refetchSwitches(); }} disabled={isFetching}>
+        <Button variant="outline" size="sm" onClick={() => { refetch(); refetchPools(); refetchSwitches(); refetchUpstreamQuota(); }} disabled={isFetching}>
           <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           重新整理
         </Button>
@@ -298,6 +316,14 @@ export default function DataSourceHealth() {
               </Card>
             );
           })}
+        </div>
+        <div className="rounded-md border border-border bg-muted/20 p-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-medium text-foreground">FinMind 上游實際額度</span>
+            {upstreamQuota ? <span className="font-mono tabular-nums">{upstreamQuota.remaining ?? '—'} / {upstreamQuota.quota_limit ?? '—'}</span> : <span className="text-muted-foreground">尚未收到上游額度標頭</span>}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">上方卡片是系統內部分配；實際可用量仍受 FinMind 方案與回應限制。</p>
+          {upstreamQuota ? <p className="mt-1 text-xs text-muted-foreground">觀測時間 {fmtTime(upstreamQuota.observed_at)}{upstreamQuota.reset_at ? ` · 重置 ${fmtTime(upstreamQuota.reset_at)}` : ''}</p> : null}
         </div>
       </section>
 

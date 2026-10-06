@@ -36,6 +36,10 @@ Keep unapproved drawer design directions on runtime-guarded `/e2e/*` fixture rou
 
 Render the journal-detail current-holdings grid only from `useExpertHoldingsBundle` and its public projection gate; why: weekly editorial data must not become a second holdings ledger or leak unverified economic numbers.
 
+### Position history ledger
+
+Treat `position_events` as the append-only source for member-visible holding changes while `useExpertHoldingsBundle` remains the only source for current positions; why: weekly content, mutable trade aggregates, and immutable transaction history have separate responsibilities.
+
 
 ### Domain docs
 

@@ -15,6 +15,7 @@ import { useFreshness } from '@/checkup/lib/freshness';
 import { UNAVAILABLE_LABEL, type ProjectionStatus } from '@/contracts/publicProjection';
 import type { PerfRow } from '@/pages/_adminPerformance/types';
 import { cn } from '@/lib/utils';
+import { PositionTimeline } from './PositionTimeline';
 
 const PREVIEW_COUNT = 3;
 
@@ -236,16 +237,19 @@ export function CurrentHoldingsGrid({ expertId, currency, assetClass }: CurrentH
   const bundle = useExpertHoldingsBundle(expertId, { currency, assetClass });
 
   return (
-    <CurrentHoldingsGridView
-      positions={bundle.openPositions}
-      currency={bundle.currency}
-      assetClass={bundle.assetClass}
-      projection={bundle.projection}
-      loading={bundle.loading}
-      error={bundle.isError}
-      refreshing={bundle.isFetching && !bundle.loading}
-      updatedAt={bundle.dataUpdatedAt}
-      onRetry={() => { void bundle.refetch(); }}
-    />
+    <div className="space-y-4">
+      <CurrentHoldingsGridView
+        positions={bundle.openPositions}
+        currency={bundle.currency}
+        assetClass={bundle.assetClass}
+        projection={bundle.projection}
+        loading={bundle.loading}
+        error={bundle.isError}
+        refreshing={bundle.isFetching && !bundle.loading}
+        updatedAt={bundle.dataUpdatedAt}
+        onRetry={() => { void bundle.refetch(); }}
+      />
+      {!bundle.loading && !bundle.isError ? <PositionTimeline expertId={expertId} showNumbers={bundle.projection.showNumbers} /> : null}
+    </div>
   );
 }
