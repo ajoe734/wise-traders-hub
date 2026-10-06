@@ -204,6 +204,13 @@
       "when": 1791304813717,
       "tag": "0028_expert_split_settings_and_payout_self_read",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791305979980,
+      "tag": "0029_payout_clawback_items_and_tighten_grants",
+      "breakpoints": true
     }
   ]
 }

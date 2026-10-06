@@ -24,7 +24,7 @@ const AdminPayroll = () => {
       const { data: ex } = await supabase.from('experts').select('id').eq('slug', expertSlug!).maybeSingle();
       if (!ex) return [];
       const { data: rows, error } = await (supabase.from as any)('expert_payouts')
-        .select('period_month, earnings, clawback, carry_in, amount, tx_count, student_count, paid_at, status')
+        .select('period_month, earnings, clawback, carry_in, amount, clawback_items, tx_count, student_count, paid_at, status')
         .eq('expert_id', ex.id).eq('status', 'paid').order('period_month', { ascending: false });
       if (error) throw error;
       return rows || [];
@@ -53,7 +53,16 @@ const AdminPayroll = () => {
                 <div className="text-xl font-bold">{fmt(r.amount)}</div>
                 <div className="text-xs text-muted-foreground">學員 {r.student_count} 人／{r.tx_count} 筆付款</div>
                 <div className="text-xs text-muted-foreground">當月分潤 {fmt(r.earnings)}</div>
-                {Number(r.clawback) > 0 && <div className="text-xs text-muted-foreground">退款扣回 −{fmt(r.clawback)}</div>}
+                {Number(r.clawback) > 0 && (
+                  <div className="text-xs text-destructive space-y-0.5" data-testid="payroll-clawback">
+                    <div>退款扣回 −{fmt(r.clawback)}</div>
+                    {(Array.isArray(r.clawback_items) ? r.clawback_items : []).map((c: any, i: number) => (
+                      <div key={i} className="text-muted-foreground">
+                        · {String(c.fromMonth).replace('-', '/')} 薪資已發放後退款{c.refundMonth ? `（${String(c.refundMonth).replace('-', '/')} 退款）` : ''}，於本月扣回 −{fmt(c.amount)}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {Number(r.carry_in) < 0 && <div className="text-xs text-muted-foreground">上月結轉 {fmt(r.carry_in)}</div>}
               </CardContent>
             </Card>

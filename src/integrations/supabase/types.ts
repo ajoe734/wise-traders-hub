@@ -2149,6 +2149,7 @@ export type Database = {
           amount: number
           carry_in: number
           clawback: number
+          clawback_items: Json
           created_at: string
           earnings: number
           expert_id: string
@@ -2168,6 +2169,7 @@ export type Database = {
           amount?: number
           carry_in?: number
           clawback?: number
+          clawback_items?: Json
           created_at?: string
           earnings?: number
           expert_id: string
@@ -2187,6 +2189,7 @@ export type Database = {
           amount?: number
           carry_in?: number
           clawback?: number
+          clawback_items?: Json
           created_at?: string
           earnings?: number
           expert_id?: string
