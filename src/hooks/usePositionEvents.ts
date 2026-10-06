@@ -37,10 +37,7 @@ export function usePositionEvents(expertId: string | undefined) {
           .eq('expert_id', expertId)
           .order('event_at', { ascending: false })
           .limit(500),
-        supabase
-          .from('position_event_reconstruction_issues')
-          .select('symbol')
-          .eq('expert_id', expertId),
+        supabase.rpc('list_position_event_reconstruction_issue_symbols', { _expert_id: expertId }),
       ]);
       if (eventsResult.error) throw eventsResult.error;
       if (issuesResult.error) throw issuesResult.error;
