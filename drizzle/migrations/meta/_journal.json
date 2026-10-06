@@ -162,6 +162,13 @@
       "when": 1791261291402,
       "tag": "0022_create_official_share_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791269794933,
+      "tag": "0023_restrict_official_share_registry_to_service_role",
+      "breakpoints": true
     }
   ]
 }
