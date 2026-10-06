@@ -27,7 +27,7 @@ const MAX_PEERS = 6;
 /** 目標財報抓 7 年：前 4 季需再往前 4 季才能算近四季營收年增，5 年會讓最早一年的景氣判斷全為「不明」。 */
 const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-01.5';
+export const VERSION = 'valuation-fundamentals@2026-10-06.1';
 const REQUEST_TIMEOUT_MS = 8_000;
 const TARGET_TIMEOUT_MS = 20_000;
 const OFFICIAL_TIMEOUT_MS = 60_000;
@@ -121,6 +121,11 @@ async function officialIndexFast(meter: Meter, until?: Promise<unknown>): Promis
   return await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), OFFICIAL_WAIT_MS)), ...(stop ? [stop] : [])]);
 }
 
+// Isolate 冷啟動即背景暖抓官方名錄：請求進來時通常已在 inflight，3 秒等待窗內多數能命中；
+// cached() 以 key 去重，請求內的 officialIndex() 會共用同一個 promise，不重複發 HTTP。
+const warmMeter: Meter = { finmind: 0, official: 0, httpAttempts: 0, retries: 0, cacheHits: 0, timeouts: 0 };
+try { void officialIndex(warmMeter).catch(() => null); } catch { /* ignore */ }
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try { await requireCaller(req); } catch (e) {
@@ -139,15 +144,46 @@ Deno.serve(async (req) => {
     const supa = serviceClient();
     const { data: meta, error } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').eq('symbol', symbol).maybeSingle();
     if (error) throw new Error(`industry_map: ${error.message}`);
-    // 官方名錄（約 1.3MB、首次約 5 秒）與目標財報同時抓，不串接等待。
+    // 官方名錄優先讀 official_share_registry（cron 每日同步，毫秒級）；
+    // 資料表為空才走 inline 抓取後備（官方站台需 30 秒以上，正常不應發生）。
     const t0 = Date.now();
     const timings = { industryMapMs: t0 - started, officialMs: 0, targetMs: 0, peersMs: 0 };
     const targetP = loadCompany(meter, symbol, TARGET_FIN_YEARS, 5 * 365, null, TARGET_TIMEOUT_MS).finally(() => { timings.targetMs = Date.now() - t0; });
-    const [idx, targetRaw] = await Promise.all([
-      officialIndexFast(meter, withPeers ? undefined : targetP).finally(() => { timings.officialMs = Date.now() - t0; }),
-      targetP,
-    ]);
+    const registryP = supa.from('official_share_registry')
+      .select('symbol,par,par_text,issued_shares,preferred_shares,paid_in_capital,source,report_date,fetched_at')
+      .then(({ data, error: rErr }) => {
+        if (rErr || !data?.length) return null;
+        const map = new Map<string, OfficialShares>();
+        for (const r of data) {
+          map.set(r.symbol, {
+            par: Number(r.par), parText: r.par_text ?? String(r.par), issuedShares: Number(r.issued_shares),
+            preferredShares: Number(r.preferred_shares ?? 0), paidInCapital: r.paid_in_capital != null ? Number(r.paid_in_capital) : null,
+            source: r.source as OfficialShares['source'], reportDate: r.report_date ?? '',
+          });
+        }
+        return ((s: string) => map.get(s) ?? null) as OfficialIndex;
+      })
+      .catch(() => null);
+    let idx = await registryP;
+    let officialSource = 'registry';
+    if (!idx) {
+      idx = await officialIndexFast(meter, withPeers ? undefined : targetP);
+      officialSource = idx ? 'live_fallback' : 'timeout_fallback';
+    }
+    timings.officialMs = Date.now() - t0;
+    const targetRaw = await targetP;
     const official = (s: string) => (idx ? idx(s) : null);
+    // 名錄兩路都失敗不得靜默：寫 system_jobs_log 供觀測（cron 失敗不靜默的同一原則）。
+    if (!idx) {
+      try {
+        await serviceClient().from('system_jobs_log').insert({
+          job_name: 'valuation-fundamentals-official-list',
+          status: 'degraded',
+          detail: { symbol, officialMs: timings.officialMs, note: '名錄資料表為空且 inline 抓取逾時，本次以 FinMind 已發行股數後備（特別股未核實）' },
+          duration_ms: timings.officialMs,
+        });
+      } catch { /* 日誌失敗不阻斷主流程 */ }
+    }
     // 官方名錄有資料時優先（含特別股）；否則用已發行股數後備。
     const target = { ...targetRaw, official: official(symbol) ?? targetRaw.official };
     const asOf = target.prices.map((p) => p.date).sort().at(-1) ?? null;
@@ -193,7 +229,7 @@ Deno.serve(async (req) => {
       ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
       peersIncluded: withPeers,
-      meta: { officialList: idx ? 'ready' : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
+      meta: { officialList: idx ? officialSource : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {
     return errorResponse(e instanceof Error ? e.message : String(e), 502, { code: 'UPSTREAM_FAILED' }, req);

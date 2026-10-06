@@ -155,6 +155,13 @@
       "when": 1790240060930,
       "tag": "0021_tw_bsr_upstream_probe_drop_authenticated_read",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791261291402,
+      "tag": "0022_create_official_share_registry",
+      "breakpoints": true
     }
   ]
 }

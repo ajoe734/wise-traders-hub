@@ -64,7 +64,6 @@ export function latestOrdinaryShare(bs: FinRow[]): number | null {
 }
 
 export const SHARE_TOLERANCE = 0.05;
-export const SHARE_BRACKET_SLACK = 0.02;
 export const SHARE_CHANGE_THRESHOLD = 0.005;
 export const NI_RECON_TOLERANCE = 0.01;
 export const MIN_PEERS = 3;
@@ -298,20 +297,41 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
   const latest = last4[3];
   const latestBs = bsQ.get(latest.period)?.v || {};
   if (last4.some((l) => l.sharesEnd == null)) return { ...base, reason: '缺期末普通股股本，無法取得股數' };
-  // 加權平均股數必然落在「上季末～本季末」流通股數之間（放寬 2% 容納庫藏股時點與 EPS 進位）；
-  // 落在外面代表面額、股本或 EPS 口徑對不上。季中增資（如世芯 2026Q2）不會被誤判。
+  // 加權股數核對：財報 EPS 只有小數兩位，每季「淨利÷EPS」是一個區間而非定值；
+  // 且 IFRS 下基本 EPS 分母會扣除子公司持有母公司股票（視同庫藏），資產負債表庫藏股欄位未必包含，
+  // 因此「加權÷季末流通」允许存在固定的幾個百分點差距。
+  // 正確的檢查是**四季比值區間是否有共同交集**（放寬 0.5%）：有交集＝四季基準一致；
+  // 無交集＝季間基準跳動（配股／分割／增減資），股數基準無法核對。
   const preferredEarly = (opts.official?.preferredShares ?? 0) > 0;
   // 有特別股時基本 EPS 已扣特別股股利，淨利÷EPS 不等於普通股數，不做此核對（PE 另判不適用）。
-  for (const l of preferredEarly ? [] : last4) {
-    if (l.weightedShares != null && l.weightedShares > 0) {
-      const idx = lines.indexOf(l);
-      const prevEnd = idx > 0 && lines[idx - 1].sharesEnd != null ? lines[idx - 1].sharesEnd! : l.sharesEnd!;
-      const lo = Math.min(prevEnd, l.sharesEnd!) * (1 - SHARE_BRACKET_SLACK);
-      const hi = Math.max(prevEnd, l.sharesEnd!) * (1 + SHARE_BRACKET_SLACK);
-      if (l.weightedShares < lo || l.weightedShares > hi) {
-        const diff = Math.abs(l.weightedShares - l.sharesEnd!) / l.sharesEnd!;
-        return { ...base, reason: `${quarterLabel(l.period)} 淨利÷EPS 的加權股數 ${Math.round(l.weightedShares).toLocaleString('en-US')} 不在上季末～本季末流通股數（股本÷面額 ${par}－庫藏股）之間（與季末差 ${(diff * 100).toFixed(1)}%），股數基準無法核對` };
-      }
+  const ratioBounds: Array<readonly [number, number] | null> = preferredEarly ? [] : last4.map((l) => {
+    if (l.weightedShares == null || l.weightedShares <= 0 || l.sharesEnd == null || l.sharesEnd <= 0) return null;
+    const e = Math.abs(l.reportedEps!);
+    const ni = Math.abs(l.netIncomeParent!);
+    const lo = ni / (e + 0.005);
+    const hi = e > 0.005 ? ni / (e - 0.005) : Number.POSITIVE_INFINITY;
+    // 季中增資／減資時，加權股數落在「上季末～本季末」之間（如世芯 2026Q2），分母取相鄰兩季末的範圍。
+    const idx = lines.indexOf(l);
+    const prevEnd = idx > 0 && lines[idx - 1].sharesEnd != null && lines[idx - 1].sharesEnd! > 0 ? lines[idx - 1].sharesEnd! : l.sharesEnd;
+    const endLo = Math.min(prevEnd, l.sharesEnd);
+    const endHi = Math.max(prevEnd, l.sharesEnd);
+    return [lo / endHi, hi / endLo] as const;
+  });
+  const usableRatios = ratioBounds.filter((b): b is readonly [number, number] => b != null);
+  let ratioLo = 0;
+  let ratioHi = Number.POSITIVE_INFINITY;
+  if (usableRatios.length) {
+    ratioLo = Math.max(...usableRatios.map((b) => b[0]));
+    ratioHi = Math.min(...usableRatios.map((b) => b[1]));
+    if (ratioLo > ratioHi * (1 + SHARE_CHANGE_THRESHOLD)) {
+      const outIdx = ratioBounds.findIndex((b) => b != null && (b[0] > ratioHi * (1 + SHARE_CHANGE_THRESHOLD) || b[1] * (1 + SHARE_CHANGE_THRESHOLD) < ratioLo));
+      const l = last4[outIdx >= 0 ? outIdx : 0];
+      const diff = l.weightedShares != null && l.sharesEnd ? Math.abs(l.weightedShares - l.sharesEnd) / l.sharesEnd : 0;
+      return { ...base, reason: `${quarterLabel(l.period)} 淨利÷EPS 的加權股數 ${Math.round(l.weightedShares ?? 0).toLocaleString('en-US')} 與其他季的「加權÷季末流通」比值無共同交集（已計入 EPS 小數兩位進位誤差；與季末差 ${(diff * 100).toFixed(1)}%），股數基準無法核對` };
+    }
+    // 交集存在但偏離 1 超過一倍級距：面額或股本單位可能有誤（例如面額 5 元被當 10 元）。
+    if (ratioLo > 2 || ratioHi < 0.5) {
+      return { ...base, reason: `淨利÷EPS 隱含股數與季末流通股數（股本÷面額 ${par}－庫藏股）差距達一倍級距，面額或股本單位可能有誤，股數基準無法核對` };
     }
   }
   const preferred = (opts.official?.preferredShares ?? 0) > 0;
@@ -361,8 +381,9 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
     if (!notApplicable.ps) { psShares = latest.sharesEnd!; psShareRule = '有特別股，以最新季末普通股流通股數為口徑'; }
   }
   if (opts.official?.preferredUnknown && !preferred) {
-    // 官方名錄逾時：特別股未核實。只有每季「淨利÷EPS」隱含股數區間（含 ±0.5%）都涵蓋季末流通股數時，才視為無特別股影響。
-    const consistent = !!bounds && last4.every((l, i) => l.sharesEnd! >= bounds[i][0] * (1 - SHARE_CHANGE_THRESHOLD) && l.sharesEnd! <= bounds[i][1] * (1 + SHARE_CHANGE_THRESHOLD));
+    // 官方名錄逾時：特別股未核實。四季「加權÷季末流通」比值區間有共同交集＝EPS 股數基準一致
+    // （固定差距多為子公司持股視同庫藏等 IFRS 口徑，非特別股影響）；無交集才視為特別股風險未排除。
+    const consistent = usableRatios.length > 0 && ratioLo <= ratioHi * (1 + SHARE_CHANGE_THRESHOLD);
     if (!consistent) {
       notApplicable.pe ??= '官方名錄逾時、特別股未核實，且淨利÷EPS 隱含股數與季末流通股數不一致，PE 不適用';
       notApplicable.pb ??= '官方名錄逾時、特別股未核實，無法確認歸屬母公司權益是否含特別股，PB 不適用';
