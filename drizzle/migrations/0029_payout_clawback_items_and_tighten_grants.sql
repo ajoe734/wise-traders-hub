@@ -1,0 +1,10 @@
+ALTER TABLE public.expert_payouts ADD COLUMN IF NOT EXISTS clawback_items jsonb NOT NULL DEFAULT '[]'::jsonb;
+COMMENT ON COLUMN public.expert_payouts.clawback_items IS 'Snapshot of refund clawbacks (transaction_id, amount, fromMonth, refundMonth) at mark-paid time';
+REVOKE ALL ON public.expert_payouts FROM anon;
+REVOKE ALL ON public.expert_split_settings FROM anon;
+REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.expert_payouts FROM authenticated;
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON public.expert_split_settings FROM authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.expert_payouts TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.expert_split_settings TO authenticated;
+GRANT ALL ON public.expert_payouts TO service_role;
+GRANT ALL ON public.expert_split_settings TO service_role;
