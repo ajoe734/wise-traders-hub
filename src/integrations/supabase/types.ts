@@ -2144,6 +2144,66 @@ export type Database = {
           },
         ]
       }
+      expert_payouts: {
+        Row: {
+          amount: number
+          carry_in: number
+          clawback: number
+          created_at: string
+          earnings: number
+          expert_id: string
+          id: string
+          net: number
+          paid_at: string | null
+          paid_by: string | null
+          period_month: string
+          platform_amount: number
+          status: string
+          student_count: number
+          tx_count: number
+          unmark_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          carry_in?: number
+          clawback?: number
+          created_at?: string
+          earnings?: number
+          expert_id: string
+          id?: string
+          net?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          period_month: string
+          platform_amount?: number
+          status?: string
+          student_count?: number
+          tx_count?: number
+          unmark_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          carry_in?: number
+          clawback?: number
+          created_at?: string
+          earnings?: number
+          expert_id?: string
+          id?: string
+          net?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          period_month?: string
+          platform_amount?: number
+          status?: string
+          student_count?: number
+          tx_count?: number
+          unmark_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expert_plans: {
         Row: {
           created_at: string

@@ -190,6 +190,13 @@
       "when": 1791279102468,
       "tag": "0026_restrict_position_reconstruction_issue_details",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791295061024,
+      "tag": "0027_create_expert_payouts",
+      "breakpoints": true
     }
   ]
 }
