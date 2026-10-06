@@ -56,6 +56,7 @@ describe('mapOpenPositionToRow — base → display quantity 契約', () => {
     expect(row.quantity).toBe(10);
     expect(row.quantity_unit).toBe('股');
     expect(row.base_quantity).toBe(10);
+    expect(row.currency).toBe('USD');
   });
 
   it('美期 2 base + 口 → 顯示 2 口', () => {
