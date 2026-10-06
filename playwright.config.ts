@@ -175,9 +175,21 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {
+      // 週記頂部目前持股卡片矩陣：完整狀態、展開操作與 1280/560/390/380px 版面
+      name: 'journal-current-holdings',
+      testMatch: /journal-current-holdings\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 1000 } },
+    },
+    {
       // /app/journal/:id owner 預覽（?preview=1）走 RPC fallback、不顯示 UnavailableContent
       name: 'desktop-journal-detail-owner-preview',
       testMatch: /journal-detail-owner-preview\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
+    {
+      // /app/journal/:id 純教學週記圖文、空內容與新持股區塊共存回歸
+      name: 'desktop-journal-detail-teaching-render',
+      testMatch: /journal-detail-teaching-render\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
     {

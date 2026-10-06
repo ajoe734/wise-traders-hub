@@ -74,7 +74,7 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetCl
     quantity_unit: display.unit,
     base_quantity: baseShares,
     status: 'open',
-    currency: normalizeCurrency(p.currency) || currency,
+    currency: p.currency ? normalizeCurrency(p.currency) : currency,
     asset_class: rowAsset,
   };
 }
@@ -99,11 +99,12 @@ export function useExpertHoldingsBundle(
         supabase.rpc('get_expert_capital_status' as any, { _expert_id: expertId }),
         supabase.rpc('calculate_expert_performance', { _expert_id: expertId }),
       ]);
+      if (capRes.error) throw capRes.error;
       const cap = (capRes.data as unknown as CapitalStatus) || null;
       const perf = (perfRes.data as unknown as ExpertPerformance) || null;
       const bundleCurrency = normalizeCurrency(cap?.currency ?? currency);
       const bundleAssetClass = normalizeAssetClass(cap?.asset_class ?? assetClass);
-      const rawOpen: OpenPosition[] = Array.isArray(cap?.open_positions) ? cap!.open_positions : [];
+      const rawOpen: OpenPosition[] = Array.isArray(cap?.open_positions) ? cap.open_positions : [];
       return {
         capital: cap,
         rawOpenPositions: rawOpen,
@@ -166,6 +167,9 @@ export function useExpertHoldingsBundle(
     ...gated,
     projection,
     loading: query.isLoading,
+    isError: query.isError,
+    isFetching: query.isFetching,
+    dataUpdatedAt: query.dataUpdatedAt || null,
     refetch: query.refetch,
   };
 }
