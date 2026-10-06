@@ -13,6 +13,7 @@ import { SubscriptionsTab } from '@/pages/_companyRevenue/SubscriptionsTab';
 import { TransactionsTab } from '@/pages/_companyRevenue/TransactionsTab';
 import { PayoutsTab } from '@/pages/_companyRevenue/PayoutsTab';
 import { CheckupTab } from '@/pages/_companyRevenue/CheckupTab';
+import { PayrollTab } from '@/pages/_companyRevenue/PayrollTab';
 import { RefundDialog } from '@/pages/_companyRevenue/RefundDialog';
 
 const CompanyRevenue = () => {
@@ -73,6 +74,7 @@ const CompanyRevenue = () => {
             <TabsTrigger value="transactions">金流明細</TabsTrigger>
             <TabsTrigger value="payouts">專家分潤</TabsTrigger>
             <TabsTrigger value="checkup">健檢營收</TabsTrigger>
+            <TabsTrigger value="payroll">月結薪資</TabsTrigger>
           </TabsList>
 
           <OverviewTab overview={overview} monthTrend={monthTrend} sourceBreakdown={sourceBreakdown} />
