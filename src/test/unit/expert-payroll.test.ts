@@ -57,3 +57,32 @@ describe('expertPayroll', () => {
     expect(r.E['2026-09'].amount).toBe(600);
   });
 });
+
+describe('expertPayroll 金流商負額退款', () => {
+  const t2 = (id: string, paid_at: string, status: string, amount: number, sub = 's1') => ({ id, status, paid_at, created_at: paid_at, subscription_id: sub, amount });
+  it('已發放後部分退款 → 依原分潤比例於下月扣回，標明扣回月', () => {
+    const r = computePayroll(
+      [sp('a', 3600)],
+      [t2('a', '2026-09-10T00:00:00Z', 'paid', 7990), t2('rf', '2026-10-08T00:00:00Z', 'refunded', -3995)],
+      {}, {}, [lock('2026-09', 3600)], '2026-10',
+    );
+    expect(r.E['2026-09'].amount).toBe(3600);
+    expect(r.E['2026-10'].clawback).toBe(1800);
+    expect(r.E['2026-10'].amount).toBe(-1800);
+    expect(r.E['2026-10'].clawbackItems[0]).toMatchObject({ fromMonth: '2026-09', refundMonth: '2026-10', amount: 1800 });
+  });
+  it('未發放月份的負額退款 → 直接從原月份扣除', () => {
+    const r = computePayroll(
+      [sp('a', 3600)],
+      [t2('a', '2026-09-10T00:00:00Z', 'paid', 7990), t2('rf', '2026-09-20T00:00:00Z', 'refunded', -7990)],
+      {}, {}, [], '2026-09',
+    );
+    expect(r.E['2026-09'].amount).toBe(0);
+    expect(r.E['2026-09'].clawback).toBe(0);
+  });
+  it('已鎖月份使用快照中的扣回明細', () => {
+    const l = { ...lock('2026-10', -1800), clawback: 1800, clawback_items: [{ transaction_id: 'rf', amount: 1800, fromMonth: '2026-09', refundMonth: '2026-10' }] };
+    const r = computePayroll([], [], {}, {}, [l], '2026-10');
+    expect(r.E['2026-10'].clawbackItems).toHaveLength(1);
+  });
+});

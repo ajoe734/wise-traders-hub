@@ -30,7 +30,7 @@ export function PayrollTab() {
     queryFn: async () => {
       const [sp, tx, sub, exp, lk, au] = await Promise.all([
         supabase.from('revenue_splits').select('transaction_id, expert_id, expert_amount, net, platform_amount'),
-        supabase.from('payment_transactions').select('id, status, paid_at, created_at, subscription_id'),
+        supabase.from('payment_transactions').select('id, status, paid_at, created_at, subscription_id, amount'),
         supabase.from('member_subscriptions').select('id, user_id'),
         supabase.from('experts').select('id, name, role'),
         supabase.from('expert_payouts').select('*'),
@@ -70,7 +70,7 @@ export function PayrollTab() {
     const { error } = await supabase.from('expert_payouts').upsert({
       expert_id: r.expert_id, period_month: r.month, earnings: r.earnings, clawback: r.clawback,
       carry_in: r.carry_in, amount: r.amount, net: r.net, platform_amount: r.platform_amount,
-      tx_count: r.tx_count, student_count: r.student_count, status: 'paid', paid_at: now,
+      tx_count: r.tx_count, student_count: r.student_count, clawback_items: r.clawbackItems as any, status: 'paid', paid_at: now,
       paid_by: user?.id ?? null, unmark_reason: null, updated_at: now,
     }, { onConflict: 'expert_id,period_month' });
     if (!error) await supabase.from('audit_logs').insert({

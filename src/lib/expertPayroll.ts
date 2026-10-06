@@ -23,6 +23,8 @@ export interface PayrollTx {
   paid_at: string | null;
   created_at: string;
   subscription_id: string | null;
+  /** 金額；退款紀錄為負值（金流商退款會另插一筆負額 refunded 交易）。 */
+  amount?: number | null;
 }
 export interface PayoutLock {
   expert_id: string;
@@ -37,8 +39,9 @@ export interface PayoutLock {
   platform_amount: number;
   tx_count: number;
   student_count: number;
+  clawback_items?: ClawbackItem[] | null;
 }
-export interface ClawbackItem { transaction_id: string; amount: number; fromMonth: string }
+export interface ClawbackItem { transaction_id: string; amount: number; fromMonth: string; refundMonth?: string }
 export interface PayrollRow {
   expert_id: string;
   month: string;
@@ -108,7 +111,7 @@ export function computePayroll(
       if (!lockedBeforeRefund) { get(s.expert_id, month); continue; } // 未發放 → 直接不計
       const rm = rAt ? taipeiMonth(rAt) : month;
       const target = rm > month ? rm : nextMonth(month);
-      get(s.expert_id, target).claw.push({ transaction_id: t.id, amount: Number(s.expert_amount) || 0, fromMonth: month });
+      get(s.expert_id, target).claw.push({ transaction_id: t.id, amount: Number(s.expert_amount) || 0, fromMonth: month, refundMonth: rm });
       // 原月份仍計入（已發放快照）
     }
     const a = get(s.expert_id, month);
@@ -119,6 +122,36 @@ export function computePayroll(
     const u = t.subscription_id ? subUser[t.subscription_id] : undefined;
     a.users.add(u || t.id);
   }
+
+  // 金流商退款：另插一筆負額 refunded 交易（無分潤列），依同訂閱最近一筆已付款原交易的分潤比例扣回。
+  const splitByTx = new Map<string, PayrollSplit>();
+  for (const s of splits) if (s.expert_id) splitByTx.set(s.transaction_id, s);
+  for (const t of txs) {
+    if (String(t.status) !== 'refunded' || !(Number(t.amount) < 0) || !t.subscription_id || splitByTx.has(t.id)) continue;
+    const rAt = t.paid_at || t.created_at;
+    const orig = txs
+      .filter((o) => o.subscription_id === t.subscription_id && String(o.status) === 'paid' && splitByTx.has(o.id)
+        && new Date(o.paid_at || o.created_at) <= new Date(rAt))
+      .sort((a, b) => (b.paid_at || b.created_at).localeCompare(a.paid_at || a.created_at))[0];
+    if (!orig) continue;
+    const s = splitByTx.get(orig.id)!;
+    const exp = Number(s.expert_amount) || 0;
+    const base = Math.abs(Number(orig.amount) || 0);
+    const claw = r2(Math.min(exp, base > 0 ? Math.abs(Number(t.amount)) * (exp / base) : exp));
+    if (claw <= 0) continue;
+    const month = taipeiMonth(orig.paid_at || orig.created_at);
+    const rm = taipeiMonth(rAt);
+    const lock = lockMap.get(`${s.expert_id}|${month}`);
+    const lockedBeforeRefund = !!lock && (!lock.paid_at || new Date(lock.paid_at) <= new Date(rAt));
+    if (!lockedBeforeRefund) {
+      const a = get(s.expert_id!, month); // 未發放 → 直接從原月份扣除
+      a.earnings -= claw;
+      continue;
+    }
+    const target = rm > month ? rm : nextMonth(month);
+    get(s.expert_id!, target).claw.push({ transaction_id: t.id, amount: claw, fromMonth: month, refundMonth: rm });
+  }
+
   for (const l of lockMap.values()) get(l.expert_id, l.period_month);
 
   const out: Record<string, Record<string, PayrollRow>> = {};
@@ -137,7 +170,7 @@ export function computePayroll(
         row = {
           expert_id: expert, month: m, earnings: Number(lock.earnings), net: Number(lock.net),
           platform_amount: Number(lock.platform_amount), tx_count: lock.tx_count, student_count: lock.student_count,
-          clawback: Number(lock.clawback), clawbackItems: a?.claw ?? [], carry_in: Number(lock.carry_in),
+          clawback: Number(lock.clawback), clawbackItems: lock.clawback_items ?? a?.claw ?? [], carry_in: Number(lock.carry_in),
           amount: Number(lock.amount), locked: true, paid_at: lock.paid_at,
         };
       } else {
