@@ -3737,6 +3737,42 @@ export type Database = {
         }
         Relationships: []
       }
+      official_share_registry: {
+        Row: {
+          fetched_at: string
+          issued_shares: number
+          paid_in_capital: number | null
+          par: number
+          par_text: string | null
+          preferred_shares: number
+          report_date: string | null
+          source: string
+          symbol: string
+        }
+        Insert: {
+          fetched_at?: string
+          issued_shares: number
+          paid_in_capital?: number | null
+          par: number
+          par_text?: string | null
+          preferred_shares?: number
+          report_date?: string | null
+          source: string
+          symbol: string
+        }
+        Update: {
+          fetched_at?: string
+          issued_shares?: number
+          paid_in_capital?: number | null
+          par?: number
+          par_text?: string | null
+          preferred_shares?: number
+          report_date?: string | null
+          source?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
       payment_intents: {
         Row: {
           amount: number

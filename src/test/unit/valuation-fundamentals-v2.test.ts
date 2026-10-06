@@ -145,6 +145,50 @@ describe('股數：官方面額、庫藏股、特別股、配股／分割', () =
   });
 });
 
+describe('股數核對閘門：EPS 進位誤差與 IFRS 視同庫藏口徑', () => {
+  // 合成四季：股本固定 16.6 億（面額 10 → 1.66 億股），淨利與 EPS 由「隱含加權股數」反推。
+  const synth = (ratios: number[], epss: number[]) => {
+    const sharesEnd = 166_000_000;
+    const fs: F.FinRow[] = [];
+    const bs: F.FinRow[] = [];
+    Q4.forEach((d, i) => {
+      const weighted = sharesEnd * ratios[i];
+      const ni = Math.round(weighted * epss[i]);
+      fs.push(
+        { date: d, type: 'EquityAttributableToOwnersOfParent', value: ni, origin_name: '淨利（淨損）歸屬於母公司業主' },
+        { date: d, type: 'IncomeAfterTaxes', value: ni, origin_name: '本期淨利（淨損）' },
+        { date: d, type: 'EPS', value: epss[i], origin_name: '基本每股盈餘' },
+        { date: d, type: 'Revenue', value: ni * 5, origin_name: '營業收入' },
+      );
+      bs.push(
+        { date: d, type: 'OrdinaryShare', value: 1_660_000_000, origin_name: '普通股股本' },
+        { date: d, type: 'EquityAttributableToOwnersOfParent', value: 20_000_000_000, origin_name: '歸屬於母公司業主之權益' },
+      );
+    });
+    const official: F.OfficialShares = { par: 10, parText: '10', issuedShares: 166_000_000, preferredShares: 0, paidInCapital: 1_660_000_000, source: 'TWSE', reportDate: '2026-09-30' };
+    return F.computeCompanyBasis('9999', fs, bs, ASOF, { mode: 'live', official, fetchedAt: FETCHED });
+  };
+  it('聯陽 3014 型：四季「加權÷季末流通」固定 −2.9%（子公司持股視同庫藏口徑）→ 基準一致，通過', () => {
+    const b = synth([0.972, 0.968, 0.970, 0.971], [2.31, 2.89, 2.56, 2.43]);
+    expect(b.ok).toBe(true);
+    expect(b.eps).not.toBeNull();
+  });
+  it('矽統 2363 型：EPS 0.07 只有兩位小數，進位誤差區間極寬 → 不應被誤判', () => {
+    const b = synth([1.003, 1.031, 1.003, 1.002], [0.19, 0.07, 0.26, 0.17]);
+    expect(b.ok).toBe(true);
+  });
+  it('揚智 3041 型：其中一季比值跳離其他季（真實基準跳動）→ 仍整檔擋下', () => {
+    const b = synth([0.928, 0.980, 1.007, 0.978], [-1.02, -1.33, -0.48, -0.21]);
+    expect(b.ok).toBe(false);
+    expect(b.reason).toMatch(/股數基準無法核對/);
+  });
+  it('面額誤判型：比值交集存在但偏離一倍級距 → 整檔擋下', () => {
+    const b = synth([0.45, 0.45, 0.45, 0.45], [1.0, 1.0, 1.0, 1.0]);
+    expect(b.ok).toBe(false);
+    expect(b.reason).toMatch(/股數基準無法核對/);
+  });
+});
+
 describe('3443 手算核對（真實資料，資料期 2025Q3–2026Q2）', () => {
   const b = live('3443');
   const w = Q4.map((d) => val('3443', d, 'EquityAttributableToOwnersOfParent') / val('3443', d, 'EPS'));
