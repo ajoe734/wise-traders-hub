@@ -45,6 +45,7 @@ const getNavGroup = (pathname: string): string => {
   if (pathname === '/app/courses' || pathname.startsWith('/app/course/')) return '/app/courses';
   if (pathname === '/app/library' || pathname.startsWith('/app/library')) return '/app/library';
   if (pathname === '/app/account' || pathname.startsWith('/app/account')) return '/app/account';
+  if (pathname === '/app/holdings') return '/app';
   if (pathname === '/app/explore') return '/app/explore';
   return '/app';
 };
@@ -84,6 +85,7 @@ const getBreadcrumbConfig = (pathname: string, mode: 'signals' | 'learning' | 'b
     courses: '課程系統',
     library: '知識庫',
     account: '帳號設定',
+    holdings: '持股總覽',
   };
 
   const pathSegments = pathname.replace('/app/', '').split('/').filter(Boolean);

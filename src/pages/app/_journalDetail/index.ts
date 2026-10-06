@@ -5,4 +5,5 @@ export { isRichHtmlEmpty } from './richHtml';
 export { useJournalDetail, fetchJournalBundle } from './useJournalDetail';
 export { useJournalPdfExport } from './useJournalPdfExport';
 export { CurrentHoldingsGrid } from './CurrentHoldingsGrid';
+export { PositionTimeline } from './PositionTimeline';
 export type { SignalDetail } from './types';

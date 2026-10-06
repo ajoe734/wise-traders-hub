@@ -169,6 +169,20 @@
       "when": 1791269794933,
       "tag": "0023_restrict_official_share_registry_to_service_role",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791272039832,
+      "tag": "0024_create_position_events_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791272190967,
+      "tag": "0025_audit_reconstructed_position_event_mismatches",
+      "breakpoints": true
     }
   ]
 }
