@@ -183,6 +183,13 @@
       "when": 1791272190967,
       "tag": "0025_audit_reconstructed_position_event_mismatches",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791279102468,
+      "tag": "0026_restrict_position_reconstruction_issue_details",
+      "breakpoints": true
     }
   ]
 }

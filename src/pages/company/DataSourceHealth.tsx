@@ -125,7 +125,7 @@ export default function DataSourceHealth() {
   const { data: upstreamQuota, refetch: refetchUpstreamQuota } = useQuery({
     queryKey: ['company', 'finmind-upstream-quota'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('finmind_upstream_quota').select('source, remaining, quota_limit, reset_at, observed_at').order('observed_at', { ascending: false }).limit(1).maybeSingle();
+      const { data, error } = await supabase.from('finmind_upstream_quota').select('source, remaining, quota_limit, reset_at, observed_at').ilike('source', 'finmind%').order('observed_at', { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;
       return data as UpstreamQuotaRow | null;
     },

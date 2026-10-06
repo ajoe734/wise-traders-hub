@@ -7401,6 +7401,12 @@ export type Database = {
       is_tester: { Args: { _user_id: string }; Returns: boolean }
       is_tw_trading_day: { Args: { _d: string }; Returns: boolean }
       is_tw_trading_hours: { Args: never; Returns: boolean }
+      list_position_event_reconstruction_issue_symbols: {
+        Args: { _expert_id: string }
+        Returns: {
+          symbol: string
+        }[]
+      }
       log_unit_lock_violation: { Args: { payload: Json }; Returns: string }
       mark_bsr_upstream_probe: {
         Args: { p_had_data: boolean; p_probed_date: string; p_stock_id: string }
