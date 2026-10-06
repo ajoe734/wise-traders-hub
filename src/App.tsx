@@ -117,6 +117,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminSignals = lazy(() => import("./pages/admin/Signals"));
 const AdminSignalEditor = lazy(() => import("./pages/admin/SignalEditor"));
 const AdminSubscribers = lazy(() => import("./pages/admin/Subscribers"));
+const AdminPayroll = lazy(() => import("./pages/admin/Payroll"));
 const AdminProfile = lazy(() => import("./pages/admin/Profile"));
 const AdminPerformance = lazy(() => import("./pages/admin/Performance"));
 const AdminReasonTemplates = lazy(() => import("./pages/admin/ReasonTemplates"));
