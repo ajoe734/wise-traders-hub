@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMemberSubscriptions, type MemberSubscriptionRow } from '@/hooks/useMemberSubscriptions';
 import { useExpertHoldingsBundle } from '@/hooks/useExpertHoldingsBundle';
+import { useExperts } from '@/hooks/useExpert';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { useStockIndustryMap } from '@/checkup/hooks/useStockIndustryMap';
 import { getMultiMeta, UNCLASSIFIED } from '@/checkup/lib/stockMetaMulti.js';
 import { CURRENCY_SYMBOL, formatMoneyByCurrency, formatPriceByCurrency, normalizeCurrency } from '@/lib/currency';
@@ -68,20 +71,46 @@ function ExpertHoldings({ sub, sort }: { sub: MemberSubscriptionRow; sort: SortM
 
 export default function MemberHoldings() {
   const { data: subscriptions = [], isLoading, isError } = useMemberSubscriptions();
+  const { user } = useAuth();
+  const { isViewAs } = useEffectiveUserId();
+  const testerMode = Boolean(user?.isTester && !isViewAs);
+  const expertsQuery = useExperts();
   const [expert, setExpert] = useState('all');
   const [sort, setSort] = useState<SortMode>('weight');
   useStockIndustryMap();
-  const visible = expert === 'all' ? subscriptions : subscriptions.filter((sub) => sub.expert_id === expert);
+  const accessibleExperts = useMemo<MemberSubscriptionRow[]>(() => {
+    if (!testerMode) return subscriptions;
+    return (expertsQuery.data ?? []).map((person) => ({
+      plan_id: `tester-${person.id}`,
+      plan_type: 'tester',
+      expert_id: person.id,
+      expert: {
+        id: person.id,
+        slug: person.slug,
+        name: person.name,
+        avatar_url: person.avatarUrl ?? null,
+        role: person.role,
+        status: 'active',
+        line_oa_id: null,
+        line_channel_name: null,
+        qr_code_url: null,
+      },
+      raw: { tester: true },
+    }));
+  }, [expertsQuery.data, subscriptions, testerMode]);
+  const loading = isLoading || (testerMode && expertsQuery.isLoading);
+  const failed = isError || (testerMode && expertsQuery.isError);
+  const visible = expert === 'all' ? accessibleExperts : accessibleExperts.filter((sub) => sub.expert_id === expert);
   return (
     <UnifiedAppLayout>
       <SEO title="持股總覽 | legendflow" description="已訂閱老師的目前持股總覽。" path="/app/holdings" noindex />
       <main className="mx-auto max-w-6xl space-y-5 p-4 pb-24">
         <header className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><BriefcaseBusiness className="h-5 w-5 text-primary" /><h1 className="text-xl font-bold text-foreground">持股總覽</h1></div><p className="mt-1 text-sm text-muted-foreground">不同幣別分開計算持倉比例。</p></div><Button asChild size="sm" variant="outline"><Link to="/app"><ArrowLeft className="mr-1 h-4 w-4" />戰情室</Link></Button></header>
-        {subscriptions.length > 0 ? <Tabs value={expert} onValueChange={setExpert}><TabsList className="h-auto max-w-full justify-start overflow-x-auto"><TabsTrigger value="all">全部老師</TabsTrigger>{subscriptions.map((sub) => <TabsTrigger key={sub.expert_id} value={sub.expert_id}>{sub.expert.name}</TabsTrigger>)}</TabsList></Tabs> : null}
+        {accessibleExperts.length > 0 ? <Tabs value={expert} onValueChange={setExpert}><TabsList className="h-auto max-w-full justify-start overflow-x-auto"><TabsTrigger value="all">全部老師</TabsTrigger>{accessibleExperts.map((sub) => <TabsTrigger key={sub.expert_id} value={sub.expert_id}>{sub.expert.name}</TabsTrigger>)}</TabsList></Tabs> : null}
         <div className="flex flex-wrap gap-2" aria-label="排序方式">{(['weight','industry','currency'] as const).map((mode) => <Button key={mode} size="sm" variant={sort === mode ? 'default' : 'outline'} onClick={() => setSort(mode)} className={cn('h-8', sort === mode && 'font-bold')}>{mode === 'weight' ? '持倉比例' : mode === 'industry' ? '產業' : '幣別'}</Button>)}</div>
-        {isLoading ? <div className="flex items-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />載入訂閱持股</div> : null}
-        {!isLoading && isError ? <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm">訂閱資料讀取失敗，請稍後重試。</div> : null}
-        {!isLoading && !isError && subscriptions.length === 0 ? <div className="rounded-md border border-border bg-muted/20 p-6 text-center"><p className="font-bold text-foreground">目前沒有有效訂閱</p><Button asChild className="mt-4"><Link to="/app/explore">探索老師</Link></Button></div> : null}
+        {loading ? <div className="flex items-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />載入訂閱持股</div> : null}
+        {!loading && failed ? <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm">訂閱資料讀取失敗，請稍後重試。</div> : null}
+        {!loading && !failed && accessibleExperts.length === 0 ? <div className="rounded-md border border-border bg-muted/20 p-6 text-center"><p className="font-bold text-foreground">目前沒有有效訂閱</p><Button asChild className="mt-4"><Link to="/app/explore">探索老師</Link></Button></div> : null}
         <div className="space-y-6">{visible.map((sub) => <ExpertHoldings key={sub.expert_id} sub={sub} sort={sort} />)}</div>
       </main>
     </UnifiedAppLayout>
