@@ -200,7 +200,7 @@ export function CurrentHoldingsGridView({
 
       {!loading && !error && projection.showNumbers && positions.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div id="journal-holdings-card-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {visiblePositions.map((position) => <PositionCard key={position.id} position={position} />)}
           </div>
           {hasMore ? (
