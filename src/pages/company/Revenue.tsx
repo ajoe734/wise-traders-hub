@@ -85,6 +85,7 @@ const CompanyRevenue = () => {
             planMap={planMap}
             expertMap={expertMap}
             profileMap={profileMap}
+            range={range}
           />
 
           <TransactionsTab
