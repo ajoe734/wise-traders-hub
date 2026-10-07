@@ -20,7 +20,7 @@ const CompanyRevenue = () => {
   const [preset, setPreset] = useState<RevenuePreset>('this_month');
 
   const {
-    subscriptions, checkupSubs, experts, checkupSubsRaw,
+    subscriptions, checkupSubs, experts, checkupSubsRaw, transactions, remittance,
     paidTxTotalCount, splitTotalCount,
     expertMap, planMap, checkupPlanMap, profileMap, providerMap,
     overview, monthTrend, sourceBreakdown, txMerged,
@@ -85,6 +85,9 @@ const CompanyRevenue = () => {
             planMap={planMap}
             expertMap={expertMap}
             profileMap={profileMap}
+            transactions={transactions}
+            remittance={remittance}
+            providerMap={providerMap}
             range={range}
           />
 
