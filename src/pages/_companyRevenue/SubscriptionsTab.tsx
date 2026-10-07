@@ -13,12 +13,22 @@ interface Props {
   planMap: Record<string, any>;
   expertMap: Record<string, any>;
   profileMap: Record<string, any>;
+  /** 期間篩選：只顯示訂閱期間與此區間有重疊的訂閱。 */
+  range?: { from: Date; to: Date };
 }
 
-export function SubscriptionsTab({ subscriptions, experts, planMap, expertMap, profileMap }: Props) {
+export function SubscriptionsTab({ subscriptions, experts, planMap, expertMap, profileMap, range }: Props) {
   const [subFilter, setSubFilter] = useState({ expert: 'all', role: 'all', status: 'all', autorenew: 'all' });
   const filteredSubs = useMemo(() => {
+    const from = range?.from.getTime();
+    const to = range?.to.getTime();
     return subscriptions.filter((s: any) => {
+      if (from != null && to != null) {
+        const st = s.started_at ? new Date(s.started_at).getTime() : NaN;
+        const ex = s.expires_at ? new Date(s.expires_at).getTime() : Infinity;
+        if (Number.isFinite(st) && st > to) return false;
+        if (ex < from) return false;
+      }
       const plan = planMap[s.plan_id];
       const exp = plan ? expertMap[plan.expert_id] : null;
       if (subFilter.expert !== 'all' && plan?.expert_id !== subFilter.expert) return false;
@@ -28,7 +38,7 @@ export function SubscriptionsTab({ subscriptions, experts, planMap, expertMap, p
       if (subFilter.autorenew === 'off' && s.auto_renew) return false;
       return true;
     });
-  }, [subscriptions, subFilter, planMap, expertMap]);
+  }, [subscriptions, subFilter, planMap, expertMap, range]);
 
   return (
     <TabsContent value="subscriptions" className="mt-4 space-y-4">
