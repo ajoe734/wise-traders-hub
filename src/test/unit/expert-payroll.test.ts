@@ -15,7 +15,7 @@ describe('expertPayroll 服務期滿月計價', () => {
     expect(addMonthsTaipei('2026-01-31T04:00:00Z', 1).slice(0, 10)).toBe('2026-02-28');
   });
 
-  it('月繳：9/20 付款算在 10 月；9/03 付款算在 10 月', () => {
+  it('月繳：9/20 付款算在 10 月；8/25 付款算在 9 月', () => {
     const r = computePayroll([sp('a', 360), sp('b', 360)],
       [tx('a', '2026-09-20T00:00:00Z'), tx('b', '2026-08-25T00:00:00Z', 'paid', 's2')], {}, { s1: 'u1', s2: 'u2' }, [], '2026-10');
     expect(r.E['2026-09'].amount).toBe(360);
@@ -31,14 +31,14 @@ describe('expertPayroll 服務期滿月計價', () => {
     expect(taipeiMonth(items[0].end_at)).toBe('2026-04');
     expect(taipeiMonth(items[11].end_at)).toBe('2027-03');
     const r = computePayroll([sp('a', 1200)], [tx('a', '2026-03-15T02:00:00Z')], {}, {}, [], '2027-03', { s1: 'yearly' });
-    expect(r.E['2026-03'].amount).toBe(0);
+    expect(r.E['2026-03']).toBeUndefined();
     expect(r.E['2026-04'].amount).toBe(100);
     expect(r.E['2027-03'].amount).toBe(100);
   });
 
   it('月繳期滿前退款：整筆不計', () => {
     const r = computePayroll([sp('a', 360)], [tx('a', '2026-09-20T00:00:00Z', 'refunded')], { a: '2026-10-01T00:00:00Z' }, {}, [], '2026-10');
-    expect(r.E['2026-10']?.amount ?? 0).toBe(0);
+    expect(r.E?.['2026-10']?.amount ?? 0).toBe(0);
   });
 
   it('年繳中途退款：只算已滿期月份', () => {
