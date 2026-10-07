@@ -156,6 +156,13 @@ export function useRevenueData(preset: RevenuePreset) {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([month, v]) => ({ month, ...v }));
   }, [splits]);
 
+  // 匯款確認後會另寫一筆 payment_transactions（同 subscription_id）；
+  // 已有對應交易的匯款單只是「申請紀錄」，不可再計一次。
+  const paidTxSubIds = useMemo(() => new Set(
+    transactions.filter((t: any) => t.status === 'paid' && t.subscription_id).map((t: any) => t.subscription_id),
+  ), [transactions]);
+  const isDupRemit = (r: any) => r.status === 'confirmed' && !!r.subscription_id && paidTxSubIds.has(r.subscription_id);
+
   const sourceBreakdown = useMemo(() => {
     const buckets: Record<string, number> = {};
     transactions.filter((t: any) => t.status === 'paid').forEach((t: any) => {
@@ -163,11 +170,11 @@ export function useRevenueData(preset: RevenuePreset) {
       const label = p ? (providerTypeLabels[p.provider_type] || p.display_name) : '其他';
       buckets[label] = (buckets[label] || 0) + (t.amount || 0);
     });
-    remittance.filter((r: any) => r.status === 'confirmed').forEach((r: any) => {
+    remittance.filter((r: any) => r.status === 'confirmed' && !isDupRemit(r)).forEach((r: any) => {
       buckets['匯款'] = (buckets['匯款'] || 0) + (r.amount || 0);
     });
     return Object.entries(buckets).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [transactions, remittance, providerMap]);
+  }, [transactions, remittance, providerMap, paidTxSubIds]);
 
   const txMerged = useMemo(() => {
     const list: any[] = [];
@@ -196,6 +203,7 @@ export function useRevenueData(preset: RevenuePreset) {
       });
     });
     remittance.forEach((r: any) => {
+      if (isDupRemit(r)) return;
       const buyer = profileMap[r.user_id];
       const plan = r.plan_id ? planMap[r.plan_id] : null;
       const cplan = r.checkup_plan_id ? checkupPlanMap[r.checkup_plan_id] : null;
@@ -219,7 +227,7 @@ export function useRevenueData(preset: RevenuePreset) {
       });
     });
     return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [transactions, remittance, subMap, planMap, expertMap, profileMap, providerMap, checkupPlanMap]);
+  }, [transactions, remittance, subMap, planMap, expertMap, profileMap, providerMap, checkupPlanMap, paidTxSubIds]);
 
   const expertPayouts = useMemo(() => {
     const map: Record<string, { count: number; gross: number; discount: number; net: number; platform: number; expert_amount: number }> = {};
