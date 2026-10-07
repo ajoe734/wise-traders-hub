@@ -55,7 +55,7 @@ export function TransactionsTab({ txMerged, onRefund }: Props) {
             exportCSV(`transactions-${new Date().toISOString().slice(0, 10)}.csv`, [
               ['時間', '訂閱者', '產品', '專家', '原價', '折扣', '實收', '金流', '狀態', '交易編號'],
               ...filteredTx.map(r => [
-                fmtDateTime(r.created_at),
+                fmtDateTime(r.paid_at || r.created_at),
                 r.buyer_name, r.product, r.expert_name,
                 r.original_amount || r.amount, r.discount || 0, r.amount,
                 r.provider_label, r.status, r.provider_tx_id || r.id.slice(0, 8),
@@ -89,7 +89,7 @@ export function TransactionsTab({ txMerged, onRefund }: Props) {
                 <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">無資料</td></tr>
               ) : filteredTx.map(r => (
                 <tr key={`${r.kind}-${r.id}`} className="border-b last:border-0">
-                  <td className="p-3 text-xs whitespace-nowrap">{fmtDateTime(r.created_at)}</td>
+                  <td className="p-3 text-xs whitespace-nowrap">{fmtDateTime(r.paid_at || r.created_at)}</td>
                   <td className="p-3">{r.buyer_name}</td>
                   <td className="p-3 text-xs">{r.product}</td>
                   <td className="p-3">{r.expert_name}</td>
