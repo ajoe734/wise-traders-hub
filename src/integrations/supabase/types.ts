@@ -2159,6 +2159,7 @@ export type Database = {
           paid_by: string | null
           period_month: string
           platform_amount: number
+          recognition_items: Json
           status: string
           student_count: number
           tx_count: number
@@ -2179,6 +2180,7 @@ export type Database = {
           paid_by?: string | null
           period_month: string
           platform_amount?: number
+          recognition_items?: Json
           status?: string
           student_count?: number
           tx_count?: number
@@ -2199,6 +2201,7 @@ export type Database = {
           paid_by?: string | null
           period_month?: string
           platform_amount?: number
+          recognition_items?: Json
           status?: string
           student_count?: number
           tx_count?: number
