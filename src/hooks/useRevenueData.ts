@@ -243,7 +243,7 @@ export function useRevenueData(preset: RevenuePreset) {
         raw: r,
       });
     });
-    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return list.sort((a, b) => new Date(b.paid_at || b.created_at).getTime() - new Date(a.paid_at || a.created_at).getTime());
   }, [transactions, remittance, subMap, planMap, expertMap, profileMap, providerMap, checkupPlanMap, paidTxSubIds]);
 
   const expertPayouts = useMemo(() => {
