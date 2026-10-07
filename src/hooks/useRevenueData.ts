@@ -68,17 +68,34 @@ export function useRevenueData(preset: RevenuePreset) {
       const fromIso = range.from.toISOString();
       const toIso = range.to.toISOString();
 
-      const [
-        sp, tx, rm, sub, csub, exp, pl, cpl, prof, prov, txCount, spCount,
-      ] = await Promise.all([
+      // 以「實際付款日」歸期：paid_at 優先，缺漏才退回 created_at（補記紀錄 created_at 會晚於付款日）
+      const inRange = (col: string) => `and(${col}.gte.${fromIso},${col}.lte.${toIso})`;
+      const txRes = await supabase.from('payment_transactions').select('*')
+        .or(`${inRange('paid_at')},and(paid_at.is.null,${inRange('created_at')})`)
+        .order('created_at', { ascending: false });
+      const txIds = (txRes.data ?? []).map((t: any) => t.id);
+      const [spByCreated, spByTx] = await Promise.all([
         supabase.from('revenue_splits').select('*')
           .gte('created_at', fromIso).lte('created_at', toIso)
           .order('created_at', { ascending: false }),
-        supabase.from('payment_transactions').select('*')
-          .gte('created_at', fromIso).lte('created_at', toIso)
-          .order('created_at', { ascending: false }),
+        txIds.length
+          ? supabase.from('revenue_splits').select('*').in('transaction_id', txIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+      ]);
+      const txIdSet = new Set(txIds);
+      const spMap = new Map<string, any>();
+      for (const s of [...(spByCreated.data ?? []), ...(spByTx.data ?? [])]) {
+        // 分潤若掛在付款日不在本期的交易上，則不屬於本期
+        if (s.transaction_id && !txIdSet.has(s.transaction_id)) continue;
+        spMap.set(s.id, s);
+      }
+      const spMerged = { data: [...spMap.values()].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)), error: spByCreated.error };
+
+      const [
+        rm, sub, csub, exp, pl, cpl, prof, prov, txCount, spCount,
+      ] = await Promise.all([
         supabase.from('remittance_orders').select('*')
-          .gte('created_at', fromIso).lte('created_at', toIso)
+          .or(`${inRange('confirmed_at')},and(confirmed_at.is.null,${inRange('created_at')})`)
           .order('created_at', { ascending: false }),
         supabase.from('member_subscriptions').select('*').order('started_at', { ascending: false }),
         supabase.from('checkup_subscriptions').select('*').order('started_at', { ascending: false }),
@@ -92,8 +109,8 @@ export function useRevenueData(preset: RevenuePreset) {
       ]);
 
       return {
-        splits: sp.data || [],
-        transactions: tx.data || [],
+        splits: spMerged.data || [],
+        transactions: txRes.data || [],
         remittance: rm.data || [],
         subscriptions: sub.data || [],
         checkupSubs: csub.data || [],
@@ -226,7 +243,7 @@ export function useRevenueData(preset: RevenuePreset) {
         raw: r,
       });
     });
-    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return list.sort((a, b) => new Date(b.paid_at || b.created_at).getTime() - new Date(a.paid_at || a.created_at).getTime());
   }, [transactions, remittance, subMap, planMap, expertMap, profileMap, providerMap, checkupPlanMap, paidTxSubIds]);
 
   const expertPayouts = useMemo(() => {
