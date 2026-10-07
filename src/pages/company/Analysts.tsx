@@ -31,26 +31,50 @@ const CompanyAnalysts = () => {
   const setExperts = (updater: (prev: any[]) => any[]) =>
     queryClient.setQueryData<any[]>(['company-experts'], (prev) => updater(prev || []));
 
-  // Active subscriber counts per expert (single query for whole page)
-  const { data: subscriberCounts = {} } = useQuery<Record<string, number>>({
+  // 有效學員數：以人去重，排除老師本人與測試帳號；無付款紀錄者（贈送／未付款）另計。
+  const { data: subscriberStats = { paid: {}, unpaid: {} } } = useQuery<{ paid: Record<string, number>; unpaid: Record<string, number> }>({
     queryKey: ['company-experts-subscriber-counts'],
     queryFn: async () => {
       const nowIso = new Date().toISOString();
       const { data } = await supabase
         .from('member_subscriptions')
-        .select('plan_id, expert_plans!inner(expert_id)')
+        .select('id, user_id, plan_id, expert_plans!inner(expert_id, experts!inner(user_id))')
         .eq('status', 'active')
         .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
-      const map: Record<string, number> = {};
-      (data || []).forEach((row: any) => {
-        const eid = row.expert_plans?.expert_id;
+      const rows = (data || []) as any[];
+      const subIds = rows.map(r => r.id);
+      const userIds = [...new Set(rows.map(r => r.user_id))];
+      const [{ data: txs }, { data: profs }] = await Promise.all([
+        subIds.length
+          ? supabase.from('payment_transactions').select('subscription_id').eq('status', 'paid').in('subscription_id', subIds)
+          : Promise.resolve({ data: [] as any[] }),
+        userIds.length
+          ? supabase.from('profiles').select('user_id, is_tester').in('user_id', userIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const paidSubs = new Set((txs || []).map((t: any) => t.subscription_id));
+      const testers = new Set((profs || []).filter((p: any) => p.is_tester).map((p: any) => p.user_id));
+      const paidSets: Record<string, Set<string>> = {};
+      const unpaidSets: Record<string, Set<string>> = {};
+      rows.forEach(r => {
+        const eid = r.expert_plans?.expert_id;
         if (!eid) return;
-        map[eid] = (map[eid] || 0) + 1;
+        if (r.user_id === r.expert_plans?.experts?.user_id || testers.has(r.user_id)) return;
+        const target = paidSubs.has(r.id) ? paidSets : unpaidSets;
+        (target[eid] ||= new Set()).add(r.user_id);
       });
-      return map;
+      const paid: Record<string, number> = {};
+      const unpaid: Record<string, number> = {};
+      Object.entries(paidSets).forEach(([k, s]) => { paid[k] = s.size; });
+      Object.entries(unpaidSets).forEach(([k, s]) => {
+        const n = [...s].filter(u => !paidSets[k]?.has(u)).length;
+        if (n) unpaid[k] = n;
+      });
+      return { paid, unpaid };
     },
     staleTime: 30_000,
   });
+  const subscriberCounts = subscriberStats.paid;
 
   const [subscribersExpert, setSubscribersExpert] = useState<{ id: string; name: string } | null>(null);
 

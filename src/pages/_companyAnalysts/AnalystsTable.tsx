@@ -9,6 +9,8 @@ interface Props {
   loading: boolean;
   experts: any[];
   subscriberCounts?: Record<string, number>;
+  /** 有效但無付款紀錄（贈送／未付款）的人數。 */
+  unpaidCounts?: Record<string, number>;
   onOpenLine: (exp: any) => void;
   onOpenAccount: (exp: any) => void;
   onToggleStatus: (id: string, currentStatus: string) => void;
@@ -17,7 +19,7 @@ interface Props {
   onOpenReminder?: (exp: any) => void;
 }
 
-export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers, onAdopt, onOpenReminder }: Props) {
+export function AnalystsTable({ loading, experts, subscriberCounts = {}, unpaidCounts = {}, onOpenLine, onOpenAccount, onToggleStatus, onOpenSubscribers, onAdopt, onOpenReminder }: Props) {
 
   return (
     <Card>
@@ -76,6 +78,7 @@ export function AnalystsTable({ loading, experts, subscriberCounts = {}, onOpenL
                     >
                       <Users className="h-3 w-3 mr-1" />
                       {subscriberCounts[exp.id] ?? 0} 人
+                      {unpaidCounts[exp.id] ? <span className="ml-1 text-muted-foreground">（另有 {unpaidCounts[exp.id]} 位未付款／贈送）</span> : null}
                     </Button>
                   </td>
                   <td className="p-4">

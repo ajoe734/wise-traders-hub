@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TabsContent } from '@/components/ui/tabs';
 import { Download } from 'lucide-react';
@@ -35,7 +34,8 @@ export function SubscriptionsTab({
   transactions, remittance, providerMap, range,
 }: Props) {
   const [subFilter, setSubFilter] = useState({ expert: 'all', role: 'all', status: 'all', autorenew: 'all' });
-  const [includeCrossMonth, setIncludeCrossMonth] = useState(false);
+  // 只以付款日是否落在所選期間判斷，不提供跨月選項。
+  const includeCrossMonth = false;
 
   // 匯款確認後會另寫一筆 payment_transactions（同 subscription_id），申請紀錄不可再計一次。
   const paidTxSubIds = useMemo(() => new Set(
@@ -164,14 +164,6 @@ export function SubscriptionsTab({
             <SelectItem value="off">手動續訂</SelectItem>
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-          <Checkbox
-            checked={includeCrossMonth}
-            onCheckedChange={(v) => setIncludeCrossMonth(v === true)}
-            data-testid="include-cross-month"
-          />
-          包含跨月訂閱
-        </label>
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={() => {
             exportCSV(`subscriptions-${new Date().toISOString().slice(0, 10)}.csv`, [
