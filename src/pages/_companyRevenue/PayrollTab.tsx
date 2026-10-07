@@ -31,7 +31,7 @@ export function PayrollTab() {
       const [sp, tx, sub, exp, lk, au] = await Promise.all([
         supabase.from('revenue_splits').select('transaction_id, expert_id, expert_amount, net, platform_amount'),
         supabase.from('payment_transactions').select('id, status, paid_at, created_at, subscription_id, amount'),
-        supabase.from('member_subscriptions').select('id, user_id'),
+        supabase.from('member_subscriptions').select('id, user_id, billing_cycle'),
         supabase.from('experts').select('id, name, role'),
         supabase.from('expert_payouts').select('*'),
         supabase.from('audit_logs').select('target_id, created_at').eq('action', 'payment.refund'),
@@ -41,13 +41,14 @@ export function PayrollTab() {
       const refundAt: Record<string, string> = {};
       for (const a of au.data || []) if (a.target_id && (!refundAt[a.target_id] || a.created_at < refundAt[a.target_id])) refundAt[a.target_id] = a.created_at;
       const subUser: Record<string, string> = {};
-      for (const s of sub.data || []) subUser[s.id] = s.user_id;
-      return { splits: sp.data || [], txs: tx.data || [], refundAt, subUser, experts: exp.data || [], locks: lk.data || [] };
+      const subCycle: Record<string, string> = {};
+      for (const s of sub.data || []) { subUser[s.id] = s.user_id; subCycle[s.id] = (s as any).billing_cycle; }
+      return { subCycle, splits: sp.data || [], txs: tx.data || [], refundAt, subUser, experts: exp.data || [], locks: lk.data || [] };
     },
   });
 
   const payroll = useMemo(() => data
-    ? computePayroll(data.splits as any, data.txs as any, data.refundAt, data.subUser, data.locks as any, current)
+    ? computePayroll(data.splits as any, data.txs as any, data.refundAt, data.subUser, data.locks as any, current, data.subCycle)
     : {}, [data, current]);
 
   const months = useMemo(() => {
@@ -70,7 +71,7 @@ export function PayrollTab() {
     const { error } = await supabase.from('expert_payouts').upsert({
       expert_id: r.expert_id, period_month: r.month, earnings: r.earnings, clawback: r.clawback,
       carry_in: r.carry_in, amount: r.amount, net: r.net, platform_amount: r.platform_amount,
-      tx_count: r.tx_count, student_count: r.student_count, clawback_items: r.clawbackItems as any, status: 'paid', paid_at: now,
+      tx_count: r.tx_count, student_count: r.student_count, clawback_items: r.clawbackItems as any, recognition_items: r.items as any, status: 'paid', paid_at: now,
       paid_by: user?.id ?? null, unmark_reason: null, updated_at: now,
     }, { onConflict: 'expert_id,period_month' });
     if (!error) await supabase.from('audit_logs').insert({
@@ -112,7 +113,7 @@ export function PayrollTab() {
         {unpaidTotal !== total && <span className="text-sm text-muted-foreground">尚未發放 {fmtMoney(unpaidTotal)}</span>}
       </div>
       <p className="text-xs text-muted-foreground">
-        以付款成功時間（台北）歸月，年繳整筆算付款當月。已發放後才退款的金額，於下個月扣回；負數會延續到下月。
+        依服務期滿月計價：付款日加一個週期的期滿日落在哪個月（台北），就算在哪個月；年繳拆 12 期，每滿一個月算 1/12。期滿前退款，未滿期的部分不計。負數會延續到下月。
         {isOpenMonth && ' 本月尚未結束，數字仍會變動。'}
       </p>
 
@@ -157,6 +158,22 @@ export function PayrollTab() {
                       <dt className="text-muted-foreground">上月負額延續</dt><dd className="text-right text-destructive">{fmtMoney(r.carry_in)}</dd>
                     </>)}
                   </dl>
+                  {r.items.length > 0 && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted-foreground">本月期滿計入明細（{r.items.length} 筆）</summary>
+                      <ul className="mt-2 space-y-1" data-testid="payroll-items">
+                        {r.items.map((it) => (
+                          <li key={`${it.transaction_id}-${it.k}`} className="flex justify-between gap-2">
+                            <span className="text-muted-foreground">
+                              付款 {fmtDate(it.paid_at)} → 期滿 {fmtDate(it.end_at)}{it.n > 1 ? `（第 ${it.k}/${it.n} 期）` : ''}
+                              {it.cycleUnknown && <span className="text-destructive">（週期不明，暫視為月繳）</span>}
+                            </span>
+                            <span>{fmtMoney(it.amount)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                   {r.locked ? (
                     <Button size="sm" variant="ghost" className="w-full" disabled={busy} onClick={() => setUnmarking(r)}>取消標記</Button>
                   ) : (

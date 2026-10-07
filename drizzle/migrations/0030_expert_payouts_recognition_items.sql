@@ -1,0 +1,2 @@
+ALTER TABLE public.expert_payouts ADD COLUMN IF NOT EXISTS recognition_items jsonb NOT NULL DEFAULT '[]'::jsonb;
+COMMENT ON COLUMN public.expert_payouts.recognition_items IS 'Snapshot of installments recognized in this month (service-period-end recognition).';

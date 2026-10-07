@@ -211,6 +211,13 @@
       "when": 1791305979980,
       "tag": "0029_payout_clawback_items_and_tighten_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791372367472,
+      "tag": "0030_expert_payouts_recognition_items",
+      "breakpoints": true
     }
   ]
 }

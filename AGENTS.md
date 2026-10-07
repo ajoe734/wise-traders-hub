@@ -59,4 +59,4 @@ Forward/peer valuation evidence for the holdings drawer lives in the pure `src/c
 
 ### Expert monthly payroll
 
-Teacher payouts come only from pure `src/lib/expertPayroll.ts` (revenue_splits.expert_amount by Taipei payment month); marking paid snapshots into `expert_payouts`, later refunds (incl. provider negative rows, pro-rated) claw back next month, snapshotted in `clawback_items`; teachers read only own paid rows. Split precedence plan > `expert_split_settings` > global, resolved once at payment in `calcSplit`; why: paid months never change and ratio changes hit only new payments.
+Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
