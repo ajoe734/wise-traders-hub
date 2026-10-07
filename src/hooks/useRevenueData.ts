@@ -109,8 +109,8 @@ export function useRevenueData(preset: RevenuePreset) {
       ]);
 
       return {
-        splits: sp.data || [],
-        transactions: tx.data || [],
+        splits: spMerged.data || [],
+        transactions: txRes.data || [],
         remittance: rm.data || [],
         subscriptions: sub.data || [],
         checkupSubs: csub.data || [],
