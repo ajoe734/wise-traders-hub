@@ -174,7 +174,7 @@ export function useRevenueData(preset: RevenuePreset) {
       buckets['匯款'] = (buckets['匯款'] || 0) + (r.amount || 0);
     });
     return Object.entries(buckets).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [transactions, remittance, providerMap]);
+  }, [transactions, remittance, providerMap, paidTxSubIds]);
 
   const txMerged = useMemo(() => {
     const list: any[] = [];
@@ -203,6 +203,7 @@ export function useRevenueData(preset: RevenuePreset) {
       });
     });
     remittance.forEach((r: any) => {
+      if (isDupRemit(r)) return;
       const buyer = profileMap[r.user_id];
       const plan = r.plan_id ? planMap[r.plan_id] : null;
       const cplan = r.checkup_plan_id ? checkupPlanMap[r.checkup_plan_id] : null;
@@ -226,7 +227,7 @@ export function useRevenueData(preset: RevenuePreset) {
       });
     });
     return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [transactions, remittance, subMap, planMap, expertMap, profileMap, providerMap, checkupPlanMap]);
+  }, [transactions, remittance, subMap, planMap, expertMap, profileMap, providerMap, checkupPlanMap, paidTxSubIds]);
 
   const expertPayouts = useMemo(() => {
     const map: Record<string, { count: number; gross: number; discount: number; net: number; platform: number; expert_amount: number }> = {};
