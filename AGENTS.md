@@ -59,4 +59,4 @@ Forward/peer valuation evidence for the holdings drawer lives in the pure `src/c
 
 ### Expert monthly payroll
 
-Teacher payouts come only from pure `src/lib/expertPayroll.ts`: each revenue_splits.expert_amount is recognized in the Taipei month its service period ends (paid_at + cycle, ignoring manual expiry extensions); yearly splits into 12 monthly installments; refunds drop unmatured installments (provider partial refunds pro-rate them) and never claw back matured ones. Marking paid snapshots totals and `recognition_items` into `expert_payouts`; teachers read only own paid rows. Split precedence plan > `expert_split_settings` > global, resolved once at payment in `calcSplit`; why: pay only for completed service, paid months never change.
+Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
