@@ -100,9 +100,13 @@ export function useCheckoutData(params: {
         setDefaultProviderId(providerRes.data[0].id);
       }
 
-      if (subsRes.data && subsRes.data.length > 0) {
-        setAlreadySubscribed(true);
-      }
+      // 續訂不擋：到期前 7 天內可再付款（confirm-remittance 會從原到期日往後延）
+      const RENEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+      const renewCutoff = Date.now() + RENEW_WINDOW_MS;
+      const blocking = (subsRes.data as { expires_at?: string | null }[] | null)?.some(
+        (s) => !s.expires_at || new Date(s.expires_at).getTime() > renewCutoff,
+      );
+      setAlreadySubscribed(!!blocking);
 
       setLoading(false);
     };
