@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { TabsContent } from '@/components/ui/tabs';
 import { ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { exportCSV, fmtDate, fmtMoney, ruleSourceLabels } from './utils';
@@ -76,7 +75,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                     {open && (
                       <tr key={`${p.expert_id}-detail`} className="bg-muted/20">
                         <td colSpan={8} className="p-3">
-                          <ScrollArea className="max-h-[320px]">
+                          <div className="max-h-[420px] overflow-y-auto">
                             <div className="overflow-x-auto"><table className="w-full text-xs">
                               <thead>
                                 <tr className="text-left text-muted-foreground">
@@ -93,7 +92,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                               <tbody>
                                 {detail.map(d => (
                                   <tr key={d.id} className="border-t border-border/40">
-                                    <td className="p-2 whitespace-nowrap">{fmtDate(d.created_at)}</td>
+                                    <td className="p-2 whitespace-nowrap">{fmtDate(d.effective_at || d.created_at)}</td>
                                     <td className="p-2">{planMap[d.plan_id]?.name || '-'}</td>
                                     <td className="p-2 text-right">{fmtMoney(d.gross)}</td>
                                     <td className="p-2 text-right">-{fmtMoney(d.discount)}</td>
@@ -105,7 +104,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                                 ))}
                               </tbody>
                             </table></div>
-                          </ScrollArea>
+                          </div>
                         </td>
                       </tr>
                     )}
