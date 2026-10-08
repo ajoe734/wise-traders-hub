@@ -83,13 +83,15 @@ export function useRevenueData(preset: RevenuePreset) {
           : Promise.resolve({ data: [] as any[], error: null }),
       ]);
       const txIdSet = new Set(txIds);
+      const txPaidAt = new Map<string, string | null>((txRes.data ?? []).map((t: any) => [t.id, t.paid_at]));
       const spMap = new Map<string, any>();
       for (const s of [...(spByCreated.data ?? []), ...(spByTx.data ?? [])]) {
         // 分潤若掛在付款日不在本期的交易上，則不屬於本期
         if (s.transaction_id && !txIdSet.has(s.transaction_id)) continue;
-        spMap.set(s.id, s);
+        // 顯示與排序用「實際付款日」，補記紀錄的 created_at 會晚於付款日
+        spMap.set(s.id, { ...s, effective_at: (s.transaction_id && txPaidAt.get(s.transaction_id)) || s.created_at });
       }
-      const spMerged = { data: [...spMap.values()].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)), error: spByCreated.error };
+      const spMerged = { data: [...spMap.values()].sort((a, b) => +new Date(b.effective_at) - +new Date(a.effective_at)), error: spByCreated.error };
 
       const [
         rm, sub, csub, exp, pl, cpl, prof, prov, txCount, spCount,
