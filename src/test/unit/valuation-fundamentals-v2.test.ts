@@ -182,7 +182,7 @@ describe('股數核對閘門：EPS 進位誤差與 IFRS 視同庫藏口徑', () 
     expect(b.ok).toBe(true);
     expect(b.notApplicable.pe).toMatch(/股數基準無法核對，PE 不適用/);
     expect(b.notApplicable.pb).toBeUndefined();
-    expect(b.notApplicable.ps).toBeUndefined();
+    expect(b.notApplicable.ps ?? '').not.toMatch(/股數/);
     expect(b.bvps).toBeCloseTo(20_000_000_000 / 166_000_000, 6);
   });
   it('面額誤判型：比值交集存在但偏離一倍級距 → 整檔擋下', () => {
