@@ -320,6 +320,9 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
   const usableRatios = ratioBounds.filter((b): b is readonly [number, number] => b != null);
   let ratioLo = 0;
   let ratioHi = Number.POSITIVE_INFINITY;
+  // 比值無交集只代表「EPS 隱含加權股數」不可用 → 只否決 PE；PB／PS 改用最新季末流通股數，
+  // 且必須與官方現行已發行股數吻合（≤ SHARE_CHANGE_THRESHOLD）才採用，否則同樣不適用。
+  let ratioConflict: string | null = null;
   if (usableRatios.length) {
     ratioLo = Math.max(...usableRatios.map((b) => b[0]));
     ratioHi = Math.min(...usableRatios.map((b) => b[1]));
@@ -327,10 +330,9 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
       const outIdx = ratioBounds.findIndex((b) => b != null && (b[0] > ratioHi * (1 + SHARE_CHANGE_THRESHOLD) || b[1] * (1 + SHARE_CHANGE_THRESHOLD) < ratioLo));
       const l = last4[outIdx >= 0 ? outIdx : 0];
       const diff = l.weightedShares != null && l.sharesEnd ? Math.abs(l.weightedShares - l.sharesEnd) / l.sharesEnd : 0;
-      return { ...base, reason: `${quarterLabel(l.period)} 淨利÷EPS 的加權股數 ${Math.round(l.weightedShares ?? 0).toLocaleString('en-US')} 與其他季的「加權÷季末流通」比值無共同交集（已計入 EPS 小數兩位進位誤差；與季末差 ${(diff * 100).toFixed(1)}%），股數基準無法核對` };
-    }
-    // 交集存在但偏離 1 超過一倍級距：面額或股本單位可能有誤（例如面額 5 元被當 10 元）。
-    if (ratioLo > 2 || ratioHi < 0.5) {
+      ratioConflict = `${quarterLabel(l.period)} 淨利÷EPS 的加權股數 ${Math.round(l.weightedShares ?? 0).toLocaleString('en-US')} 與其他季的「加權÷季末流通」比值無共同交集（已計入 EPS 小數兩位進位誤差；與季末差 ${(diff * 100).toFixed(1)}%）`;
+    } else if (ratioLo > 2 || ratioHi < 0.5) {
+      // 交集存在但偏離 1 超過一倍級距：面額或股本單位可能有誤（例如面額 5 元被當 10 元）→ 三尺皆不可用。
       return { ...base, reason: `淨利÷EPS 隱含股數與季末流通股數（股本÷面額 ${par}－庫藏股）差距達一倍級距，面額或股本單位可能有誤，股數基準無法核對` };
     }
   }
