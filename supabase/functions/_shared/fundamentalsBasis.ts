@@ -350,9 +350,11 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
     return [ni / (e + 0.005), e > 0.005 ? ni / (e - 0.005) : Number.POSITIVE_INFINITY] as const;
   }) : null;
   const epsBasisConflict = bounds ? Math.max(...bounds.map((b) => b[0])) > Math.min(...bounds.map((b) => b[1])) * (1 + SHARE_CHANGE_THRESHOLD) : null;
-  const shareChange = epsBasisConflict != null ? epsBasisConflict : endRange > SHARE_CHANGE_THRESHOLD;
+  const shareChange = ratioConflict != null ? true : epsBasisConflict != null ? epsBasisConflict : endRange > SHARE_CHANGE_THRESHOLD;
   const officialIssued = opts.official?.issuedShares ?? null;
   const officialShareDiff = officialIssued && latest.sharesIssuedEnd ? officialIssued / latest.sharesIssuedEnd - 1 : null;
+  const officialMatches = officialShareDiff != null && Math.abs(officialShareDiff) <= SHARE_CHANGE_THRESHOLD;
+  const officialText = officialShareDiff == null ? '無官方股數' : `差 ${(officialShareDiff * 100).toFixed(2)}%`;
 
   let weightedSharesUsed: number | null = null;
   let weightedRule: string | null = null;
@@ -368,13 +370,17 @@ function basisFromQuarters(symbol: string, fsQ: Map<string, QRec>, bsQ: Map<stri
     }
     psShares = weightedSharesUsed; psShareRule = weightedRule;
   } else {
-    const pctText = epsBasisRange != null ? `四季 EPS 隱含加權股數變動 ${(epsBasisRange * 100).toFixed(2)}%（已扣除 EPS 小數兩位的進位誤差仍超過 0.5%）` : `期末股數變動 ${(endRange * 100).toFixed(2)}%`;
-    notApplicable.pe = `${pctText}，可能配股／分割／增減資，未取得正式追溯調整資料，不相加不同股數基準的 EPS，PE 不適用`;
-    if (officialShareDiff != null && Math.abs(officialShareDiff) <= SHARE_CHANGE_THRESHOLD) {
+    const pctText = ratioConflict ?? (epsBasisRange != null ? `四季 EPS 隱含加權股數變動 ${(epsBasisRange * 100).toFixed(2)}%（已扣除 EPS 小數兩位的進位誤差仍超過 0.5%）` : `期末股數變動 ${(endRange * 100).toFixed(2)}%`);
+    notApplicable.pe = ratioConflict
+      ? `${ratioConflict}，EPS 股數基準無法核對，PE 不適用`
+      : `${pctText}，可能配股／分割／增減資，未取得正式追溯調整資料，不相加不同股數基準的 EPS，PE 不適用`;
+    if (officialMatches) {
       psShares = latest.sharesEnd!;
-      psShareRule = `股數有變動，以最新季末流通股數為口徑（與官方現行已發行股數差 ${(officialShareDiff * 100).toFixed(2)}%）`;
+      psShareRule = `股數有變動，以最新季末流通股數為口徑（與官方現行已發行股數差 ${(officialShareDiff! * 100).toFixed(2)}%）`;
     } else {
-      notApplicable.ps = `${pctText}，且最新季末股數無法與官方現行股數核對（${officialShareDiff == null ? '無官方股數' : `差 ${(officialShareDiff * 100).toFixed(2)}%`}），PS 不適用`;
+      notApplicable.ps = `${pctText}，且最新季末股數無法與官方現行股數核對（${officialText}），PS 不適用`;
+      // 只有 EPS 比值衝突時，PB 的季末股數也須經官方核對才採用。
+      if (ratioConflict) notApplicable.pb = `${pctText}，且最新季末股數無法與官方現行股數核對（${officialText}），PB 不適用`;
     }
   }
   if (preferred) {
