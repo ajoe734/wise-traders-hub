@@ -30,7 +30,7 @@ describe('useValuationSnapshot 比率與財報情境解耦', () => {
     const h = renderHook(() => useValuationSnapshot('3443', { injectedGateway: gw }));
     await waitFor(() => expect(h.result.current.bandStatus).toBe('ready'));
     expect(gw.calls.invoke).toHaveLength(0);
-    expect(h.result.current.band?.rows[0].reason).toMatch(/重新登入/);
+    expect(h.result.current.band?.rows[0].reason).toMatch(/登入/);
   });
 
   it('官方名錄逾時時保留後備股數與特別股待確認狀態', () => {

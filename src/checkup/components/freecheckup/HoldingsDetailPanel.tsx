@@ -35,7 +35,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
-import { buildCustomScenario } from '@/checkup/lib/valuationScenario';
+import { buildCustomScenario, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
@@ -876,9 +876,7 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
         <span style={{ fontSize: 13, color: WB.inkSub }}>估值判讀</span>
         <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: WB.ink, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
-          {band.basisCount > 0
-            ? (hasPeerEvidence ? '尚不能判定合理價' : '同業倍數不足，僅歷史情境參考')
-            : '財報分母不足，無法判讀現價要求'}
+          {headlineText(band, hasPeerEvidence)}
         </span>
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>

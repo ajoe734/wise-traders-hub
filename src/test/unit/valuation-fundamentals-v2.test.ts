@@ -177,10 +177,13 @@ describe('股數核對閘門：EPS 進位誤差與 IFRS 視同庫藏口徑', () 
     const b = synth([1.003, 1.031, 1.003, 1.002], [0.19, 0.07, 0.26, 0.17]);
     expect(b.ok).toBe(true);
   });
-  it('揚智 3041 型：其中一季比值跳離其他季（真實基準跳動）→ 仍整檔擋下', () => {
+  it('揚智 3041／台燿 6274 型：其中一季比值跳離其他季 → 只擋 PE；季末股數與官方吻合時 PB／PS 保留', () => {
     const b = synth([0.928, 0.980, 1.007, 0.978], [-1.02, -1.33, -0.48, -0.21]);
-    expect(b.ok).toBe(false);
-    expect(b.reason).toMatch(/股數基準無法核對/);
+    expect(b.ok).toBe(true);
+    expect(b.notApplicable.pe).toMatch(/股數基準無法核對，PE 不適用/);
+    expect(b.notApplicable.pb).toBeUndefined();
+    expect(b.notApplicable.ps ?? '').not.toMatch(/股數/);
+    expect(b.bvps).toBeCloseTo(20_000_000_000 / 166_000_000, 6);
   });
   it('面額誤判型：比值交集存在但偏離一倍級距 → 整檔擋下', () => {
     const b = synth([0.45, 0.45, 0.45, 0.45], [1.0, 1.0, 1.0, 1.0]);
