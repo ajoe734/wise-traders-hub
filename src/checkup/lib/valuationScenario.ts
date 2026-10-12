@@ -71,6 +71,8 @@ export type ValuationScenario = {
   status: 'consensus' | 'historical' | 'lowConfidence' | 'insufficient' | 'divergent';
   /** 財報分母通過核實的尺數（與倍數信心分開顯示）。 */
   basisCount: number;
+  /** 未取得財報時的原因：auth＝未登入或憑證過期；service＝服務暫時失敗。與「分母不足」分開陳述。 */
+  blocker?: 'auth' | 'service' | null;
   low: number | null;
   high: number | null;
   validCount: number;
