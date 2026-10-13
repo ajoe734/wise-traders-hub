@@ -18,7 +18,7 @@ import { sanitizeRichHtml } from '@/lib/sanitizeHtml';
 import { nextUnifiedPublishAt, nextPublishMomentLabel } from '@/lib/publishingWindow';
 import { articleSaveErrorMessage, fmtTaipeiDateTime } from '@/lib/articleTime';
 import {
-  ARTICLE_LAYOUTS, LAYOUT_LABEL, buildTrialHtml, firstImageSrc, parseArticleBlocks,
+  LAYOUT_LABEL, orientationOf, buildTrialHtml, firstImageSrc, parseArticleBlocks,
   pendingImageCount, recommendLayouts, type ArticleLayout, type ImageOrientation,
 } from '@/lib/articleLayout';
 import { ARTICLE_STARTERS } from '@/pages/_articleEditor/starters';
@@ -160,13 +160,12 @@ const ArticleEditor = () => {
                 {blocks.filter((b) => b.type === 'img').map((b) => (
                   <img key={b.src} src={b.src} alt="" onLoad={(e) => {
                     const im = e.currentTarget; const src = b.src!;
-                    setImgMeta((m) => m[src] ? m : { ...m, [src]: { o: im.naturalWidth / (im.naturalHeight || 1) >= 1.15 ? 'landscape' : im.naturalWidth / (im.naturalHeight || 1) <= 0.87 ? 'portrait' : 'square', w: im.naturalWidth } });
+                    setImgMeta((m) => m[src] ? m : { ...m, [src]: { o: orientationOf(im.naturalWidth, im.naturalHeight), w: im.naturalWidth } });
                   }} />
                 ))}
               </div>
             </div>
           </div>
-          {ARTICLE_LAYOUTS.length !== 4 && null}
         </CardContent></Card>
 
         <Card><CardContent className="space-y-4 p-4">
