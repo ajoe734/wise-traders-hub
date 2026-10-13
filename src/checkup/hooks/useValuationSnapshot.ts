@@ -51,6 +51,8 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
     source: source === 'TWSE' || source === 'TPEx' ? 'official' : source === 'FinMind-TWSE' ? 'fallback' : 'unknown',
     preferredUnknown: payload.official?.preferredUnknown === true,
   };
+  const psDaily = (payload as any).psDaily;
+  if (Array.isArray(psDaily)) (scenario as any).psDaily = psDaily.map((x: any) => Number(x?.ps)).filter((n: number) => Number.isFinite(n) && n > 0);
   return scenario;
 }
 

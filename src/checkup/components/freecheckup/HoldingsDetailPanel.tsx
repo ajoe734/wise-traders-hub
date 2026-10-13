@@ -781,7 +781,7 @@ export function buildDrawerStations(view, band, symbol, price, extras = null) {
   const currentPe = view?.rulers?.find((r) => r.key === 'pe')?.value ?? null;
   const main = pickMainRuler({ industry: view?.industry ?? null, ttmEps: peBasis, currentPe, revenueYoY: lastGrowth });
   const basis = basisOf(main.key);
-  const history = main.key === 'ps' ? [] : (view?.rawHistory?.[main.key] || []);
+  const history = main.key === 'ps' ? (band?.psDaily || []) : (view?.rawHistory?.[main.key] || []);
   const stations = buildStations(main.key, history, basis);
   const peer = buildPeerReference(symbol || '', main.key, basis, extras?.peerRows || [], extras?.group ?? null);
   // 前瞻參考只配 PE：未來 EPS × 前瞻本益比，與主尺無關（鐵律：前瞻倍數只乘未來基本面）。

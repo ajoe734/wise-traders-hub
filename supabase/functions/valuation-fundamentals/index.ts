@@ -17,7 +17,7 @@ import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../_shared/demoFundamentalsSymbols.ts';
 import {
-  auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
+  auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, dailyPsSeries, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
   rankPeerCandidates, type FinRow, type OfficialShares, type PeerInput, type PriceRow,
 } from '../_shared/fundamentalsBasis.ts';
 
@@ -229,10 +229,11 @@ Deno.serve(async (req) => {
       + `；候選 ${audit.length} 家：` + audit.map((a) => `${a.name}${a.symbol}（${a.detail}）`).join('；');
     const history = monthlyHistory(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const rows = buildScenarioRows(targetBasis, peers, peerRule, history);
+    const psDaily = dailyPsSeries(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     return jsonResponse({
       ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
-      peersIncluded: withPeers,
+      psDaily, peersIncluded: withPeers,
       meta: { officialList: idx ? officialSource : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {
