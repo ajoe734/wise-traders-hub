@@ -624,6 +624,28 @@ export function monthlyHistory(symbol: string, fs: FinRow[], bs: FinRow[], price
   return out;
 }
 
+/**
+ * 逐日 PS 倍數（站牌用）：每日收盤 ÷ 當日已過法定申報期限的近四季每股營收（同 PS 口徑）。
+ * 只取最近 `days` 個交易日；分母不可用的日子略過，不補值。
+ */
+export function dailyPsSeries(symbol: string, fs: FinRow[], bs: FinRow[], prices: PriceRow[], asOf: string, official: OfficialShares | null, days = 250): { date: string; ps: number }[] {
+  const fsQ = byQuarter(fs);
+  const bsQ = byQuarter(bs);
+  const sorted = [...prices].filter((p) => p.close > 0 && p.date <= asOf).sort((a, b) => a.date.localeCompare(b.date)).slice(-days);
+  const allPeriods = [...fsQ.keys()].filter((p) => statutoryDeadline(p)).sort();
+  const memo = new Map<string, CompanyBasis>();
+  const out: { date: string; ps: number }[] = [];
+  for (const px of sorted) {
+    const avail = allPeriods.filter((p) => statutoryDeadline(p)! <= px.date).at(-1);
+    if (!avail) continue;
+    let b = memo.get(avail);
+    if (!b) { b = basisFromQuarters(symbol, fsQ, bsQ, statutoryDeadline(avail)!, { mode: 'asOf', official }); memo.set(avail, b); }
+    if (!b.ok || b.latestPeriod !== avail || !(b.sps && b.sps > 0)) continue;
+    out.push({ date: px.date, ps: px.close / b.sps });
+  }
+  return out;
+}
+
 /** 舊介面相容：每資料期一點（法定期限後 10 日內首個收盤）。 */
 export function historyPoints(symbol: string, fs: FinRow[], bs: FinRow[], prices: PriceRow[], asOf: string, official: OfficialShares | null): MonthPoint[] {
   const sorted = [...prices].filter((p) => p.close > 0).sort((a, b) => a.date.localeCompare(b.date));
