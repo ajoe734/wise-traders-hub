@@ -1932,6 +1932,120 @@ export type Database = {
           },
         ]
       }
+      expert_article_revisions: {
+        Row: {
+          article_id: string
+          body_html: string
+          edited_at: string
+          edited_by: string | null
+          id: string
+          lede: string
+          title: string
+        }
+        Insert: {
+          article_id: string
+          body_html: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          lede: string
+          title: string
+        }
+        Update: {
+          article_id?: string
+          body_html?: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          lede?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_article_revisions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "expert_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expert_articles: {
+        Row: {
+          body_html: string
+          cover_url: string | null
+          created_at: string
+          expert_id: string
+          id: string
+          last_edited_after_publish_at: string | null
+          layout: string
+          lede: string
+          publish_at: string | null
+          publish_mode: string
+          status: string
+          title: string
+          trial_enabled: boolean
+          trial_html: string
+          updated_at: string
+        }
+        Insert: {
+          body_html?: string
+          cover_url?: string | null
+          created_at?: string
+          expert_id: string
+          id?: string
+          last_edited_after_publish_at?: string | null
+          layout?: string
+          lede?: string
+          publish_at?: string | null
+          publish_mode?: string
+          status?: string
+          title?: string
+          trial_enabled?: boolean
+          trial_html?: string
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string
+          cover_url?: string | null
+          created_at?: string
+          expert_id?: string
+          id?: string
+          last_edited_after_publish_at?: string | null
+          layout?: string
+          lede?: string
+          publish_at?: string | null
+          publish_mode?: string
+          status?: string
+          title?: string
+          trial_enabled?: boolean
+          trial_html?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_articles_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_articles_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_articles_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+        ]
+      }
       expert_knowledge_chunks: {
         Row: {
           content: string
@@ -2723,6 +2837,7 @@ export type Database = {
           strategy_summary: string | null
           style_tags: string[] | null
           user_id: string
+          weekly_article_limit: number | null
         }
         Insert: {
           asset_class?: string
@@ -2750,6 +2865,7 @@ export type Database = {
           strategy_summary?: string | null
           style_tags?: string[] | null
           user_id: string
+          weekly_article_limit?: number | null
         }
         Update: {
           asset_class?: string
@@ -2777,6 +2893,7 @@ export type Database = {
           strategy_summary?: string | null
           style_tags?: string[] | null
           user_id?: string
+          weekly_article_limit?: number | null
         }
         Relationships: []
       }
@@ -7520,6 +7637,18 @@ export type Database = {
         Args: { _expert_id: string }
         Returns: {
           symbol: string
+        }[]
+      }
+      list_trial_articles: {
+        Args: { _expert_slug: string }
+        Returns: {
+          cover_url: string
+          id: string
+          layout: string
+          lede: string
+          publish_at: string
+          title: string
+          trial_html: string
         }[]
       }
       log_unit_lock_violation: { Args: { payload: Json }; Returns: string }
