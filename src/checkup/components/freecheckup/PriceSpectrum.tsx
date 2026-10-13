@@ -50,15 +50,23 @@ export function priceSpectrumGeometry(
   return { min, max, mapX, custom, ruler };
 }
 
-export function PriceSpectrum({ WB, price, cost, target, customBand = null, rulerBand = null }: {
+export type SpectrumStation = { key: string; label: string; value: number; kind: 'station' | 'reference' };
+
+export function PriceSpectrum({ WB, price, cost, target, customBand = null, rulerBand = null, stations = [] }: {
   WB: Palette;
   price?: number | null;
   cost?: number | null;
   target?: number | null;
   customBand?: { low: number | null; high: number | null; key?: ScenarioKey | null } | null;
   rulerBand?: { low: number | null; high: number | null; key?: ScenarioKey | null; label: string } | null;
+  stations?: SpectrumStation[];
 }) {
-  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, customBand, rulerBand), [price, cost, target, customBand, rulerBand]);
+  const stationPts = stations.filter((s) => valid(s.value));
+  const stationSpan = stationPts.length ? { low: Math.min(...stationPts.map((s) => s.value)), high: Math.max(...stationPts.map((s) => s.value)) } : null;
+  const geometry = useMemo(() => priceSpectrumGeometry({ price, cost, target }, customBand,
+    rulerBand ?? (stationSpan && stationSpan.high > stationSpan.low ? stationSpan : null)),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [price, cost, target, customBand, rulerBand, stationSpan?.low, stationSpan?.high]);
   if (!geometry) return null;
   const { min, max, mapX, custom, ruler } = geometry;
   const markers: Marker[] = ([
@@ -72,6 +80,7 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null, rule
     ...markers.map((m) => `${m.name} ${money(m.value)}`),
     ...(custom ? [`${MY_SCENARIO_LABEL}，${custom.key?.toUpperCase() || '單尺'}，${money(custom.low)} 至 ${money(custom.high)}`] : []),
     ...(ruler && rulerBand ? [`${rulerBand.label}，${money(ruler.low)} 至 ${money(ruler.high)}`] : []),
+    ...stationPts.map((s) => `${s.label} ${money(s.value)}`),
   ].join('；');
 
   return (
@@ -96,6 +105,9 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null, rule
               x1={mapX(ruler.low)} x2={mapX(ruler.high)} y1="88" y2="88" className="price-spectrum-band price-spectrum-band--ruler" />
             {[ruler.low, ruler.high].map((v, i) => <line key={`r${i}`} x1={mapX(v)} x2={mapX(v)} y1="81" y2="95" className="price-spectrum-band-end" />)}
           </>}
+          {stationPts.map((s) => <line key={`st-${s.key}`} data-testid={`station-tick-${s.key}`} data-value={s.value}
+            x1={mapX(s.value)} x2={mapX(s.value)} y1={s.kind === 'station' ? 72 : 78} y2={s.kind === 'station' ? 104 : 98}
+            className={s.kind === 'station' ? 'price-spectrum-band-end' : 'price-spectrum-tick'} strokeDasharray={s.kind === 'reference' ? '2 2' : undefined} />)}
           {custom && <>
             <line data-testid="custom-band" data-low={custom.low} data-high={custom.high}
               data-key={custom.key ?? ''} x1={mapX(custom.low)} x2={mapX(custom.high)} y1="88" y2="88" className="price-spectrum-band price-spectrum-band--custom" />
@@ -130,7 +142,12 @@ export function PriceSpectrum({ WB, price, cost, target, customBand = null, rule
         </div>}
       </div>
       <div className="price-spectrum-ends" aria-hidden="true"><span>{money(min)}</span><span>{money(max)}</span></div>
-      {!custom && !ruler && <div className="price-spectrum-scenario-prompt" data-testid="price-spectrum-scenario-prompt">選一把尺，試算你的情境價</div>}
+      {stationPts.length > 0 && <div data-testid="station-legend" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6, fontSize: 13, color: WB.inkSub }}>
+        {[...stationPts].sort((a, b) => a.value - b.value).map((s) => <span key={`lg-${s.key}`} data-testid={`station-${s.key}`} style={{ whiteSpace: 'nowrap' }}>
+          {s.kind === 'reference' ? '┆' : '│'} {s.label} <strong style={{ color: WB.ink, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{money(s.value)}</strong>
+        </span>)}
+      </div>}
+      {!custom && !ruler && stationPts.length === 0 && <div className="price-spectrum-scenario-prompt" data-testid="price-spectrum-scenario-prompt">選一把尺，試算你的情境價</div>}
     </div>
   );
 }
