@@ -14,6 +14,7 @@ import {
   type ValuationView,
 } from '@/checkup/lib/valuationRulers';
 import { buildValuationScenario, type ScenarioRowInput, type ValuationScenario } from '@/checkup/lib/valuationScenario';
+import { DEMO_FUNDAMENTALS_SYMBOLS } from '../../../supabase/functions/_shared/demoFundamentalsSymbols';
 
 /** 唯讀財報情境 Edge Function；token 只在後端。 */
 export const FUNDAMENTALS_FN = 'valuation-fundamentals';
@@ -183,7 +184,7 @@ export function useValuationSnapshot(
       try {
         // 財報服務只接受有效登入；沒有或已過期的憑證就不呼叫，避免 401。
         const token = await gateway.auth?.getAccessToken?.().catch(() => null);
-        if (!token || isJwtExpired(token)) {
+        if ((!token || isJwtExpired(token)) && !DEMO_FUNDAMENTALS_SYMBOLS.includes(code)) {
           scenario = { ...scenarioFromFundamentals(null, null, '登入後可查看財報情境（未登入或登入已過期）'), blocker: 'auth' };
         } else {
           // 先只算目標公司（不等同業），畫出三尺後再背景補同業；同業失敗保留目標結果。
