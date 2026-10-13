@@ -47,7 +47,7 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 ### Valuation fundamentals
 
-Holdings-drawer PE/PB/PS denominators and multiples come only from the read-only `valuation-fundamentals` Edge Function (pure math in `supabase/functions/_shared/fundamentalsBasis.ts`, shared with Vitest). Share counts come from DB-first `official_share_registry` (synced by `official-registry-sync`, logged to `system_jobs_log`; live TWSE/TPEx then FinMind par-snap are fallbacks, preferred shares unverified); parent net income reconciles by `origin_name`; share verification uses EPS rounding-interval intersection over 4 quarters, not a fixed bracket. Financials fetch 7 years (prices 5). PE/PB/PS stay separate evidence, never intersected into a system price; personal scenarios are device-local, one ruler, never shown as teacher/system fair value. why: keeps tokens server-side, forbids price-derived denominators, avoids false rejections.
+Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); shares are DB-first `official_share_registry`, live exchanges/FinMind only as fallback; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
 
 ### Valuation market-day data chain
 
