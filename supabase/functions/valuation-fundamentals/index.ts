@@ -15,8 +15,9 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
+import { DEMO_FUNDAMENTALS_SYMBOLS } from '../_shared/demoFundamentalsSymbols.ts';
 import {
-  auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
+  auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, dailyPsSeries, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
   rankPeerCandidates, type FinRow, type OfficialShares, type PeerInput, type PriceRow,
 } from '../_shared/fundamentalsBasis.ts';
 
@@ -27,7 +28,7 @@ const MAX_PEERS = 6;
 /** 目標財報抓 7 年：前 4 季需再往前 4 季才能算近四季營收年增，5 年會讓最早一年的景氣判斷全為「不明」。 */
 const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-06.1';
+export const VERSION = 'valuation-fundamentals@2026-10-14.1';
 const REQUEST_TIMEOUT_MS = 8_000;
 const TARGET_TIMEOUT_MS = 20_000;
 const OFFICIAL_TIMEOUT_MS = 60_000;
@@ -128,13 +129,16 @@ try { void officialIndex(warmMeter).catch(() => null); } catch { /* ignore */ }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  try { await requireCaller(req); } catch (e) {
-    if (e instanceof AuthError) return errorResponse(e.message, e.status, { code: e.code }, req);
-    throw e;
-  }
   let symbol = '';
   let withPeers = true;
   try { const body = await req.json(); symbol = String(body?.symbol ?? '').trim(); withPeers = body?.peers !== false; } catch { /* fallthrough */ }
+  // 範例持股（固定 5 檔、公開財報、伺服器快取 6 小時）未登入也可讀；其他代碼仍須登入。
+  if (!DEMO_FUNDAMENTALS_SYMBOLS.includes(symbol)) {
+    try { await requireCaller(req); } catch (e) {
+      if (e instanceof AuthError) return errorResponse(e.message, e.status, { code: e.code }, req);
+      throw e;
+    }
+  }
   if (!/^\d{4,6}$/.test(symbol)) return errorResponse('symbol 必須為 4–6 位台股代碼', 400, { code: 'BAD_SYMBOL' }, req);
 
   const started = Date.now();
@@ -225,10 +229,11 @@ Deno.serve(async (req) => {
       + `；候選 ${audit.length} 家：` + audit.map((a) => `${a.name}${a.symbol}（${a.detail}）`).join('；');
     const history = monthlyHistory(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const rows = buildScenarioRows(targetBasis, peers, peerRule, history);
+    const psDaily = dailyPsSeries(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     return jsonResponse({
       ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
-      peersIncluded: withPeers,
+      psDaily, peersIncluded: withPeers,
       meta: { officialList: idx ? officialSource : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {
