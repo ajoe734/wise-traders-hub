@@ -335,6 +335,10 @@ export interface ValuationView {
   /** 同業明細圖表用：三把尺各自的分布與趨勢（純函式算好，UI 只畫）。 */
   distributions: PeerDistribution[];
   trends: TrendSeries[];
+  /** 逐日倍數原始序列（依交易日升冪），供站牌取近一年分位。 */
+  rawHistory?: { pe: number[]; pb: number[] };
+  /** 同業當日倍數原始列（未過濾）。 */
+  peers?: PeerRow[];
 }
 
 /** 金融股提示：P/E 易受一次性損益影響，改以 P/B 與殖利率為主。 */
@@ -376,6 +380,8 @@ export function buildValuationView(input: ValuationSnapshotInput): ValuationView
     restPeers: peers.filter((p) => !nearSet.has(p.symbol)),
     distributions: RULER_KEYS.map((k) => buildPeerDistribution(k, input?.[k] ?? null, peers)),
     trends: RULER_KEYS.map((k) => buildTrendSeries(k, Array.isArray(input?.trend) ? input.trend : [])),
+    rawHistory: { pe: (hist.pe || []).filter(isFiniteNumber), pb: (hist.pb || []).filter(isFiniteNumber) },
+    peers,
   };
 }
 

@@ -20,14 +20,6 @@ Issues 以本地 markdown 檔管理，放在 `.scratch/<feature-slug>/`。See `d
 持倉看板五個深模組的邊界由機制強制，不靠自律：`npm run check:module-boundaries`（ESLint + Vitest + CI 三重）。
 規則與理由見 `docs/adr/0001-checkup-five-deep-modules.md`。
 
-### Holdings price spectrum
-
-Keep target price and the independently selected PE/PB/PS scenario on the drawer's single TWD scale in the reusable PriceSpectrum presentation component; valuation calculation and fetching stay in their existing modules, so visual changes cannot alter financial inputs or intersect rulers.
-
-### Holdings institutional palette
-
-Use fixed identity colors for foreign investors, investment trusts, and dealers in every drawer institutional surface; show direction with the zero line and signed values, preserving red/green exclusively for market-price and volume direction.
-
 ### Holdings visual prototypes
 
 Keep unapproved drawer design directions on runtime-guarded `/e2e/*` fixture routes and reuse production chart primitives; why: visual comparison must not alter live financial behavior or expose fabricated data on published hosts.
@@ -41,6 +33,10 @@ Render the journal-detail current-holdings grid only from `useExpertHoldingsBund
 Treat `position_events` as the append-only source for member-visible holding changes while `useExpertHoldingsBundle` remains the only source for current positions; why: weekly content, mutable trade aggregates, and immutable transaction history have separate responsibilities.
 
 
+### Subdirectories
+
+Subdirectories have their own `AGENTS.md` (e.g. `src/checkup/AGENTS.md`); read it before changing files there.
+
 ### Domain docs
 
 Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）加 `docs/adr/`（不可逆且有取捨的決策）。See `docs/agents/domain.md`.
@@ -52,10 +48,6 @@ Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fu
 ### Valuation market-day data chain
 
 The whole-market daily valuation sync (`valuation-sync` `market_day`) skips its FinMind call when the target date already has >= `MARKET_DAY_MIN_ROWS` (1,500) rows, writes every run to `system_jobs_log`, and raises a `valuation_market_day_low_rows` system alert when a run lands in (0, 1500) rows; a second evening cron re-runs it as a no-op catch-up. why: FinMind publishes the day's market file late and partially — the 16:30 Taipei run once silently wrote ~79 rows/day for two weeks, and cron failures must never be silent again. The gate decision lives in the pure `supabase/functions/_shared/valuationSyncGate.ts`, shared with Vitest.
-
-### Forward valuation evidence
-
-Forward/peer valuation evidence for the holdings drawer lives in the pure `src/checkup/lib/forwardValuation.ts`; a scenario price is computed only from a named-source forward (or TTM) per-share basis × a multiple of the same period kind, and period mismatches (historical TTM multiple × forward basis) block the scenario; why: the current provider only returns reported TTM/quarter-end denominators, so forward numbers must be user-sourced and never inferred, and peer medians/highs stay unadjusted references unless a premium/discount reason is given.
 
 ### Expert monthly payroll
 

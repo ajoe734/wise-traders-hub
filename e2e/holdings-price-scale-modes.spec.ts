@@ -32,7 +32,7 @@ for (const width of WIDTHS) {
     const axis = page.locator('[data-testid="holdings-price-axis"]');
     const status = page.getByTestId('price-scale-status');
 
-    for (const key of ['target', 'pe', 'pb', 'ps', 'target'] as const) {
+    for (const key of ['target', 'pe', 'pb', 'ps', 'stations', 'target'] as const) {
       const btn = page.getByTestId(`price-scale-mode-${key}`);
       await expect(btn).toHaveCount(1);
       await btn.click();
