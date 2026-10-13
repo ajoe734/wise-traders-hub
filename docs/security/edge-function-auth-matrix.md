@@ -100,6 +100,8 @@ Runtime guard 已上：117 / 128
 | `process-refund` | user | ✅ |
 | `prune-knowledge-base` | cron | ✅ |
 | `article-push` | user+cron | ✅ |
+| `article-ai-image` | user（作者或管理員） | ✅ |
+| `article-ai-tidy` | user（作者或管理員） | ✅ |
 | `publish-weekly-journals` | user+cron | ✅ |
 | `publish-weekly-journals-runner` | cron | ✅ |
 | `publish-weekly-journals-watchdog` | cron | ✅ |
