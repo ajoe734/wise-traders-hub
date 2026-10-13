@@ -15,6 +15,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
+import { DEMO_FUNDAMENTALS_SYMBOLS } from '../_shared/demoFundamentalsSymbols.ts';
 import {
   auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
   rankPeerCandidates, type FinRow, type OfficialShares, type PeerInput, type PriceRow,
@@ -128,13 +129,16 @@ try { void officialIndex(warmMeter).catch(() => null); } catch { /* ignore */ }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  try { await requireCaller(req); } catch (e) {
-    if (e instanceof AuthError) return errorResponse(e.message, e.status, { code: e.code }, req);
-    throw e;
-  }
   let symbol = '';
   let withPeers = true;
   try { const body = await req.json(); symbol = String(body?.symbol ?? '').trim(); withPeers = body?.peers !== false; } catch { /* fallthrough */ }
+  // 範例持股（固定 5 檔、公開財報、伺服器快取 6 小時）未登入也可讀；其他代碼仍須登入。
+  if (!DEMO_FUNDAMENTALS_SYMBOLS.includes(symbol)) {
+    try { await requireCaller(req); } catch (e) {
+      if (e instanceof AuthError) return errorResponse(e.message, e.status, { code: e.code }, req);
+      throw e;
+    }
+  }
   if (!/^\d{4,6}$/.test(symbol)) return errorResponse('symbol 必須為 4–6 位台股代碼', 400, { code: 'BAD_SYMBOL' }, req);
 
   const started = Date.now();
