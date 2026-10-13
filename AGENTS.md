@@ -63,4 +63,4 @@ Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recogni
 
 ### Teacher articles
 
-Blog-style teaching articles live in `expert_articles`, separate from `expert_signals`; block parsing, layout recommendation and trial excerpts come only from pure `src/lib/articleLayout.ts`, and visibility (subscription, publish time, trial) is enforced by RLS/RPC, never by the client; why: articles must never touch holdings/signal ledgers, and layouts may restyle but never reorder content.
+Blog-style teaching articles live in `expert_articles`, separate from `expert_signals`; block parsing, layout recommendation and trial excerpts come only from pure `src/lib/articleLayout.ts`, and visibility (subscription, publish time, trial) is enforced by RLS/RPC, never by the client; publish notifications go only through `article-push` + pure `_shared/articlePushCore.ts`, deduped by `claim_article_push` and a unique push-log key; why: articles must never touch holdings/signal ledgers, and layouts may restyle but never reorder content.
