@@ -47,7 +47,7 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 ### Valuation fundamentals
 
-Holdings-drawer PE/PB/PS denominators and multiples come only from the read-only `valuation-fundamentals` Edge Function (pure math in `supabase/functions/_shared/fundamentalsBasis.ts`, shared with Vitest). Share counts come from DB-first `official_share_registry` (synced by `official-registry-sync`, logged to `system_jobs_log`; live TWSE/TPEx then FinMind par-snap are fallbacks, preferred shares unverified); parent net income reconciles by `origin_name`; share verification uses EPS rounding-interval intersection over 4 quarters, not a fixed bracket. Financials fetch 7 years (prices 5). PE/PB/PS stay separate evidence, never intersected into a system price; personal scenarios are device-local, one ruler, never shown as teacher/system fair value. why: keeps tokens server-side, forbids price-derived denominators, avoids false rejections.
+Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); shares are DB-first `official_share_registry`, live exchanges/FinMind only as fallback; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
 
 ### Valuation market-day data chain
 
@@ -60,3 +60,7 @@ Forward/peer valuation evidence for the holdings drawer lives in the pure `src/c
 ### Expert monthly payroll
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
+
+### Teacher articles
+
+Blog-style teaching articles live in `expert_articles`, separate from `expert_signals`; block parsing, layout recommendation and trial excerpts come only from pure `src/lib/articleLayout.ts`, and visibility (subscription, publish time, trial) is enforced by RLS/RPC, never by the client; why: articles must never touch holdings/signal ledgers, and layouts may restyle but never reorder content.

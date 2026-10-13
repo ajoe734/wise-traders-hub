@@ -96,3 +96,24 @@ export function canRecallSignal(publishedAt: string | Date | null | undefined): 
 
   return { ok: false, reason: '已過發布當日（台灣時間），不可收回；如需修正請聯絡管理員' };
 }
+
+/**
+ * 教學文章「照統一時間公開」的下一個公開時刻（台北時間）：
+ * 台股＝最近一個週五 20:00；美股＝最近一個週六 08:00。剛好已過該時刻則排下一週。
+ */
+export function nextUnifiedPublishAt(
+  assetClass?: string | null,
+  now: Date = new Date(),
+): Date {
+  const market = marketOfAssetClass(assetClass);
+  const targetDay = market === 'US' ? 6 : 5;
+  const targetHHMM = market === 'US' ? 800 : 2000;
+  const { date, day, hhmm } = taipeiClockOf(now);
+  let add = (targetDay - day + 7) % 7;
+  if (add === 0 && hhmm >= targetHHMM) add = 7;
+  const [y, m, d] = date.split('-').map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d + add));
+  const iso = base.toISOString().slice(0, 10);
+  const hh = String(Math.floor(targetHHMM / 100)).padStart(2, '0');
+  return new Date(`${iso}T${hh}:00:00+08:00`);
+}

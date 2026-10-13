@@ -109,7 +109,7 @@ describe('CompanyAnalysts', () => {
 
     resolveFn({ data: expertsData, error: null });
     await waitFor(() => {
-      expect(screen.getByText('張三')).toBeInTheDocument();
+      expect(screen.getAllByText('張三').length).toBeGreaterThan(0);
       expect(screen.getByText('李四')).toBeInTheDocument();
     });
   });
@@ -136,10 +136,10 @@ describe('CompanyAnalysts', () => {
     expertsUpdateChain.eq.mockImplementation(() => new Promise(() => {}));
 
     renderPage();
-    await waitFor(() => expect(screen.getByText('張三')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('張三').length).toBeGreaterThan(0));
 
     // 張三 is active → button label "停用"
-    const row = screen.getByText('張三').closest('tr')!;
+    const row = screen.getAllByText('張三').map((el) => el.closest('tr')).find(Boolean)!;
     const btn = Array.from(row.querySelectorAll('button')).find(b => b.textContent === '停用')!;
     fireEvent.click(btn);
 
@@ -163,7 +163,7 @@ describe('CompanyAnalysts', () => {
     sessionStorage.setItem('ca_role', 'advisor');
 
     renderPage();
-    await waitFor(() => expect(screen.getByText('張三')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('張三').length).toBeGreaterThan(0));
     const initialCalls = expertsSelectMock.mock.calls.length;
 
     fireEvent.click(screen.getByRole('button', { name: '建立帳號' }));
@@ -196,9 +196,9 @@ describe('CompanyAnalysts', () => {
       });
 
     renderPage();
-    await waitFor(() => expect(screen.getByText('張三')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('張三').length).toBeGreaterThan(0));
 
-    const row = screen.getByText('張三').closest('tr')!;
+    const row = screen.getAllByText('張三').map((el) => el.closest('tr')).find(Boolean)!;
     const accountButton = Array.from(row.querySelectorAll('button')).find(b => b.textContent === '帳號')!;
     fireEvent.click(accountButton);
 

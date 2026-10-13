@@ -10,6 +10,7 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TrialArticles } from '@/components/article/TrialArticles';
 import { avatarUrl } from '@/lib/imageTransform';
 import { useExpertDetailBundle } from '@/hooks/useExpert';
 import { ExpertFetchError } from '@/components/ExpertFetchError';
@@ -394,6 +395,8 @@ const ExpertProfile = () => {
 
 
         {/* ── Plans Section ── */}
+        {slug && <TrialArticles slug={slug} />}
+
         <section id="plans" className="scroll-mt-20">
           <div className="flex items-center gap-2 mb-6">
             <TrendingUp className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
