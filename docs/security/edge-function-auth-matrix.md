@@ -99,6 +99,7 @@ Runtime guard 已上：117 / 128
 | `pending-journal-publish-reminder` | cron | ✅ |
 | `process-refund` | user | ✅ |
 | `prune-knowledge-base` | cron | ✅ |
+| `article-push` | user+cron | ✅ |
 | `publish-weekly-journals` | user+cron | ✅ |
 | `publish-weekly-journals-runner` | cron | ✅ |
 | `publish-weekly-journals-watchdog` | cron | ✅ |

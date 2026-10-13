@@ -225,6 +225,13 @@
       "when": 1791884316868,
       "tag": "0031_expert_articles_blog",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791887725177,
+      "tag": "0032_expert_article_push",
+      "breakpoints": true
     }
   ]
 }

@@ -1932,6 +1932,53 @@ export type Database = {
           },
         ]
       }
+      expert_article_push_log: {
+        Row: {
+          article_id: string
+          channel: string
+          created_at: string
+          error: string | null
+          expert_id: string
+          id: string
+          revision: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          channel: string
+          created_at?: string
+          error?: string | null
+          expert_id: string
+          id?: string
+          revision: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          channel?: string
+          created_at?: string
+          error?: string | null
+          expert_id?: string
+          id?: string
+          revision?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_article_push_log_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "expert_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_article_revisions: {
         Row: {
           article_id: string
@@ -1980,8 +2027,11 @@ export type Database = {
           last_edited_after_publish_at: string | null
           layout: string
           lede: string
+          notified_at: string | null
+          notified_revision: number | null
           publish_at: string | null
           publish_mode: string
+          push_revision: number
           status: string
           title: string
           trial_enabled: boolean
@@ -1997,8 +2047,11 @@ export type Database = {
           last_edited_after_publish_at?: string | null
           layout?: string
           lede?: string
+          notified_at?: string | null
+          notified_revision?: number | null
           publish_at?: string | null
           publish_mode?: string
+          push_revision?: number
           status?: string
           title?: string
           trial_enabled?: boolean
@@ -2014,8 +2067,11 @@ export type Database = {
           last_edited_after_publish_at?: string | null
           layout?: string
           lede?: string
+          notified_at?: string | null
+          notified_revision?: number | null
           publish_at?: string | null
           publish_mode?: string
+          push_revision?: number
           status?: string
           title?: string
           trial_enabled?: boolean
@@ -7160,6 +7216,19 @@ export type Database = {
           legacy_migration_rows: number
           sealed_days: number
           total_rows: number
+        }[]
+      }
+      claim_article_push: {
+        Args: { _article_id: string }
+        Returns: {
+          body_html: string
+          cover_url: string
+          expert_id: string
+          id: string
+          lede: string
+          revision: number
+          title: string
+          trial_html: string
         }[]
       }
       claim_backfill_jobs: {

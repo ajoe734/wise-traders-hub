@@ -83,6 +83,12 @@ export const accountUrl = (): string => '/app/account';
 export const expertDetailUrl = (slug?: string | null): string =>
   slug ? `/app/expert/${encodeURIComponent(slug)}` : accountNotificationsUrl();
 
+/** 訂閱者閱讀教學文章（route 為 /app/article/:id）。 */
+export const articleDetailUrl = (articleId: string): string => {
+  if (!articleId) throw new Error('articleDetailUrl: articleId is required');
+  return `/app/article/${encodeURIComponent(articleId)}`;
+};
+
 /** 持倉健檢頁。 */
 export const checkupUrl = (
   options: { jobId?: string | null; autorun?: boolean } = {},

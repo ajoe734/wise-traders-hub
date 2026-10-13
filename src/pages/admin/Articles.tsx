@@ -25,11 +25,26 @@ const AdminArticles = () => {
       if (!ex) return { expert: null, rows: [] as any[] };
       const { data: rows, error } = await supabase
         .from('expert_articles')
-        .select('id, title, status, publish_mode, publish_at, layout, trial_enabled, updated_at')
+        .select('id, title, status, publish_mode, publish_at, layout, trial_enabled, updated_at, notified_revision, notified_at')
         .eq('expert_id', ex.id)
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      return { expert: ex, rows: rows || [] };
+      const ids = (rows || []).map((r) => r.id);
+      const { data: logs } = ids.length
+        ? await supabase.from('expert_article_push_log').select('article_id, revision, channel, status').in('article_id', ids)
+        : { data: [] as any[] };
+      const stats: Record<string, { line: number; inapp: number; failed: number; pending: number }> = {};
+      for (const r of rows || []) {
+        const s = { line: 0, inapp: 0, failed: 0, pending: 0 };
+        for (const l of (logs || []).filter((x: any) => x.article_id === r.id && x.revision === r.notified_revision)) {
+          if (l.status === 'failed') s.failed++;
+          else if (l.status === 'pending') s.pending++;
+          else if (l.channel === 'line') s.line++;
+          else s.inapp++;
+        }
+        stats[r.id] = s;
+      }
+      return { expert: ex, rows: rows || [], stats };
     },
   });
 
@@ -46,6 +61,14 @@ const AdminArticles = () => {
     const { error } = await supabase.from('experts').update({ weekly_article_limit: v }).eq('id', data.expert.id);
     if (error) return toast.error(`儲存失敗：${error.message}`);
     toast.success(v == null ? '已設為每週不限篇數' : `已設為每週最多 ${v} 篇`);
+    qc.invalidateQueries({ queryKey: ['admin-articles', expertSlug] });
+  };
+
+  const retry = async (articleId: string) => {
+    const { data: r, error } = await supabase.functions.invoke('article-push', { body: { article_id: articleId, mode: 'retry_failed' } });
+    if (error) return toast.error('重試失敗，請稍後再試');
+    const failed = ((r as any)?.line_failed ?? 0) + ((r as any)?.inapp_failed ?? 0);
+    toast[failed ? 'error' : 'success'](failed ? `仍有 ${failed} 人送不出去` : '已重新送出');
     qc.invalidateQueries({ queryKey: ['admin-articles', expertSlug] });
   };
 
@@ -89,6 +112,19 @@ const AdminArticles = () => {
                       {r.publish_at && r.status === 'published' && <span>公開時間 {fmtTaipeiDateTime(r.publish_at)}</span>}
                       {r.trial_enabled && <span>· 開放試讀</span>}
                     </div>
+                    {live && (() => {
+                      const st = data?.stats?.[r.id];
+                      if (r.notified_revision == null) return <div className="mt-1 text-xs text-muted-foreground">通知排程中（到公開時間後自動送出）</div>;
+                      return (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>已通知 {(st?.line ?? 0) + (st?.inapp ?? 0)} 人（LINE {st?.line ?? 0}／站內 {st?.inapp ?? 0}）</span>
+                          {!!st?.pending && <span>傳送中 {st.pending}</span>}
+                          {!!st?.failed && (
+                            <button type="button" className="font-medium text-destructive underline" onClick={() => retry(r.id)}>{st.failed} 人失敗，重試</button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <Button variant="outline" size="sm" asChild>
                     <Link to={`/admin/${expertSlug}/articles/edit/${r.id}`}><PenLine className="mr-1 h-4 w-4" />編輯</Link>
