@@ -34,6 +34,7 @@ import {
   KLINE_CHART_HEIGHT,
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
+import { useStationExtras } from '@/checkup/hooks/useStationExtras';
 import { pickMainRuler, buildStations, buildPeerReference, buildForwardReference, stationPosition } from '@/checkup/lib/valuationStations';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
 import { buildCustomScenario, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
@@ -768,7 +769,7 @@ const PRICE_SCALE_MODES = [
 ];
 
 /** 站牌：規則見 docs/valuation/three-rulers-rules.md；分母只取財報 reported。 */
-export function buildDrawerStations(view, band, symbol, price) {
+export function buildDrawerStations(view, band, symbol, price, extras = null) {
   const basisOf = (key) => {
     const row = band?.rows?.find((r) => r.key === key);
     return row?.basisOk && row.basis?.kind === 'reported' && row.basis.value > 0 ? row.basis.value : null;
@@ -782,8 +783,9 @@ export function buildDrawerStations(view, band, symbol, price) {
   const basis = basisOf(main.key);
   const history = main.key === 'ps' ? [] : (view?.rawHistory?.[main.key] || []);
   const stations = buildStations(main.key, history, basis);
-  const peer = buildPeerReference(symbol || '', main.key, basis, view?.peers || []);
-  const forward = buildForwardReference(null, price);
+  const peer = buildPeerReference(symbol || '', main.key, basis, extras?.peerRows || [], extras?.group ?? null);
+  // 前瞻參考只配 PE：未來 EPS × 前瞻本益比，與主尺無關（鐵律：前瞻倍數只乘未來基本面）。
+  const forward = buildForwardReference(extras?.forward ?? null, price);
   return { main, basis, basisRow: band?.rows?.find((r) => r.key === main.key) ?? null, stations, peer, forward, position: stationPosition(price, stations) };
 }
 
@@ -805,7 +807,8 @@ export function selectedRulerBand(band, mode) {
 
 function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, view = null, bandLoading = false, peersPending = false, bandError = false, stale = false, ratioAsOf = null, symbol = null }) {
   const [mode, setMode] = useState('stations');
-  const st = useMemo(() => buildDrawerStations(view, band, symbol, price), [view, band, symbol, price]);
+  const extras = useStationExtras(symbol, view?.industry ?? null);
+  const st = useMemo(() => buildDrawerStations(view, band, symbol, price, extras), [view, band, symbol, price, extras]);
   const stationMarks = mode !== 'stations' ? [] : [
     ...(st.stations.status === 'ready' ? st.stations.stations.map((s) => ({ key: s.key, label: s.label, value: s.price, kind: 'station' })) : []),
     ...(st.peer.status === 'ready' ? [{ key: 'peer', label: '同業參考', value: st.peer.price, kind: 'reference' }] : []),
@@ -852,8 +855,8 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
           {st.stations.status === 'ready'
             ? <span>{basisUnit} NT${fmt(st.basis)}（{st.basisRow?.basis?.period || '期間不明'}・{st.basisRow?.basis?.source || '財報'}）× 近一年 {st.stations.days} 個交易日倍數第 20／50／80%：{st.stations.stations.map((s) => `${fmt(s.multiple)} 倍`).join('／')}{ratioAsOf ? `（倍數截至 ${String(ratioAsOf).split('-').join('/')}）` : ''}。高壓站是警報器，不是目標價。</span>
             : <span>站牌資料不足：{st.stations.reason}</span>}
-          <span>同業參考：{st.peer.status === 'ready' ? `${st.peer.group} ${st.peer.n} 家當日 ${st.main.key.toUpperCase()} 平均 ${fmt(st.peer.avgMultiple)} 倍 → NT$${fmt(st.peer.price, 0)}` : `資料不足（${st.peer.reason}）`}</span>
-          <span>前瞻參考：{st.forward.status === 'ready' ? `NT$${fmt(st.forward.price, 0)}，壓力測試 NT$${fmt(st.forward.stress, 0)}` : `資料不足（${st.forward.reason}）`}</span>
+          <span>同業參考：{st.peer.status === 'ready' ? `${st.peer.group}${st.peer.curation === 'auto' ? '（系統初選名單）' : ''} ${st.peer.n} 家當日 ${st.main.key.toUpperCase()} 平均 ${fmt(st.peer.avgMultiple)} 倍 → NT$${fmt(st.peer.price, 0)}` : `資料不足（${st.peer.reason}）`}</span>
+          <span>前瞻參考：{st.forward.status === 'ready' ? `${st.forward.period} 預估 EPS NT$${fmt(extras.forward?.eps)}（${extras.forward?.epsSource}）× 前瞻本益比 ${fmt(extras.forward?.multiple)} 倍（${st.forward.source}）≈ NT$${fmt(st.forward.price, 0)}；壓力測試（EPS 八折）≈ NT$${fmt(st.forward.stress, 0)}${st.forward.impliedMultiple ? `；以未來獲利算，現價只給約 ${fmt(st.forward.impliedMultiple, 1)} 倍` : ''}（資料日 ${String(extras.forward?.asOf || '').split('-').join('/')}）` : `資料不足（${st.forward.reason}）`}</span>
           <span>其他尺只當驗證尺，三把尺價格不平均；殖利率、法人目標價只當附註。</span>
         </div> : mode === 'target' ? <>
           <strong>{target != null ? `目標價 NT$${Number(target).toLocaleString('zh-TW')}` : '尚無分析師目標價'}</strong>

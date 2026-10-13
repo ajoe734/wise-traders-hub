@@ -63,23 +63,26 @@ export function buildStations(key: StationRuler, history: number[] | null | unde
   return { status: 'ready', key, basis, days: year.length, stations: [mk('board', '上車站', 0.2), mk('belt', '下車安全帶', 0.5), mk('pressure', '高壓站', 0.8)] };
 }
 
-export type PeerGroup = { key: string; label: string; pickedAt: string; symbols: string[] };
+export type PeerGroup = { key: string; label: string; pickedAt: string; symbols: string[]; curation?: 'manual' | 'auto' };
 export const PEER_GROUPS: PeerGroup[] = (peerGroupsJson as { groups: PeerGroup[] }).groups;
-export function findPeerGroup(symbol: string, groups: PeerGroup[] = PEER_GROUPS): PeerGroup | null {
-  return groups.find((g) => g.symbols.includes(symbol)) ?? null;
+/** 先找人工名單（含本檔），再找含本檔的初選名單，最後依主分類名稱對應初選名單。 */
+export function findPeerGroup(symbol: string, industry?: string | null, groups: PeerGroup[] = PEER_GROUPS): PeerGroup | null {
+  return groups.find((g) => g.curation === 'manual' && g.symbols.includes(symbol))
+    ?? groups.find((g) => g.symbols.includes(symbol))
+    ?? (industry ? groups.find((g) => g.curation !== 'manual' && g.label === industry) : null)
+    ?? null;
 }
 
 export type PeerReference =
-  | { status: 'ready'; group: string; n: number; avgMultiple: number; price: number; symbols: string[] }
+  | { status: 'ready'; group: string; curation: 'manual' | 'auto'; n: number; avgMultiple: number; price: number; symbols: string[] }
   | { status: 'insufficient'; reason: string };
 
 /** 同業參考：人工名單（排除自己）當日倍數平均 × 本公司基本面；有效 < 3 家顯示資料不足。 */
 export function buildPeerReference(
   symbol: string, key: StationRuler, basis: number | null,
   peers: Array<{ symbol: string; pe?: number | null; pb?: number | null }>,
-  groups: PeerGroup[] = PEER_GROUPS,
+  group: PeerGroup | null = findPeerGroup(symbol),
 ): PeerReference {
-  const group = findPeerGroup(symbol, groups);
   if (!group) return { status: 'insufficient', reason: '尚未建立人工同業名單' };
   if (key === 'ps') return { status: 'insufficient', reason: '同業當日 PS 倍數尚無資料' };
   if (!(basis != null && basis > 0)) return { status: 'insufficient', reason: '缺近四季財報每股基本面' };
@@ -89,7 +92,7 @@ export function buildPeerReference(
     .filter((r) => Number.isFinite(r.m) && r.m > 0);
   if (rows.length < STATION_DEFAULTS.minPeers) return { status: 'insufficient', reason: `同業不足 ${STATION_DEFAULTS.minPeers} 家（${group.label} 可用 ${rows.length} 家）` };
   const avg = rows.reduce((s, r) => s + r.m, 0) / rows.length;
-  return { status: 'ready', group: group.label, n: rows.length, avgMultiple: avg, price: basis * avg, symbols: rows.map((r) => r.symbol) };
+  return { status: 'ready', group: group.label, curation: group.curation === 'manual' ? 'manual' : 'auto', n: rows.length, avgMultiple: avg, price: basis * avg, symbols: rows.map((r) => r.symbol) };
 }
 
 export type ForwardInput = { eps: number; multiple: number; period: string; source: string } | null;
