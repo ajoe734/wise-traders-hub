@@ -37,6 +37,7 @@ const ArticleEditor = () => {
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [publishAt, setPublishAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [repush, setRepush] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [imgMeta, setImgMeta] = useState<Record<string, { o: ImageOrientation; w: number }>>({});
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
@@ -95,6 +96,7 @@ const ArticleEditor = () => {
       trial_enabled: d.trial,
       trial_html: d.trial ? buildTrialHtml(body, 3) : '',
       cover_url: firstImageSrc(body),
+      ...(isLive && repush ? { push_revision: (loaded?.push_revision ?? 0) + 1 } : {}),
     };
     const res = id
       ? await supabase.from('expert_articles').update(row).eq('id', id).select('id').single()
@@ -102,6 +104,15 @@ const ArticleEditor = () => {
     setSaving(false);
     if (res.error) return toast.error(articleSaveErrorMessage(res.error.message));
     if (!id) discard();
+    // 已到公開時間就立即通知；排程的由系統到點通知。重複呼叫由後端去重。
+    const savedId = (res.data as any)?.id as string | undefined;
+    const due = publish && nextPublishAt && new Date(nextPublishAt).getTime() <= Date.now();
+    if (savedId && due && (!isLive || repush)) {
+      supabase.functions.invoke('article-push', { body: { article_id: savedId } }).then(({ error }) => {
+        if (error) toast.error('通知送出失敗，可在文章列表按「重試」');
+        else qc.invalidateQueries({ queryKey: ['admin-articles', expertSlug] });
+      });
+    }
     qc.invalidateQueries({ queryKey: ['admin-articles', expertSlug] });
     qc.invalidateQueries({ queryKey: ['article-editor', id] });
     toast.success(publish ? (d.mode === 'immediate' || isLive ? '已公開' : `已排定 ${fmtTaipeiDateTime(nextPublishAt!)} 公開`) : '已儲存');
@@ -175,7 +186,13 @@ const ArticleEditor = () => {
               <div className="flex items-center gap-2"><RadioGroupItem id="m-i" value="immediate" /><Label htmlFor="m-i">立即公開</Label></div>
             </RadioGroup>
           ) : (
-            <div className="text-sm text-muted-foreground">已於 {fmtTaipeiDateTime(publishAt!)} 公開。修改後會員會看到「最後修改時間」，不會再推播。</div>
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">已於 {fmtTaipeiDateTime(publishAt!)} 公開。修改後會員會看到「最後修改時間」，預設不會再通知。</div>
+              <div className="flex items-center gap-2">
+                <Switch id="repush" checked={repush} onCheckedChange={setRepush} />
+                <Label htmlFor="repush">這次修改要重新通知訂閱者（LINE／站內各一次）</Label>
+              </div>
+            </div>
           )}
           <div className="flex items-center gap-2">
             <Switch id="trial" checked={d.trial} onCheckedChange={(v) => set({ trial: v })} />
