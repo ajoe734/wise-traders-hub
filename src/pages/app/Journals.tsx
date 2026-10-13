@@ -254,8 +254,9 @@ const Journals = () => {
     weekGroups.forEach(g => {
       monthSet.add(g.weekStart.slice(0, 7));
     });
+    articles.forEach(a => monthSet.add(taipeiDateIso(new Date(a.publish_at)).slice(0, 7)));
     return Array.from(monthSet).sort().reverse();
-  }, [weekGroups]);
+  }, [weekGroups, articles]);
 
   // Filter by month + asset class
   const filteredGroups = useMemo(() => {
