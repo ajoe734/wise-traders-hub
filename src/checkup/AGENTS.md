@@ -11,3 +11,7 @@ Use fixed identity colors for foreign investors, investment trusts, and dealers 
 ### Forward valuation evidence
 
 Forward/peer valuation evidence for the holdings drawer lives in the pure `src/checkup/lib/forwardValuation.ts`; a scenario price is computed only from a named-source forward (or TTM) per-share basis × a multiple of the same period kind, and period mismatches (historical TTM multiple × forward basis) block the scenario; why: the current provider only returns reported TTM/quarter-end denominators, so forward numbers must be user-sourced and never inferred, and peer medians/highs stay unadjusted references unless a premium/discount reason is given.
+
+### Station extras
+
+Curated peer multiples and forward EPS reach the drawer only via `useStationExtras` (RPC `valuation_peer_multiples`, table `forward_eps_estimates`, admin-write); why: the RPC's own peer scope is not the curated list, and forward inputs must carry named sources.
