@@ -114,7 +114,7 @@ const AdminArticles = () => {
                     </div>
                     {live && (() => {
                       const st = data?.stats?.[r.id];
-                      if (r.notified_revision == null) return <div className="mt-1 text-xs text-muted-foreground">通知排程中（幾分鐘內送出）</div>;
+                      if (r.notified_revision == null) return <div className="mt-1 text-xs text-muted-foreground">通知排程中（到公開時間後自動送出）</div>;
                       return (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                           <span>已通知 {(st?.line ?? 0) + (st?.inapp ?? 0)} 人（LINE {st?.line ?? 0}／站內 {st?.inapp ?? 0}）</span>
