@@ -239,6 +239,13 @@
       "when": 1791893416376,
       "tag": "0033_expert_article_ai_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791909562584,
+      "tag": "0034_forward_eps_and_peer_multiples",
+      "breakpoints": true
     }
   ]
 }
