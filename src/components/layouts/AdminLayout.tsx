@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useExpert } from '@/hooks/useExpert';
 import { ExpertRole } from '@/types';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet, Eye, Sparkles
+  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet, Eye, Sparkles, Menu, X
 } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const { resolvedTheme, setTheme } = useTheme();
   // 後台需要能看到 draft / suspended 的專家（否則新建或停用中的分析師無法進後台啟用）
   const { data: expert, isLoading } = useExpert(expertSlug, { includeAllStatuses: true });
+  // 手機版側邊選單：預設收起，換頁自動關閉
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => { setNavOpen(false); }, [location.pathname]);
 
   // Ownership check: user must be company_admin OR the expert's owner (matching expert_slug)
   const isCompanyAdmin = hasRole('company_admin');
@@ -90,12 +93,30 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      {/* 手機頂列 */}
+      <div className="md:hidden sticky top-0 z-30 flex items-center gap-2 border-b bg-card px-3 h-12">
+        <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="開啟選單" onClick={() => setNavOpen(true)}>
+          <Menu className="h-5 w-5" />
+        </Button>
+        <span className="font-semibold truncate flex-1">{expert.name}</span>
+        <NotificationBell />
+      </div>
+      {navOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-foreground/30" aria-hidden onClick={() => setNavOpen(false)} />
+      )}
       {/* Sidebar */}
       <aside
-        className="w-64 border-r bg-card flex flex-col shrink-0 sticky top-0 h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
+        className={cn(
+          "w-64 border-r bg-card flex flex-col shrink-0 h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden",
+          "fixed inset-y-0 left-0 z-50 transition-transform md:sticky md:top-0 md:translate-x-0",
+          navOpen ? "translate-x-0" : "-translate-x-full",
+        )}
         aria-label="分析師後台側邊欄"
       >
+        <Button variant="ghost" size="sm" className="md:hidden absolute right-2 top-2 h-8 w-8 p-0" aria-label="關閉選單" onClick={() => setNavOpen(false)}>
+          <X className="h-4 w-4" />
+        </Button>
         {/* Expert Header */}
         <div className="shrink-0 p-4 border-b">
           <div className="flex items-center gap-3 mb-2">
@@ -200,8 +221,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-5xl mx-auto p-6">
+      <main className="flex-1 min-w-0 overflow-auto">
+        <div className="max-w-5xl mx-auto p-4 md:p-6">
           {children}
         </div>
       </main>
