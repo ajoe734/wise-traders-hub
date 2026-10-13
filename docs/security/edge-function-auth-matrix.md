@@ -22,6 +22,7 @@ Runtime guard 已上：117 / 128
 | `admin-view-as` | user | ✅ |
 | `alerts-watchdog` | cron | ✅ |
 | `apologize-line-free-quota` | cron | ✅ |
+| `auth-email-hook` | webhook | ✅ |
 | `authorize-pdf-export` | user | ⏳ pending |
 | `auto-cancel-failed-renewals` | public | — |
 | `backfill-daily-snapshots` | cron | ✅ |
@@ -86,6 +87,7 @@ Runtime guard 已上：117 / 128
 | `knowledge-full-audit` | cron | ✅ |
 | `knowledge-promote-candidates` | cron | ✅ |
 | `knowledge-validate` | cron | ✅ |
+| `line-friend-status` | user | ✅ |
 | `line-login-authorize` | public | — |
 | `line-login-callback` | public | — |
 | `line-login-exchange-nonce` | public | — |
@@ -97,6 +99,7 @@ Runtime guard 已上：117 / 128
 | `og-card` | public | — |
 | `ops-health` | user | ⏳ pending |
 | `pending-journal-publish-reminder` | cron | ✅ |
+| `preview-transactional-email` | webhook | ✅ |
 | `process-refund` | user | ✅ |
 | `prune-knowledge-base` | cron | ✅ |
 | `article-push` | user+cron | ✅ |

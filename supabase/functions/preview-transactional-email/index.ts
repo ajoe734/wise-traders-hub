@@ -1,3 +1,4 @@
+// AUTH: webhook-signature — platform caller must present LOVABLE_API_KEY bearer
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { corsHeaders } from '../_shared/cors.ts'
