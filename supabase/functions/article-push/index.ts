@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
       const due = (rows || []).filter((r: any) => isArticlePushDue(r) && (r.notified_revision != null || r.publish_at >= since));
       const results = [];
       for (const r of due) results.push(await claimAndDeliver(admin, r.id));
-      await admin.from('system_jobs_log').insert({ job_name: 'article-push', status: 'ok', details: { due: due.length, results } } as any).then(() => {}, () => {});
+      await admin.from('system_jobs_log').insert({ job_name: 'article-push', status: 'ok', detail: { due: due.length, results } } as any).then(() => {}, () => {});
       return json({ ok: true, due: due.length, results });
     }
 
