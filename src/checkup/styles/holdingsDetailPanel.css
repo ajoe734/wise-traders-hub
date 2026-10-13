@@ -194,13 +194,16 @@
 .price-spectrum-scenario-range { position: absolute; top: 101px; display: grid; width: max-content; max-width: 210px; transform: translateX(-50%); text-align: center; font-size: 10px; color: var(--spectrum-sub); }
 .price-spectrum-scenario-range strong { font-size: 12px; white-space: nowrap; color: var(--spectrum-ink); }
 .price-spectrum-scenario-prompt { margin-top: 8px; padding-top: 9px; border-top: 1px solid var(--spectrum-hair); font-size: 12px; color: var(--spectrum-sub); }
-.price-scale-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 8px; border-bottom: 1px solid var(--spectrum-hair); }
+.price-scale-switch { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; border-bottom: 1px solid var(--spectrum-hair); }
 .price-scale-switch button { min-width: 0; height: 32px; padding: 0 4px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--spectrum-sub); background: transparent; font-size: 11px; font-weight: 400; }
 .price-scale-switch button[aria-pressed='true'] { color: var(--spectrum-ink); border-bottom-color: var(--spectrum-accent); }
 .price-spectrum-transition { animation: price-spectrum-switch 440ms cubic-bezier(.22, 1, .36, 1) both; }
 .price-scale-status { min-height: 38px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-top: 1px solid var(--spectrum-hair); }
 .price-scale-status strong { color: var(--spectrum-ink); font-size: 11px; font-weight: 600; }
 .price-scale-status span { color: var(--spectrum-sub); font-size: 10px; text-align: right; }
+.price-scale-status [data-testid="stations-status"] { width: 100%; }
+.price-scale-status [data-testid="stations-status"] span { text-align: left; font-size: 12px; line-height: 1.6; }
+.price-scale-status [data-testid="stations-status"] strong { font-size: 13px; }
 .chips-institutional-legend { display: flex; gap: 12px; margin-bottom: 7px; font-size: 10px; }
 .chips-institutional-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .chips-institutional-legend i { width: 8px; height: 2px; background: currentColor; }
