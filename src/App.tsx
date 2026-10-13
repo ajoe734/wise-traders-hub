@@ -118,6 +118,9 @@ const AdminSignals = lazy(() => import("./pages/admin/Signals"));
 const AdminSignalEditor = lazy(() => import("./pages/admin/SignalEditor"));
 const AdminSubscribers = lazy(() => import("./pages/admin/Subscribers"));
 const AdminPayroll = lazy(() => import("./pages/admin/Payroll"));
+const AdminArticles = lazy(() => import("./pages/admin/Articles"));
+const AdminArticleEditor = lazy(() => import("./pages/admin/ArticleEditor"));
+const AppArticleDetail = lazy(() => import("./pages/app/ArticleDetail"));
 const AdminProfile = lazy(() => import("./pages/admin/Profile"));
 const AdminPerformance = lazy(() => import("./pages/admin/Performance"));
 const AdminReasonTemplates = lazy(() => import("./pages/admin/ReasonTemplates"));
@@ -339,6 +342,7 @@ const AppShell = () => (
             <Route path="/app/journals" element={<ProtectedRoute subscriberOnly><AppJournals /></ProtectedRoute>} />
             <Route path="/app/signal/:id" element={<ProtectedRoute subscriberOnly><AppSignalDetail /></ProtectedRoute>} />
             <Route path="/app/journal/:id" element={<ProtectedRoute subscriberOnly><AppJournalDetail /></ProtectedRoute>} />
+            <Route path="/app/article/:id" element={<ProtectedRoute subscriberOnly><AppArticleDetail /></ProtectedRoute>} />
             <Route path="/app/account" element={<ProtectedRoute subscriberOnly><AppAccount /></ProtectedRoute>} />
             <Route path="/app/holdings" element={<ProtectedRoute subscriberOnly><AppHoldings /></ProtectedRoute>} />
             <Route path="/app/explore" element={<ProtectedRoute subscriberOnly><AppExplore /></ProtectedRoute>} />
@@ -414,6 +418,9 @@ const AppShell = () => (
             <Route path="/admin/:expertSlug/signals/edit/:batchId" element={<ProtectedRoute><AdminSignalEditor /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/plans" element={<ProtectedRoute><AdminPlans /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/payroll" element={<ProtectedRoute><AdminPayroll /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/articles" element={<ProtectedRoute><AdminArticles /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/articles/new" element={<ProtectedRoute><AdminArticleEditor /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/articles/edit/:id" element={<ProtectedRoute><AdminArticleEditor /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />

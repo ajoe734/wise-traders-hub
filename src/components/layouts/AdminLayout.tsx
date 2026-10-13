@@ -72,6 +72,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: basePath, icon: LayoutDashboard, label: '總覽', exact: true },
     { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理',
       hint: isAdvisor ? undefined : '週記於每週五 20:00 統一開放發布' },
+    ...(isAdvisor ? [] : [{ path: `${basePath}/articles`, icon: FileText, label: '教學文章' }]),
     { path: `${basePath}/plans`, icon: Wallet, label: '訂閱方案' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/payroll`, icon: Wallet, label: '我的薪資' },
