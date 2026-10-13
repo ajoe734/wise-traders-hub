@@ -9,3 +9,11 @@ describe('範例持股財報免登入名單', () => {
     expect([...DEMO_FUNDAMENTALS_SYMBOLS].sort()).toEqual(codes);
   });
 });
+
+import { scenarioFromFundamentals } from '@/checkup/hooks/useValuationSnapshot';
+describe('逐日 PS 倍數傳給站牌', () => {
+  it('保留有效倍數、丟棄非正數與缺值', () => {
+    const s: any = scenarioFromFundamentals({ ok: true, asOf: '2026-10-13', rows: [{ key: 'ps' } as any], psDaily: [{ ps: 5 }, { ps: 0 }, { ps: null }, { ps: 7.5 }] } as any, null);
+    expect(s.psDaily).toEqual([5, 7.5]);
+  });
+});
