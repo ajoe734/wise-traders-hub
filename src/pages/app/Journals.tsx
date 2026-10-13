@@ -22,6 +22,8 @@ import { AssetFilterChips } from '@/components/AssetFilterChips';
 import { resolveAssetClass, type AssetClass } from '@/lib/asset';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { useSubscriptionTimeline } from '@/hooks/useSubscriptionTimeline';
+import { ArticleCard, type ArticleCardData } from '@/components/article/ArticleCard';
+import { taipeiDateIso } from '@/lib/taipeiWeek';
 
 interface JournalSignal {
   id: string;
@@ -210,6 +212,24 @@ const Journals = () => {
 
   const { data: timelines = [] } = useSubscriptionTimeline(effectiveUserId ?? undefined);
 
+  // 教學文章：可見性由資料庫權限決定（有效訂閱＋已到公開時間）
+  const { data: articles = [] } = useQuery({
+    queryKey: ['app-journal-articles', effectiveUserId, isViewAs],
+    enabled: !!effectiveUserId && !isViewAs,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('expert_articles')
+        .select('id, title, lede, cover_url, publish_at, experts(name)')
+        .eq('status', 'published')
+        .lte('publish_at', new Date().toISOString())
+        .order('publish_at', { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      return (data || []) as unknown as ArticleCardData[];
+    },
+    refetchOnMount: 'always',
+  });
+
 
 
 
@@ -249,6 +269,19 @@ const Journals = () => {
     return list;
   }, [weekGroups, selectedMonth, assetFilter]);
 
+  const visibleArticles = useMemo(
+    () => articles.filter(a => selectedMonth === 'all' || taipeiDateIso(new Date(a.publish_at)).slice(0, 7) === selectedMonth),
+    [articles, selectedMonth],
+  );
+  /** 週記（依週一）與文章（依公開日）合併排序 */
+  const feed = useMemo(() => {
+    const items: Array<{ key: string; sort: string; group?: WeekGroup; article?: ArticleCardData }> = [
+      ...filteredGroups.map(g => ({ key: `g-${g.expert.slug}-${g.weekStart}`, sort: g.weekStart, group: g })),
+      ...(assetFilter ? [] : visibleArticles.map(a => ({ key: `a-${a.id}`, sort: taipeiDateIso(new Date(a.publish_at)), article: a }))),
+    ];
+    return items.sort((x, y) => y.sort.localeCompare(x.sort));
+  }, [filteredGroups, visibleArticles, assetFilter]);
+
   const availableAssets = useMemo(() => {
     const set = new Set<AssetClass>();
     weekGroups.forEach(g => set.add(resolveAssetClass(g.expert as any)));
@@ -268,7 +301,7 @@ const Journals = () => {
             來自您訂閱導師的修煉派週記
           </p>
           
-          {weekGroups.length > 0 && (
+          {(weekGroups.length > 0 || articles.length > 0) && (
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
               <SelectTrigger className="w-[140px] h-8 text-sm">
                 <CalendarDays className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -315,17 +348,19 @@ const Journals = () => {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : weekGroups.length > 0 ? (
-          filteredGroups.length > 0 ? (
+        ) : weekGroups.length > 0 || articles.length > 0 ? (
+          feed.length > 0 ? (
             <div className="space-y-3">
-              {filteredGroups.map(group => (
+              {feed.map(item => item.group ? (
                 <JournalCard
-                  key={`${group.expert.slug}-${group.weekStart}`}
-                  weekStart={group.weekStart}
-                  signals={group.signals}
-                  expert={group.expert}
-                  to={`/app/journal/${group.signals[0].id}${previewExpertId ? '?preview=1' : ''}`}
+                  key={item.key}
+                  weekStart={item.group.weekStart}
+                  signals={item.group.signals}
+                  expert={item.group.expert}
+                  to={`/app/journal/${item.group.signals[0].id}${previewExpertId ? '?preview=1' : ''}`}
                 />
+              ) : (
+                <ArticleCard key={item.key} a={item.article!} to={`/app/article/${item.article!.id}`} />
               ))}
             </div>
           ) : (
