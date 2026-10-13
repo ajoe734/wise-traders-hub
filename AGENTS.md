@@ -22,7 +22,7 @@ Issues 以本地 markdown 檔管理，放在 `.scratch/<feature-slug>/`。See `d
 
 ### Holdings price spectrum
 
-Keep target price and the independently selected PE/PB/PS scenario on the drawer's single TWD scale in the reusable PriceSpectrum presentation component; valuation calculation and fetching stay in their existing modules, so visual changes cannot alter financial inputs or intersect rulers.
+The drawer's default 「站牌」 mode follows `docs/valuation/three-rulers-rules.md` via the pure `src/checkup/lib/valuationStations.ts` (main-ruler pick, 1-year P20/P50/P80 × reported basis, curated peer list in `valuationPeerGroups.json`); target/PE/PB/PS modes share the same single TWD scale in `PriceSpectrum`; why: one written rulebook, presentation never recomputes basis.
 
 ### Holdings institutional palette
 
