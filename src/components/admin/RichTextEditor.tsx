@@ -19,6 +19,8 @@ export interface RichTextEditorProps {
   aiField?: 'reason_summary' | 'reason_detail' | 'risk_notes' | 'learning_points' | 'overall_summary';
   uploadFolder?: string;
   className?: string;
+  /** 部落格文章模式：大／小標、重點句、分隔線，按鈕直接寫中文 */
+  articleMode?: boolean;
 }
 
 type UploadStatus = 'uploading' | 'done' | 'failed' | 'cancelled';
@@ -32,7 +34,7 @@ type UploadItem = {
   controller?: AbortController;
 };
 
-export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, uploadFolder, className }: RichTextEditorProps) => {
+export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, uploadFolder, className, articleMode }: RichTextEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -175,7 +177,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [3] } }),
+      StarterKit.configure({ heading: { levels: articleMode ? [2, 3, 4] : [3] } }),
       Placeholder.configure({ placeholder: placeholder || '' }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
       Image.configure({ inline: false, HTMLAttributes: { class: 'rounded max-w-full h-auto my-2' } }),
@@ -285,15 +287,31 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
   return (
     <div className={cn('space-y-1', className)}>
       <div className="flex items-center gap-0.5 flex-wrap border rounded-md bg-muted/30 px-1 py-1">
+        {articleMode && (
+          <>
+            {([['大標', 2], ['小標', 3], ['重點句', 4]] as const).map(([label, lv]) => (
+              <button key={label} type="button" title={label}
+                onClick={() => editor.chain().focus().toggleHeading({ level: lv }).run()}
+                className={cn('h-7 px-2 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground', editor.isActive('heading', { level: lv }) && 'bg-muted text-foreground')}>
+                {label}
+              </button>
+            ))}
+            <button type="button" title="引言" onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              className={cn('h-7 px-2 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground', editor.isActive('blockquote') && 'bg-muted text-foreground')}>引言</button>
+            <button type="button" title="分隔線" onClick={() => editor.chain().focus().setHorizontalRule().run()}
+              className="h-7 px-2 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">分隔線</button>
+            <span className="mx-1 h-4 w-px bg-border" />
+          </>
+        )}
         <ToolbarBtn title="粗體" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold className="h-3.5 w-3.5" />
         </ToolbarBtn>
         <ToolbarBtn title="斜體" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
           <Italic className="h-3.5 w-3.5" />
         </ToolbarBtn>
-        <ToolbarBtn title="標題" active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+        {!articleMode && <ToolbarBtn title="標題" active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
           <Heading3 className="h-3.5 w-3.5" />
-        </ToolbarBtn>
+        </ToolbarBtn>}
         <ToolbarBtn title="無序清單" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
           <List className="h-3.5 w-3.5" />
         </ToolbarBtn>
