@@ -3121,6 +3121,51 @@ export type Database = {
         }
         Relationships: []
       }
+      forward_eps_estimates: {
+        Row: {
+          as_of: string
+          created_at: string
+          created_by: string | null
+          eps: number
+          eps_source: string
+          forward_pe: number
+          id: string
+          note: string | null
+          pe_source: string
+          period: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          as_of: string
+          created_at?: string
+          created_by?: string | null
+          eps: number
+          eps_source: string
+          forward_pe: number
+          id?: string
+          note?: string | null
+          pe_source: string
+          period: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          as_of?: string
+          created_at?: string
+          created_by?: string | null
+          eps?: number
+          eps_source?: string
+          forward_pe?: number
+          id?: string
+          note?: string | null
+          pe_source?: string
+          period?: string
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       function_run_logs: {
         Row: {
           created_at: string
@@ -8047,6 +8092,15 @@ export type Database = {
       }
       valuation_peer_core: { Args: { _symbol: string }; Returns: Json }
       valuation_peer_medians: { Args: { _symbols: string[] }; Returns: Json }
+      valuation_peer_multiples: {
+        Args: { _symbols: string[] }
+        Returns: {
+          pb: number
+          pe: number
+          symbol: string
+          trade_date: string
+        }[]
+      }
       valuation_snapshot: { Args: { _symbol: string }; Returns: Json }
     }
     Enums: {

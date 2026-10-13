@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickMainRuler, buildStations, buildPeerReference, buildForwardReference, stationPosition } from '@/checkup/lib/valuationStations';
+import { findPeerGroup, pickMainRuler, buildStations, buildPeerReference, buildForwardReference, stationPosition } from '@/checkup/lib/valuationStations';
 
 describe('主尺選擇', () => {
   it('金融股用 PB', () => expect(pickMainRuler({ industry: '銀行', ttmEps: 3, currentPe: 12, revenueYoY: 0.5 }).key).toBe('pb'));
@@ -36,12 +36,12 @@ describe('站牌', () => {
 describe('同業參考', () => {
   const peers = [{ symbol: '2382', pe: 15 }, { symbol: '2356', pe: 14 }, { symbol: '2317', pe: 16 }, { symbol: '9999', pe: 99 }];
   it('人工名單當日倍數平均 × 基本面，排除名單外', () => {
-    const r = buildPeerReference('3231', 'pe', 10, peers);
+    const r = buildPeerReference('3231', 'pe', 10, peers, findPeerGroup('3231'));
     expect(r.status === 'ready' && r.avgMultiple).toBe(15);
     expect(r.status === 'ready' && r.price).toBe(150);
   });
-  it('同業不足 3 家顯示資料不足', () => expect(buildPeerReference('3231', 'pe', 10, peers.slice(0, 2)).status).toBe('insufficient'));
-  it('無人工名單顯示資料不足', () => expect(buildPeerReference('1101', 'pe', 10, peers).status).toBe('insufficient'));
+  it('同業不足 3 家顯示資料不足', () => expect(buildPeerReference('3231', 'pe', 10, peers.slice(0, 2), findPeerGroup('3231')).status).toBe('insufficient'));
+  it('無人工名單顯示資料不足', () => expect(buildPeerReference('9998', 'pe', 10, peers, findPeerGroup('9998', '不存在產業')).status).toBe('insufficient'));
 });
 
 describe('前瞻參考', () => {
@@ -62,4 +62,10 @@ it('現價 183 在上車站 185 附近', () => {
     { key: 'belt' as const, label: '下車安全帶', multiple: 16.65, price: 209.6 },
     { key: 'pressure' as const, label: '高壓站', multiple: 18.91, price: 238.1 }] };
   expect(stationPosition(183, st)).toBe('在上車站附近');
+});
+
+describe('同業名單查找', () => {
+  it('人工名單優先：3231 對應 ODM／伺服器', () => expect(findPeerGroup('3231')?.label).toBe('ODM／伺服器'));
+  it('不在初選前 8 家時，依主分類名稱對應', () => expect(findPeerGroup('9997', '晶圓代工')?.label).toBe('晶圓代工'));
+  it('人工名單不會被主分類比對取代', () => expect(findPeerGroup('9997', 'ODM／伺服器')).toBeNull());
 });
