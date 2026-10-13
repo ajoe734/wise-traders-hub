@@ -1932,6 +1932,30 @@ export type Database = {
           },
         ]
       }
+      expert_article_ai_usage: {
+        Row: {
+          count: number
+          day: string
+          expert_id: string
+          kind: string
+          updated_at: string
+        }
+        Insert: {
+          count?: number
+          day: string
+          expert_id: string
+          kind: string
+          updated_at?: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          expert_id?: string
+          kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expert_article_push_log: {
         Row: {
           article_id: string
@@ -7297,6 +7321,10 @@ export type Database = {
         Args: { p_stock_id: string }
         Returns: Json
       }
+      consume_article_ai_quota: {
+        Args: { _expert_id: string; _kind: string; _limit: number }
+        Returns: number
+      }
       consume_checkup_quota: {
         Args: { _kind?: string; _user_id: string }
         Returns: Json
@@ -7873,6 +7901,10 @@ export type Database = {
           date_to: string
           rows_upserted: number
         }[]
+      }
+      refund_article_ai_quota: {
+        Args: { _expert_id: string; _kind: string }
+        Returns: undefined
       }
       release_bsr_reservation: {
         Args: { _reservation_id: number }

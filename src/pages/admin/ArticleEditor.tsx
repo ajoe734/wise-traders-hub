@@ -22,6 +22,7 @@ import {
   pendingImageCount, recommendLayouts, type ArticleLayout, type ImageOrientation,
 } from '@/lib/articleLayout';
 import { ARTICLE_STARTERS } from '@/pages/_articleEditor/starters';
+import { ArticleAiTools } from '@/pages/_articleEditor/ArticleAiTools';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -144,6 +145,7 @@ const ArticleEditor = () => {
           <RichTextEditor articleMode value={d.body} onChange={(v) => set({ body: v })} uploadFolder={expert?.id} minHeight={320}
             placeholder="直接開始寫。按上方「大標」「小標」「重點句」就能排版，圖片可直接貼上或拖曳進來。" />
           <p className="text-xs text-muted-foreground">提醒：請使用自己的圖片，引用他人圖表或新聞請在圖說註明來源。連續兩張圖會自動並排。</p>
+          <ArticleAiTools expertId={expert?.id} body={d.body} blocks={blocks} onBodyChange={(v) => set({ body: v })} />
         </CardContent></Card>
 
         <Card><CardContent className="space-y-3 p-4">
