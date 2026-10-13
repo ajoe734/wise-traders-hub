@@ -1,3 +1,4 @@
+// AUTH: user — Bearer JWT verified via auth.getUser() below
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient, userClient } from '../_shared/supabaseClients.ts';
 
