@@ -60,3 +60,7 @@ Forward/peer valuation evidence for the holdings drawer lives in the pure `src/c
 ### Expert monthly payroll
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
+
+### Teacher articles
+
+Blog-style teaching articles live in `expert_articles`, separate from `expert_signals`; block parsing, layout recommendation and trial excerpts come only from pure `src/lib/articleLayout.ts`, and visibility (subscription, publish time, trial) is enforced by RLS/RPC, never by the client; why: articles must never touch holdings/signal ledgers, and layouts may restyle but never reorder content.
