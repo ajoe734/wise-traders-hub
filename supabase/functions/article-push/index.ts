@@ -102,6 +102,26 @@ async function deliver(admin: Admin, art: any, onlyUserIds?: Set<string>) {
   return { article_id: art.id, revision, line_sent: lineSent, line_failed: lineFailed, inapp_sent: inappSent, inapp_failed: inappFailed, line_channel: hasChannel };
 }
 
+/** 管理員驗收：只送給指定一人，不寫推播紀錄、不改通知狀態、不看訂閱（草稿也可） */
+async function deliverTest(admin: Admin, art: any, testUserId: string) {
+  const { data: expert } = await admin.from('experts').select('id, name').eq('id', art.expert_id).single();
+  const { data: channel } = await admin.from('expert_line_channels').select('channel_access_token, is_active')
+    .eq('expert_id', art.expert_id).maybeSingle();
+  const { data: bind } = await admin.from('member_line_bindings').select('line_user_id')
+    .eq('expert_id', art.expert_id).eq('user_id', testUserId).eq('is_active', true).maybeSingle();
+  const url = `${SITE}${articleDetailUrl(art.id)}`;
+  const result: Record<string, unknown> = { test: true, line_bound: !!bind, line_channel: !!(channel?.is_active && channel.channel_access_token) };
+  if (bind && channel?.is_active && channel.channel_access_token) {
+    const flex = buildArticleFlex({ expertName: expert?.name ?? '老師', title: art.title, lede: art.lede, trialHtml: art.trial_html, bodyHtml: art.body_html, coverUrl: art.cover_url, url, isRepush: false });
+    const err = await sendLineBatch(channel.channel_access_token, [bind.line_user_id], flex);
+    result.line = err ? `failed: ${err}` : 'sent';
+  }
+  const txt = articleInappText(expert?.name ?? '老師', art.title, false);
+  const { error } = await admin.from('notifications').insert(buildNotificationRow({ userId: testUserId, title: `【測試】${txt.title}`, body: txt.body, link: articleDetailUrl(art.id) }));
+  result.inapp = error ? `failed: ${error.message}` : 'sent';
+  return result;
+}
+
 async function claimAndDeliver(admin: Admin, articleId: string) {
   const { data, error } = await admin.rpc('claim_article_push', { _article_id: articleId });
   if (error) throw error;
@@ -139,6 +159,12 @@ Deno.serve(async (req) => {
     const { data: ex } = await admin.from('experts').select('user_id').eq('id', art.expert_id).single();
     if (ex?.user_id !== userId && !(await isCompanyAdmin(userId))) return json({ error: 'forbidden' }, 403);
 
+    if (body?.mode === 'test_to_user') {
+      if (!(await isCompanyAdmin(userId))) return json({ error: 'forbidden' }, 403);
+      const tu = typeof body?.test_user_id === 'string' ? body.test_user_id : '';
+      if (!/^[0-9a-f-]{36}$/i.test(tu)) return json({ error: 'test_user_id 必填' }, 400);
+      return json({ ok: true, ...(await deliverTest(admin, art, tu)) });
+    }
     if (mode === 'retry_failed') {
       if (art.notified_revision == null) return json({ error: 'not_notified_yet' }, 400);
       const { data: failed } = await admin.from('expert_article_push_log').select('user_id')
