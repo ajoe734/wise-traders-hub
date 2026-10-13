@@ -118,8 +118,8 @@ export function recommendLayouts(
   const recs: LayoutRecommendation[] = [
     {
       layout: 'longform',
-      score: imgs <= 1 ? 90 : Math.max(20, 70 - imgs * 8),
-      reason: imgs <= 1 ? '以文字為主，單欄閱讀最舒服' : '文字段落完整，可當備選',
+      score: imgs <= 1 ? 90 : portraitHeavy ? 75 : Math.max(20, 70 - imgs * 8),
+      reason: imgs <= 1 ? '以文字為主，單欄閱讀最舒服' : portraitHeavy ? '多為手機直圖，單欄兩張並排最整齊' : '文字段落完整，可當備選',
     },
     {
       layout: 'alternating',
@@ -128,14 +128,14 @@ export function recommendLayouts(
     },
     {
       layout: 'gallery',
-      score: imgs >= 4 ? (portraitHeavy ? 60 : 92) : 25,
+      score: imgs >= 4 ? (portraitHeavy ? 40 : 92) : 25,
       reason: imgs >= 4
-        ? (portraitHeavy ? '圖多但多為手機直圖，改兩張並排呈現' : '圖片多，首圖開場＋相簿最清楚')
+        ? (portraitHeavy ? '多為手機直圖，滿版首圖會被裁小' : '圖片多，首圖開場＋相簿最清楚')
         : '圖片少於 4 張，不適合圖集',
     },
     {
       layout: 'cards',
-      score: subheads >= 3 ? 88 : subheads === 2 ? 55 : 20,
+      score: subheads >= 3 ? 95 : subheads === 2 ? 55 : 20,
       reason: subheads >= 3 ? `有 ${subheads} 個小標，切成重點卡片好掃讀` : '小標太少，卡片會太空',
     },
   ];
