@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { findPeerGroup, type ForwardInput, type PeerGroup } from '@/checkup/lib/valuationStations';
+import { isJwtExpired } from '@/checkup/hooks/useValuationSnapshot';
 
 export type PeerMultipleRow = { symbol: string; trade_date: string | null; pe: number | null; pb: number | null };
 export type StationExtras = { group: PeerGroup | null; peerRows: PeerMultipleRow[]; forward: (ForwardInput & { asOf: string; epsSource: string; ai: boolean }) | null; forwardBlocked: string | null; loading: boolean };
@@ -31,6 +32,9 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
         if (row) return { row, blocked: null };
         // 沒有前瞻資料 → 觸發一次 AI 多輪抽取（伺服器端 24 小時快取、未登入會被擋）
         if (attempted.has(code)) return { row: null, blocked: attempted.get(code) ?? null };
+        // 未登入或憑證過期不呼叫（服務只接受有效登入，避免 401）
+        const token = await gw.auth?.getAccessToken?.().catch(() => null);
+        if (!token || isJwtExpired(token)) return { row: null, blocked: null };
         try {
           const d: any = await gw.invoke('forward-eps-extract', { symbol: code });
           const blocked = d?.status === 'blocked' ? (d.reason || d.block_reason || '自動確認未通過') : null;

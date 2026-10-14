@@ -237,6 +237,11 @@ Deno.serve(async (req) => {
       meta: { officialList: idx ? officialSource : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {
-    return errorResponse(e instanceof Error ? e.message : String(e), 502, { code: 'UPSTREAM_FAILED' }, req);
+    const msg = e instanceof Error ? e.message : String(e);
+    // FinMind 額度用盡（402）或限流（429）是可預期的暫時狀態：回 200 + 原因，讓抽屜顯示「暫時無法取得」而非報錯。
+    if (/finmind\b.*status=(402|429)/i.test(msg)) {
+      return jsonResponse({ ok: false, symbol, asOf: null, rows: [], code: 'UPSTREAM_QUOTA', reason: '財報資料來源今日額度已用完，稍後再試' }, {}, req);
+    }
+    return errorResponse(msg, 502, { code: 'UPSTREAM_FAILED' }, req);
   }
 });

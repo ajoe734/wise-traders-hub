@@ -75,7 +75,7 @@ export function loadFundamentals(gateway: CheckupGateway, code: string, force = 
   const p = Promise.race([
     gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, peers ? { symbol: code } : { symbol: code, peers: false }),
     new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('逾時')), FUNDAMENTALS_TIMEOUT_MS); }),
-  ]).then((v) => { fundCache.set(key, { at: Date.now(), value: v }); return v; })
+  ]).then((v) => { if (Array.isArray(v?.rows) && v.rows.length) fundCache.set(key, { at: Date.now(), value: v }); return v; })
     .finally(() => { clearTimeout(timer); fundInflight.delete(key); });
   fundInflight.set(key, p);
   return p;
