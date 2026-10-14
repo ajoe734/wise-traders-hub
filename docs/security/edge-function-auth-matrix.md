@@ -105,6 +105,7 @@ Runtime guard 已上：117 / 128
 | `article-push` | user+cron | ✅ |
 | `article-ai-image` | user（作者或管理員） | ✅ |
 | `article-ai-tidy` | user（作者或管理員） | ✅ |
+| `forward-eps-extract` | user（登入會員；每人每日 10 檔、同檔 24 小時快取） | ✅ |
 | `publish-weekly-journals` | user+cron | ✅ |
 | `publish-weekly-journals-runner` | cron | ✅ |
 | `publish-weekly-journals-watchdog` | cron | ✅ |
