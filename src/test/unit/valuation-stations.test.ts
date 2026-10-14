@@ -65,7 +65,7 @@ it('現價 183 在上車站 185 附近', () => {
 });
 
 describe('同業名單查找', () => {
-  it('人工名單優先：3231 對應 ODM／伺服器', () => expect(findPeerGroup('3231')?.label).toBe('ODM／伺服器'));
-  it('不在初選前 8 家時，依主分類名稱對應', () => expect(findPeerGroup('9997', '晶圓代工')?.label).toBe('晶圓代工'));
-  it('人工名單不會被主分類比對取代', () => expect(findPeerGroup('9997', 'ODM／伺服器')).toBeNull());
+  it('名單內直接對應：3231 對應 ODM／伺服器', () => expect(findPeerGroup('3231')?.label).toBe('ODM／伺服器'));
+  it('不在名單內時，依主分類名稱對應', () => expect(findPeerGroup('9997', '晶圓代工')?.label).toBe('晶圓代工'));
+  it('主分類無對應名單時回傳 null', () => expect(findPeerGroup('9997', '不存在產業')).toBeNull());
 });
