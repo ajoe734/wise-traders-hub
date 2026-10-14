@@ -32,8 +32,7 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
         // 沒有前瞻資料 → 觸發一次 AI 多輪抽取（伺服器端 24 小時快取、未登入會被擋）
         if (attempted.has(code)) return { row: null, blocked: attempted.get(code) ?? null };
         try {
-          const res: any = await gw.functions.invoke('forward-eps-extract', { body: { symbol: code } });
-          const d = res?.data;
+          const d: any = await gw.invoke('forward-eps-extract', { symbol: code });
           const blocked = d?.status === 'blocked' ? (d.reason || d.block_reason || '自動確認未通過') : null;
           attempted.set(code, blocked);
           if (d?.status === 'passed') {
