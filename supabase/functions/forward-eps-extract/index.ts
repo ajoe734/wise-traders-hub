@@ -21,7 +21,7 @@ async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
   for (const q of queries) {
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:120d')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
     let xml = '';
-    try { const r = await fetchWithRetry(url, {}, { source: 'google-news-rss' } as any); xml = await r.text(); } catch { continue; }
+    try { const r = await fetchWithRetry(url, {}, { source: 'google-news-rss' }); xml = await r.text(); } catch { continue; }
     for (const m of xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
       const it = m[0]; const title = tag(it, 'title'); if (!title || seen.has(title)) continue;
       if (!title.includes(name) && !title.includes(code)) continue;
