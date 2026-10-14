@@ -855,7 +855,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
           {st.stations.status === 'ready'
             ? <span>{basisUnit} NT${fmt(st.basis)}（{st.basisRow?.basis?.period || '期間不明'}・{st.basisRow?.basis?.source || '財報'}）× 近一年 {st.stations.days} 個交易日倍數第 20／50／80%：{st.stations.stations.map((s) => `${fmt(s.multiple)} 倍`).join('／')}{(st.main.key === 'ps' ? band?.asOf : ratioAsOf) ? `（倍數截至 ${String(st.main.key === 'ps' ? band?.asOf : ratioAsOf).split('-').join('/')}）` : ''}。高壓站是警報器，不是目標價。</span>
             : <span>站牌資料不足：{st.stations.reason}</span>}
-          <span>同業參考：{st.peer.status === 'ready' ? `${st.peer.group}${st.peer.curation === 'auto' ? '（系統初選名單）' : ''} ${st.peer.n} 家當日 ${st.main.key.toUpperCase()} 平均 ${fmt(st.peer.avgMultiple)} 倍 → NT$${fmt(st.peer.price, 0)}` : `資料不足（${st.peer.reason}）`}</span>
+          <span>同業參考：{st.peer.status === 'ready' ? `${st.peer.group} ${st.peer.n} 家當日 ${st.main.key.toUpperCase()} 平均 ${fmt(st.peer.avgMultiple)} 倍 → NT$${fmt(st.peer.price, 0)}` : `資料不足（${st.peer.reason}）`}</span>
           <span>前瞻參考：{st.forward.status === 'ready' ? `${st.forward.period} 預估 EPS NT$${fmt(extras.forward?.eps)}（${extras.forward?.epsSource}）× 前瞻本益比 ${fmt(extras.forward?.multiple)} 倍（${st.forward.source}）≈ NT$${fmt(st.forward.price, 0)}；壓力測試（EPS 八折）≈ NT$${fmt(st.forward.stress, 0)}${st.forward.impliedMultiple ? `；以未來獲利算，現價只給約 ${fmt(st.forward.impliedMultiple, 1)} 倍` : ''}（資料日 ${String(extras.forward?.asOf || '').split('-').join('/')}）` : `資料不足（${st.forward.reason}）`}</span>
           <span>其他尺只當驗證尺，三把尺價格不平均；殖利率、法人目標價只當附註。</span>
         </div> : mode === 'target' ? <>

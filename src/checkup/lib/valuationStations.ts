@@ -65,11 +65,10 @@ export function buildStations(key: StationRuler, history: number[] | null | unde
 
 export type PeerGroup = { key: string; label: string; pickedAt: string; symbols: string[]; curation?: 'manual' | 'auto' };
 export const PEER_GROUPS: PeerGroup[] = (peerGroupsJson as { groups: PeerGroup[] }).groups;
-/** 先找人工名單（含本檔），再找含本檔的初選名單，最後依主分類名稱對應初選名單。 */
+/** 先找含本檔的人工名單，再依主分類名稱對應名單（名單全為人工確認，不再區分初選）。 */
 export function findPeerGroup(symbol: string, industry?: string | null, groups: PeerGroup[] = PEER_GROUPS): PeerGroup | null {
-  return groups.find((g) => g.curation === 'manual' && g.symbols.includes(symbol))
-    ?? groups.find((g) => g.symbols.includes(symbol))
-    ?? (industry ? groups.find((g) => g.curation !== 'manual' && g.label === industry) : null)
+  return groups.find((g) => g.symbols.includes(symbol))
+    ?? (industry ? groups.find((g) => g.label === industry) : null)
     ?? null;
 }
 
