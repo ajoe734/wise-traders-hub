@@ -134,9 +134,9 @@ export function evaluateRounds(a: Extraction | null, b: Extraction | null, docs:
   if (!docs.length) return { status: 'blocked', round: 1, reason: '沒有找到財報、法說或券商報告的原文' };
   if (!a) return { status: 'blocked', round: 1, reason: 'AI 沒有抽出任何資料' };
   const ga = gateOne(a, docs, ctx.today);
-  if (!ga.ok) return { status: 'blocked', round: 2, reason: ga.reason };
+  if (ga.ok === false) return { status: 'blocked', round: 2, reason: ga.reason };
   const gb = gateOne(b, docs, ctx.today);
-  if (!gb.ok) return { status: 'blocked', round: 3, reason: `複核抽取未通過：${gb.reason}` };
+  if (gb.ok === false) return { status: 'blocked', round: 3, reason: `複核抽取未通過：${gb.reason}` };
   if (ga.eps.period !== gb.eps.period) return { status: 'blocked', round: 3, reason: `兩輪期間不一致（${ga.eps.period}／${gb.eps.period}）` };
   if (!crossMatch(ga.eps.eps, gb.eps.eps)) return { status: 'blocked', round: 3, reason: `兩輪 EPS 不一致（${ga.eps.eps.toFixed(2)}／${gb.eps.eps.toFixed(2)}）` };
   const peA = a.forward_pe.value as number; const peB = (b as Extraction).forward_pe.value as number;
