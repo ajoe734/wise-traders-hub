@@ -1,0 +1,895 @@
+{
+ "_note": "細分產業固定代碼表。代碼永不改號、不重用；改名舊名進 aliases；字典移除者標 retired。由 scripts/build-peer-groups.ts 產生。",
+ "sectors": {
+  "半導體": "SEMI",
+  "電子零組件": "ECMP",
+  "電腦及週邊": "COMP",
+  "通信網路": "COMM",
+  "軟體及服務": "SOFT",
+  "電機機械": "MECH",
+  "汽車及運輸": "AUTO",
+  "金融": "FINA",
+  "生技醫療": "BIOM",
+  "原物料": "MATL",
+  "消費及服務": "CONS",
+  "營建能源": "ENGY",
+  "其他": "OTHR"
+ },
+ "codes": [
+  {
+   "code": "SEMI-01",
+   "name": "IC設計",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-02",
+   "name": "電源管理IC",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-03",
+   "name": "網通IC",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-04",
+   "name": "驅動IC",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-05",
+   "name": "觸控IC",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-06",
+   "name": "微控制器MCU",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-07",
+   "name": "影像處理IC",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-08",
+   "name": "記憶體IC設計",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-09",
+   "name": "ASIC設計服務",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-10",
+   "name": "矽智財IP",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-11",
+   "name": "晶圓代工",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-12",
+   "name": "記憶體",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-13",
+   "name": "封裝測試",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-14",
+   "name": "CoWoS/先進封裝服務",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-15",
+   "name": "半導體檢測",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-16",
+   "name": "光罩",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-17",
+   "name": "半導體設備",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-18",
+   "name": "半導體材料",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-19",
+   "name": "功率半導體",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-20",
+   "name": "類比IC",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "SEMI-21",
+   "name": "感測元件",
+   "sector": "半導體",
+   "sectorCode": "SEMI",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-01",
+   "name": "散熱模組",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-02",
+   "name": "風冷散熱",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-03",
+   "name": "液冷散熱",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-04",
+   "name": "均熱片/VC",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-05",
+   "name": "散熱風扇",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-06",
+   "name": "被動元件",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-07",
+   "name": "連接器",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-08",
+   "name": "電源供應",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-09",
+   "name": "電源模組",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-10",
+   "name": "機殼結構件",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-11",
+   "name": "PCB/CCL",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-12",
+   "name": "載板ABF/BT",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-13",
+   "name": "軟板FPC",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-14",
+   "name": "光通訊模組",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-15",
+   "name": "光學鏡頭",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-16",
+   "name": "面板及零組件",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-17",
+   "name": "面板廠",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-18",
+   "name": "背光模組",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-19",
+   "name": "偏光板及彩色濾光片",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-20",
+   "name": "觸控模組",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-21",
+   "name": "LED",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-22",
+   "name": "電池及儲能元件",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-23",
+   "name": "石英元件",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-01",
+   "name": "伺服器",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-02",
+   "name": "伺服器機櫃",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-03",
+   "name": "工業電腦",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-04",
+   "name": "筆電及桌機",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-05",
+   "name": "周邊設備",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-06",
+   "name": "影像裝置",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-07",
+   "name": "輸入裝置",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-08",
+   "name": "電競週邊",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-09",
+   "name": "列印設備",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-10",
+   "name": "儲存裝置",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMP-11",
+   "name": "電子代工組裝",
+   "sector": "電腦及週邊",
+   "sectorCode": "COMP",
+   "aliases": []
+  },
+  {
+   "code": "COMM-01",
+   "name": "網通設備",
+   "sector": "通信網路",
+   "sectorCode": "COMM",
+   "aliases": []
+  },
+  {
+   "code": "COMM-02",
+   "name": "衛星通訊",
+   "sector": "通信網路",
+   "sectorCode": "COMM",
+   "aliases": []
+  },
+  {
+   "code": "COMM-03",
+   "name": "手機零組件",
+   "sector": "通信網路",
+   "sectorCode": "COMM",
+   "aliases": []
+  },
+  {
+   "code": "COMM-04",
+   "name": "電信服務",
+   "sector": "通信網路",
+   "sectorCode": "COMM",
+   "aliases": []
+  },
+  {
+   "code": "COMM-05",
+   "name": "射頻元件",
+   "sector": "通信網路",
+   "sectorCode": "COMM",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-01",
+   "name": "資訊服務",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-02",
+   "name": "系統整合",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-03",
+   "name": "企業軟體",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-04",
+   "name": "金融資訊",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-05",
+   "name": "醫療資訊",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-06",
+   "name": "資安",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-07",
+   "name": "雲端服務",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-08",
+   "name": "遊戲",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-09",
+   "name": "電子商務",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "SOFT-10",
+   "name": "金融科技",
+   "sector": "軟體及服務",
+   "sectorCode": "SOFT",
+   "aliases": []
+  },
+  {
+   "code": "MECH-01",
+   "name": "重電設備",
+   "sector": "電機機械",
+   "sectorCode": "MECH",
+   "aliases": []
+  },
+  {
+   "code": "MECH-02",
+   "name": "工具機",
+   "sector": "電機機械",
+   "sectorCode": "MECH",
+   "aliases": []
+  },
+  {
+   "code": "MECH-03",
+   "name": "工業自動化",
+   "sector": "電機機械",
+   "sectorCode": "MECH",
+   "aliases": []
+  },
+  {
+   "code": "MECH-04",
+   "name": "機器人",
+   "sector": "電機機械",
+   "sectorCode": "MECH",
+   "aliases": []
+  },
+  {
+   "code": "MECH-05",
+   "name": "產業機械",
+   "sector": "電機機械",
+   "sectorCode": "MECH",
+   "aliases": []
+  },
+  {
+   "code": "MECH-06",
+   "name": "電線電纜",
+   "sector": "電機機械",
+   "sectorCode": "MECH",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-01",
+   "name": "整車製造",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-02",
+   "name": "汽車零組件",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-03",
+   "name": "車用電子",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-04",
+   "name": "自行車及零件",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-05",
+   "name": "航運-貨櫃",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-06",
+   "name": "航運-散裝",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-07",
+   "name": "航空運輸",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "AUTO-08",
+   "name": "陸運物流",
+   "sector": "汽車及運輸",
+   "sectorCode": "AUTO",
+   "aliases": []
+  },
+  {
+   "code": "FINA-01",
+   "name": "金控",
+   "sector": "金融",
+   "sectorCode": "FINA",
+   "aliases": []
+  },
+  {
+   "code": "FINA-02",
+   "name": "銀行",
+   "sector": "金融",
+   "sectorCode": "FINA",
+   "aliases": []
+  },
+  {
+   "code": "FINA-03",
+   "name": "證券期貨",
+   "sector": "金融",
+   "sectorCode": "FINA",
+   "aliases": []
+  },
+  {
+   "code": "FINA-04",
+   "name": "壽險產險",
+   "sector": "金融",
+   "sectorCode": "FINA",
+   "aliases": []
+  },
+  {
+   "code": "FINA-05",
+   "name": "租賃及融資",
+   "sector": "金融",
+   "sectorCode": "FINA",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-01",
+   "name": "新藥研發",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-02",
+   "name": "學名藥及原料藥",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-03",
+   "name": "醫療器材",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-04",
+   "name": "體外診斷",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-05",
+   "name": "影像醫材",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-06",
+   "name": "植入式醫材",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-07",
+   "name": "居家醫材",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-08",
+   "name": "隱形眼鏡",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-09",
+   "name": "醫療通路及服務",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-10",
+   "name": "保健食品",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "BIOM-11",
+   "name": "動物用藥",
+   "sector": "生技醫療",
+   "sectorCode": "BIOM",
+   "aliases": []
+  },
+  {
+   "code": "MATL-01",
+   "name": "鋼鐵",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "MATL-02",
+   "name": "塑化",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "MATL-03",
+   "name": "化學工業",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "MATL-04",
+   "name": "水泥",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "MATL-05",
+   "name": "造紙",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "MATL-06",
+   "name": "橡膠",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "MATL-07",
+   "name": "玻璃陶瓷",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "MATL-08",
+   "name": "紡織纖維",
+   "sector": "原物料",
+   "sectorCode": "MATL",
+   "aliases": []
+  },
+  {
+   "code": "CONS-01",
+   "name": "食品飲料",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-02",
+   "name": "餐飲",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-03",
+   "name": "觀光旅館",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-04",
+   "name": "百貨零售",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-05",
+   "name": "貿易通路",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-06",
+   "name": "電子通路",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-07",
+   "name": "文化創意",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-08",
+   "name": "運動休閒",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "CONS-09",
+   "name": "居家生活用品",
+   "sector": "消費及服務",
+   "sectorCode": "CONS",
+   "aliases": []
+  },
+  {
+   "code": "ENGY-01",
+   "name": "建設開發",
+   "sector": "營建能源",
+   "sectorCode": "ENGY",
+   "aliases": []
+  },
+  {
+   "code": "ENGY-02",
+   "name": "營造工程",
+   "sector": "營建能源",
+   "sectorCode": "ENGY",
+   "aliases": []
+  },
+  {
+   "code": "ENGY-03",
+   "name": "建材",
+   "sector": "營建能源",
+   "sectorCode": "ENGY",
+   "aliases": []
+  },
+  {
+   "code": "ENGY-04",
+   "name": "油電燃氣",
+   "sector": "營建能源",
+   "sectorCode": "ENGY",
+   "aliases": []
+  },
+  {
+   "code": "ENGY-05",
+   "name": "綠能及再生能源",
+   "sector": "營建能源",
+   "sectorCode": "ENGY",
+   "aliases": []
+  },
+  {
+   "code": "ENGY-06",
+   "name": "環保工程",
+   "sector": "營建能源",
+   "sectorCode": "ENGY",
+   "aliases": []
+  },
+  {
+   "code": "OTHR-01",
+   "name": "控股及投資",
+   "sector": "其他",
+   "sectorCode": "OTHR",
+   "aliases": []
+  },
+  {
+   "code": "OTHR-02",
+   "name": "其他",
+   "sector": "其他",
+   "sectorCode": "OTHR",
+   "aliases": []
+  }
+ ]
+}
