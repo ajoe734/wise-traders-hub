@@ -21,10 +21,10 @@ async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
   for (const q of queries) {
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:120d')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
     let xml = '';
-    try { const r = await fetchWithRetry(url, {}, { source: 'google-news-rss' }); xml = await r.text(); } catch { continue; }
+    try { const r = await fetchWithRetry(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; legendflow/1.0)' } }, { source: 'google-news-rss' }); xml = await r.text(); } catch { continue; }
     for (const m of xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
       const it = m[0]; const title = tag(it, 'title'); if (!title || seen.has(title)) continue;
-      if (!title.includes(name) && !title.includes(code)) continue;
+      if (![name, name.slice(0, 2), code].some((k) => k && title.includes(k))) continue;
       seen.add(title);
       const d = new Date(tag(it, 'pubDate'));
       out.push({ id: `d${out.length + 1}`, title, text: tag(it, 'description'), source: tag(it, 'source'), date: isNaN(+d) ? '' : d.toISOString().slice(0, 10), url: tag(it, 'link') });
