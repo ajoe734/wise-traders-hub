@@ -3166,6 +3166,60 @@ export type Database = {
         }
         Relationships: []
       }
+      forward_eps_extractions: {
+        Row: {
+          annualized: boolean
+          block_reason: string | null
+          block_round: number | null
+          created_at: string
+          docs: Json
+          eps: number | null
+          eps_source: string | null
+          forward_pe: number | null
+          id: string
+          pe_source: string | null
+          period: string | null
+          requested_by: string | null
+          rounds: Json
+          status: string
+          symbol: string
+        }
+        Insert: {
+          annualized?: boolean
+          block_reason?: string | null
+          block_round?: number | null
+          created_at?: string
+          docs?: Json
+          eps?: number | null
+          eps_source?: string | null
+          forward_pe?: number | null
+          id?: string
+          pe_source?: string | null
+          period?: string | null
+          requested_by?: string | null
+          rounds?: Json
+          status: string
+          symbol: string
+        }
+        Update: {
+          annualized?: boolean
+          block_reason?: string | null
+          block_round?: number | null
+          created_at?: string
+          docs?: Json
+          eps?: number | null
+          eps_source?: string | null
+          forward_pe?: number | null
+          id?: string
+          pe_source?: string | null
+          period?: string | null
+          requested_by?: string | null
+          rounds?: Json
+          status?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
       function_run_logs: {
         Row: {
           created_at: string
