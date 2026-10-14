@@ -58,5 +58,6 @@
 
 - 每股基本面只取財報（`valuation-fundamentals` 回傳之 reported 分母），不以股價 ÷ 比率反推。
 - PS 目前沒有逐日倍數序列，主尺為 PS 時站牌顯示「資料不足」。
-- 同業名單：`src/checkup/data/valuationPeerGroups.json` 全部為人工確認名單（2026-10-14 站長指示：原 105 組系統初選名單全部轉為人工確認，後續逐組微調）。同業當日倍數由 `valuation_peer_multiples` 讀取。
+- 產業代碼：`src/checkup/data/industryCodes.json`，125 個細分產業各有固定代碼（大類-流水號，如 SEMI-09 ASIC設計服務）；代碼永不改號、不重用，改名舊名進別名，字典移除者標停用。
+- 同業名單：`src/checkup/data/valuationPeerGroups.json` 由 `scripts/build-peer-groups.ts` 依代碼自動組成（同主產業代碼、市值前 12）；人工加入（2026-10-14 確認的 106 組成員全部保留）與人工排除（優先）覆蓋其上；ODM／伺服器為跨產業人工自訂組。查找：含本檔的自訂組 → 本檔主產業代碼 → 任何含本檔的名單 → 資料不足。名稱只經代碼表轉碼，不做字串比對。同業當日倍數由 `valuation_peer_multiples` 讀取。
 - 前瞻參考：資料存於 `forward_eps_estimates`（期間、預估 EPS 與來源、前瞻本益比與來源、資料日）；僅管理員可寫，登入會員可讀；沒有資料的股票顯示「資料不足」，不以分析師目標價代替。

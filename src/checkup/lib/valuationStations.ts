@@ -3,6 +3,7 @@
  * 主尺選擇 → 近一年逐日倍數 P20/P50/P80 × 近四季實際基本面；同業參考＝基本面 × 人工名單當日倍數平均。
  */
 import peerGroupsJson from '@/checkup/data/valuationPeerGroups.json';
+import { industryCodeOf } from '@/checkup/lib/industryCodes';
 
 export type StationRuler = 'pe' | 'pb' | 'ps';
 
@@ -63,12 +64,17 @@ export function buildStations(key: StationRuler, history: number[] | null | unde
   return { status: 'ready', key, basis, days: year.length, stations: [mk('board', '上車站', 0.2), mk('belt', '下車安全帶', 0.5), mk('pressure', '高壓站', 0.8)] };
 }
 
-export type PeerGroup = { key: string; label: string; pickedAt: string; symbols: string[]; curation?: 'manual' | 'auto' };
+export type PeerGroup = { key: string; code?: string | null; label: string; pickedAt: string; symbols: string[]; curation?: 'manual' | 'auto'; custom?: boolean; include?: string[]; exclude?: string[] };
 export const PEER_GROUPS: PeerGroup[] = (peerGroupsJson as { groups: PeerGroup[] }).groups;
-/** 先找含本檔的人工名單，再依主分類名稱對應名單（名單全為人工確認，不再區分初選）。 */
+/**
+ * 依產業代碼對應名單（名稱只經代碼表轉碼，不做字串比對）：
+ * 含本檔的跨產業人工自訂組 → 本檔主產業代碼的名單 → 任何含本檔的名單 → null。
+ */
 export function findPeerGroup(symbol: string, industry?: string | null, groups: PeerGroup[] = PEER_GROUPS): PeerGroup | null {
-  return groups.find((g) => g.symbols.includes(symbol))
-    ?? (industry ? groups.find((g) => g.label === industry) : null)
+  const code = industryCodeOf(industry);
+  return groups.find((g) => g.custom && g.symbols.includes(symbol))
+    ?? (code ? groups.find((g) => !g.custom && g.code === code) : null)
+    ?? groups.find((g) => g.symbols.includes(symbol))
     ?? null;
 }
 

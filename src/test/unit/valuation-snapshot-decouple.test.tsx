@@ -27,7 +27,7 @@ describe('useValuationSnapshot 比率與財報情境解耦', () => {
 
   it('沒有登入憑證時不呼叫財報服務', async () => {
     const gw = createFakeGateway({ rpcs: { valuation_snapshot: rpc }, accessToken: null });
-    const h = renderHook(() => useValuationSnapshot('3443', { injectedGateway: gw }));
+    const h = renderHook(() => useValuationSnapshot('2330', { injectedGateway: gw }));
     await waitFor(() => expect(h.result.current.bandStatus).toBe('ready'));
     expect(gw.calls.invoke).toHaveLength(0);
     expect(h.result.current.band?.rows[0].reason).toMatch(/登入/);
