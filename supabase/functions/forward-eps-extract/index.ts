@@ -15,23 +15,40 @@ const decode = (v: string) => String(v || '').replace(/<!\[CDATA\[|\]\]>/g, '').
   .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const tag = (b: string, t: string) => decode(b.match(new RegExp(`<${t}(?:[^>]*)>([\\s\\S]*?)<\\/${t}>`, 'i'))?.[1] || '');
 
+const UA = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; legendflow/1.0)' } };
+const hasName = (t: string, code: string, name: string) => [name, name.slice(0, 2), code].some((k) => k && t.includes(k));
+
+/** 原文來源：鉅亨網關鍵字新聞（標題＋摘要）為主，Google 新聞 RSS 標題為輔。 */
 async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
-  const queries = [`${code} ${name} 法說 展望 EPS`, `${code} ${name} 本益比 預估 EPS 券商`, `${name} 財報 毛利率 預估`];
   const out: SourceDoc[] = []; const seen = new Set<string>();
-  for (const q of queries) {
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:120d')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
-    let xml = '';
-    try { const r = await fetchWithRetry(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; legendflow/1.0)' } }, { source: 'google-news-rss' }); xml = await r.text(); console.log('rss', r.status, xml.length); } catch (e) { console.error('rss fail', String(e)); continue; }
-    for (const m of xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
-      const it = m[0]; const title = tag(it, 'title'); if (!title || seen.has(title)) continue;
-      if (![name, name.slice(0, 2), code].some((k) => k && title.includes(k))) continue;
-      seen.add(title);
-      const d = new Date(tag(it, 'pubDate'));
-      out.push({ id: `d${out.length + 1}`, title, text: tag(it, 'description'), source: tag(it, 'source'), date: isNaN(+d) ? '' : d.toISOString().slice(0, 10), url: tag(it, 'link') });
-      if (out.length >= 30) return out;
-    }
+  const push = (d: Omit<SourceDoc, 'id'>) => {
+    if (seen.has(d.title) || !hasName(d.title + d.text, code, name)) return;
+    seen.add(d.title); out.push({ id: `d${out.length + 1}`, ...d });
+  };
+  for (const q of [`${name} 本益比`, `${name} 法說`, `${name} EPS`, `${name} 目標價`]) {
+    try {
+      const r = await fetchWithRetry(`https://ess.api.cnyes.com/ess/api/v1/news/keyword?q=${encodeURIComponent(q)}&limit=20&page=1`, UA, { source: 'cnyes-news' });
+      const j = await r.json();
+      for (const it of j?.data?.items ?? []) {
+        if (it?.objectType !== 'NEWS') continue;
+        const ageDays = (Date.now() / 1000 - Number(it.publishAt)) / 86400;
+        if (!(ageDays <= 180)) continue;
+        push({ title: decode(it.title), text: decode(String(it.summary || '').replace(/&#10;/g, ' ')), source: '鉅亨網',
+          date: new Date(Number(it.publishAt) * 1000 + 8 * 3600_000).toISOString().slice(0, 10), url: `https://news.cnyes.com/news/id/${it.newsId}` });
+      }
+    } catch (e) { console.error('cnyes fail', String(e)); }
   }
-  return out;
+  for (const q of [`${code} ${name} 法說 EPS 本益比`]) {
+    try {
+      const r = await fetchWithRetry(`https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:120d')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`, UA, { source: 'google-news-rss', policy: { maxAttempts: 1 } });
+      const xml = await r.text();
+      for (const m of xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
+        const it = m[0]; const d = new Date(tag(it, 'pubDate'));
+        push({ title: tag(it, 'title'), text: '', source: tag(it, 'source'), date: isNaN(+d) ? '' : d.toISOString().slice(0, 10), url: tag(it, 'link') });
+      }
+    } catch (e) { console.error('rss fail', String(e)); }
+  }
+  return out.slice(0, 40);
 }
 
 async function extract(key: string, docs: SourceDoc[], code: string, name: string, variant: 1 | 2): Promise<Extraction> {
