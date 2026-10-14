@@ -141,8 +141,6 @@ export function evaluateRounds(a: Extraction | null, b: Extraction | null, docs:
   if (!crossMatch(ga.eps.eps, gb.eps.eps)) return { status: 'blocked', round: 3, reason: `兩輪 EPS 不一致（${ga.eps.eps.toFixed(2)}／${gb.eps.eps.toFixed(2)}）` };
   const peA = a.forward_pe.value as number; const peB = (b as Extraction).forward_pe.value as number;
   if (!crossMatch(peA, peB)) return { status: 'blocked', round: 3, reason: `兩輪前瞻本益比不一致（${peA}／${peB}）` };
-  const pePeriod = normalizePeriod(a.period, ctx.today);
-  if (ga.eps.annualized && pePeriod && /Q\d$/.test(pePeriod)) { /* 單季 EPS ×4 → NTM，倍數同句同期間視為 NTM */ }
   const bad = sanity(ga.eps.eps, peA, ctx.ttmEps);
   if (bad) return { status: 'blocked', round: 4, reason: bad };
   const epsSrc = a.eps_direct.value != null && a.eps_direct.value > 0 ? docLabel(docs, a.eps_direct.doc_id) : `依 ${docLabel(docs, a.revenue.doc_id)} 等原文推算`;
