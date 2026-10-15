@@ -95,19 +95,22 @@ function usedFields(x: Extraction): Array<[string, Cited]> {
 }
 
 export type Verdict =
-  | { status: 'passed'; period: string; eps: number; forwardPe: number; annualized: boolean; epsSource: string; peSource: string; asOf: string }
+  | { status: 'passed'; period: string; eps: number; forwardPe: number | null; annualized: boolean; epsSource: string; peSource: string | null; asOf: string }
   | { status: 'blocked'; round: 1 | 2 | 3 | 4; reason: string };
 
 const docLabel = (docs: SourceDoc[], id: string) => { const d = docs.find((x) => x.id === id); return d ? `${d.source || '新聞'} ${d.date}` : id; };
 
-/** 單次抽取的第 2 輪守門。 */
-export function gateOne(x: Extraction | null, docs: SourceDoc[], today: string): { ok: true; eps: Extract<EpsResult, { eps: number }> } | { ok: false; reason: string } {
+/** 單次抽取的第 2 輪守門。requirePe=false：只驗 EPS（倍數缺席時，前瞻參考改用近一年歷史本益比區間，不從目標價反推）。 */
+export function gateOne(x: Extraction | null, docs: SourceDoc[], today: string, requirePe = true): { ok: true; eps: Extract<EpsResult, { eps: number }> } | { ok: false; reason: string } {
   if (!x) return { ok: false, reason: 'AI 沒有抽出任何資料' };
-  if (x.forward_pe.value == null) return { ok: false, reason: '券商報告沒有明寫前瞻本益比（只給目標價不反推倍數）' };
-  if (!String(x.broker || '').trim()) return { ok: false, reason: '前瞻本益比缺券商名稱' };
-  const brokerDoc = docs.find((d) => d.id === x.forward_pe.doc_id);
-  if (!brokerDoc || !normalizeText(`${brokerDoc.title} ${brokerDoc.text}`).includes(normalizeText(x.broker))) return { ok: false, reason: `券商「${x.broker}」不在倍數出處原文中` };
+  if (requirePe) {
+    if (x.forward_pe.value == null) return { ok: false, reason: '券商報告沒有明寫前瞻本益比（只給目標價不反推倍數）' };
+    if (!String(x.broker || '').trim()) return { ok: false, reason: '前瞻本益比缺券商名稱' };
+    const brokerDoc = docs.find((d) => d.id === x.forward_pe.doc_id);
+    if (!brokerDoc || !normalizeText(`${brokerDoc.title} ${brokerDoc.text}`).includes(normalizeText(x.broker))) return { ok: false, reason: `券商「${x.broker}」不在倍數出處原文中` };
+  }
   for (const [label, c] of usedFields(x)) {
+    if (!requirePe && label === '前瞻本益比') continue;
     if (!quoteInDocs(c, docs)) return { ok: false, reason: `${label} 的引句在原文找不到` };
     if (!numberInQuote(c)) return { ok: false, reason: `${label} 的數字 ${c.value} 與引句不符` };
   }
@@ -120,8 +123,8 @@ export function crossMatch(a: number, b: number, tol: number = FWD_LIMITS.crossT
   return Math.abs(a - b) <= Math.max(Math.abs(a), Math.abs(b)) * tol;
 }
 
-export function sanity(eps: number, pe: number, ttmEps: number | null): string | null {
-  if (!(pe >= FWD_LIMITS.peMin && pe <= FWD_LIMITS.peMax)) return `前瞻本益比 ${pe} 倍超出 ${FWD_LIMITS.peMin}–${FWD_LIMITS.peMax} 倍`;
+export function sanity(eps: number, pe: number | null, ttmEps: number | null): string | null {
+  if (pe != null && !(pe >= FWD_LIMITS.peMin && pe <= FWD_LIMITS.peMax)) return `前瞻本益比 ${pe} 倍超出 ${FWD_LIMITS.peMin}–${FWD_LIMITS.peMax} 倍`;
   if (ttmEps != null && ttmEps > 0) {
     const r = eps / ttmEps;
     if (r > FWD_LIMITS.ttmRatio || r < 1 / FWD_LIMITS.ttmRatio) return `前瞻 EPS ${eps.toFixed(2)} 與近四季 EPS ${ttmEps.toFixed(2)} 差距超過 ${FWD_LIMITS.ttmRatio} 倍`;
@@ -129,25 +132,29 @@ export function sanity(eps: number, pe: number, ttmEps: number | null): string |
   return null;
 }
 
-/** 完整四輪判定。 */
+/** 完整四輪判定。兩輪都沒有券商倍數 → 只驗 EPS（通過後 forwardPe=null，前瞻參考改用歷史倍數區間）。 */
 export function evaluateRounds(a: Extraction | null, b: Extraction | null, docs: SourceDoc[], ctx: { today: string; ttmEps: number | null }): Verdict {
   if (!docs.length) return { status: 'blocked', round: 1, reason: '沒有找到財報、法說或券商報告的原文' };
   if (!a) return { status: 'blocked', round: 1, reason: 'AI 沒有抽出任何資料' };
-  const ga = gateOne(a, docs, ctx.today);
+  const withPe = a.forward_pe.value != null || (b?.forward_pe.value ?? null) != null;
+  const ga = gateOne(a, docs, ctx.today, withPe);
   if (ga.ok === false) return { status: 'blocked', round: 2, reason: ga.reason };
-  const gb = gateOne(b, docs, ctx.today);
+  const gb = gateOne(b, docs, ctx.today, withPe);
   if (gb.ok === false) return { status: 'blocked', round: 3, reason: `複核抽取未通過：${gb.reason}` };
   if (ga.eps.period !== gb.eps.period) return { status: 'blocked', round: 3, reason: `兩輪期間不一致（${ga.eps.period}／${gb.eps.period}）` };
   if (!crossMatch(ga.eps.eps, gb.eps.eps)) return { status: 'blocked', round: 3, reason: `兩輪 EPS 不一致（${ga.eps.eps.toFixed(2)}／${gb.eps.eps.toFixed(2)}）` };
-  const peA = a.forward_pe.value as number; const peB = (b as Extraction).forward_pe.value as number;
-  if (!crossMatch(peA, peB)) return { status: 'blocked', round: 3, reason: `兩輪前瞻本益比不一致（${peA}／${peB}）` };
+  let peA: number | null = null;
+  if (withPe) {
+    peA = a.forward_pe.value as number; const peB = (b as Extraction).forward_pe.value as number;
+    if (!crossMatch(peA, peB)) return { status: 'blocked', round: 3, reason: `兩輪前瞻本益比不一致（${peA}／${peB}）` };
+  }
   const bad = sanity(ga.eps.eps, peA, ctx.ttmEps);
   if (bad) return { status: 'blocked', round: 4, reason: bad };
   const epsSrc = a.eps_direct.value != null && a.eps_direct.value > 0 ? docLabel(docs, a.eps_direct.doc_id) : `依 ${docLabel(docs, a.revenue.doc_id)} 等原文推算`;
-  const asOf = [a.forward_pe.doc_id, a.eps_direct.doc_id, a.revenue.doc_id].map((id) => docs.find((d) => d.id === id)?.date).filter(Boolean).sort().pop() || ctx.today;
+  const asOf = [withPe ? a.forward_pe.doc_id : '', a.eps_direct.doc_id, a.revenue.doc_id].map((id) => docs.find((d) => d.id === id)?.date).filter(Boolean).sort().pop() || ctx.today;
   return {
     status: 'passed', period: ga.eps.period, eps: Math.round(ga.eps.eps * 100) / 100, forwardPe: peA, annualized: ga.eps.annualized,
-    epsSource: `AI 抽取：${epsSrc}${ga.eps.annualized ? '（單季×4 簡化年化）' : ''}`, peSource: `${a.broker.trim()}（${docLabel(docs, a.forward_pe.doc_id)}）`, asOf,
+    epsSource: `AI 抽取：${epsSrc}${ga.eps.annualized ? '（單季×4 簡化年化）' : ''}`, peSource: withPe ? `${a.broker.trim()}（${docLabel(docs, a.forward_pe.doc_id)}）` : null, asOf,
   };
 }
 
