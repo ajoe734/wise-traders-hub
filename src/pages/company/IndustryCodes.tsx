@@ -57,8 +57,8 @@ const CompanyIndustryCodes = () => {
         });
         if (cancelled) return;
         if (error) continue;
-        const rows = (data as { names?: Record<string, string> } | null)?.names ?? {};
-        for (const [sym, name] of Object.entries(rows)) {
+        // 回應是平坦的 { 代號: 名稱 }
+        for (const [sym, name] of Object.entries((data as Record<string, string> | null) ?? {})) {
           if (name) map[sym] = String(name);
         }
       }
