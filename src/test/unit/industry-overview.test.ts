@@ -28,9 +28,11 @@ describe('assembleIndustryOverview', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it('全市場 2531 檔的股票數加總正確', () => {
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    expect(total).toBe(2531);
+  it('股票數從產業名稱統計對應到產業列', () => {
+    const semi01 = sections.flatMap((s) => s.rows).find((r) => r.code === 'SEMI-01')!;
+    expect(semi01.stockCount).toBe(42);
+    const semi09 = sections.flatMap((s) => s.rows).find((r) => r.code === 'SEMI-09')!;
+    expect(semi09.stockCount).toBe(7);
   });
 
   it('ODM／伺服器是唯一的跨產業自訂組', () => {
