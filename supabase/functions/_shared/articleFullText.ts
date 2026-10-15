@@ -45,3 +45,25 @@ export function fullTextPriority(title: string, summary: string): number {
   const s = `${title} ${summary}`;
   return (s.includes('本益比') ? 4 : 0) + (s.includes('目標價') ? 3 : 0) + (/EPS|每股/.test(s) ? 2 : 0) + (s.includes('法說') ? 1 : 0);
 }
+
+/** Yahoo 股市個股新聞列表頁 → 文章網址（去重、保序）。 */
+export function yahooNewsLinks(html: string, max = 20): string[] {
+  const seen = new Set<string>(); const out: string[] = [];
+  for (const m of String(html || '').matchAll(/https:\/\/tw\.stock\.yahoo\.com\/news\/[^"'\s<>]+?\.html/g)) {
+    if (seen.has(m[0])) continue; seen.add(m[0]); out.push(m[0]);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** Yahoo 新聞文章頁：標題／日期取 ld+json，內文取第一個 <article>。缺任何一項回 null（不猜）。 */
+export function extractYahooArticle(html: string): { title: string; date: string; publisher: string; text: string } | null {
+  const s = String(html || '');
+  const title = s.match(/"headline":"((?:[^"\\]|\\.)*)"/)?.[1];
+  const date = s.match(/"datePublished":"(\d{4}-\d{2}-\d{2})/)?.[1];
+  const publisher = s.match(/"author":\{[^}]*"name":"((?:[^"\\]|\\.)*)"/)?.[1] || 'Yahoo股市';
+  const body = s.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1];
+  if (!title || !date || !body) return null;
+  const text = htmlToPlain(body);
+  return text ? { title: title.replace(/\\"/g, '"'), date, publisher, text } : null;
+}

@@ -26,3 +26,21 @@ describe('articleFullText', () => {
     expect(fullTextPriority('奇鋐 新廠', '')).toBe(0);
   });
 });
+
+import { yahooNewsLinks, extractYahooArticle } from '../../../supabase/functions/_shared/articleFullText';
+describe('Yahoo 股市新聞', () => {
+  const art = `<article id="a"><script type="application/ld+json">{"author":{"@type":"Person","name":"經濟日報"},"datePublished":"2026-10-01T01:00:00Z","headline":"奇鋐獲外資喊買"}</script><p>大摩給予 2027 年本益比 28 倍。</p></article>`;
+  it('列表頁取出文章網址並去重', () => {
+    const h = '<a href="https://tw.stock.yahoo.com/news/a-1.html">x</a><a href="https://tw.stock.yahoo.com/news/a-1.html"></a><a href="https://tw.stock.yahoo.com/news/b-2.html"></a>';
+    expect(yahooNewsLinks(h)).toEqual(['https://tw.stock.yahoo.com/news/a-1.html', 'https://tw.stock.yahoo.com/news/b-2.html']);
+  });
+  it('文章頁取出標題、日期、媒體與內文', () => {
+    const a = extractYahooArticle(art)!;
+    expect(a).toMatchObject({ title: '奇鋐獲外資喊買', date: '2026-10-01', publisher: '經濟日報' });
+    expect(a.text).toContain('本益比 28 倍');
+    expect(a.text).not.toContain('datePublished');
+  });
+  it('缺內文回 null', () => {
+    expect(extractYahooArticle('<html>"headline":"x","datePublished":"2026-10-01"</html>')).toBeNull();
+  });
+});
