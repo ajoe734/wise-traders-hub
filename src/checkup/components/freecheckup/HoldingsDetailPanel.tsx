@@ -815,10 +815,8 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
     ...(st.stations.status === 'ready' ? st.stations.stations.map((s) => ({ key: s.key, label: s.label, value: s.price, kind: 'station' })) : []),
     ...(st.peer.status === 'ready' ? [{ key: 'peer', label: '同業參考', value: st.peer.price, kind: 'reference' }] : []),
     ...(st.forward.status === 'ready' ? [{ key: 'forward', label: st.forward.mode === 'historical' ? '前瞻參考（歷史倍數）' : '前瞻參考', value: st.forward.price, kind: 'reference' }, { key: 'stress', label: '壓力測試', value: st.forward.stress, kind: 'reference' }] : []),
+    ...(st.forward.status === 'ready' && st.forward.mode === 'historical' ? [{ key: 'forward-low', label: '前瞻低（P20）', value: st.forward.low, kind: 'reference' }, { key: 'forward-high', label: '前瞻高（P80）', value: st.forward.high, kind: 'reference' }] : []),
   ];
-  const fwdBand = mode === 'stations' && st.forward.status === 'ready' && st.forward.mode === 'historical'
-    ? { low: st.forward.low, high: st.forward.high, key: 'pe', label: '前瞻參考區間（歷史倍數，非券商前瞻倍數）', detail: `近一年 PE 第 20–80%` }
-    : null;
   const fmt = (n, d = 2) => Number(n).toLocaleString('zh-TW', { maximumFractionDigits: d });
   const basisUnit = { pe: '近四季 EPS', pb: '最新一季每股淨值', ps: '近四季每股營收' }[st.main.key];
   const [customInput] = useCustomMultiples(symbol);
@@ -852,7 +850,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
       </div>
       <div key={mode} className="price-spectrum-transition">
         <PriceSpectrum WB={WB} price={price} cost={cost} target={mode === 'target' ? target : null}
-          customBand={mode === 'stations' ? null : selectedCustom} rulerBand={mode === 'stations' ? fwdBand : selectedCustom ? null : ruler} stations={stationMarks} />
+          customBand={mode === 'stations' ? null : selectedCustom} rulerBand={mode === 'stations' || selectedCustom ? null : ruler} stations={stationMarks} />
       </div>
       <div className="price-scale-status" data-testid="price-scale-status" aria-live="polite">
         {mode === 'stations' ? <div data-testid="stations-status" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
