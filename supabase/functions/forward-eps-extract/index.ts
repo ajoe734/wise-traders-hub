@@ -57,8 +57,12 @@ async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
   }
   // Yahoo 股市個股新聞（含經濟日報、工商時報等媒體全文）
   try {
-    const r = await fetchWithRetry(`https://tw.stock.yahoo.com/quote/${code}.TW/news`, UA, { source: 'yahoo-stock-news', policy: { maxAttempts: 2 } });
-    const links = yahooNewsLinks(await r.text(), 20);
+    let links: string[] = [];
+    for (const sfx of ['TW', 'TWO']) {
+      const r = await fetchWithRetry(`https://tw.stock.yahoo.com/quote/${code}.${sfx}/news`, UA, { source: 'yahoo-stock-news', policy: { maxAttempts: 2 } });
+      links = yahooNewsLinks(await r.text(), 20);
+      if (links.length) break;
+    }
     const arts = await Promise.all(links.map(async (url) => {
       try {
         const a = extractYahooArticle(await (await fetchWithRetry(url, UA, { source: 'yahoo-article', policy: { maxAttempts: 1 } })).text());
