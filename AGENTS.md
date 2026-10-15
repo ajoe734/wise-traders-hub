@@ -60,3 +60,7 @@ Blog-style teaching articles live in `expert_articles`, separate from `expert_si
 ### Article AI assist
 
 Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy` with pure gates in `_shared/articleAiCore.ts`; any image not confidently text-free is framed deterministically client-side (`src/lib/articleImageFrame.ts`, 1:1 pixels), and tidy output is rejected unless words and image order are identical; why: AI must never alter financial numbers or teacher wording.
+
+### Peer PS multiples
+
+Peer-reference PS comes only from `tw_ps_daily` (via `valuation_peer_multiples`), filled by `valuation-ps-sync`: per-share revenue uses the shared `computeCompanyBasis`/`dailyPsSeries` (DB-first shares) and is recomputed only after the next quarter's filing deadline; daily PS = exchange-wide close ÷ stored per-share revenue; pure logic in `_shared/peerPsCore.ts`, member list `_shared/peerPsUniverse.json` must equal the peer groups (Vitest-enforced); why: same basis as the drawer's own stations while keeping FinMind calls quarterly, not daily.
