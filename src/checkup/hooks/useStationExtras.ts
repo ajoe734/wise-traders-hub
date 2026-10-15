@@ -24,10 +24,10 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
     const peerP = group
       ? Promise.resolve(gw.rpc<PeerMultipleRow[]>('valuation_peer_multiples', { _symbols: group.symbols.filter((s) => s !== code) })).catch(() => [])
       : Promise.resolve([]);
-    const fwdP = Promise.resolve(gw.db.from('forward_eps_estimates')
-      .select('period, eps, eps_source, forward_pe, pe_source, as_of, note')
-      .eq('symbol', code).order('as_of', { ascending: false }).limit(1))
-      .then((r: any) => r?.data?.[0] ?? null).catch(() => null)
+    // 前瞻預估只經 forward_estimate_for（登入者、單檔、不含建立者），不直接讀資料表
+    const readForward = () => Promise.resolve(gw.rpc<any[]>('forward_estimate_for', { _symbol: code }))
+      .then((rows: any) => (Array.isArray(rows) ? rows[0] : rows?.data?.[0]) ?? null).catch(() => null);
+    const fwdP = readForward()
       .then(async (row: any) => {
         if (row) return { row, blocked: null };
         // 沒有前瞻資料 → 觸發一次 AI 多輪抽取（伺服器端 24 小時快取、未登入會被擋）
@@ -40,9 +40,7 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
           const blocked = d?.status === 'blocked' ? (d.reason || d.block_reason || '自動確認未通過') : null;
           attempted.set(code, blocked);
           if (d?.status === 'passed') {
-            const again: any = await gw.db.from('forward_eps_estimates').select('period, eps, eps_source, forward_pe, pe_source, as_of, note')
-              .eq('symbol', code).order('as_of', { ascending: false }).limit(1);
-            return { row: again?.data?.[0] ?? null, blocked: null };
+            return { row: await readForward(), blocked: null };
           }
           return { row: null, blocked };
         } catch { attempted.set(code, null); return { row: null, blocked: null }; }
