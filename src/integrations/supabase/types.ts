@@ -3128,10 +3128,10 @@ export type Database = {
           created_by: string | null
           eps: number
           eps_source: string
-          forward_pe: number
+          forward_pe: number | null
           id: string
           note: string | null
-          pe_source: string
+          pe_source: string | null
           period: string
           symbol: string
           updated_at: string
@@ -3142,10 +3142,10 @@ export type Database = {
           created_by?: string | null
           eps: number
           eps_source: string
-          forward_pe: number
+          forward_pe?: number | null
           id?: string
           note?: string | null
-          pe_source: string
+          pe_source?: string | null
           period: string
           symbol: string
           updated_at?: string
@@ -3156,10 +3156,10 @@ export type Database = {
           created_by?: string | null
           eps?: number
           eps_source?: string
-          forward_pe?: number
+          forward_pe?: number | null
           id?: string
           note?: string | null
-          pe_source?: string
+          pe_source?: string | null
           period?: string
           symbol?: string
           updated_at?: string

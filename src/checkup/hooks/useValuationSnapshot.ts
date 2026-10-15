@@ -53,6 +53,8 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
   };
   const psDaily = (payload as any).psDaily;
   if (Array.isArray(psDaily)) (scenario as any).psDaily = psDaily.map((x: any) => Number(x?.ps)).filter((n: number) => Number.isFinite(n) && n > 0);
+  const mr = (payload as any).monthRevenue;
+  if (mr && Number.isFinite(Number(mr.yoy)) && typeof mr.latestMonth === 'string') (scenario as any).monthRevenue = { yoy: Number(mr.yoy), latestMonth: mr.latestMonth };
   return scenario;
 }
 

@@ -156,11 +156,15 @@ Deno.serve(async (req) => {
   if (error) return json({ error: 'DB', message: error.message }, 500);
   if (verdict.status === 'passed') {
     const periodLabel = verdict.period === 'NTM' ? '未來四季' : verdict.period;
-    const { error: upErr } = await db.from('forward_eps_estimates').upsert({
-      symbol, period: periodLabel, eps: verdict.eps, eps_source: verdict.epsSource, forward_pe: verdict.forwardPe, pe_source: verdict.peSource,
-      as_of: verdict.asOf || today, note: `ai_extraction:${ins.id}`, updated_at: new Date().toISOString(),
-    }, { onConflict: 'symbol,period' });
-    if (upErr) return json({ error: 'DB', message: upErr.message }, 500);
+    // 只有 EPS（無券商倍數）時，不覆蓋同期間已有券商倍數的資料
+    const { data: existing } = await db.from('forward_eps_estimates').select('forward_pe').eq('symbol', symbol).eq('period', periodLabel).maybeSingle();
+    if (!(verdict.forwardPe == null && existing?.forward_pe != null)) {
+      const { error: upErr } = await db.from('forward_eps_estimates').upsert({
+        symbol, period: periodLabel, eps: verdict.eps, eps_source: verdict.epsSource, forward_pe: verdict.forwardPe, pe_source: verdict.peSource,
+        as_of: verdict.asOf || today, note: `ai_extraction:${ins.id}`, updated_at: new Date().toISOString(),
+      }, { onConflict: 'symbol,period' });
+      if (upErr) return json({ error: 'DB', message: upErr.message }, 500);
+    }
   }
   return json({ cached: false, id: ins.id, docs: docs.length, ...verdict });
 });

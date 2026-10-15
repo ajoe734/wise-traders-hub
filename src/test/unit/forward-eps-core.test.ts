@@ -20,8 +20,8 @@ describe('前瞻 EPS 四輪守門', () => {
     expect(v.status).toBe('passed');
     if (v.status !== 'passed') return;
     expect(v.period).toBe('NTM');
-    expect(Math.round(v.eps * v.forwardPe)).toBe(269);
-    expect(Math.round(v.eps * 0.8 * v.forwardPe)).toBe(215);
+    expect(Math.round(v.eps * v.forwardPe!)).toBe(269);
+    expect(Math.round(v.eps * 0.8 * v.forwardPe!)).toBe(215);
   });
   it('沒有原文 → 第 1 輪擋', () => expect(evaluateRounds(base(), base(), [], ctx)).toMatchObject({ status: 'blocked', round: 1 }));
   it('引句在原文找不到 → 第 2 輪擋', () => {
@@ -34,6 +34,17 @@ describe('前瞻 EPS 四輪守門', () => {
   });
   it('只給目標價、沒寫倍數 → 擋，不反推', () => {
     expect(evaluateRounds(base({ forward_pe: empty }), base(), docs, ctx)).toMatchObject({ status: 'blocked', round: 2 });
+  });
+  it('兩輪都沒寫倍數、EPS 驗證通過 → 只存 EPS（forwardPe=null），不反推倍數', () => {
+    const v = evaluateRounds(base({ forward_pe: empty, broker: '' }), base({ forward_pe: empty, broker: '' }), docs, ctx);
+    expect(v).toMatchObject({ status: 'passed', eps: 17.94, forwardPe: null, peSource: null });
+  });
+  it('只有 EPS 時，EPS 引句不符仍擋', () => {
+    const x = base({ forward_pe: empty, eps_direct: { value: 19, unit: '元', quote: '預估緯創未來四季EPS達17.94元', doc_id: 'd1' } });
+    expect(evaluateRounds(x, base({ forward_pe: empty }), docs, ctx)).toMatchObject({ status: 'blocked', round: 2 });
+  });
+  it('只有 EPS 時，與近四季 EPS 差距超過 3 倍 → 第 4 輪擋', () => {
+    expect(evaluateRounds(base({ forward_pe: empty }), base({ forward_pe: empty }), docs, { ...ctx, ttmEps: 4 })).toMatchObject({ status: 'blocked', round: 4 });
   });
   it('券商名稱不在原文 → 擋', () => expect(evaluateRounds(base({ broker: '摩根士丹利' }), base(), docs, ctx)).toMatchObject({ status: 'blocked', round: 2 }));
   it('過去期間 → 擋', () => expect(evaluateRounds(base({ period: '2025年' }), base(), docs, ctx)).toMatchObject({ status: 'blocked', round: 2 }));

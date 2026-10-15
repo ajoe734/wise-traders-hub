@@ -99,17 +99,51 @@ export function buildPeerReference(
   return { status: 'ready', group: group.label, curation: group.curation === 'manual' ? 'manual' : 'auto', n: rows.length, avgMultiple: avg, price: basis * avg, symbols: rows.map((r) => r.symbol) };
 }
 
-export type ForwardInput = { eps: number; multiple: number; period: string; source: string } | null;
+/** multiple/source 為 null＝只有預估 EPS（新聞具名來源），沒有券商前瞻倍數。 */
+export type ForwardInput = { eps: number; multiple: number | null; period: string; source: string | null; epsSource?: string } | null;
+export type SelfForward = { eps: number; period: string; source: string };
 export type ForwardReference =
-  | { status: 'ready'; price: number; stress: number; impliedMultiple: number | null; period: string; source: string }
+  | { status: 'ready'; mode: 'broker'; price: number; stress: number; impliedMultiple: number | null; period: string; source: string }
+  | {
+    status: 'ready'; mode: 'historical'; epsKind: 'news' | 'self'; eps: number; low: number; price: number; high: number;
+    stress: number; stressLow: number; stressHigh: number; multiples: { p20: number; p50: number; p80: number };
+    impliedMultiple: number | null; period: string; source: string;
+  }
   | { status: 'insufficient'; reason: string };
 
-/** 前瞻參考：未來四季預估 EPS × 前瞻本益比；壓力測試＝EPS 八折。只有自建預估模型才有。 */
-export function buildForwardReference(input: ForwardInput, price: number | null): ForwardReference {
-  if (!input || !(input.eps > 0) || !(input.multiple > 0) || !input.source || !input.period) return { status: 'insufficient', reason: '尚無自建預估模型' };
+/** 月營收自建前瞻 EPS：近四季 EPS × (1 + 近 3 個月營收年增率)；虧損或缺資料不畫。 */
+export function selfForwardEps(ttmEps: number | null, rev: { yoy: number; latestMonth: string } | null | undefined): SelfForward | null {
+  if (!(ttmEps != null && ttmEps > 0) || !rev || !Number.isFinite(rev.yoy) || rev.yoy <= -1) return null;
+  const eps = ttmEps * (1 + rev.yoy);
+  if (!(eps > 0)) return null;
+  return { eps, period: '未來四季', source: `月營收自建估算（近 3 個月營收年增 ${(rev.yoy * 100).toFixed(1)}%，至 ${rev.latestMonth.replace('-', '/')}）` };
+}
+
+/**
+ * 前瞻參考優先序：券商明寫前瞻倍數 > 新聞具名預估 EPS × 近一年歷史 PE P20/P50/P80 > 月營收自建 EPS × 同區間 > 資料不足。
+ * 壓力測試＝EPS 八折。歷史倍數模式一律標「歷史倍數，非券商前瞻倍數」。
+ */
+export function buildForwardReference(input: ForwardInput, price: number | null, peHistory?: number[] | null, self?: SelfForward | null): ForwardReference {
+  const implied = (eps: number) => (price && price > 0 ? price / eps : null);
+  if (input && input.eps > 0 && input.multiple != null && input.multiple > 0 && input.source && input.period) {
+    return {
+      status: 'ready', mode: 'broker', price: input.eps * input.multiple, stress: input.eps * STATION_DEFAULTS.stressHaircut * input.multiple,
+      impliedMultiple: implied(input.eps), period: input.period, source: input.source,
+    };
+  }
+  const news = input && input.eps > 0 && input.period ? { eps: input.eps, period: input.period, source: input.epsSource || '具名新聞' } : null;
+  const base = news ?? self ?? null;
+  if (!base) return { status: 'insufficient', reason: '尚無前瞻預估 EPS（新聞沒有具名預估，月營收或近四季 EPS 不足）' };
+  const year = (peHistory || []).filter((v) => Number.isFinite(v) && v > 0).slice(-STATION_DEFAULTS.lookbackDays);
+  if (year.length < STATION_DEFAULTS.minDays) return { status: 'insufficient', reason: `近一年本益比不滿一年（${year.length}／${STATION_DEFAULTS.minDays} 個交易日），無歷史倍數可套` };
+  const sorted = [...year].sort((a, b) => a - b);
+  const p20 = positionQuantile(sorted, 0.2); const p50 = positionQuantile(sorted, 0.5); const p80 = positionQuantile(sorted, 0.8);
+  const h = STATION_DEFAULTS.stressHaircut;
   return {
-    status: 'ready', price: input.eps * input.multiple, stress: input.eps * STATION_DEFAULTS.stressHaircut * input.multiple,
-    impliedMultiple: price && price > 0 ? price / input.eps : null, period: input.period, source: input.source,
+    status: 'ready', mode: 'historical', epsKind: news ? 'news' : 'self', eps: base.eps,
+    low: base.eps * p20, price: base.eps * p50, high: base.eps * p80,
+    stress: base.eps * h * p50, stressLow: base.eps * h * p20, stressHigh: base.eps * h * p80,
+    multiples: { p20, p50, p80 }, impliedMultiple: implied(base.eps), period: base.period, source: base.source,
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findPeerGroup, pickMainRuler, buildStations, buildPeerReference, buildForwardReference, stationPosition } from '@/checkup/lib/valuationStations';
+import { findPeerGroup, pickMainRuler, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, positionQuantile, stationPosition } from '@/checkup/lib/valuationStations';
 
 describe('主尺選擇', () => {
   it('金融股用 PB', () => expect(pickMainRuler({ industry: '銀行', ttmEps: 3, currentPe: 12, revenueYoY: 0.5 }).key).toBe('pb'));
@@ -44,6 +44,8 @@ describe('同業參考', () => {
   it('無人工名單顯示資料不足', () => expect(buildPeerReference('9998', 'pe', 10, peers, findPeerGroup('9998', '不存在產業')).status).toBe('insufficient'));
 });
 
+const year = Array.from({ length: 240 }, (_, i) => 10 + (i % 24) * 0.5);
+const sortedYear = [...year].sort((a, b) => a - b);
 describe('前瞻參考', () => {
   it('緯創範例 17.94 × 15 ≈ 269，壓力測試 ≈ 215，現價隱含 ≈ 10.2 倍', () => {
     const r = buildForwardReference({ eps: 17.94, multiple: 15, period: '2026H2–2027H1', source: '美銀同期間' }, 183);
@@ -53,7 +55,38 @@ describe('前瞻參考', () => {
     expect(Math.round(r.stress)).toBe(215);
     expect(r.impliedMultiple!.toFixed(1)).toBe('10.2');
   });
-  it('無自建模型顯示資料不足', () => expect(buildForwardReference(null, 183).status).toBe('insufficient'));
+  it('無任何前瞻 EPS 顯示資料不足', () => expect(buildForwardReference(null, 183, year, null).status).toBe('insufficient'));
+  it('券商倍數優先於歷史倍數', () => {
+    const r = buildForwardReference({ eps: 17.94, multiple: 15, period: '未來四季', source: '美銀' }, 183, year, selfForwardEps(12.59, { yoy: 0.3, latestMonth: '2026-09' }));
+    expect(r).toMatchObject({ status: 'ready', mode: 'broker' });
+  });
+  it('新聞 EPS（無倍數）× 近一年 PE P20/P50/P80，壓力測試八折', () => {
+    const r = buildForwardReference({ eps: 20, multiple: null, period: '未來四季', source: null, epsSource: '經濟日報' }, 183, year, null);
+    expect(r.status).toBe('ready');
+    if (r.status !== 'ready' || r.mode !== 'historical') throw new Error('mode');
+    expect(r.epsKind).toBe('news');
+    expect(r.multiples.p50).toBe(positionQuantile(sortedYear, 0.5));
+    expect(r.price).toBeCloseTo(20 * r.multiples.p50);
+    expect(r.low).toBeCloseTo(20 * r.multiples.p20);
+    expect(r.high).toBeCloseTo(20 * r.multiples.p80);
+    expect(r.stress).toBeCloseTo(20 * 0.8 * r.multiples.p50);
+  });
+  it('新聞 EPS 優先於月營收自建', () => {
+    const r = buildForwardReference({ eps: 20, multiple: null, period: '未來四季', source: null, epsSource: '經濟日報' }, 183, year, selfForwardEps(10, { yoy: 0.1, latestMonth: '2026-09' }));
+    expect(r.status === 'ready' && r.mode === 'historical' && r.eps).toBe(20);
+  });
+  it('沒有新聞 EPS 時用月營收自建：12.59 × 1.3', () => {
+    const r = buildForwardReference(null, 183, year, selfForwardEps(12.59, { yoy: 0.3, latestMonth: '2026-09' }));
+    expect(r.status === 'ready' && r.mode === 'historical' && r.epsKind).toBe('self');
+    expect(r.status === 'ready' && r.mode === 'historical' && r.eps).toBeCloseTo(16.367);
+  });
+  it('虧損或缺月營收不自建', () => {
+    expect(selfForwardEps(-1, { yoy: 0.3, latestMonth: '2026-09' })).toBeNull();
+    expect(selfForwardEps(12.59, null)).toBeNull();
+  });
+  it('近一年 PE 不滿 240 日 → 資料不足，不硬補', () => {
+    expect(buildForwardReference(null, 183, year.slice(0, 100), selfForwardEps(12.59, { yoy: 0.3, latestMonth: '2026-09' })).status).toBe('insufficient');
+  });
 });
 
 it('現價 183 在上車站 185 附近', () => {

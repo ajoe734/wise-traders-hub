@@ -51,7 +51,7 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
       setState({
         group,
         peerRows: Array.isArray(rows) ? rows.map((r) => ({ ...r, pe: r.pe == null ? null : Number(r.pe), pb: r.pb == null ? null : Number(r.pb), ps: r.ps == null ? null : Number(r.ps) })) : [],
-        forward: f ? { eps: Number(f.eps), multiple: Number(f.forward_pe), period: f.period, source: f.pe_source, epsSource: f.eps_source, asOf: f.as_of, ai: String(f.note || '').startsWith('ai_extraction:') } : null,
+        forward: f ? { eps: Number(f.eps), multiple: f.forward_pe == null ? null : Number(f.forward_pe), period: f.period, source: f.pe_source ?? null, epsSource: f.eps_source, asOf: f.as_of, ai: String(f.note || '').startsWith('ai_extraction:') } : null,
         forwardBlocked: f ? null : fr?.blocked ?? null,
         loading: false,
       });
