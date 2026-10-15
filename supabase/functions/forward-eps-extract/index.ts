@@ -6,7 +6,7 @@ import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { responsesJson, GatewayError } from '../_shared/articleAiGateway.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { EXTRACTION_PROMPT, EXTRACTION_SCHEMA, FWD_LIMITS, evaluateRounds, type Extraction, type SourceDoc } from '../_shared/forwardEpsCore.ts';
-import { extractCnyesArticleText, keepKeyParagraphs, fullTextPriority } from '../_shared/articleFullText.ts';
+import { extractCnyesArticleText, keepKeyParagraphs, fullTextPriority, yahooNewsLinks, extractYahooArticle } from '../_shared/articleFullText.ts';
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -25,7 +25,7 @@ const FULLTEXT_MAX_ARTICLES = 12;
 async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
   const out: SourceDoc[] = []; const seen = new Set<string>();
   const cnyes: Array<Omit<SourceDoc, 'id'> & { newsId: string; prio: number }> = [];
-  for (const q of [`${name} 本益比`, `${name} 法說`, `${name} EPS`, `${name} 目標價`, `${name} 外資 評等`]) {
+  for (const q of [name, `${name} 本益比`, `${name} 法說`, `${name} EPS`, `${name} 目標價`, `${name} 外資 評等`]) {
     try {
       const r = await fetchWithRetry(`https://ess.api.cnyes.com/ess/api/v1/news/keyword?q=${encodeURIComponent(q)}&limit=20&page=1`, UA, { source: 'cnyes-news' });
       const j = await r.json();
@@ -55,6 +55,23 @@ async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
     const { newsId: _n, prio: _p, ...doc } = d;
     out.push({ id: `d${out.length + 1}`, ...doc, source: (d as any).fullText ? '鉅亨網（全文）' : '鉅亨網' });
   }
+  // Yahoo 股市個股新聞（含經濟日報、工商時報等媒體全文）
+  try {
+    const r = await fetchWithRetry(`https://tw.stock.yahoo.com/quote/${code}.TW/news`, UA, { source: 'yahoo-stock-news', policy: { maxAttempts: 2 } });
+    const links = yahooNewsLinks(await r.text(), 20);
+    const arts = await Promise.all(links.map(async (url) => {
+      try {
+        const a = extractYahooArticle(await (await fetchWithRetry(url, UA, { source: 'yahoo-article', policy: { maxAttempts: 1 } })).text());
+        return a ? { ...a, url } : null;
+      } catch { return null; }
+    }));
+    const cutoff = new Date(Date.now() - 180 * 86400_000).toISOString().slice(0, 10);
+    for (const a of arts) {
+      if (!a || a.date < cutoff || seen.has(a.title) || !hasName(a.title + a.text, code, name)) continue;
+      seen.add(a.title);
+      out.push({ id: `d${out.length + 1}`, title: a.title, text: keepKeyParagraphs(a.text), source: `${a.publisher}（Yahoo股市全文）`, date: a.date, url: a.url });
+    }
+  } catch (e) { console.error('yahoo fail', String(e)); }
   for (const q of [`${code} ${name} 法說 EPS 本益比`]) {
     try {
       const r = await fetchWithRetry(`https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:120d')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`, UA, { source: 'google-news-rss', policy: { maxAttempts: 1 } });
@@ -67,7 +84,7 @@ async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
       }
     } catch (e) { console.error('rss fail', String(e)); }
   }
-  return out.slice(0, 40);
+  return out.slice(0, 60);
 }
 
 async function extract(key: string, docs: SourceDoc[], code: string, name: string, variant: 1 | 2): Promise<Extraction> {
