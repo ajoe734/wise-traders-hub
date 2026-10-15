@@ -6,6 +6,7 @@ import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { responsesJson, GatewayError } from '../_shared/articleAiGateway.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { EXTRACTION_PROMPT, EXTRACTION_SCHEMA, FWD_LIMITS, evaluateRounds, type Extraction, type SourceDoc } from '../_shared/forwardEpsCore.ts';
+import { extractCnyesArticleText, keepKeyParagraphs, fullTextPriority } from '../_shared/articleFullText.ts';
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -18,14 +19,13 @@ const tag = (b: string, t: string) => decode(b.match(new RegExp(`<${t}(?:[^>]*)>
 const UA = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; legendflow/1.0)' } };
 const hasName = (t: string, code: string, name: string) => [name, name.slice(0, 2), code].some((k) => k && t.includes(k));
 
-/** 原文來源：鉅亨網關鍵字新聞（標題＋摘要）為主，Google 新聞 RSS 標題為輔。 */
+const FULLTEXT_MAX_ARTICLES = 12;
+
+/** 原文來源：鉅亨網關鍵字新聞（優先抓全文：券商評等與前瞻本益比多在內文），Google 新聞 RSS 標題為輔。 */
 async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
   const out: SourceDoc[] = []; const seen = new Set<string>();
-  const push = (d: Omit<SourceDoc, 'id'>) => {
-    if (seen.has(d.title) || !hasName(d.title + d.text, code, name)) return;
-    seen.add(d.title); out.push({ id: `d${out.length + 1}`, ...d });
-  };
-  for (const q of [`${name} 本益比`, `${name} 法說`, `${name} EPS`, `${name} 目標價`]) {
+  const cnyes: Array<Omit<SourceDoc, 'id'> & { newsId: string; prio: number }> = [];
+  for (const q of [`${name} 本益比`, `${name} 法說`, `${name} EPS`, `${name} 目標價`, `${name} 外資 評等`]) {
     try {
       const r = await fetchWithRetry(`https://ess.api.cnyes.com/ess/api/v1/news/keyword?q=${encodeURIComponent(q)}&limit=20&page=1`, UA, { source: 'cnyes-news' });
       const j = await r.json();
@@ -33,18 +33,37 @@ async function collectDocs(code: string, name: string): Promise<SourceDoc[]> {
         if (it?.objectType !== 'NEWS') continue;
         const ageDays = (Date.now() / 1000 - Number(it.publishAt)) / 86400;
         if (!(ageDays <= 180)) continue;
-        push({ title: decode(it.title), text: decode(String(it.summary || '').replace(/&#10;/g, ' ')), source: '鉅亨網',
+        const title = decode(it.title); const text = decode(String(it.summary || '').replace(/&#10;/g, ' '));
+        if (seen.has(title) || !hasName(title + text, code, name)) continue;
+        seen.add(title);
+        cnyes.push({ newsId: String(it.newsId), title, text, source: '鉅亨網', prio: fullTextPriority(title, text),
           date: new Date(Number(it.publishAt) * 1000 + 8 * 3600_000).toISOString().slice(0, 10), url: `https://news.cnyes.com/news/id/${it.newsId}` });
       }
     } catch (e) { console.error('cnyes fail', String(e)); }
+  }
+  // 全文：依估值字眼優先序取前 N 篇，抓不到就保留摘要（不猜）
+  const ranked = [...cnyes].sort((a, b) => b.prio - a.prio || b.date.localeCompare(a.date));
+  const pick = new Set(ranked.slice(0, FULLTEXT_MAX_ARTICLES).map((d) => d.newsId));
+  await Promise.all(cnyes.filter((d) => pick.has(d.newsId)).map(async (d) => {
+    try {
+      const r = await fetchWithRetry(d.url!, UA, { source: 'cnyes-article', policy: { maxAttempts: 2 } });
+      const full = keepKeyParagraphs(extractCnyesArticleText(await r.text()));
+      if (full.length > d.text.length) { d.text = full; (d as any).fullText = true; }
+    } catch (e) { console.error('cnyes article fail', d.newsId, String(e)); }
+  }));
+  for (const d of ranked) {
+    const { newsId: _n, prio: _p, ...doc } = d;
+    out.push({ id: `d${out.length + 1}`, ...doc, source: (d as any).fullText ? '鉅亨網（全文）' : '鉅亨網' });
   }
   for (const q of [`${code} ${name} 法說 EPS 本益比`]) {
     try {
       const r = await fetchWithRetry(`https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:120d')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`, UA, { source: 'google-news-rss', policy: { maxAttempts: 1 } });
       const xml = await r.text();
       for (const m of xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
-        const it = m[0]; const d = new Date(tag(it, 'pubDate'));
-        push({ title: tag(it, 'title'), text: '', source: tag(it, 'source'), date: isNaN(+d) ? '' : d.toISOString().slice(0, 10), url: tag(it, 'link') });
+        const it = m[0]; const d = new Date(tag(it, 'pubDate')); const title = tag(it, 'title');
+        if (seen.has(title) || !hasName(title, code, name)) continue;
+        seen.add(title);
+        out.push({ id: `d${out.length + 1}`, title, text: '', source: tag(it, 'source'), date: isNaN(+d) ? '' : d.toISOString().slice(0, 10), url: tag(it, 'link') });
       }
     } catch (e) { console.error('rss fail', String(e)); }
   }
