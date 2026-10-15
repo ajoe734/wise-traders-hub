@@ -1,0 +1,125 @@
+/**
+ * valuation-ps-sync：同業名單成員的每日 PS 倍數（站牌同業參考用）。
+ * - mode=basis：每股營收（sps）以共用純函式 computeCompanyBasis／dailyPsSeries 計算（與本檔站牌同口徑），
+ *   股數 DB-first official_share_registry、缺才用 FinMind 已發行股數；
+ *   順便寫入近 250 日逐日 PS。下一季申報期限過後才重算；FinMind 額度用完即停。
+ * - mode=daily：證交所／櫃買全市場收盤各取一次 × 已存 sps → 當日 PS。
+ * 每次執行寫 system_jobs_log（job_name=valuation_ps_sync）。純計算在 _shared/peerPsCore.ts。
+ */
+// AUTH: cron-key
+import { serviceClient } from '../_shared/supabaseClients.ts';
+import { corsHeaders } from '../_shared/cors.ts';
+import { fetchWithRetry } from '../_shared/retryFetch.ts';
+import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+import { needsBasisRefresh, parseCloses, psRows, type SalesBasis } from '../_shared/peerPsCore.ts';
+import { computeCompanyBasis, dailyPsSeries, latestOrdinaryShare, officialFromIssuedShares, type FinRow, type OfficialShares } from '../_shared/fundamentalsBasis.ts';
+import universe from '../_shared/peerPsUniverse.json' with { type: 'json' };
+
+const json = (b: unknown, status = 200) =>
+  new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+const UA = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; legendflow/1.0)' } };
+
+const FINMIND = 'https://api.finmindtrade.com/api/v4/data';
+class QuotaError extends Error {}
+const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+async function finmind<T>(dataset: string, id: string, start: string): Promise<T[]> {
+  const token = Deno.env.get('FINMIND_TOKEN') || '';
+  const res = await fetchWithRetry(`${FINMIND}?dataset=${dataset}&data_id=${encodeURIComponent(id)}&start_date=${start}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : {}, { source: `finmind_${dataset}`, policy: { maxAttempts: 2 } });
+  const j = await res.json().catch(() => null);
+  if (j?.status === 402 || res.status === 402) throw new QuotaError('財報資料來源今日額度已用完');
+  if (j?.status !== 200 || !Array.isArray(j?.data)) throw new Error(`finmind ${dataset} ${id} status=${j?.status ?? res.status}`);
+  return j.data as T[];
+}
+const today = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  try { requireCronKey(req); } catch (e) {
+    if (e instanceof AuthError) return json({ error: e.code, message: e.message }, e.status);
+    throw e;
+  }
+  const started = Date.now();
+  const body = await req.json().catch(() => ({}));
+  const mode = body?.mode === 'daily' ? 'daily' : 'basis';
+  const limit = Math.min(Math.max(Number(body?.limit) || 60, 1), 200);
+  const concurrency = Math.min(Math.max(Number(body?.concurrency) || 3, 1), 6);
+  const priority: string[] = Array.isArray(body?.symbols) ? body.symbols.filter((s: unknown) => typeof s === 'string' && /^\d{4}$/.test(s)) : [];
+  const db = serviceClient();
+  const all: string[] = (universe as { symbols: string[] }).symbols;
+
+  const { data: basesRaw, error: bErr } = await db.from('tw_sales_basis').select('symbol,sps,latest_period,computed_at').limit(5000);
+  if (bErr) return json({ error: 'DB', message: bErr.message }, 500);
+  const bases = new Map((basesRaw ?? []).map((b) => [b.symbol, { ...b, sps: Number(b.sps) } as SalesBasis]));
+  const log = async (status: string, detail: Record<string, unknown>) => {
+    try { await db.from('system_jobs_log').insert({ job_name: 'valuation_ps_sync', status, detail: { mode, ...detail }, duration_ms: Date.now() - started }); } catch { /* ignore */ }
+  };
+
+  if (mode === 'daily') {
+    try {
+      const [tw, tp] = await Promise.all([
+        fetchWithRetry('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', UA, { source: 'twse-stock-day-all' }).then((r) => r.json()),
+        fetchWithRetry('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes', UA, { source: 'tpex-daily-close' }).then((r) => r.json()),
+      ]);
+      const rows = psRows([...bases.values()], parseCloses(tw, tp)).map((r) => ({ ...r, source: 'twse-tpex-close' }));
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await db.from('tw_ps_daily').upsert(rows.slice(i, i + 500), { onConflict: 'symbol,trade_date' });
+        if (error) throw new Error(error.message);
+      }
+      await log(rows.length ? 'success' : 'empty', { bases: bases.size, rows: rows.length });
+      return json({ ok: true, mode, bases: bases.size, rows: rows.length });
+    } catch (e) {
+      await log('failed', { error: String(e) });
+      return json({ ok: false, error: String(e) }, 502);
+    }
+  }
+
+  const d = today();
+  const queue = [...new Set([...priority, ...all])].filter((s) => needsBasisRefresh(bases.get(s), d)).slice(0, limit);
+  const { data: regRows } = await db.from('official_share_registry').select('symbol,par,par_text,issued_shares,preferred_shares,paid_in_capital,source,report_date').in('symbol', queue);
+  const registry = new Map<string, OfficialShares>((regRows ?? []).map((r) => [r.symbol, {
+    par: Number(r.par), parText: r.par_text ?? String(r.par), issuedShares: Number(r.issued_shares), preferredShares: Number(r.preferred_shares ?? 0),
+    paidInCapital: r.paid_in_capital != null ? Number(r.paid_in_capital) : null, source: r.source as OfficialShares['source'], reportDate: r.report_date ?? '',
+  }]));
+  const result = { ok: 0, skipped: [] as Array<{ symbol: string; reason: string }>, psRows: 0, stoppedForQuota: false };
+  let idx = 0;
+  const worker = async () => {
+    while (idx < queue.length && !result.stoppedForQuota) {
+      const symbol = queue[idx++];
+      try {
+        const start = isoDaysAgo(3 * 365);
+        const [fs, bs, px] = await Promise.all([
+          finmind<FinRow>('TaiwanStockFinancialStatements', symbol, start),
+          finmind<FinRow>('TaiwanStockBalanceSheet', symbol, start),
+          finmind<{ date: string; close: number }>('TaiwanStockPrice', symbol, isoDaysAgo(400)),
+        ]);
+        let official = registry.get(symbol) ?? null;
+        if (!official) {
+          const sh = await finmind<{ date: string; NumberOfSharesIssued: number }>('TaiwanStockShareholding', symbol, isoDaysAgo(14)).catch(() => []);
+          const last = sh.at(-1);
+          official = officialFromIssuedShares(last ? Number(last.NumberOfSharesIssued) : null, latestOrdinaryShare(bs), last?.date ?? null);
+        }
+        const prices = px.map((p) => ({ date: p.date, close: Number(p.close) }));
+        const asOf = prices.map((p) => p.date).sort().at(-1);
+        if (!asOf) { result.skipped.push({ symbol, reason: '近期無收盤價' }); continue; }
+        const b = computeCompanyBasis(symbol, fs, bs, asOf, { mode: 'live', official });
+        if (!b.ok || !(Number(b.sps) > 0) || !b.latestPeriod) { result.skipped.push({ symbol, reason: b.reason ?? '缺近四季每股營收' }); continue; }
+        await db.from('tw_sales_basis').upsert({ symbol, sps: Number(b.sps), period: String(b.period), latest_period: b.latestPeriod, computed_at: new Date().toISOString() }, { onConflict: 'symbol' });
+        const hist = dailyPsSeries(symbol, fs, bs, prices, asOf, official).filter((p) => p.ps > 0)
+          .map((p) => ({ symbol, trade_date: p.date, ps: Math.round(p.ps * 10000) / 10000, source: 'finmind-basis' }));
+        if (hist.length) {
+          const { error } = await db.from('tw_ps_daily').upsert(hist, { onConflict: 'symbol,trade_date' });
+          if (!error) result.psRows += hist.length;
+        }
+        result.ok++;
+      } catch (e) {
+        if (e instanceof QuotaError) result.stoppedForQuota = true;
+        result.skipped.push({ symbol, reason: String((e as Error).message ?? e) });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  const pending = all.filter((s) => needsBasisRefresh(bases.get(s), d)).length - result.ok;
+  await log(result.stoppedForQuota ? 'failed' : 'success', { queued: queue.length, ...result, skipped: result.skipped.slice(0, 50), pending });
+  return json({ ok: true, mode, queued: queue.length, ...result, pending });
+});

@@ -82,14 +82,13 @@ export type PeerReference =
   | { status: 'ready'; group: string; curation: 'manual' | 'auto'; n: number; avgMultiple: number; price: number; symbols: string[] }
   | { status: 'insufficient'; reason: string };
 
-/** 同業參考：人工名單（排除自己）當日倍數平均 × 本公司基本面；有效 < 3 家顯示資料不足。 */
+/** 同業參考：人工名單（排除自己）當日倍數平均 × 本公司基本面；PS 取同業每日 PS（收盤 ÷ 近四季每股營收）；有效 < 3 家顯示資料不足。 */
 export function buildPeerReference(
   symbol: string, key: StationRuler, basis: number | null,
-  peers: Array<{ symbol: string; pe?: number | null; pb?: number | null }>,
+  peers: Array<{ symbol: string; pe?: number | null; pb?: number | null; ps?: number | null }>,
   group: PeerGroup | null = findPeerGroup(symbol),
 ): PeerReference {
   if (!group) return { status: 'insufficient', reason: '尚未建立人工同業名單' };
-  if (key === 'ps') return { status: 'insufficient', reason: '同業當日 PS 倍數尚無資料' };
   if (!(basis != null && basis > 0)) return { status: 'insufficient', reason: '缺近四季財報每股基本面' };
   const wanted = new Set(group.symbols.filter((s) => s !== symbol));
   const rows = peers.filter((p) => wanted.has(p.symbol))
