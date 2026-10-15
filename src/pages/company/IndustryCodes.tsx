@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import industryCodesJson from '@/checkup/data/industryCodes.json';
 import peerGroupsJson from '@/checkup/data/valuationPeerGroups.json';
-import twseSecondaryIndustry from '@/checkup/data/twseSecondaryIndustry.json';
 import {
   assembleIndustryOverview,
   filterIndustryOverview,
@@ -16,48 +15,34 @@ import {
   type StockNameMap,
 } from './_industryCodes/assembleIndustryOverview';
 
-const industryCounts = (() => {
-  const counts: Record<string, number> = {};
-  for (const name of Object.values(twseSecondaryIndustry as Record<string, string>)) {
-    counts[name] = (counts[name] ?? 0) + 1;
-  }
-  return counts;
-})();
-
 const codes = (industryCodesJson as { codes: IndustryCodeRow[] }).codes;
 const groups = (peerGroupsJson as { groups: PeerGroupRow[] }).groups;
 
-/** 名單內出現過的所有股票代號（含人工排除，方便核對） */
-const allSymbols = (() => {
-  const set = new Set<string>();
-  for (const g of groups) {
-    for (const s of g.symbols) set.add(s);
-    for (const s of g.exclude ?? []) set.add(s);
-  }
-  return [...set];
-})();
-
 const CompanyIndustryCodes = () => {
   const [names, setNames] = useState<StockNameMap>({});
+  const [industryCounts, setIndustryCounts] = useState<Record<string, number>>({});
   const [query, setQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      // stock_names 與 stock_industry_map 皆公開可讀，各約兩三千筆，單次拉齊
+      const [namesRes, mapRes] = await Promise.all([
+        supabase.from('stock_names').select('symbol,name').limit(5000),
+        supabase.from('stock_industry_map').select('symbol,industries').limit(5000),
+      ]);
+      if (cancelled) return;
       const map: StockNameMap = {};
-      // stock_names 公開可讀；分批避免 URL 過長
-      for (let i = 0; i < allSymbols.length; i += 200) {
-        const chunk = allSymbols.slice(i, i + 200);
-        const { data } = await supabase
-          .from('stock_names')
-          .select('symbol,name')
-          .in('symbol', chunk);
-        if (cancelled) return;
-        for (const row of data ?? []) {
-          map[String(row.symbol)] = String(row.name ?? '');
-        }
+      for (const row of namesRes.data ?? []) {
+        map[String(row.symbol)] = String(row.name ?? '');
       }
-      if (!cancelled) setNames(map);
+      const counts: Record<string, number> = {};
+      for (const row of mapRes.data ?? []) {
+        const primary = Array.isArray(row.industries) ? String(row.industries[0] ?? '') : '';
+        if (primary) counts[primary] = (counts[primary] ?? 0) + 1;
+      }
+      setNames(map);
+      setIndustryCounts(counts);
     };
     void load();
     return () => {
