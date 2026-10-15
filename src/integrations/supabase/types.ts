@@ -7626,6 +7626,18 @@ export type Database = {
         Args: { _budget: number; _pool: string }
         Returns: Json
       }
+      forward_estimate_for: {
+        Args: { _symbol: string }
+        Returns: {
+          as_of: string
+          eps: number
+          eps_source: string
+          forward_pe: number
+          note: string
+          pe_source: string
+          period: string
+        }[]
+      }
       get_analyst_subscriber_profiles: {
         Args: never
         Returns: {
