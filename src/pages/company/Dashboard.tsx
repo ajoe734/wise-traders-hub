@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Users, DollarSign, Radio, TrendingDown, UserPlus,
   Repeat, Megaphone, CreditCard, Stethoscope,
-  ArrowUpRight, ArrowDownRight, Minus, AlertCircle, Clock, Activity,
+  ArrowUpRight, ArrowDownRight, Minus, AlertCircle, Clock, Activity, Layers,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -346,6 +346,9 @@ const CompanyDashboard = () => {
               </Button>
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/announcements"><Megaphone className="h-5 w-5" /><span className="text-xs">公告管理</span></Link>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <Link to="/company/industry-codes"><Layers className="h-5 w-5" /><span className="text-xs">產業分類</span></Link>
               </Button>
             </div>
           </CardContent>
