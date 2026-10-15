@@ -41,8 +41,28 @@ const CompanyIndustryCodes = () => {
         const primary = Array.isArray(row.industries) ? String(row.industries[0] ?? '') : '';
         if (primary) counts[primary] = (counts[primary] ?? 0) + 1;
       }
-      setNames(map);
       setIndustryCounts(counts);
+
+      // stock_names 缺的名字，走 stock-name-lookup 批次補（每次最多 200 檔）
+      const wanted = new Set<string>();
+      for (const g of groups) {
+        for (const s of g.symbols) wanted.add(s);
+        for (const s of g.exclude ?? []) wanted.add(s);
+      }
+      const missing = [...wanted].filter((s) => !map[s]);
+      for (let i = 0; i < missing.length; i += 200) {
+        const chunk = missing.slice(i, i + 200);
+        const { data, error } = await supabase.functions.invoke('stock-name-lookup', {
+          body: { symbols: chunk },
+        });
+        if (cancelled) return;
+        if (error) continue;
+        const rows = (data as { names?: Record<string, string> } | null)?.names ?? {};
+        for (const [sym, name] of Object.entries(rows)) {
+          if (name) map[sym] = String(name);
+        }
+      }
+      if (!cancelled) setNames({ ...map });
     };
     void load();
     return () => {
