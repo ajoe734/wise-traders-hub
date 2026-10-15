@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
   }
 
   const d = today();
-  const queue = [...new Set([...priority, ...all])].filter((s) => priority.includes(s) || needsBasisRefresh(bases.get(s), d)).slice(0, limit);
+  const queue = [...new Set([...priority, ...all])].filter((s) => needsBasisRefresh(bases.get(s), d)).slice(0, limit);
   const { data: regRows } = await db.from('official_share_registry').select('symbol,par,par_text,issued_shares,preferred_shares,paid_in_capital,source,report_date').in('symbol', queue);
   const registry = new Map<string, OfficialShares>((regRows ?? []).map((r) => [r.symbol, {
     par: Number(r.par), parText: r.par_text ?? String(r.par), issuedShares: Number(r.issued_shares), preferredShares: Number(r.preferred_shares ?? 0),
