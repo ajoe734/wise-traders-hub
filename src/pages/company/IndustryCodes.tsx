@@ -208,16 +208,4 @@ const CompanyIndustryCodes = () => {
   );
 };
 
-const ButtonBack = () => (
-  <Link
-    to="/company"
-    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground"
-    aria-label="回管理首頁"
-  >
-    <ArrowLeft className="h-4 w-4" />
-  </Link>
-);
-// eslint 的 component 命名習慣
-const Buttonback = ButtonBack;
-
 export default CompanyIndustryCodes;
