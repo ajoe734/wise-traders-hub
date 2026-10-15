@@ -42,6 +42,7 @@ const CompanyIndustryCodes = () => {
         if (primary) counts[primary] = (counts[primary] ?? 0) + 1;
       }
       setIndustryCounts(counts);
+      setNames({ ...map });
 
       // stock_names 缺的名字，走 stock-name-lookup 批次補（每次最多 200 檔）
       const wanted = new Set<string>();
