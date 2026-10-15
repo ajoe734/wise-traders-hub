@@ -35,7 +35,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { useStationExtras } from '@/checkup/hooks/useStationExtras';
-import { pickMainRuler, buildStations, buildPeerReference, buildForwardReference, stationPosition } from '@/checkup/lib/valuationStations';
+import { pickMainRuler, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, stationPosition } from '@/checkup/lib/valuationStations';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
 import { buildCustomScenario, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
@@ -785,7 +785,9 @@ export function buildDrawerStations(view, band, symbol, price, extras = null) {
   const stations = buildStations(main.key, history, basis);
   const peer = buildPeerReference(symbol || '', main.key, basis, extras?.peerRows || [], extras?.group ?? null);
   // 前瞻參考只配 PE：未來 EPS × 前瞻本益比，與主尺無關（鐵律：前瞻倍數只乘未來基本面）。
-  const forward = buildForwardReference(extras?.forward ?? null, price);
+  // 前瞻參考：券商前瞻倍數優先；否則新聞預估 EPS（或月營收自建 EPS）× 近一年歷史 PE P20/P50/P80，標「歷史倍數」。
+  const self = selfForwardEps(peBasis, band?.monthRevenue ?? null);
+  const forward = buildForwardReference(extras?.forward ?? null, price, view?.rawHistory?.pe || [], self);
   return { main, basis, basisRow: band?.rows?.find((r) => r.key === main.key) ?? null, stations, peer, forward, position: stationPosition(price, stations) };
 }
 
@@ -812,8 +814,11 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
   const stationMarks = mode !== 'stations' ? [] : [
     ...(st.stations.status === 'ready' ? st.stations.stations.map((s) => ({ key: s.key, label: s.label, value: s.price, kind: 'station' })) : []),
     ...(st.peer.status === 'ready' ? [{ key: 'peer', label: '同業參考', value: st.peer.price, kind: 'reference' }] : []),
-    ...(st.forward.status === 'ready' ? [{ key: 'forward', label: '前瞻參考', value: st.forward.price, kind: 'reference' }, { key: 'stress', label: '壓力測試', value: st.forward.stress, kind: 'reference' }] : []),
+    ...(st.forward.status === 'ready' ? [{ key: 'forward', label: st.forward.mode === 'historical' ? '前瞻參考（歷史倍數）' : '前瞻參考', value: st.forward.price, kind: 'reference' }, { key: 'stress', label: '壓力測試', value: st.forward.stress, kind: 'reference' }] : []),
   ];
+  const fwdBand = mode === 'stations' && st.forward.status === 'ready' && st.forward.mode === 'historical'
+    ? { low: st.forward.low, high: st.forward.high, key: 'pe', label: '前瞻參考區間（歷史倍數，非券商前瞻倍數）', detail: `近一年 PE 第 20–80%` }
+    : null;
   const fmt = (n, d = 2) => Number(n).toLocaleString('zh-TW', { maximumFractionDigits: d });
   const basisUnit = { pe: '近四季 EPS', pb: '最新一季每股淨值', ps: '近四季每股營收' }[st.main.key];
   const [customInput] = useCustomMultiples(symbol);
@@ -847,7 +852,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
       </div>
       <div key={mode} className="price-spectrum-transition">
         <PriceSpectrum WB={WB} price={price} cost={cost} target={mode === 'target' ? target : null}
-          customBand={mode === 'stations' ? null : selectedCustom} rulerBand={mode === 'stations' || selectedCustom ? null : ruler} stations={stationMarks} />
+          customBand={mode === 'stations' ? null : selectedCustom} rulerBand={mode === 'stations' ? fwdBand : selectedCustom ? null : ruler} stations={stationMarks} />
       </div>
       <div className="price-scale-status" data-testid="price-scale-status" aria-live="polite">
         {mode === 'stations' ? <div data-testid="stations-status" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -856,7 +861,9 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
             ? <span>{basisUnit} NT${fmt(st.basis)}（{st.basisRow?.basis?.period || '期間不明'}・{st.basisRow?.basis?.source || '財報'}）× 近一年 {st.stations.days} 個交易日倍數第 20／50／80%：{st.stations.stations.map((s) => `${fmt(s.multiple)} 倍`).join('／')}{(st.main.key === 'ps' ? band?.asOf : ratioAsOf) ? `（倍數截至 ${String(st.main.key === 'ps' ? band?.asOf : ratioAsOf).split('-').join('/')}）` : ''}。高壓站是警報器，不是目標價。</span>
             : <span>站牌資料不足：{st.stations.reason}</span>}
           <span>同業參考：{st.peer.status === 'ready' ? `${st.peer.group} ${st.peer.n} 家當日 ${st.main.key.toUpperCase()} 平均 ${fmt(st.peer.avgMultiple)} 倍 → NT$${fmt(st.peer.price, 0)}` : `資料不足（${st.peer.reason}）`}</span>
-          <span>前瞻參考：{st.forward.status === 'ready' ? `${st.forward.period} 預估 EPS NT$${fmt(extras.forward?.eps)}（${extras.forward?.epsSource}）× 前瞻本益比 ${fmt(extras.forward?.multiple)} 倍（${st.forward.source}）≈ NT$${fmt(st.forward.price, 0)}；壓力測試（EPS 八折）≈ NT$${fmt(st.forward.stress, 0)}${st.forward.impliedMultiple ? `；以未來獲利算，現價只給約 ${fmt(st.forward.impliedMultiple, 1)} 倍` : ''}（資料日 ${String(extras.forward?.asOf || '').split('-').join('/')}）${extras.forward?.ai ? '；AI 自財報／法說／券商報告抽取，已通過自動多輪確認' : ''}` : `資料不足（${extras.forwardBlocked ? `AI 自動確認未通過：${extras.forwardBlocked}` : st.forward.reason}）`}</span>
+          <span>前瞻參考：{st.forward.status === 'ready' && st.forward.mode === 'historical'
+            ? `${st.forward.period} 預估 EPS NT$${fmt(st.forward.eps)}（${st.forward.source}${st.forward.epsKind === 'news' && extras.forward?.asOf ? `，資料日 ${String(extras.forward.asOf).split('-').join('/')}` : ''}）× 近一年本益比第 20／50／80%：${fmt(st.forward.multiples.p20)}／${fmt(st.forward.multiples.p50)}／${fmt(st.forward.multiples.p80)} 倍（歷史倍數，非券商前瞻倍數）≈ NT$${fmt(st.forward.low, 0)}–${fmt(st.forward.high, 0)}，中點 NT$${fmt(st.forward.price, 0)}；壓力測試（EPS 八折）≈ NT$${fmt(st.forward.stressLow, 0)}–${fmt(st.forward.stressHigh, 0)}${st.forward.impliedMultiple ? `；以預估 EPS 算，現價約 ${fmt(st.forward.impliedMultiple, 1)} 倍` : ''}${st.forward.epsKind === 'news' && extras.forward?.ai ? '；EPS 經 AI 多輪自動確認' : ''}`
+            : st.forward.status === 'ready' ? `${st.forward.period} 預估 EPS NT$${fmt(extras.forward?.eps)}（${extras.forward?.epsSource}）× 前瞻本益比 ${fmt(extras.forward?.multiple)} 倍（${st.forward.source}）≈ NT$${fmt(st.forward.price, 0)}；壓力測試（EPS 八折）≈ NT$${fmt(st.forward.stress, 0)}${st.forward.impliedMultiple ? `；以未來獲利算，現價只給約 ${fmt(st.forward.impliedMultiple, 1)} 倍` : ''}（資料日 ${String(extras.forward?.asOf || '').split('-').join('/')}）${extras.forward?.ai ? '；AI 自財報／法說／券商報告抽取，已通過自動多輪確認' : ''}` : `資料不足（${st.forward.reason}${extras.forwardBlocked ? `；AI 自動確認未通過：${extras.forwardBlocked}` : ''}）`}</span>
           <span>其他尺只當驗證尺，三把尺價格不平均；殖利率、法人目標價只當附註。</span>
         </div> : mode === 'target' ? <>
           <strong>{target != null ? `目標價 NT$${Number(target).toLocaleString('zh-TW')}` : '尚無分析師目標價'}</strong>
