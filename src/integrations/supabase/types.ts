@@ -6444,6 +6444,63 @@ export type Database = {
         }
         Relationships: []
       }
+      tw_ps_daily: {
+        Row: {
+          close: number | null
+          fetched_at: string
+          ps: number
+          source: string
+          sps: number | null
+          symbol: string
+          trade_date: string
+        }
+        Insert: {
+          close?: number | null
+          fetched_at?: string
+          ps: number
+          source: string
+          sps?: number | null
+          symbol: string
+          trade_date: string
+        }
+        Update: {
+          close?: number | null
+          fetched_at?: string
+          ps?: number
+          source?: string
+          sps?: number | null
+          symbol?: string
+          trade_date?: string
+        }
+        Relationships: []
+      }
+      tw_sales_basis: {
+        Row: {
+          computed_at: string
+          latest_period: string
+          period: string
+          source: string
+          sps: number
+          symbol: string
+        }
+        Insert: {
+          computed_at?: string
+          latest_period: string
+          period: string
+          source?: string
+          sps: number
+          symbol: string
+        }
+        Update: {
+          computed_at?: string
+          latest_period?: string
+          period?: string
+          source?: string
+          sps?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
       tw_valuation_daily: {
         Row: {
           dividend_yield: number | null
@@ -8151,6 +8208,8 @@ export type Database = {
         Returns: {
           pb: number
           pe: number
+          ps: number
+          ps_date: string
           symbol: string
           trade_date: string
         }[]
