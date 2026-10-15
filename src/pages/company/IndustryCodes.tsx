@@ -117,7 +117,13 @@ const CompanyIndustryCodes = () => {
     <CompanyLayout>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Button-back />
+          <Link
+            to="/company"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground"
+            aria-label="回管理首頁"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
           <div>
             <h1 className="text-lg font-bold text-foreground">產業分類與同業名單</h1>
             <p className="text-xs text-muted-foreground">
