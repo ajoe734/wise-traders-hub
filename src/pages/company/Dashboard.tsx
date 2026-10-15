@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Users, DollarSign, Radio, TrendingDown, UserPlus,
   Repeat, Megaphone, CreditCard, Stethoscope,
-  ArrowUpRight, ArrowDownRight, Minus, AlertCircle, Clock, Activity,
+  ArrowUpRight, ArrowDownRight, Minus, AlertCircle, Clock, Activity, Layers,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
