@@ -52,7 +52,7 @@ const CompanyIndustryCodes = () => {
 
   const { sections, customGroups } = useMemo(
     () => assembleIndustryOverview(codes, groups, industryCounts, names),
-    [names],
+    [names, industryCounts],
   );
 
   const filter = useMemo(

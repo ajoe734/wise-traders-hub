@@ -7,15 +7,11 @@ import {
 } from '@/pages/company/_industryCodes/assembleIndustryOverview';
 import industryCodesJson from '@/checkup/data/industryCodes.json';
 import peerGroupsJson from '@/checkup/data/valuationPeerGroups.json';
-import twseSecondaryIndustry from '@/checkup/data/twseSecondaryIndustry.json';
 
 const codes = (industryCodesJson as unknown as { codes: IndustryCodeRow[] }).codes;
 const groups = (peerGroupsJson as unknown as { groups: PeerGroupRow[] }).groups;
-const counts = (() => {
-  const c: Record<string, number> = {};
-  for (const n of Object.values(twseSecondaryIndustry as Record<string, string>)) c[n] = (c[n] ?? 0) + 1;
-  return c;
-})();
+// 模擬 stock_industry_map 的 industries[0] 統計結果
+const counts: Record<string, number> = { IC設計: 42, 'ASIC設計服務': 7 };
 
 const names = { '3231': '緯創', '2382': '廣達', '2454': '聯發科', '3443': '創意' };
 
