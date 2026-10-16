@@ -57,10 +57,15 @@ Deno.serve(async (req) => {
 
   if (mode === 'daily') {
     try {
+      // 全市場收盤是 0.3–1MB 的大檔案：預設 30 秒 abort 訊號會在「读完 body」之前就觸發，
+      // 而 .json() 在重試圈外，所以只會看到一次 TimeoutError 就整批失敗。
+      // 這裡把雨個來源的限時放到 90 秒、重試 2 次，讓每日 PS 不會再整日漏寫。
+      const bigFile = { maxAttempts: 2, timeoutMs: 90_000 };
       const [tw, tp] = await Promise.all([
-        fetchWithRetry('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', UA, { source: 'twse-stock-day-all' }).then((r) => r.json()),
-        fetchWithRetry('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes', UA, { source: 'tpex-daily-close' }).then((r) => r.json()),
+        fetchWithRetry('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', UA, { source: 'twse-stock-day-all', policy: bigFile }).then((r) => r.json()),
+        fetchWithRetry('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes', UA, { source: 'tpex-daily-close', policy: bigFile }).then((r) => r.json()),
       ]);
+
       const rows = psRows([...bases.values()], parseCloses(tw, tp)).map((r) => ({ ...r, source: 'twse-tpex-close' }));
       for (let i = 0; i < rows.length; i += 500) {
         const { error } = await db.from('tw_ps_daily').upsert(rows.slice(i, i + 500), { onConflict: 'symbol,trade_date' });
