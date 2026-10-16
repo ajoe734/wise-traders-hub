@@ -11,7 +11,7 @@ const basis = {
 
 describe('近三季已公布＋下一季月營收推估', () => {
   it('7–9 月營收 1,200 ÷ 最新一季 1,000 → 推估 EPS 12，PE 分母 8+8+10+12 = 38', () => {
-    const r = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)]);
+    const r: any = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)]);
     expect(r?.quarter).toBe('2026Q3');
     expect(r?.estEps).toBeCloseTo(12);
     expect(r?.pe).toBeCloseTo(38);
