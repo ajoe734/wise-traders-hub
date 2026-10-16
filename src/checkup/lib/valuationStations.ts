@@ -158,3 +158,34 @@ export function stationPosition(price: number | null, st: StationsResult): strin
   if (price < p) return '介於下車安全帶與高壓站';
   return '高於高壓站（警報）';
 }
+
+/** 站牌分母：PE／PS 有「近三季＋下一季月營收推估」時優先，否則近四季實際；PB 為時點存量不推估。 */
+export type NextQuarterLite = { quarter: string; months: string[]; ratio: number; estEps: number; latestEps: number; nextRevenue: number; latestRevenue: number; pe: number | null; ps: number | null } | null | undefined;
+export function stationBasis(key: StationRuler, reported: number | null, nq: NextQuarterLite): { value: number | null; estimated: boolean } {
+  if (key !== 'pb' && nq) {
+    const v = key === 'pe' ? nq.pe : nq.ps;
+    if (v != null && Number.isFinite(v) && v > 0) return { value: v, estimated: true };
+  }
+  return { value: reported, estimated: false };
+}
+
+/** 已反映程度：現價相對站牌。 */
+export type PricedIn =
+  | { level: 'under' | 'partial' | 'heavy'; label: '尚未反映' | '部分反映' | '已大幅反映'; ratioToBelt: number; impliedPercentile: number | null; sentence: string }
+  | { level: 'unknown'; label: '無法判斷'; reason: string };
+export const PRICED_IN_ORDER = { under: 0, partial: 1, heavy: 2, unknown: 3 } as const;
+
+/** history：主尺近一年逐日倍數；impliedMultiple＝現價 ÷ 站牌分母。 */
+export function pricedInLevel(price: number | null, st: StationsResult, history?: number[] | null): PricedIn {
+  if (st.status !== 'ready') return { level: 'unknown', label: '無法判斷', reason: st.reason };
+  if (!(price != null && price > 0)) return { level: 'unknown', label: '無法判斷', reason: '缺現價' };
+  const [b, m, p] = st.stations.map((s) => s.price);
+  const ratioToBelt = price / m;
+  const implied = price / st.basis;
+  const year = (history || []).filter((v) => Number.isFinite(v) && v > 0).slice(-STATION_DEFAULTS.lookbackDays);
+  const impliedPercentile = year.length ? year.filter((v) => v <= implied).length / year.length : null;
+  const pct = `${Math.round(ratioToBelt * 100)}%`;
+  if (price < b) return { level: 'under', label: '尚未反映', ratioToBelt, impliedPercentile, sentence: `現價約為下車安全帶的 ${pct}，低於上車站，獲利成長尚未反映到股價` };
+  if (price <= p) return { level: 'partial', label: '部分反映', ratioToBelt, impliedPercentile, sentence: `現價約為下車安全帶的 ${pct}，落在上車站與高壓站之間` };
+  return { level: 'heavy', label: '已大幅反映', ratioToBelt, impliedPercentile, sentence: `現價約為下車安全帶的 ${pct}，高於高壓站，市場已預先反映超過一季的成長` };
+}

@@ -15,7 +15,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
-import { revenue3mYoY } from '../_shared/monthRevenue.ts';
+import { revenue3mYoY, nextQuarterBasis } from '../_shared/monthRevenue.ts';
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../_shared/demoFundamentalsSymbols.ts';
 import {
   auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, dailyPsSeries, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
@@ -29,7 +29,7 @@ const MAX_PEERS = 6;
 /** 目標財報抓 7 年：前 4 季需再往前 4 季才能算近四季營收年增，5 年會讓最早一年的景氣判斷全為「不明」。 */
 const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-14.1';
+export const VERSION = 'valuation-fundamentals@2026-10-16.1';
 const REQUEST_TIMEOUT_MS = 8_000;
 const TARGET_TIMEOUT_MS = 20_000;
 const OFFICIAL_TIMEOUT_MS = 60_000;
@@ -232,11 +232,13 @@ Deno.serve(async (req) => {
     const history = monthlyHistory(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const rows = buildScenarioRows(targetBasis, peers, peerRule, history);
     const psDaily = dailyPsSeries(symbol, target.fs, target.bs, target.prices, asOf, target.official);
-    const monthRevenue = revenue3mYoY(await monthRevP);
+    const monthRows = await monthRevP;
+    const monthRevenue = revenue3mYoY(monthRows);
+    const nextQuarter = nextQuarterBasis(targetBasis, monthRows);
     return jsonResponse({
       ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
-      psDaily, monthRevenue, peersIncluded: withPeers,
+      psDaily, monthRevenue, nextQuarter, peersIncluded: withPeers,
       meta: { officialList: idx ? officialSource : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {
