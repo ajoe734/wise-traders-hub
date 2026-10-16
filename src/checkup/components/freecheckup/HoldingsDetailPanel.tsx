@@ -788,13 +788,14 @@ export function buildDrawerStations(view, band, symbol, price, extras = null) {
   const built = buildStations(main.key, history, basis);
   const mainRow = band?.rows?.find((r) => r.key === main.key);
   const rowWhy = mainRow?.notApplicable || mainRow?.reason || null;
-  const stations = built.status === 'insufficient' && basis == null && rowWhy ? { ...built, reason: String(rowWhy) } : built;
+  const stations = built.status === 'insufficient' && sb.staleReason ? { ...built, reason: sb.staleReason }
+    : built.status === 'insufficient' && basis == null && rowWhy ? { ...built, reason: String(rowWhy) } : built;
   const peer = buildPeerReference(symbol || '', main.key, basis, extras?.peerRows || [], extras?.group ?? null);
   // 前瞻參考只配 PE：未來 EPS × 前瞻本益比，與主尺無關（鐵律：前瞻倍數只乘未來基本面）。
   // 前瞻參考：券商前瞻倍數優先；否則新聞預估 EPS（或月營收自建 EPS）× 近一年歷史 PE P20/P50/P80，標「歷史倍數」。
   const self = selfForwardEps(peBasis, band?.monthRevenue ?? null);
   const forward = buildForwardReference(extras?.forward ?? null, price, view?.rawHistory?.pe || [], self);
-  return { main, basis, reported, estimated: sb.estimated, nextQuarter: sb.estimated ? nq : null, basisRow: band?.rows?.find((r) => r.key === main.key) ?? null, stations, peer, forward, position: stationPosition(price, stations), pricedIn: pricedInLevel(price, stations, history) };
+  return { main, basis, reported, estimated: sb.estimated, nextQuarter: sb.estimated && nq && !nq.stale ? nq : null, basisRow: band?.rows?.find((r) => r.key === main.key) ?? null, stations, peer, forward, position: stationPosition(price, stations), pricedIn: pricedInLevel(price, stations, history) };
 }
 
 export function selectedRulerBand(band, mode) {

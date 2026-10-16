@@ -171,9 +171,14 @@ export function stationPosition(price: number | null, st: StationsResult): strin
 }
 
 /** 站牌分母：PE／PS 有「近三季＋下一季月營收推估」時優先，否則近四季實際；PB 為時點存量不推估。 */
-export type NextQuarterLite = { quarter: string; months: string[]; ratio: number; estEps: number; latestEps: number; nextRevenue: number; latestRevenue: number; pe: number | null; ps: number | null } | null | undefined;
-export function stationBasis(key: StationRuler, reported: number | null, nq: NextQuarterLite): { value: number | null; estimated: boolean } {
-  if (key !== 'pb' && nq) {
+export type NextQuarterLite =
+  | { stale?: false; quarter: string; months: string[]; ratio: number; estEps: number; latestEps: number; nextRevenue: number; latestRevenue: number; pe: number | null; ps: number | null }
+  | { stale: true; quarter: string; deadline: string; reason: string }
+  | null | undefined;
+/** 推估季申報期限已過（季報應已公布）→ PE／PS 分母回 null，站牌顯示資料不足並帶 staleReason。 */
+export function stationBasis(key: StationRuler, reported: number | null, nq: NextQuarterLite): { value: number | null; estimated: boolean; staleReason?: string } {
+  if (key !== 'pb' && nq && nq.stale === true) return { value: null, estimated: false, staleReason: nq.reason };
+  if (key !== 'pb' && nq && nq.stale !== true) {
     const v = key === 'pe' ? nq.pe : nq.ps;
     if (v != null && Number.isFinite(v) && v > 0) return { value: v, estimated: true };
   }

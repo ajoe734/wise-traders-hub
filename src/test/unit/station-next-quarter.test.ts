@@ -11,7 +11,7 @@ const basis = {
 
 describe('近三季已公布＋下一季月營收推估', () => {
   it('7–9 月營收 1,200 ÷ 最新一季 1,000 → 推估 EPS 12，PE 分母 8+8+10+12 = 38', () => {
-    const r = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)]);
+    const r: any = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)]);
     expect(r?.quarter).toBe('2026Q3');
     expect(r?.estEps).toBeCloseTo(12);
     expect(r?.pe).toBeCloseTo(38);
@@ -53,4 +53,37 @@ describe('本益比失真改用其他尺', () => {
     expect(pickMainRuler({ industry: '電源供應', ttmEps: 31.4, currentPe: 52, revenueYoY: 0.1, peDispersion: 74.9 / 51.8 }).key).toBe('pe');
   });
   it('不滿一年不判斷高低差', () => expect(peDispersionOf([10, 20])).toBeNull());
+});
+
+describe('下一季財報一公布就停用推估（申報期限檢查）', () => {
+  const rev = [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)];
+  it('2026Q3 期限 11/14 當天仍可推估', () => {
+    const r: any = nextQuarterBasis(basis, rev, '2026-11-14');
+    expect(r.stale).toBeFalsy();
+    expect(r.deadline).toBe('2026-11-14');
+  });
+  it('11/15 起季報應已公布 → stale，PE／PS 分母 null，站牌資料不足', () => {
+    const r: any = nextQuarterBasis(basis, rev, '2026-11-15');
+    expect(r.stale).toBe(true);
+    expect(r.quarter).toBe('2026Q3');
+    expect(stationBasis('pe', 34, r)).toMatchObject({ value: null, estimated: false });
+    expect(stationBasis('ps', 300, r).value).toBeNull();
+    const year = Array.from({ length: 240 }, (_, i) => 10 + i * 0.1);
+    expect(buildStations('pe', year, stationBasis('pe', 34, r).value).status).toBe('insufficient');
+    expect(pricedInLevel(500, buildStations('pe', year, null)).level).toBe('unknown');
+  });
+  it('stale 時 PB 不受影響', () => {
+    const r: any = nextQuarterBasis(basis, rev, '2026-12-01');
+    expect(stationBasis('pb', 50, r)).toEqual({ value: 50, estimated: false });
+  });
+  it('Q4 推估期限為隔年 3/31', () => {
+    const b4 = { ...basis, quarters: [q('2025-12-31', 1000, 8), q('2026-03-31', 1000, 8), q('2026-06-30', 1000, 8), q('2026-09-30', 1000, 10)] };
+    const r10 = [mr(2026, 10, 400), mr(2026, 11, 400), mr(2026, 12, 400)];
+    expect((nextQuarterBasis(b4, r10, '2027-03-31') as any).stale).toBeFalsy();
+    expect((nextQuarterBasis(b4, r10, '2027-04-01') as any).stale).toBe(true);
+  });
+  it('季報進系統後最新季前移，舊推估季不再出現', () => {
+    const b4 = { ...basis, quarters: [...basis.quarters.slice(1), q('2026-09-30', 1100, 11)] };
+    expect(nextQuarterBasis(b4, rev, '2026-11-20')).toBeNull(); // 10–12 月營收未齊 → 近四季實際
+  });
 });
