@@ -7,7 +7,7 @@ import { industryCodeOf } from '@/checkup/lib/industryCodes';
 
 export type StationRuler = 'pe' | 'pb' | 'ps';
 
-export const STATION_DEFAULTS = { peCap: 60, psGrowth: 0.2, lookbackDays: 240, minDays: 240, minPeers: 3, stressHaircut: 0.8 } as const;
+export const STATION_DEFAULTS = { peCap: 60, psGrowth: 0.2, peDispersionCap: 3, lookbackDays: 240, minDays: 240, minPeers: 3, stressHaircut: 0.8 } as const;
 export type StationThresholds = { peCap: number; psGrowth: number };
 
 const FIN_KEYWORDS = ['金融', '銀行', '保險', '證券', '金控'];
@@ -23,14 +23,25 @@ export type MainRulerInput = {
   currentPe: number | null;
   /** 營收年增率（0.25＝25%）；null＝未知。 */
   revenueYoY: number | null;
+  /** 近一年本益比 P80 ÷ P20；獲利大幅波動時倍數失真。null＝未知。 */
+  peDispersion?: number | null;
 };
+
+/** 近一年本益比 P80 ÷ P20（不足一年回傳 null）。 */
+export function peDispersionOf(history: number[] | null | undefined): number | null {
+  const year = (history || []).filter((v) => Number.isFinite(v) && v > 0).slice(-STATION_DEFAULTS.lookbackDays);
+  if (year.length < STATION_DEFAULTS.minDays) return null;
+  const sorted = [...year].sort((a, b) => a - b);
+  return positionQuantile(sorted, 0.8) / positionQuantile(sorted, 0.2);
+}
 
 export function pickMainRuler(input: MainRulerInput, t: StationThresholds = STATION_DEFAULTS): { key: StationRuler; reason: string } {
   if (isFinancialStock(input.industry)) return { key: 'pb', reason: '金融股用 PB' };
   const loss = input.ttmEps != null && input.ttmEps <= 0;
   const tooHigh = input.currentPe != null && input.currentPe > t.peCap;
-  if (loss || tooHigh) {
-    const why = loss ? '近四季虧損' : `本益比超過 ${t.peCap} 倍`;
+  const swing = input.peDispersion != null && input.peDispersion > STATION_DEFAULTS.peDispersionCap;
+  if (loss || tooHigh || swing) {
+    const why = loss ? '近四季虧損' : tooHigh ? `本益比超過 ${t.peCap} 倍` : `近一年本益比高低差超過 ${STATION_DEFAULTS.peDispersionCap} 倍（獲利大幅波動，倍數失真）`;
     if (input.revenueYoY != null && input.revenueYoY > t.psGrowth) return { key: 'ps', reason: `${why}，營收年增超過 ${Math.round(t.psGrowth * 100)}% 用 PS` };
     return { key: 'pb', reason: `${why}，營收年增未超過 ${Math.round(t.psGrowth * 100)}% 用 PB` };
   }

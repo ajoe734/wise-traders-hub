@@ -43,3 +43,14 @@ describe('已反映程度', () => {
   it('台燿 1,625 在 1,054–2,475 之間 → 部分反映', () => expect(pricedInLevel(1625, st(1054, 1476, 2475)).level).toBe('partial'));
   it('站牌資料不足 → 無法判斷', () => expect(pricedInLevel(100, buildStations('pe', [1, 2], 10)).level).toBe('unknown'));
 });
+
+import { pickMainRuler, peDispersionOf } from '@/checkup/lib/valuationStations';
+describe('本益比失真改用其他尺', () => {
+  it('台化：近一年 PE 30–418 倍（P80÷P20 ≈ 13.7 > 3）→ 不用 PE', () => {
+    expect(pickMainRuler({ industry: '塑膠', ttmEps: 2.35, currentPe: 33, revenueYoY: 0.05, peDispersion: 417.7 / 30.4 }).key).toBe('pb');
+  });
+  it('台達電：P80÷P20 ≈ 1.45 → 仍用 PE', () => {
+    expect(pickMainRuler({ industry: '電源供應', ttmEps: 31.4, currentPe: 52, revenueYoY: 0.1, peDispersion: 74.9 / 51.8 }).key).toBe('pe');
+  });
+  it('不滿一年不判斷高低差', () => expect(peDispersionOf([10, 20])).toBeNull());
+});

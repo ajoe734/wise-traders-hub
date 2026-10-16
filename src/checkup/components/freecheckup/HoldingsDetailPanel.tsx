@@ -35,7 +35,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { useStationExtras } from '@/checkup/hooks/useStationExtras';
-import { pickMainRuler, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, stationPosition, stationBasis, pricedInLevel } from '@/checkup/lib/valuationStations';
+import { pickMainRuler, peDispersionOf, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, stationPosition, stationBasis, pricedInLevel } from '@/checkup/lib/valuationStations';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
 import { buildCustomScenario, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
@@ -779,13 +779,16 @@ export function buildDrawerStations(view, band, symbol, price, extras = null) {
   const psSamples = band?.rows?.find((r) => r.key === 'ps')?.samples || [];
   const lastGrowth = [...psSamples].reverse().find((x) => Number.isFinite(x?.growthYoY))?.growthYoY ?? null;
   const currentPe = view?.rulers?.find((r) => r.key === 'pe')?.value ?? null;
-  const main = pickMainRuler({ industry: view?.industry ?? null, ttmEps: peBasis, currentPe, revenueYoY: lastGrowth });
+  const main = pickMainRuler({ industry: view?.industry ?? null, ttmEps: peBasis, currentPe, revenueYoY: lastGrowth, peDispersion: peDispersionOf(view?.rawHistory?.pe || []) });
   const reported = basisOf(main.key);
   const nq = band?.nextQuarter ?? null;
   const sb = stationBasis(main.key, reported, nq);
   const basis = sb.value;
   const history = main.key === 'ps' ? (band?.psDaily || []) : (view?.rawHistory?.[main.key] || []);
-  const stations = buildStations(main.key, history, basis);
+  const built = buildStations(main.key, history, basis);
+  const mainRow = band?.rows?.find((r) => r.key === main.key);
+  const rowWhy = mainRow?.notApplicable || mainRow?.reason || null;
+  const stations = built.status === 'insufficient' && basis == null && rowWhy ? { ...built, reason: String(rowWhy) } : built;
   const peer = buildPeerReference(symbol || '', main.key, basis, extras?.peerRows || [], extras?.group ?? null);
   // 前瞻參考只配 PE：未來 EPS × 前瞻本益比，與主尺無關（鐵律：前瞻倍數只乘未來基本面）。
   // 前瞻參考：券商前瞻倍數優先；否則新聞預估 EPS（或月營收自建 EPS）× 近一年歷史 PE P20/P50/P80，標「歷史倍數」。
