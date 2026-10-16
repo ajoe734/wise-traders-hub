@@ -17,6 +17,21 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { evaluateMarketDayGate, MARKET_DAY_MIN_ROWS } from '../_shared/valuationSyncGate.ts';
+import { parseTwseBwibbu, parseTpexPera, twseBwibbuUrl, tpexPeraUrl } from '../_shared/exchangeValuation.ts';
+
+/** 交易所公告（免 FinMind 額度）：上市＋上櫃當日全市場本益比；FinMind 不足或失敗時的後備。 */
+async function syncExchangeDay(supa: SupabaseClient, date: string): Promise<number> {
+  const [tw, tp] = await Promise.all([
+    fetchWithRetry(twseBwibbuUrl(date), {}, { source: 'twse_bwibbu_d', policy: { maxAttempts: 3 } }).then((r) => r.json()).then((j) => parseTwseBwibbu(j, date)).catch(() => []),
+    fetchWithRetry(tpexPeraUrl(date), {}, { source: 'tpex_peratio', policy: { maxAttempts: 3 } }).then((r) => r.json()).then((j) => parseTpexPera(j, date)).catch(() => []),
+  ]);
+  const all = [...tw, ...tp];
+  for (let i = 0; i < all.length; i += 1000) {
+    const { error } = await supa.from('tw_valuation_daily').upsert(all.slice(i, i + 1000), { onConflict: 'symbol,trade_date' });
+    if (error) throw new Error(`exchange_upsert_failed: ${error.message}`);
+  }
+  return all.length;
+}
 
 /** 每次執行寫 system_jobs_log（成功／失敗／跳過），避免 cron 靜默失敗。 */
 async function logJob(
@@ -211,6 +226,15 @@ Deno.serve(async (req: Request) => {
   }
 
   // 全市場單日：一次取回當日所有個股（含上櫃），供同業中位數使用。
+  if (mode === 'exchange_day') {
+    const t0 = Date.now();
+    const dates = (Array.isArray(body?.dates) ? (body.dates as unknown[]).map(String) : [String(body?.date || new Date().toISOString().slice(0, 10))]).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 15);
+    const out: Record<string, number | string> = {};
+    for (const d of dates) { try { out[d] = await syncExchangeDay(supa, d); } catch (e) { out[d] = String((e as Error).message).slice(0, 200); } }
+    await logJob(supa, 'success', { mode, result: out }, Date.now() - t0);
+    return new Response(JSON.stringify({ ok: true, mode, result: out }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
   if (mode === 'market_day') {
     const t0 = Date.now();
     const end = String(body?.date || new Date().toISOString().slice(0, 10));
@@ -267,7 +291,12 @@ Deno.serve(async (req: Request) => {
         }
         n += chunk.length;
       }
-      const gate = evaluateMarketDayGate(existingCount, n, MARKET_DAY_MIN_ROWS, force);
+      let gate = evaluateMarketDayGate(existingCount, n, MARKET_DAY_MIN_ROWS, force);
+      if (gate.lowRows || gate.empty) {
+        // FinMind 當日資料不全：改用交易所公告補齊（不耗 FinMind 額度）。
+        const ex = await syncExchangeDay(supa, end).catch(() => 0);
+        if (ex > n) { n = ex; gate = evaluateMarketDayGate(existingCount, n, MARKET_DAY_MIN_ROWS, force); }
+      }
       if (gate.lowRows) {
         await alertLowRows(supa, end, n);
         await logJob(supa, 'success', { date: end, upserted: n, low_rows: true }, Date.now() - t0);
@@ -281,6 +310,11 @@ Deno.serve(async (req: Request) => {
       });
     } catch (e) {
       const msg = String((e as Error).message).slice(0, 300);
+      const ex = await syncExchangeDay(supa, end).catch(() => 0);
+      if (ex >= MARKET_DAY_MIN_ROWS) {
+        await logJob(supa, 'success', { date: end, upserted: ex, source: 'exchange_fallback', finmind_error: msg }, Date.now() - t0);
+        return new Response(JSON.stringify({ ok: true, mode, date: end, upserted: ex, source: 'exchange_fallback' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
       await logJob(supa, 'failed', { date: end, error: msg }, Date.now() - t0);
       return new Response(JSON.stringify({ error: msg }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

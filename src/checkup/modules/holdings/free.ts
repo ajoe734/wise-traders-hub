@@ -26,6 +26,8 @@ export { default as ChipsSection, getInstReadiness } from '../../components/free
 export { default as ValuationRulers, ValuationRulersView } from '../../components/freecheckup/ValuationRulers';
 // 投組加權估值指數：consumer 是同模組的 HoldingsTab，R5 要求由 free surface 認領
 export { default as PortfolioValuationStrip } from '../../components/freecheckup/PortfolioValuationStrip';
+export { default as PricedInList } from '../../components/freecheckup/PricedInList';
+export { usePricedInList, sortPricedIn } from '../../components/freecheckup/usePricedInList';
 export { default as ChipsTrendChart } from '../../components/freecheckup/ChipsTrendChart';
 export { INSTITUTIONAL_PALETTE, institutionalTone } from '../../components/freecheckup/institutionalPalette';
 export { bsrHeaderLabel, fmtNextRun } from '../../components/freecheckup/bsrHeaderLabel';

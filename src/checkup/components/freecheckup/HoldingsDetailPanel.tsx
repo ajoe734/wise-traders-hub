@@ -35,7 +35,7 @@ import {
 } from '@/checkup/lib/klineLayout';
 import { PriceSpectrum } from './PriceSpectrum';
 import { useStationExtras } from '@/checkup/hooks/useStationExtras';
-import { pickMainRuler, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, stationPosition } from '@/checkup/lib/valuationStations';
+import { pickMainRuler, peDispersionOf, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, stationPosition, stationBasis, pricedInLevel } from '@/checkup/lib/valuationStations';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
 import { buildCustomScenario, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
@@ -779,16 +779,22 @@ export function buildDrawerStations(view, band, symbol, price, extras = null) {
   const psSamples = band?.rows?.find((r) => r.key === 'ps')?.samples || [];
   const lastGrowth = [...psSamples].reverse().find((x) => Number.isFinite(x?.growthYoY))?.growthYoY ?? null;
   const currentPe = view?.rulers?.find((r) => r.key === 'pe')?.value ?? null;
-  const main = pickMainRuler({ industry: view?.industry ?? null, ttmEps: peBasis, currentPe, revenueYoY: lastGrowth });
-  const basis = basisOf(main.key);
+  const main = pickMainRuler({ industry: view?.industry ?? null, ttmEps: peBasis, currentPe, revenueYoY: lastGrowth, peDispersion: peDispersionOf(view?.rawHistory?.pe || []) });
+  const reported = basisOf(main.key);
+  const nq = band?.nextQuarter ?? null;
+  const sb = stationBasis(main.key, reported, nq);
+  const basis = sb.value;
   const history = main.key === 'ps' ? (band?.psDaily || []) : (view?.rawHistory?.[main.key] || []);
-  const stations = buildStations(main.key, history, basis);
+  const built = buildStations(main.key, history, basis);
+  const mainRow = band?.rows?.find((r) => r.key === main.key);
+  const rowWhy = mainRow?.notApplicable || mainRow?.reason || null;
+  const stations = built.status === 'insufficient' && basis == null && rowWhy ? { ...built, reason: String(rowWhy) } : built;
   const peer = buildPeerReference(symbol || '', main.key, basis, extras?.peerRows || [], extras?.group ?? null);
   // 前瞻參考只配 PE：未來 EPS × 前瞻本益比，與主尺無關（鐵律：前瞻倍數只乘未來基本面）。
   // 前瞻參考：券商前瞻倍數優先；否則新聞預估 EPS（或月營收自建 EPS）× 近一年歷史 PE P20/P50/P80，標「歷史倍數」。
   const self = selfForwardEps(peBasis, band?.monthRevenue ?? null);
   const forward = buildForwardReference(extras?.forward ?? null, price, view?.rawHistory?.pe || [], self);
-  return { main, basis, basisRow: band?.rows?.find((r) => r.key === main.key) ?? null, stations, peer, forward, position: stationPosition(price, stations) };
+  return { main, basis, reported, estimated: sb.estimated, nextQuarter: sb.estimated ? nq : null, basisRow: band?.rows?.find((r) => r.key === main.key) ?? null, stations, peer, forward, position: stationPosition(price, stations), pricedIn: pricedInLevel(price, stations, history) };
 }
 
 export function selectedRulerBand(band, mode) {
@@ -854,9 +860,12 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
       </div>
       <div className="price-scale-status" data-testid="price-scale-status" aria-live="polite">
         {mode === 'stations' ? <div data-testid="stations-status" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {st.pricedIn.level !== 'unknown' && <strong data-testid="stations-priced-in">{st.pricedIn.label}：{st.pricedIn.sentence}{st.pricedIn.impliedPercentile != null ? `（現價隱含 ${fmt(price / st.basis, 1)} 倍，落在近一年第 ${Math.round(st.pricedIn.impliedPercentile * 100)}%）` : ''}</strong>}
           <strong>主尺 {st.main.key.toUpperCase()}（{st.main.reason}）{st.position ? `・現價${st.position}` : ''}</strong>
           {st.stations.status === 'ready'
-            ? <span>{basisUnit} NT${fmt(st.basis)}（{st.basisRow?.basis?.period || '期間不明'}・{st.basisRow?.basis?.source || '財報'}）× 近一年 {st.stations.days} 個交易日倍數第 20／50／80%：{st.stations.stations.map((s) => `${fmt(s.multiple)} 倍`).join('／')}{(st.main.key === 'ps' ? band?.asOf : ratioAsOf) ? `（倍數截至 ${String(st.main.key === 'ps' ? band?.asOf : ratioAsOf).split('-').join('/')}）` : ''}。高壓站是警報器，不是目標價。</span>
+            ? <span>{st.estimated && st.nextQuarter
+              ? `${st.main.key === 'pe' ? 'EPS' : '每股營收'}（近三季已公布＋${st.nextQuarter.quarter} 月營收推估一季）NT$${fmt(st.basis)}：最新一季 EPS NT$${fmt(st.nextQuarter.latestEps)} ×（${st.nextQuarter.months.map((m) => Number(m.slice(5))).join('、')} 月營收 ÷ 最新一季營收 = ${fmt(st.nextQuarter.ratio, 3)}）≈ 推估 EPS NT$${fmt(st.nextQuarter.estEps)}，沿用最新一季淨利率；近四季實際 NT$${fmt(st.reported)}`
+              : `${basisUnit} NT$${fmt(st.basis)}（${st.basisRow?.basis?.period || '期間不明'}・${st.basisRow?.basis?.source || '財報'}）`} × 近一年 {st.stations.days} 個交易日倍數第 20／50／80%：{st.stations.stations.map((s) => `${fmt(s.multiple)} 倍`).join('／')}{(st.main.key === 'ps' ? band?.asOf : ratioAsOf) ? `（倍數截至 ${String(st.main.key === 'ps' ? band?.asOf : ratioAsOf).split('-').join('/')}）` : ''}。高壓站是警報器，不是目標價。</span>
             : <span>站牌資料不足：{st.stations.reason}</span>}
           <span>同業參考：{st.peer.status === 'ready' ? `${st.peer.group} ${st.peer.n} 家當日 ${st.main.key.toUpperCase()} 平均 ${fmt(st.peer.avgMultiple)} 倍 → NT$${fmt(st.peer.price, 0)}` : `資料不足（${st.peer.reason}）`}</span>
           <span>前瞻參考：{st.forward.status === 'ready' && st.forward.mode === 'historical'

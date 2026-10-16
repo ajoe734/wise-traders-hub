@@ -7,7 +7,7 @@ import { industryCodeOf } from '@/checkup/lib/industryCodes';
 
 export type StationRuler = 'pe' | 'pb' | 'ps';
 
-export const STATION_DEFAULTS = { peCap: 60, psGrowth: 0.2, lookbackDays: 240, minDays: 240, minPeers: 3, stressHaircut: 0.8 } as const;
+export const STATION_DEFAULTS = { peCap: 60, psGrowth: 0.2, peDispersionCap: 3, lookbackDays: 240, minDays: 240, minPeers: 3, stressHaircut: 0.8 } as const;
 export type StationThresholds = { peCap: number; psGrowth: number };
 
 const FIN_KEYWORDS = ['金融', '銀行', '保險', '證券', '金控'];
@@ -23,14 +23,25 @@ export type MainRulerInput = {
   currentPe: number | null;
   /** 營收年增率（0.25＝25%）；null＝未知。 */
   revenueYoY: number | null;
+  /** 近一年本益比 P80 ÷ P20；獲利大幅波動時倍數失真。null＝未知。 */
+  peDispersion?: number | null;
 };
+
+/** 近一年本益比 P80 ÷ P20（不足一年回傳 null）。 */
+export function peDispersionOf(history: number[] | null | undefined): number | null {
+  const year = (history || []).filter((v) => Number.isFinite(v) && v > 0).slice(-STATION_DEFAULTS.lookbackDays);
+  if (year.length < STATION_DEFAULTS.minDays) return null;
+  const sorted = [...year].sort((a, b) => a - b);
+  return positionQuantile(sorted, 0.8) / positionQuantile(sorted, 0.2);
+}
 
 export function pickMainRuler(input: MainRulerInput, t: StationThresholds = STATION_DEFAULTS): { key: StationRuler; reason: string } {
   if (isFinancialStock(input.industry)) return { key: 'pb', reason: '金融股用 PB' };
   const loss = input.ttmEps != null && input.ttmEps <= 0;
   const tooHigh = input.currentPe != null && input.currentPe > t.peCap;
-  if (loss || tooHigh) {
-    const why = loss ? '近四季虧損' : `本益比超過 ${t.peCap} 倍`;
+  const swing = input.peDispersion != null && input.peDispersion > STATION_DEFAULTS.peDispersionCap;
+  if (loss || tooHigh || swing) {
+    const why = loss ? '近四季虧損' : tooHigh ? `本益比超過 ${t.peCap} 倍` : `近一年本益比高低差超過 ${STATION_DEFAULTS.peDispersionCap} 倍（獲利大幅波動，倍數失真）`;
     if (input.revenueYoY != null && input.revenueYoY > t.psGrowth) return { key: 'ps', reason: `${why}，營收年增超過 ${Math.round(t.psGrowth * 100)}% 用 PS` };
     return { key: 'pb', reason: `${why}，營收年增未超過 ${Math.round(t.psGrowth * 100)}% 用 PB` };
   }
@@ -157,4 +168,35 @@ export function stationPosition(price: number | null, st: StationsResult): strin
   if (price < m) return '介於上車站與下車安全帶';
   if (price < p) return '介於下車安全帶與高壓站';
   return '高於高壓站（警報）';
+}
+
+/** 站牌分母：PE／PS 有「近三季＋下一季月營收推估」時優先，否則近四季實際；PB 為時點存量不推估。 */
+export type NextQuarterLite = { quarter: string; months: string[]; ratio: number; estEps: number; latestEps: number; nextRevenue: number; latestRevenue: number; pe: number | null; ps: number | null } | null | undefined;
+export function stationBasis(key: StationRuler, reported: number | null, nq: NextQuarterLite): { value: number | null; estimated: boolean } {
+  if (key !== 'pb' && nq) {
+    const v = key === 'pe' ? nq.pe : nq.ps;
+    if (v != null && Number.isFinite(v) && v > 0) return { value: v, estimated: true };
+  }
+  return { value: reported, estimated: false };
+}
+
+/** 已反映程度：現價相對站牌。 */
+export type PricedIn =
+  | { level: 'under' | 'partial' | 'heavy'; label: '尚未反映' | '部分反映' | '已大幅反映'; ratioToBelt: number; impliedPercentile: number | null; sentence: string }
+  | { level: 'unknown'; label: '無法判斷'; reason: string };
+export const PRICED_IN_ORDER = { under: 0, partial: 1, heavy: 2, unknown: 3 } as const;
+
+/** history：主尺近一年逐日倍數；impliedMultiple＝現價 ÷ 站牌分母。 */
+export function pricedInLevel(price: number | null, st: StationsResult, history?: number[] | null): PricedIn {
+  if (st.status !== 'ready') return { level: 'unknown', label: '無法判斷', reason: st.reason };
+  if (!(price != null && price > 0)) return { level: 'unknown', label: '無法判斷', reason: '缺現價' };
+  const [b, m, p] = st.stations.map((s) => s.price);
+  const ratioToBelt = price / m;
+  const implied = price / st.basis;
+  const year = (history || []).filter((v) => Number.isFinite(v) && v > 0).slice(-STATION_DEFAULTS.lookbackDays);
+  const impliedPercentile = year.length ? year.filter((v) => v <= implied).length / year.length : null;
+  const pct = `${Math.round(ratioToBelt * 100)}%`;
+  if (price < b) return { level: 'under', label: '尚未反映', ratioToBelt, impliedPercentile, sentence: `現價約為下車安全帶的 ${pct}，低於上車站，獲利成長尚未反映到股價` };
+  if (price <= p) return { level: 'partial', label: '部分反映', ratioToBelt, impliedPercentile, sentence: `現價約為下車安全帶的 ${pct}，落在上車站與高壓站之間` };
+  return { level: 'heavy', label: '已大幅反映', ratioToBelt, impliedPercentile, sentence: `現價約為下車安全帶的 ${pct}，高於高壓站，市場已預先反映超過一季的成長` };
 }

@@ -55,6 +55,8 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
   if (Array.isArray(psDaily)) (scenario as any).psDaily = psDaily.map((x: any) => Number(x?.ps)).filter((n: number) => Number.isFinite(n) && n > 0);
   const mr = (payload as any).monthRevenue;
   if (mr && Number.isFinite(Number(mr.yoy)) && typeof mr.latestMonth === 'string') (scenario as any).monthRevenue = { yoy: Number(mr.yoy), latestMonth: mr.latestMonth };
+  const nq = (payload as any).nextQuarter;
+  if (nq && typeof nq.quarter === 'string' && Number.isFinite(Number(nq.estEps))) (scenario as any).nextQuarter = nq;
   return scenario;
 }
 
