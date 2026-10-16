@@ -10,7 +10,29 @@ import { buildDrawerStations } from './HoldingsDetailPanel';
 import { PRICED_IN_ORDER, type PricedIn } from '@/checkup/lib/valuationStations';
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../../../../supabase/functions/_shared/demoFundamentalsSymbols';
 
-export type PricedInItem = { code: string; name: string; price: number | null; pricedIn: PricedIn | null };
+export type PricedInItem = { code: string; name: string; price: number | null; weight: number | null; pricedIn: PricedIn | null };
+
+/** 持股比例＝該檔市值 ÷ 全部持倉市值（同代碼多筆合併）；市值缺漏或總市值 ≤ 0 → null。 */
+export function holdingWeights(holdings: any[] | null | undefined): Map<string, number | null> {
+  const val = new Map<string, number>(); let total = 0; let bad = false;
+  for (const h of holdings || []) {
+    const code = String(h?.code ?? h?.symbol ?? '').trim();
+    const v = Number(h?.value);
+    if (!Number.isFinite(v) || v < 0) { bad = true; continue; }
+    total += v;
+    if (/^\d{4,6}$/.test(code)) val.set(code, (val.get(code) || 0) + v);
+  }
+  const out = new Map<string, number | null>();
+  for (const [c, v] of val) out.set(c, total > 0 && !bad ? v / total : null);
+  return out;
+}
+
+/** 各分級合計持股比例（未算完的不計入）。 */
+export function weightByLevel(items: PricedInItem[]): Record<PricedIn['level'], number> {
+  const r = { under: 0, partial: 0, heavy: 0, unknown: 0 };
+  for (const i of items) if (i.pricedIn && i.weight != null) r[i.pricedIn.level] += i.weight;
+  return r;
+}
 
 const CONCURRENCY = 2;
 
@@ -22,15 +44,17 @@ export function sortPricedIn(items: PricedInItem[]): PricedInItem[] {
 
 export function usePricedInList(holdings: any[] | null | undefined) {
   const list = useMemo(() => {
-    const seen = new Map<string, { code: string; name: string; price: number | null }>();
+    const w = holdingWeights(holdings);
+    const seen = new Map<string, { code: string; name: string; price: number | null; weight: number | null }>();
     for (const h of holdings || []) {
       const code = String(h?.code ?? h?.symbol ?? '').trim();
       if (!/^\d{4,6}$/.test(code) || seen.has(code)) continue;
-      seen.set(code, { code, name: String(h?.name || code), price: Number(h?.price) > 0 ? Number(h.price) : null });
+      seen.set(code, { code, name: String(h?.name || code), price: Number(h?.price) > 0 ? Number(h.price) : null, weight: w.get(code) ?? null });
     }
     return [...seen.values()];
   }, [holdings]);
   const key = list.map((x) => `${x.code}:${x.price ?? ''}`).join(',');
+  const wkey = list.map((x) => `${x.code}:${x.weight ?? ''}`).join(',');
   const [items, setItems] = useState<PricedInItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -77,5 +101,10 @@ export function usePricedInList(holdings: any[] | null | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  return { items: sortPricedIn(items), loading };
+  const withW = useMemo(() => {
+    const wm = new Map(list.map((x) => [x.code, x.weight]));
+    return items.map((i) => ({ ...i, weight: wm.get(i.code) ?? null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, wkey]);
+  return { items: sortPricedIn(withW), loading };
 }

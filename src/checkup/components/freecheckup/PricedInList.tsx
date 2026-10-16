@@ -2,20 +2,31 @@
  * 持倉看板「已反映程度」清單：尚未反映 → 部分反映 → 已大幅反映 → 無法判斷。
  * 只用文字與字重分級，不用紅綠（紅綠保留給行情漲跌）。
  */
-import { usePricedInList } from './usePricedInList';
+import { usePricedInList, weightByLevel } from './usePricedInList';
+
+const pctW = (w: number | null) => (w == null ? '—' : `${(w * 100).toFixed(1)}%`);
 
 export default function PricedInList({ holdings, WB }: { holdings: any[] | null | undefined; WB: any }) {
   const { items, loading } = usePricedInList(holdings);
   if (!items.length) return null;
+  const lv = weightByLevel(items);
   return (
     <div data-testid="priced-in-list" style={{ margin: '4px 0 10px', border: `1px solid ${WB.hair}`, padding: '10px 12px', minWidth: 0 }}>
       <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em', marginBottom: 6 }}>
         已反映程度（現價 ÷ 站牌下車安全帶；近三季＋月營收推估一季）{loading ? '・計算中…' : ''}
       </div>
+      <div data-testid="priced-in-weight-summary" style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px', fontSize: 12, color: WB.inkSub, marginBottom: 8 }}>
+        <span>持股比例：</span>
+        <span>尚未反映 <b style={{ color: WB.ink, fontWeight: 700 }}>{pctW(lv.under)}</b></span>
+        <span>部分反映 <b style={{ color: WB.ink, fontWeight: 700 }}>{pctW(lv.partial)}</b></span>
+        <span>已大幅反映 <b style={{ color: WB.accent, fontWeight: 700 }}>{pctW(lv.heavy)}</b></span>
+        <span>無法判斷 <b style={{ color: WB.ink, fontWeight: 700 }}>{pctW(lv.unknown)}</b></span>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {items.map((i) => (
           <div key={i.code} data-testid={`priced-in-${i.code}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', alignItems: 'baseline', minWidth: 0 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: WB.ink, minWidth: 96 }}>{i.name} {i.code}</span>
+            <span data-testid={`priced-in-weight-${i.code}`} style={{ fontSize: 12, fontWeight: 700, color: WB.ink, minWidth: 48, fontVariantNumeric: 'tabular-nums' }}>持股 {pctW(i.weight)}</span>
             {!i.pricedIn ? <span style={{ fontSize: 11, color: WB.inkMute }}>計算中…</span>
               : i.pricedIn.level === 'unknown' ? <span style={{ fontSize: 11, color: WB.inkSub }}>無法判斷（{i.pricedIn.reason}）</span>
               : <>
