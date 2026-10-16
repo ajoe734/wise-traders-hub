@@ -178,7 +178,7 @@ export type NextQuarterLite =
 /** 推估季申報期限已過（季報應已公布）→ PE／PS 分母回 null，站牌顯示資料不足並帶 staleReason。 */
 export function stationBasis(key: StationRuler, reported: number | null, nq: NextQuarterLite): { value: number | null; estimated: boolean; staleReason?: string } {
   if (key !== 'pb' && nq && nq.stale === true) return { value: null, estimated: false, staleReason: nq.reason };
-  if (key !== 'pb' && nq && !nq.stale) {
+  if (key !== 'pb' && nq && nq.stale !== true) {
     const v = key === 'pe' ? nq.pe : nq.ps;
     if (v != null && Number.isFinite(v) && v > 0) return { value: v, estimated: true };
   }
