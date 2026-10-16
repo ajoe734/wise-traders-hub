@@ -56,7 +56,8 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
   const mr = (payload as any).monthRevenue;
   if (mr && Number.isFinite(Number(mr.yoy)) && typeof mr.latestMonth === 'string') (scenario as any).monthRevenue = { yoy: Number(mr.yoy), latestMonth: mr.latestMonth };
   const nq = (payload as any).nextQuarter;
-  if (nq && typeof nq.quarter === 'string' && Number.isFinite(Number(nq.estEps))) (scenario as any).nextQuarter = nq;
+  if (nq && nq.stale === true && typeof nq.reason === 'string') (scenario as any).nextQuarter = { stale: true, quarter: String(nq.quarter), deadline: String(nq.deadline), reason: nq.reason };
+  else if (nq && typeof nq.quarter === 'string' && Number.isFinite(Number(nq.estEps))) (scenario as any).nextQuarter = nq;
   return scenario;
 }
 

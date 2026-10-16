@@ -1,3 +1,4 @@
+import { filingDeadline, nextQuarterEnd } from './peerPsCore.ts';
 /**
  * 月營收近 3 個月年增率（純函式，Deno 與 Vitest 共用）。
  * 供站牌「月營收自建前瞻 EPS」：未來四季 EPS ≈ 近四季 EPS × (1 + 近 3 個月營收年增率)，
@@ -38,10 +39,14 @@ export type NextQuarterBasis = {
   quarter: string; months: string[]; latestPeriod: string;
   latestEps: number; latestRevenue: number; nextRevenue: number; ratio: number; estEps: number;
   pe: number | null; ps: number | null;
+  /** 推估季的法定申報期限；asOf 已過期限 → stale，站牌回歸資料不足（避免與已公布季報重複推估）。 */
+  deadline: string; stale?: false;
 };
+export type StaleNextQuarter = { stale: true; quarter: string; deadline: string; asOf: string; reason: string };
 
-export function nextQuarterBasis(basis: BasisLite | null | undefined, rows: MonthRevenueRow[] | null | undefined): NextQuarterBasis | null {
-  const q = (basis?.quarters || []).slice(-4);
+export function nextQuarterBasis(basis: BasisLite | null | undefined, rows: MonthRevenueRow[] | null | undefined, asOf?: string | null): NextQuarterBasis | StaleNextQuarter | null {
+  const all = [...(basis?.quarters || [])].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+  const q = all.slice(-4);
   if (q.length < 4) return null;
   const latest = q[3];
   const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(latest.period || '');
@@ -50,6 +55,14 @@ export function nextQuarterBasis(basis: BasisLite | null | undefined, rows: Mont
   for (const r of rows || []) {
     const y = Number(r.revenue_year); const mo = Number(r.revenue_month); const v = Number(r.revenue);
     if (Number.isInteger(y) && mo >= 1 && mo <= 12 && Number.isFinite(v) && v > 0) map.set(`${y}-${String(mo).padStart(2, '0')}`, v);
+  }
+  const estEnd = nextQuarterEnd(latest.period);
+  const deadline = filingDeadline(estEnd);
+  const estQuarter = `${estEnd.slice(0, 4)}Q${Math.ceil(Number(estEnd.slice(5, 7)) / 3)}`;
+  const day = /^\d{4}-\d{2}-\d{2}/.test(String(asOf || '')) ? String(asOf).slice(0, 10) : null;
+  if (day && day > deadline) {
+    return { stale: true, quarter: estQuarter, deadline, asOf: day,
+      reason: `${estQuarter} 財報申報期限 ${deadline.replace(/-/g, '/')} 已過，季報應已公布但尚未取得，停用月營收推估以免重複推估同一季（資料不足）` };
   }
   let y = Number(m[1]); let mo = Number(m[2]);
   const months: string[] = [];
@@ -68,5 +81,5 @@ export function nextQuarterBasis(basis: BasisLite | null | undefined, rows: Mont
     ? basis.eps * (eps3 + estEps) / sum4 : null;
   const ps = rev3 != null && basis?.psShares != null && basis.psShares > 0 ? (rev3 + nextRevenue) / basis.psShares : null;
   const quarter = `${y}Q${Math.ceil(mo / 3)}`;
-  return { quarter, months, latestPeriod: latest.period, latestEps, latestRevenue, nextRevenue, ratio, estEps, pe, ps };
+  return { quarter, months, latestPeriod: latest.period, latestEps, latestRevenue, nextRevenue, ratio, estEps, pe, ps, deadline };
 }

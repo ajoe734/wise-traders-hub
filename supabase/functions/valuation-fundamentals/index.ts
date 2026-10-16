@@ -29,7 +29,7 @@ const MAX_PEERS = 6;
 /** 目標財報抓 7 年：前 4 季需再往前 4 季才能算近四季營收年增，5 年會讓最早一年的景氣判斷全為「不明」。 */
 const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-16.1';
+export const VERSION = 'valuation-fundamentals@2026-10-16.2';
 const REQUEST_TIMEOUT_MS = 8_000;
 const TARGET_TIMEOUT_MS = 20_000;
 const OFFICIAL_TIMEOUT_MS = 60_000;
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
     const psDaily = dailyPsSeries(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const monthRows = await monthRevP;
     const monthRevenue = revenue3mYoY(monthRows);
-    const nextQuarter = nextQuarterBasis(targetBasis, monthRows);
+    const nextQuarter = nextQuarterBasis(targetBasis, monthRows, asOf);
     return jsonResponse({
       ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
