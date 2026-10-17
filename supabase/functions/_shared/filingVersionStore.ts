@@ -15,6 +15,21 @@ export async function readFilingVersions(db: FilingDatabase) {
   }
 }
 
+/** 佇列選擇：排除 ready；failed 與 pending 都重試；優先名單先排；最久未嘗試者優先；同時間以代碼穩定排序。 */
+export function selectFilingQueue<T extends { symbol: string; state: string; last_attempt_at?: string | null }>(filings: T[], priority: string[], limit: number): string[] {
+  return filings.filter((r) => r.state !== 'ready')
+    .sort((a, b) => Number(priority.includes(b.symbol)) - Number(priority.includes(a.symbol))
+      || (a.last_attempt_at ?? '').localeCompare(b.last_attempt_at ?? '') || a.symbol.localeCompare(b.symbol))
+    .slice(0, limit).map((r) => r.symbol);
+}
+
+/** 嘗試／失敗標記一律以代碼＋期別＋來源三重守衛，避免蓋掉執行期間剛偵測到的新財報版本。 */
+export async function updateFilingState(db: FilingDatabase, filing: { symbol: string; expected_period: string | null; source: string | null }, patch: Record<string, unknown>) {
+  const { error } = await db.from('valuation_filing_versions').update(patch)
+    .eq('symbol', filing.symbol).eq('expected_period', filing.expected_period ?? '').eq('source', filing.source ?? '');
+  if (error) throw new Error(error.message);
+}
+
 export async function discoverFilings(db: FilingDatabase) {
   const index = await fetchOfficialFilingIndex();
   if (index.failures.length) throw new Error(`官方索引來源未齊：${index.failures.join('; ')}`);

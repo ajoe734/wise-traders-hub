@@ -14,7 +14,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { needsBasisRefresh, parseCloses, psRows, type SalesBasis } from '../_shared/peerPsCore.ts';
 import { computeCompanyBasis, dailyPsSeries, latestOrdinaryShare, officialFromIssuedShares, type FinRow, type OfficialShares } from '../_shared/fundamentalsBasis.ts';
 import universe from '../_shared/peerPsUniverse.json' with { type: 'json' };
-import { discoverFilings, commitFiling, committedFiling, readFilingVersions, readSalesBases } from '../_shared/filingVersionStore.ts';
+import { discoverFilings, commitFiling, committedFiling, readFilingVersions, readSalesBases, selectFilingQueue, updateFilingState } from '../_shared/filingVersionStore.ts';
 import { taipeiDate } from '../_shared/filingRefreshCore.ts';
 import { z } from 'npm:zod@3';
 
@@ -95,8 +95,7 @@ Deno.serve(async (req) => {
   // Only official changed/pending issuers. No blind whole-market financial polling.
   // All listed/OTC issuers get complete versions; only curated peers get daily PS.
   const candidates = (filingsRaw ?? []).filter((r) => r.state !== 'ready');
-  const queue = candidates.sort((a,b) => Number(priority.includes(b.symbol)) - Number(priority.includes(a.symbol))
-    || (a.last_attempt_at ?? '').localeCompare(b.last_attempt_at ?? '') || a.symbol.localeCompare(b.symbol)).slice(0,limit).map((r) => r.symbol);
+  const queue = selectFilingQueue(filingsRaw ?? [], priority, limit);
   if (!queue.length) {
     await log(discovery.failures.length ? 'failed' : 'success', { discovery, queued: 0, pending: 0 });
     return json({ ok: discovery.failures.length === 0, mode, discovery, queued: 0, pending: 0 });
@@ -111,9 +110,9 @@ Deno.serve(async (req) => {
   const worker = async () => {
     while (idx < queue.length && !result.stoppedForQuota) {
       const symbol = queue[idx++];
+      const filing = { symbol, expected_period: filings.get(symbol)?.expected_period ?? null, source: filings.get(symbol)?.source ?? null };
       try {
-        const { error: attemptError } = await db.from('valuation_filing_versions').update({ last_attempt_at: new Date().toISOString() }).eq('symbol',symbol).eq('expected_period',filings.get(symbol)?.expected_period ?? '').eq('source',filings.get(symbol)?.source ?? '');
-        if (attemptError) throw new Error(attemptError.message);
+        await updateFilingState(db, filing, { last_attempt_at: new Date().toISOString() });
         const start = isoDaysAgo(7 * 365);
         const [fs, bs, px] = await Promise.all([
           finmind<FinRow>('TaiwanStockFinancialStatements', symbol, start),
@@ -156,8 +155,8 @@ Deno.serve(async (req) => {
       } catch (e) {
         if (e instanceof QuotaError) result.stoppedForQuota = true;
         result.skipped.push({ symbol, reason: String((e as Error).message ?? e) });
-        const { error: stateError } = await db.from('valuation_filing_versions').update({ state: 'failed', reason: String((e as Error).message ?? e) }).eq('symbol',symbol).eq('expected_period',filings.get(symbol)?.expected_period ?? '').eq('source',filings.get(symbol)?.source ?? '');
-        if (stateError) result.skipped.push({ symbol, reason: `狀態寫入失敗：${stateError.message}` });
+        try { await updateFilingState(db, filing, { state: 'failed', reason: String((e as Error).message ?? e) }); }
+        catch (stateError) { result.skipped.push({ symbol, reason: `狀態寫入失敗：${(stateError as Error).message}` }); }
       }
     }
   };

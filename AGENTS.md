@@ -47,6 +47,8 @@ Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fu
 
 Shared client fundamentals cache and in-flight deduplication freshness start when the request begins; expired or Taipei-cross-day requests cannot be reused, and only the current in-flight request may cache its response or remove its entry; why: delayed pre-deadline data must not masquerade as a new-day filing or overwrite a newer request for either the drawer or holdings list.
 
+Filing-refresh queue selection and attempt/failure state writes go only through `selectFilingQueue` / `updateFilingState` in `supabase/functions/_shared/filingVersionStore.ts` (failed rows retry, least-recently-attempted first, writes guarded by symbol+expected_period+source); why: quota/error states must stay retryable and an in-flight attempt must not clobber a newer filing version detected mid-run.
+
 ### Expert monthly payroll
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
