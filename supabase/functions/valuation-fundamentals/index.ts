@@ -17,6 +17,7 @@ import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { revenue3mYoY, nextQuarterBasis } from '../_shared/monthRevenue.ts';
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../_shared/demoFundamentalsSymbols.ts';
+import { taipeiDate, financialCacheValid, completeFinancialPeriods } from '../_shared/filingRefreshCore.ts';
 import {
   auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, dailyPsSeries, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
   rankPeerCandidates, type FinRow, type OfficialShares, type PeerInput, type PriceRow,
@@ -29,7 +30,7 @@ const MAX_PEERS = 6;
 /** 目標財報抓 7 年：前 4 季需再往前 4 季才能算近四季營收年增，5 年會讓最早一年的景氣判斷全為「不明」。 */
 const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-16.2';
+export const VERSION = 'valuation-fundamentals@2026-10-17.3';
 const REQUEST_TIMEOUT_MS = 8_000;
 const TARGET_TIMEOUT_MS = 20_000;
 const OFFICIAL_TIMEOUT_MS = 60_000;
@@ -46,7 +47,7 @@ type Meter = { finmind: number; official: number; httpAttempts: number; retries:
 
 async function cached<T>(key: string, ttl: number, meter: Meter, load: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttl) { meter.cacheHits++; return hit.value as T; }
+  if (hit && Date.now() - hit.at < ttl && (key.startsWith('official:') || financialCacheValid(hit.at, Date.now()))) { meter.cacheHits++; return hit.value as T; }
   const running = inflight.get(key);
   if (running) { meter.cacheHits++; return running as Promise<T>; }
   const p = load().then((v) => { cache.set(key, { at: Date.now(), value: v }); return v; }).finally(() => inflight.delete(key));
@@ -101,16 +102,23 @@ const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86400000).toIS
 
 async function loadCompany(meter: Meter, symbol: string, finYears: number, priceDays: number, official: OfficialShares | null, timeoutMs = REQUEST_TIMEOUT_MS) {
   const start = isoDaysAgo(finYears * 365);
+  // Read version on every request before isolate cache, so a new filing bypasses old statement cache.
+  const { data: committed, error: versionError } = await serviceClient().from('valuation_filing_versions').select('statements,balance_sheet,version,latest_period,expected_period,state,reason,fetched_at').eq('symbol',symbol).maybeSingle();
+  if (versionError) throw new Error(`filing_version: ${versionError.message}`);
+  const storedFs = Array.isArray(committed?.statements) ? committed.statements as FinRow[] : null;
+  const storedBs = Array.isArray(committed?.balance_sheet) ? committed.balance_sheet as FinRow[] : null;
   const [fs, bs, px, sh] = await Promise.all([
-    finmind<FinRow>(meter, 'TaiwanStockFinancialStatements', symbol, start, timeoutMs),
-    finmind<FinRow>(meter, 'TaiwanStockBalanceSheet', symbol, start, timeoutMs),
+    storedFs ?? finmind<FinRow>(meter, 'TaiwanStockFinancialStatements', symbol, start, timeoutMs),
+    storedBs ?? finmind<FinRow>(meter, 'TaiwanStockBalanceSheet', symbol, start, timeoutMs),
     finmind<{ date: string; close: number }>(meter, 'TaiwanStockPrice', symbol, isoDaysAgo(priceDays), timeoutMs),
     official ? Promise.resolve([]) : finmind<{ date: string; NumberOfSharesIssued: number }>(meter, 'TaiwanStockShareholding', symbol, isoDaysAgo(14), timeoutMs).catch(() => []),
   ]);
   const prices: PriceRow[] = px.map((p) => ({ date: p.date, close: Number(p.close) }));
   const last = (sh as Array<{ date: string; NumberOfSharesIssued: number }>).at(-1);
   const resolved = official ?? officialFromIssuedShares(last ? Number(last.NumberOfSharesIssued) : null, latestOrdinaryShare(bs), last?.date ?? null);
-  return { fs, bs, prices, official: resolved };
+  const periods = new Set(completeFinancialPeriods(fs, bs));
+  return { fs: fs.filter((r) => periods.has(r.date)), bs: bs.filter((r) => periods.has(r.date)), prices, official: resolved,
+    filing: committed ? { version: committed.version, latestPeriod: committed.latest_period, expectedPeriod: committed.expected_period, state: committed.state, reason: committed.reason, fetchedAt: committed.fetched_at } : null };
 }
 
 /** 官方名錄最多等 OFFICIAL_WAIT_MS；逾時回 null，背景續抓供下次命中。 */
@@ -234,11 +242,16 @@ Deno.serve(async (req) => {
     const psDaily = dailyPsSeries(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const monthRows = await monthRevP;
     const monthRevenue = revenue3mYoY(monthRows);
-    const nextQuarter = nextQuarterBasis(targetBasis, monthRows, asOf);
+    const pendingPeriod = target.filing?.expectedPeriod;
+    const actualLatest = target.fs.map((r) => r.date).sort().at(-1) ?? '';
+    const pendingNew = !!pendingPeriod && pendingPeriod > actualLatest;
+    const nextQuarter = pendingNew ? { stale: true, quarter: `${pendingPeriod.slice(0,4)}Q${Math.ceil(Number(pendingPeriod.slice(5,7))/3)}`,
+      deadline: '', asOf: taipeiDate(), reason: `${pendingPeriod} 新季財報已出現在官方索引，完整資料尚未取得，停用同季推估（資料不足）` }
+      : nextQuarterBasis(targetBasis, monthRows, taipeiDate());
     return jsonResponse({
       ok: true, version: VERSION, symbol, name: meta?.name ?? null, asOf, fetchedAt,
       close: closeOn(target.prices, asOf), official: target.official, basis: targetBasis, peerRule, peerAudit: audit, rows,
-      psDaily, monthRevenue, nextQuarter, peersIncluded: withPeers,
+      psDaily, monthRevenue, nextQuarter, filing: target.filing, peersIncluded: withPeers,
       meta: { officialList: idx ? officialSource : 'timeout_fallback', timings, requests: meter, elapsedMs: Date.now() - started, isolateCache: 'per-isolate, 不保證跨冷啟動' },
     }, {}, req);
   } catch (e) {

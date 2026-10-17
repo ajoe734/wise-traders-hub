@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { findPeerGroup, type ForwardInput, type PeerGroup } from '@/checkup/lib/valuationStations';
 import { isJwtExpired } from '@/checkup/hooks/useValuationSnapshot';
+import { useFilingRefresh } from './useFilingRefresh';
 
 export type PeerMultipleRow = { symbol: string; trade_date: string | null; pe: number | null; pb: number | null; ps: number | null; ps_date?: string | null };
 export type StationExtras = { group: PeerGroup | null; peerRows: PeerMultipleRow[]; forward: (ForwardInput & { asOf: string; epsSource: string; ai: boolean }) | null; forwardBlocked: string | null; loading: boolean };
@@ -13,6 +14,7 @@ export type StationExtras = { group: PeerGroup | null; peerRows: PeerMultipleRow
 const attempted = new Map<string, string | null>();
 
 export function useStationExtras(symbol?: string | null, industry?: string | null): StationExtras {
+  const filingRevision = useFilingRefresh();
   const [state, setState] = useState<StationExtras>({ group: null, peerRows: [], forward: null, forwardBlocked: null, loading: false });
   useEffect(() => {
     const code = symbol ? String(symbol).trim() : '';
@@ -57,6 +59,6 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
       });
     });
     return () => { cancelled = true; };
-  }, [symbol, industry]);
+  }, [symbol, industry, filingRevision]);
   return state;
 }

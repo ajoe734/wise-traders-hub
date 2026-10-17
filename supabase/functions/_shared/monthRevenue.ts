@@ -1,4 +1,5 @@
 import { filingDeadline, nextQuarterEnd } from './peerPsCore.ts';
+import { expiredEstimate } from './filingRefreshCore.ts';
 /**
  * 月營收近 3 個月年增率（純函式，Deno 與 Vitest 共用）。
  * 供站牌「月營收自建前瞻 EPS」：未來四季 EPS ≈ 近四季 EPS × (1 + 近 3 個月營收年增率)，
@@ -49,6 +50,8 @@ export function nextQuarterBasis(basis: BasisLite | null | undefined, rows: Mont
   const q = all.slice(-4);
   if (q.length < 4) return null;
   const latest = q[3];
+  const expired = expiredEstimate(latest.period, asOf ?? undefined);
+  if (expired) return expired;
   const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(latest.period || '');
   if (!m || !(Number(latest.revenue) > 0) || latest.reportedEps == null || !Number.isFinite(Number(latest.reportedEps))) return null;
   const map = new Map<string, number>();
@@ -58,12 +61,6 @@ export function nextQuarterBasis(basis: BasisLite | null | undefined, rows: Mont
   }
   const estEnd = nextQuarterEnd(latest.period);
   const deadline = filingDeadline(estEnd);
-  const estQuarter = `${estEnd.slice(0, 4)}Q${Math.ceil(Number(estEnd.slice(5, 7)) / 3)}`;
-  const day = /^\d{4}-\d{2}-\d{2}/.test(String(asOf || '')) ? String(asOf).slice(0, 10) : null;
-  if (day && day > deadline) {
-    return { stale: true, quarter: estQuarter, deadline, asOf: day,
-      reason: `${estQuarter} 財報申報期限 ${deadline.replace(/-/g, '/')} 已過，季報應已公布但尚未取得，停用月營收推估以免重複推估同一季（資料不足）` };
-  }
   let y = Number(m[1]); let mo = Number(m[2]);
   const months: string[] = [];
   for (let i = 0; i < 3; i++) { mo += 1; if (mo === 13) { mo = 1; y += 1; } months.push(`${y}-${String(mo).padStart(2, '0')}`); }

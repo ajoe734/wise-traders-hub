@@ -34,7 +34,7 @@ describe('同業每日 PS', () => {
     expect(needsBasisRefresh(null, '2026-10-15')).toBe(true);
     expect(needsBasisRefresh(b, '2026-11-14')).toBe(false);
     expect(needsBasisRefresh(b, '2026-11-15')).toBe(true);
-    expect(needsBasisRefresh({ ...b, computed_at: '2026-11-15T00:00:00Z' }, '2026-11-20')).toBe(false);
+    expect(needsBasisRefresh({ ...b, computed_at: '2026-11-15T00:00:00Z' }, '2026-11-20')).toBe(true);
   });
   it('排程清單與同業名單成員完全一致', () => {
     const want = [...new Set((peerGroups as { groups: Array<{ symbols: string[] }> }).groups.flatMap((g) => g.symbols))].sort();

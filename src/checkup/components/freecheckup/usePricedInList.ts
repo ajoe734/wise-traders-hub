@@ -9,6 +9,7 @@ import { loadFundamentals, scenarioFromFundamentals, isJwtExpired } from '@/chec
 import { buildDrawerStations } from './HoldingsDetailPanel';
 import { PRICED_IN_ORDER, type PricedIn } from '@/checkup/lib/valuationStations';
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../../../../supabase/functions/_shared/demoFundamentalsSymbols';
+import { useFilingRefresh } from '@/checkup/hooks/useFilingRefresh';
 
 export type PricedInItem = { code: string; name: string; price: number | null; weight: number | null; pricedIn: PricedIn | null };
 
@@ -57,6 +58,7 @@ export function usePricedInList(holdings: any[] | null | undefined) {
   const wkey = list.map((x) => `${x.code}:${x.weight ?? ''}`).join(',');
   const [items, setItems] = useState<PricedInItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const filingRevision = useFilingRefresh();
 
   useEffect(() => {
     if (!list.length) { setItems([]); return; }
@@ -89,7 +91,8 @@ export function usePricedInList(holdings: any[] | null | undefined) {
       const out = new Map<string, PricedInItem>();
       await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
         while (queue.length && !cancelled) {
-          const x = queue.shift()!;
+          const x = queue.shift();
+          if (!x) break;
           const r = await one(x);
           out.set(x.code, r);
           if (!cancelled) setItems(list.map((y) => out.get(y.code) ?? { ...y, pricedIn: null }));
@@ -99,7 +102,7 @@ export function usePricedInList(holdings: any[] | null | undefined) {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, filingRevision]);
 
   const withW = useMemo(() => {
     const wm = new Map(list.map((x) => [x.code, x.weight]));

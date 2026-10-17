@@ -14,6 +14,9 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { needsBasisRefresh, parseCloses, psRows, type SalesBasis } from '../_shared/peerPsCore.ts';
 import { computeCompanyBasis, dailyPsSeries, latestOrdinaryShare, officialFromIssuedShares, type FinRow, type OfficialShares } from '../_shared/fundamentalsBasis.ts';
 import universe from '../_shared/peerPsUniverse.json' with { type: 'json' };
+import { discoverFilings, commitFiling, committedFiling, readFilingVersions } from '../_shared/filingVersionStore.ts';
+import { taipeiDate } from '../_shared/filingRefreshCore.ts';
+import { z } from 'npm:zod@3';
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -31,7 +34,7 @@ async function finmind<T>(dataset: string, id: string, start: string): Promise<T
   if (j?.status !== 200 || !Array.isArray(j?.data)) throw new Error(`finmind ${dataset} ${id} status=${j?.status ?? res.status}`);
   return j.data as T[];
 }
-const today = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+const today = () => taipeiDate();
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -40,7 +43,9 @@ Deno.serve(async (req) => {
     throw e;
   }
   const started = Date.now();
-  const body = await req.json().catch(() => ({}));
+  const parsed = z.object({ mode: z.enum(['daily','basis']).optional(), limit: z.number().int().min(1).max(200).optional(), concurrency: z.number().int().min(1).max(6).optional(), symbols: z.array(z.string().regex(/^\d{4,6}$/)).max(200).optional() }).strict().safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
+  const body = parsed.data;
   const mode = body?.mode === 'daily' ? 'daily' : 'basis';
   const limit = Math.min(Math.max(Number(body?.limit) || 60, 1), 200);
   const concurrency = Math.min(Math.max(Number(body?.concurrency) || 3, 1), 6);
@@ -80,7 +85,22 @@ Deno.serve(async (req) => {
   }
 
   const d = today();
-  const queue = [...new Set([...priority, ...all])].filter((s) => needsBasisRefresh(bases.get(s), d)).slice(0, limit);
+  let discovery: Awaited<ReturnType<typeof discoverFilings>>;
+  try { discovery = await discoverFilings(db); }
+  catch (e) { await log('failed', { phase: 'filing_index', error: String(e) }); return json({ ok: false, error: String(e) }, 200); }
+  let filingsRaw: Awaited<ReturnType<typeof readFilingVersions>>;
+  try { filingsRaw = await readFilingVersions(db); }
+  catch (e) { await log('failed', { phase: 'filing_queue', error: String(e) }); return json({ ok: false, error: String(e) }, 500); }
+  const filings = new Map<string, typeof filingsRaw[number]>((filingsRaw ?? []).map((r) => [r.symbol,r]));
+  // Only official changed/pending issuers. No blind whole-market financial polling.
+  // All listed/OTC issuers get complete versions; only curated peers get daily PS.
+  const candidates = (filingsRaw ?? []).filter((r) => r.state !== 'ready');
+  const queue = candidates.sort((a,b) => Number(priority.includes(b.symbol)) - Number(priority.includes(a.symbol))
+    || (a.last_attempt_at ?? '').localeCompare(b.last_attempt_at ?? '') || a.symbol.localeCompare(b.symbol)).slice(0,limit).map((r) => r.symbol);
+  if (!queue.length) {
+    await log(discovery.failures.length ? 'failed' : 'success', { discovery, queued: 0, pending: 0 });
+    return json({ ok: discovery.failures.length === 0, mode, discovery, queued: 0, pending: 0 });
+  }
   const { data: regRows } = await db.from('official_share_registry').select('symbol,par,par_text,issued_shares,preferred_shares,paid_in_capital,source,report_date').in('symbol', queue);
   const registry = new Map<string, OfficialShares>((regRows ?? []).map((r) => [r.symbol, {
     par: Number(r.par), parText: r.par_text ?? String(r.par), issuedShares: Number(r.issued_shares), preferredShares: Number(r.preferred_shares ?? 0),
@@ -92,12 +112,18 @@ Deno.serve(async (req) => {
     while (idx < queue.length && !result.stoppedForQuota) {
       const symbol = queue[idx++];
       try {
-        const start = isoDaysAgo(3 * 365);
+        const { error: attemptError } = await db.from('valuation_filing_versions').update({ last_attempt_at: new Date().toISOString() }).eq('symbol',symbol);
+        if (attemptError) throw new Error(attemptError.message);
+        const start = isoDaysAgo(7 * 365);
         const [fs, bs, px] = await Promise.all([
           finmind<FinRow>('TaiwanStockFinancialStatements', symbol, start),
           finmind<FinRow>('TaiwanStockBalanceSheet', symbol, start),
           finmind<{ date: string; close: number }>('TaiwanStockPrice', symbol, isoDaysAgo(400)),
         ]);
+        const expected = filings.get(symbol)?.expected_period ?? null;
+        const saveFiling = () => commitFiling(db,symbol,fs,bs,expected,filings.get(symbol)?.version,filings.get(symbol)?.latest_period);
+        const complete = committedFiling(fs, bs, expected);
+        if (!complete) throw new Error(`新季 ${expected} 損益或資產負債尚未完整`);
         let official = registry.get(symbol) ?? null;
         if (!official) {
           const sh = await finmind<{ date: string; NumberOfSharesIssued: number }>('TaiwanStockShareholding', symbol, isoDaysAgo(14)).catch(() => []);
@@ -106,25 +132,43 @@ Deno.serve(async (req) => {
         }
         const prices = px.map((p) => ({ date: p.date, close: Number(p.close) }));
         const asOf = prices.map((p) => p.date).sort().at(-1);
-        if (!asOf) { result.skipped.push({ symbol, reason: '近期無收盤價' }); continue; }
-        const b = computeCompanyBasis(symbol, fs, bs, asOf, { mode: 'live', official });
-        if (!b.ok || !(Number(b.sps) > 0) || !b.latestPeriod) { result.skipped.push({ symbol, reason: b.reason ?? '缺近四季每股營收' }); continue; }
-        await db.from('tw_sales_basis').upsert({ symbol, sps: Number(b.sps), period: String(b.period), latest_period: b.latestPeriod, computed_at: new Date().toISOString() }, { onConflict: 'symbol' });
-        const hist = dailyPsSeries(symbol, fs, bs, prices, asOf, official).filter((p) => p.ps > 0)
+        if (!asOf) throw new Error('近期無收盤價');
+        const b = computeCompanyBasis(symbol, complete.fs, complete.bs, asOf, { mode: 'live', official });
+        if (!b.ok || !(Number(b.sps) > 0) || !b.latestPeriod) {
+          // Complete filing can be committed even when share verification blocks valuation.
+          await saveFiling();
+          result.skipped.push({ symbol, reason: b.reason ?? '缺近四季每股營收' });
+          result.ok++; continue;
+        }
+        if (!all.includes(symbol)) { await saveFiling(); result.ok++; continue; }
+        const { error: basisError } = await db.from('tw_sales_basis').upsert({ symbol, sps: Number(b.sps), period: String(b.period), latest_period: b.latestPeriod, computed_at: new Date().toISOString() }, { onConflict: 'symbol' });
+        if (basisError) throw new Error(basisError.message);
+        const hist = dailyPsSeries(symbol, complete.fs, complete.bs, prices, asOf, official).filter((p) => p.ps > 0)
           .map((p) => ({ symbol, trade_date: p.date, ps: Math.round(p.ps * 10000) / 10000, source: 'finmind-basis' }));
+        // Historical rows preserve historical filing deadlines. The latest close uses the new actual TTM basis.
+        const latestClose = prices.find((p) => p.date === asOf)?.close;
+        if (latestClose && latestClose > 0) {
+          const current = { symbol, trade_date: asOf, ps: Math.round(latestClose / Number(b.sps) * 10000) / 10000, source: 'finmind-basis' };
+          const pos = hist.findIndex((p) => p.trade_date === asOf);
+          if (pos >= 0) hist[pos] = current; else hist.push(current);
+        }
         if (hist.length) {
           const { error } = await db.from('tw_ps_daily').upsert(hist, { onConflict: 'symbol,trade_date' });
-          if (!error) result.psRows += hist.length;
+          if (error) throw new Error(error.message);
+          result.psRows += hist.length;
         }
+        await saveFiling();
         result.ok++;
       } catch (e) {
         if (e instanceof QuotaError) result.stoppedForQuota = true;
         result.skipped.push({ symbol, reason: String((e as Error).message ?? e) });
+        const { error: stateError } = await db.from('valuation_filing_versions').update({ state: 'failed', reason: String((e as Error).message ?? e) }).eq('symbol',symbol);
+        if (stateError) result.skipped.push({ symbol, reason: `狀態寫入失敗：${stateError.message}` });
       }
     }
   };
   await Promise.all(Array.from({ length: concurrency }, worker));
-  const pending = all.filter((s) => needsBasisRefresh(bases.get(s), d)).length - result.ok;
-  await log(result.stoppedForQuota ? 'failed' : 'success', { queued: queue.length, ...result, skipped: result.skipped.slice(0, 50), pending });
-  return json({ ok: true, mode, queued: queue.length, ...result, pending });
+  const pending = candidates.length - result.ok;
+  await log(result.stoppedForQuota || result.skipped.length || discovery.failures.length ? 'failed' : 'success', { discovery, queued: queue.length, ...result, skipped: result.skipped.slice(0, 50), pending });
+  return json({ ...result, ok: !result.stoppedForQuota && discovery.failures.length === 0, processed: result.ok, mode, discovery, queued: queue.length, pending });
 });
