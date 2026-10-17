@@ -44,3 +44,37 @@ test('點擊產生 PDF → Chromium 觸發下載', async ({ page }) => {
   expect(buf.byteLength).toBeGreaterThan(50_000);
   console.log('DOWNLOAD', download.suggestedFilename(), buf.byteLength);
 });
+
+for (const status of [401, 403, 500]) {
+  test(`授權 ${status} 不下載且顯示後端原因並可重試`, async ({ page }) => {
+    await seedSession(page, { id: 'owner-1', email: 'owner@e2e.local', role: 'analyst' });
+    let denied = true;
+    const downloads: string[] = [];
+    page.on('download', (download) => downloads.push(download.suggestedFilename()));
+    await installRoutes(page, {
+      rest: {
+        profiles: () => ({ display_name: 'Owner', is_tester: false }),
+        user_roles: () => [{ role: 'analyst' }],
+        experts: ({ url }) => ((url.searchParams.get('select') ?? '').includes('expert_plans')
+          ? [{ ...EXPERT, user_id: 'owner-1', expert_plans: [] }] : { ...EXPERT, user_id: 'owner-1' }),
+        trade_records: () => TRADES,
+        public_expert_state_active: () => ({ state: 'ready' }),
+      },
+      functions: { 'authorize-pdf-export': () => denied
+        ? { __status: status, body: { message: `測試授權拒絕 ${status}` } }
+        : { allowed: true } },
+    });
+    await page.goto('/admin/sharkgu/performance');
+    await page.getByTestId('factsheet-export-trigger').click();
+    await page.getByTestId('factsheet-export-confirm').click();
+    await expect(page.getByText(`匯出失敗：測試授權拒絕 ${status}`, { exact: true })).toBeVisible();
+    expect(downloads).toEqual([]);
+    await expect(page.getByTestId('factsheet-export-confirm')).toBeEnabled();
+    denied = false;
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 45_000 }),
+      page.getByTestId('factsheet-export-confirm').click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+  });
+}
