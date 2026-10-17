@@ -49,7 +49,7 @@ describe('財報更新公開快取邊界', () => {
     const consumer = renderHook(() => ({ drawer: useValuationSnapshot(symbol), list: usePricedInList(holdings), extras: useStationExtras(symbol) }));
     await settle();
     expect(consumer.result.current.drawer.band?.rows[0].reason).toBe('更新前尚未取得完整財報');
-    expect(consumer.result.current.list.items[0].pricedIn?.reason).toBe('更新前尚未取得完整財報');
+    expect(consumer.result.current.list.items[0].pricedIn).toMatchObject({ level: 'unknown', reason: '更新前尚未取得完整財報' });
     expect(consumer.result.current.extras.peerRows[0].ps).toBe(3);
     responses[FUNDAMENTALS_FN] = { ok: false, reason: '新財報來源額度不足，保留待更新' };
     rpcResponses.valuation_peer_multiples = [{ symbol: '9876', trade_date: '2026-11-14', pe: 12, pb: 4, ps: 6 }];
