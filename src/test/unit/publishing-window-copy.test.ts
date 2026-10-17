@@ -8,7 +8,7 @@
  *   - 提前發布（force）流程使用的按鈕文案與 toast 訊息
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { isPublishingWindowOpen, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
+import { authoringWindowLabel, isPublishingWindowOpen, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -115,5 +115,41 @@ describe('排程截止後到週一開市前的待發布提示', () => {
     vi.useFakeTimers();
     vi.setSystemTime(twDate(2026, 7, 27, 8, 0));
     expect(shouldPromptPendingJournalPublish('us_stock', 1)).toBe(false);
+  });
+});
+
+/**
+ * Issue 06 回歸補強：後台「撰寫視窗」文案與發布門檻單一來源。
+ *
+ * 憲法：台股週五 20:00、美股週六 08:00 統一發布。後台文案必須：
+ *  1. 由 `publishingWindow` 模組單一來源提供（不得在頁面內硬寫，避免門檻改了文案沒跟著改）
+ *  2. 美股文案明寫「週六 08:00」門檻；台股文案明寫「週一~五」撰寫日
+ *  3. 不出現「下週」
+ */
+describe('後台撰寫視窗文案與門檻一致性（issue 06）', () => {
+  it('美股文案明寫「週六 08:00」門檻', () => {
+    expect(authoringWindowLabel('us_stock')).toContain('週六 08:00');
+    expect(authoringWindowLabel('us_futures')).toContain('週六 08:00');
+    expect(authoringWindowLabel('us_option')).toContain('週六 08:00');
+    expect(authoringWindowLabel('crypto')).toContain('週六 08:00');
+  });
+
+  it('台股文案明寫「週一~五」撰寫日', () => {
+    expect(authoringWindowLabel('tw_stock')).toContain('週一~五');
+    expect(authoringWindowLabel('tw_futures')).toContain('週一~五');
+  });
+
+  it('文案不得出現「下週」', () => {
+    expect(authoringWindowLabel('us_stock')).not.toContain('下週');
+    expect(authoringWindowLabel('tw_stock')).not.toContain('下週');
+  });
+
+  it('Signals.tsx 後台文案由模組提供，不得硬寫撰寫視窗字串', () => {
+    const root = path.resolve(__dirname, '..', '..', '..');
+    const src = fs.readFileSync(path.join(root, 'src/pages/admin/Signals.tsx'), 'utf8');
+    expect(src).toContain('authoringWindowLabel');
+    expect(src).toMatch(/import\s*\{[^}]*authoringWindowLabel[^}]*\}\s*from\s*'@\/lib\/publishingWindow'/);
+    expect(src).not.toContain("'週一~週六 08:00 前撰寫'");
+    expect(src).not.toContain("'週一~五撰寫'");
   });
 });
