@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     const timings = { industryMapMs: t0 - started, officialMs: 0, targetMs: 0, peersMs: 0 };
     const targetP = loadCompany(meter, symbol, TARGET_FIN_YEARS, 5 * 365, null, TARGET_TIMEOUT_MS).finally(() => { timings.targetMs = Date.now() - t0; });
-    const registryP = supa.from('official_share_registry')
+    const registryP = Promise.resolve(supa.from('official_share_registry')
       .select('symbol,par,par_text,issued_shares,preferred_shares,paid_in_capital,source,report_date,fetched_at')
       .then(({ data, error: rErr }) => {
         if (rErr || !data?.length) return null;
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
           });
         }
         return ((s: string) => map.get(s) ?? null) as OfficialIndex;
-      })
+      }))
       .catch(() => null);
     let idx = await registryP;
     let officialSource = 'registry';
