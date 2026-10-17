@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen, canRecallSignal, marketOfAssetClass, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, canRecallSignal, authoringWindowLabel, marketOfAssetClass, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { ExpiringSubscribersBanner } from '@/components/admin/ExpiringSubscribersBanner';
 import { useAdminSignals } from '@/hooks/useAdminSignals';
@@ -56,7 +56,7 @@ const AdminSignals = () => {
   const market = marketOfAssetClass(assetClass);
   const publishWindow = isPublishingWindowOpen(assetClass);
   const publishMomentLabel = nextPublishMomentLabel(assetClass);
-  const authoringWindowLabel = market === 'US' ? '週一~週六 08:00 前撰寫' : '週一~五撰寫';
+  const authoringWindow = authoringWindowLabel(assetClass);
 
   const [earlyPublishOpen, setEarlyPublishOpen] = useState(false);
   const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
