@@ -52,7 +52,7 @@ export async function commitFiling(db: FilingDatabase, symbol: string, fs: FinRo
 export async function readSalesBases(db: FilingDatabase) {
   const rows: any[] = [];
   for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await db.from('tw_sales_basis').select('symbol,sps,latest_period,computed_at').order('symbol').range(offset,offset+999);
+    const { data, error } = await db.from('tw_sales_basis').select('symbol,sps,latest_period,computed_at').eq('eligible',true).order('symbol').range(offset,offset+999);
     if (error) throw new Error(error.message);
     rows.push(...(data ?? []));
     if ((data ?? []).length < 1000) return rows;

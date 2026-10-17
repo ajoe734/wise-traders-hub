@@ -1,5 +1,5 @@
 import { describe,it,expect } from 'vitest';
-import { readFilingVersions,commitFiling } from '../../../supabase/functions/_shared/filingVersionStore';
+import { readFilingVersions,commitFiling,readSalesBases } from '../../../supabase/functions/_shared/filingVersionStore';
 
 const fs = [{date:'2026-09-30',type:'EPS',value:3},{date:'2026-09-30',type:'Revenue',value:300}];
 const bs = [{date:'2026-09-30',type:'OrdinaryShare',value:100},{date:'2026-09-30',type:'Equity',value:500}];
@@ -30,5 +30,21 @@ describe('財報版本儲存與失敗', () => {
     await commitFiling(db,'1234',fs,bs,'2026-09-30',null,null,'official-v1');
     await expect(commitFiling(db,'1234',fs,bs,'2026-09-30',rows[0]._version,'2026-09-30','official-v2')).rejects.toThrow('舊版本');
     expect(rows).toHaveLength(1);
+  });
+});
+describe('版本穩定與完整同業分頁', () => {
+  it('同季資料順序改變不冒充新修訂', async () => {
+    let version = '';
+    const db = { from: () => ({}), rpc: async (_: string,r: any) => { version = r._version; return {data:true,error:null}; } };
+    await commitFiling(db,'1234',fs,bs,'2026-09-30',null,null,'source');
+    await expect(commitFiling(db,'1234',[...fs].reverse(),[...bs].reverse(),'2026-09-30',version,'2026-09-30','revised')).rejects.toThrow('舊版本');
+  });
+  it('並發來源已更新不宣稱提交成功', async () => {
+    const db = { from: () => ({}),rpc: async () => ({data:false,error:null}) };
+    await expect(commitFiling(db,'1234',fs,bs,'2026-09-30',null,null,'source')).rejects.toThrow('保留重試');
+  });
+  it('同業分母讀滿1001檔且只讀可用資料', async () => {
+    const db = { from: () => ({select:()=>({eq:(key:string,value:boolean)=>{expect(key).toBe('eligible');expect(value).toBe(true);return {order:()=>({range:async(a:number,b:number)=>({data:Array.from({length:Math.min(1001-a,b-a+1)},(_,i)=>({symbol:String(a+i)})),error:null})})};}})}) };
+    expect(await readSalesBases(db)).toHaveLength(1001);
   });
 });

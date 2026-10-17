@@ -36,3 +36,15 @@ describe('財報期限日界線與完整版本', () => {
     expect(completeFinancialPeriods(fs,[...bs,r('2026-09-30','EquityAttributableToOwnersOfParent',200)])).toEqual(['2026-06-30','2026-09-30']);
   });
 });
+describe('完整季資料不能包含空值或相互矛盾數字', () => {
+  const r = (type: string, value: number) => ({ date: '2026-09-30', type, value });
+  const fs = [r('EPS', 2),r('Revenue',300)];
+  const bs = [r('OrdinaryShare',100),r('Equity',500)];
+  it('null、空白 EPS 不當零值', () => {
+    for (const value of [null,'']) expect(completeFinancialPeriods([r('EPS',value as unknown as number),r('Revenue',300)],bs)).toEqual([]);
+  });
+  it('重複且矛盾 EPS、Revenue、OrdinaryShare、Equity 各自阻擋', () => {
+    for (const type of ['EPS','Revenue']) expect(completeFinancialPeriods([...fs,r(type,999)],bs)).toEqual([]);
+    for (const type of ['OrdinaryShare','Equity']) expect(completeFinancialPeriods(fs,[...bs,r(type,999)])).toEqual([]);
+  });
+});
