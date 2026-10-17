@@ -81,10 +81,11 @@ export function loadFundamentals(gateway: CheckupGateway, code: string, force = 
   const running = fundInflight.get(key);
   if (running) return running;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const requestedAt = Date.now();
   const p = Promise.race([
     gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, peers ? { symbol: code } : { symbol: code, peers: false }),
     new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('逾時')), FUNDAMENTALS_TIMEOUT_MS); }),
-  ]).then((v) => { if (Array.isArray(v?.rows) && v.rows.length) fundCache.set(key, { at: Date.now(), value: v }); return v; })
+  ]).then((v) => { if (Array.isArray(v?.rows) && v.rows.length && financialCacheValid(requestedAt, Date.now())) fundCache.set(key, { at: requestedAt, value: v }); return v; })
     .finally(() => { clearTimeout(timer); fundInflight.delete(key); });
   fundInflight.set(key, p);
   return p;
