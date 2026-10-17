@@ -840,7 +840,8 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
   const [customInput] = useCustomMultiples(symbol);
   const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
   const custom = useMemo(() => buildCustomScenario(band, customInput, today), [band, customInput, today]);
-  const ruler = useMemo(() => selectedRulerBand(band, mode), [band, mode]);
+  const rulerRes = useMemo(() => selectedRulerBand(band, mode, view), [band, mode, view]);
+  const ruler = rulerRes && rulerRes.low > 0 ? rulerRes : null;
   const selectedRow = band?.rows?.find((item) => item.key === mode) ?? null;
   const selectedCustom = custom.status === 'ready' && custom.key === mode
     ? { low: custom.low, high: custom.high, key: custom.key }
@@ -892,7 +893,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
         </> : ruler ? <>
           <strong>{ruler.label}</strong><span>{ruler.detail}</span>
         </> : <>
-          <strong>{mode.toUpperCase()} 無法估算</strong><span>{selectedRow?.reason || '缺可核實分母與同期間倍數'}，價格軸不畫假區間</span>
+          <strong>{mode.toUpperCase()} 無法估算</strong><span>{rulerRes?.reason || selectedRow?.reason || '缺可核實分母與同期間倍數'}，價格軸不畫假區間</span>
         </>}
       </div>
       {mode === 'target' && note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
