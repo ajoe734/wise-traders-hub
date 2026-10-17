@@ -69,7 +69,7 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
 export const FUNDAMENTALS_CLIENT_TTL_MS = FILING_CHECK_MS;
 export const FUNDAMENTALS_TIMEOUT_MS = 25_000;
 const fundCache = new Map<string, { at: number; value: FundamentalsPayload }>();
-const fundInflight = new Map<string, Promise<FundamentalsPayload>>();
+const fundInflight = new Map<string, { at: number; promise: Promise<FundamentalsPayload> }>();
 export function __resetFundamentalsCache() { fundCache.clear(); fundInflight.clear(); }
 
 /** peers=false：只算目標公司（快，先畫三尺）；peers=true：含同業（慢，背景補上）。 */
@@ -79,15 +79,15 @@ export function loadFundamentals(gateway: CheckupGateway, code: string, force = 
   const hit = fundCache.get(key);
   if (!force && hit && financialCacheValid(hit.at, Date.now())) return Promise.resolve(hit.value);
   const running = fundInflight.get(key);
-  if (running) return running;
+  if (running && financialCacheValid(running.at, Date.now())) return running.promise;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const requestedAt = Date.now();
   const p = Promise.race([
     gateway.invoke<FundamentalsPayload>(FUNDAMENTALS_FN, peers ? { symbol: code } : { symbol: code, peers: false }),
     new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('逾時')), FUNDAMENTALS_TIMEOUT_MS); }),
-  ]).then((v) => { if (Array.isArray(v?.rows) && v.rows.length && financialCacheValid(requestedAt, Date.now())) fundCache.set(key, { at: requestedAt, value: v }); return v; })
-    .finally(() => { clearTimeout(timer); fundInflight.delete(key); });
-  fundInflight.set(key, p);
+  ]).then((v) => { if (fundInflight.get(key)?.promise === p && Array.isArray(v?.rows) && v.rows.length && financialCacheValid(requestedAt, Date.now())) fundCache.set(key, { at: requestedAt, value: v }); return v; })
+    .finally(() => { clearTimeout(timer); if (fundInflight.get(key)?.promise === p) fundInflight.delete(key); });
+  fundInflight.set(key, { at: requestedAt, promise: p });
   return p;
 }
 
