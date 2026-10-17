@@ -3,16 +3,17 @@
  * 主尺選擇 → 近一年逐日倍數 P20/P50/P80 × 近四季實際基本面；同業參考＝基本面 × 人工名單當日倍數平均。
  */
 import peerGroupsJson from '@/checkup/data/valuationPeerGroups.json';
-import { industryCodeOf } from '@/checkup/lib/industryCodes';
+import { industryCodeOf, industryByCode } from '@/checkup/lib/industryCodes';
 
 export type StationRuler = 'pe' | 'pb' | 'ps';
 
 export const STATION_DEFAULTS = { peCap: 60, psGrowth: 0.2, peDispersionCap: 3, lookbackDays: 240, minDays: 240, minPeers: 3, stressHaircut: 0.8 } as const;
 export type StationThresholds = { peCap: number; psGrowth: number };
 
-const FIN_KEYWORDS = ['金融', '銀行', '保險', '證券', '金控'];
+/** 金融股＝產業代碼屬「金融」大類（FINA：金控、銀行、證券期貨、壽險產險、租賃及融資）；不比對名稱字串（「金融科技」「金融資訊」是軟體業）。 */
 export function isFinancialStock(industry?: string | null): boolean {
-  return !!industry && FIN_KEYWORDS.some((k) => industry.includes(k));
+  const code = industryCodeOf(industry);
+  return !!code && industryByCode(code)?.sectorCode === 'FINA';
 }
 
 export type MainRulerInput = {

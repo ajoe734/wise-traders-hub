@@ -1,3 +1,4 @@
+import { isFinancialStock } from '@/checkup/lib/valuationStations';
 /**
  * 估值三把尺 —— 唯一 canonical 計算層（純函式，零 I/O）。
  *
@@ -346,7 +347,8 @@ export const FINANCIAL_INDUSTRIES = ['金融保險', '金融保險業', '金融�
 
 export function isFinancialIndustry(industry?: string | null): boolean {
   if (!industry) return false;
-  return FINANCIAL_INDUSTRIES.some((k) => industry.includes(k)) || industry.includes('金控');
+  // 細分產業走代碼大類；官方大類名稱（金融保險／金融業）精確比對，不用 includes（避免「金融科技」誤判）
+  return isFinancialStock(industry) || FINANCIAL_INDUSTRIES.includes(industry.trim());
 }
 
 export function buildValuationView(input: ValuationSnapshotInput): ValuationView {
