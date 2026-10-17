@@ -220,7 +220,7 @@ const AdminSignals = () => {
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {isMentor
-                ? `${authoringWindowLabel}，${publishMomentLabel}${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
+                ? `${authoringWindow}，${publishMomentLabel}${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
                 : '發布即上線，可自行收回'}
             </p>
           </div>
