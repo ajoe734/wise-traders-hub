@@ -11,3 +11,5 @@ Peer-reference PS comes only from `tw_ps_daily` (via `valuation_peer_multiples`)
 ### Filing refresh publication
 
 Detect issuer-quarter changes through the official filing index on the existing hourly job; publish complete statement versions and curated-peer PS basis/history only through the service-only atomic `commit_valuation_filing` RPC, matching the detected signature; why: partial input, concurrent revisions, or failed PS writes must not mark a stale financial version ready. Taipei-date expiry and client refresh share `filingRefreshCore`; peer PE/PB remain exchange-reported daily evidence, never price-derived substitutes.
+
+Financial dataset caches and in-flight deduplication use `createFundamentalsCache` with request-start freshness and current-request ownership; official registries retain their separate TTL without financial date expiry; why: delayed financial requests must neither become new-day filings nor remove or overwrite a replacement request.
