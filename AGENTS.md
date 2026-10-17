@@ -45,7 +45,7 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); shares are DB-first `official_share_registry`, live exchanges/FinMind only as fallback; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
 
-Shared client fundamentals cache freshness starts when the request begins, and responses crossing the Taipei date boundary are not cached; why: delayed pre-deadline data must not masquerade as a new-day filing for either the drawer or holdings list.
+Shared client fundamentals cache and in-flight deduplication freshness start when the request begins; expired or Taipei-cross-day requests cannot be reused, and only the current in-flight request may cache its response or remove its entry; why: delayed pre-deadline data must not masquerade as a new-day filing or overwrite a newer request for either the drawer or holdings list.
 
 ### Expert monthly payroll
 
