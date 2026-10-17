@@ -10,7 +10,7 @@
  *  D. advisor / 新建 mentor 週記 → 仍走 save_signal_batch。
  *  E. RPC missing / not_pending → 顯示可理解錯誤，輸入值仍留在畫面。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -156,6 +156,10 @@ const submit = () => {
 };
 
 beforeEach(() => {
+  // 固定在台北週四 10:00；本套驗證儲存接線，不應因執行日碰到關窗而失敗。
+  // 只替換 Date，保留 waitFor 與 React 排程使用的真實 timers。
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-09-10T10:00:00+08:00'));
   rpc.mockReset().mockResolvedValue({ error: null });
   invoke.mockReset().mockResolvedValue({ data: null, error: null });
   reloadCapital.mockReset();
@@ -165,6 +169,8 @@ beforeEach(() => {
   sessionStorage.clear();
   fixture = { role: 'mentor', status: 'pending', isEditing: true, availableCash: 0 };
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe('A. pending mentor 內容更新', () => {
   it('改標題與參考價後只呼叫專用 RPC，payload 是新值，且不碰帳本', async () => {

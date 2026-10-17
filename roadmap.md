@@ -31,3 +31,4 @@
 - [x] 接續 diagnosing-bugs：前端目標／同業6項與後端四資料集／官方名錄11項競態先RED後GREEN，另補4項新回應先抵達驗證；修正跨日及一小時到期的在途共用、舊請求寫快取／刪新請求。完整264檔2939項通過、1跳過；相關64項全通過；函式檢查／模組邊界／手機靜態／外部請求規則通過。未更動估值規則、帳號、DB或正式前台發布。
 - [x] 接續 TDD（財報佇列重試）：`selectFilingQueue`（ready 排除、failed 重試、最久未嘗試優先、優先名單、穩定排序）與 `updateFilingState`（代碼＋期別＋來源三重守衛、錯誤外拋）先 RED 後 GREEN，7 項新測試；ps-sync 改走共用接縫。財報相關 51 項、完整 4201 項通過（3 項滿載偽失敗單跑即過：週記效能預算、2 個 5 秒逾時）；Deno 檢查、模組邊界 0 違規。未發布正式站。
 - [x] 接續 TDD（週記撰寫盤點）：issue 06 殘留「門檻與後台文案一致性」收斂 — `authoringWindowLabel(assetClass)` 抽到 `publishingWindow.ts` 單一來源（US 含「週六 08:00」、TW 含「週一~五」、禁「下週」、頁面禁硬寫），4 項新測試先 RED 後 GREEN；issue 11 五項 checkbox 全數有實作與測試證據，issue 06/11 轉 ready-for-human。
+- [ ] 接續週記驗收：修正 pending-journal-edit-wiring 測試依賴真實日期造成週末失敗，重跑完整測試與撰寫／發布既有測試；真人後台僅唯讀，不發布或修改老師週記。提前發布完整性要求尚無完整驗收證據，不能將 issue 06 當作全部完成。
