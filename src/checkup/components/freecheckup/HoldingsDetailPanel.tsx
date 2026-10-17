@@ -798,19 +798,30 @@ export function buildDrawerStations(view, band, symbol, price, extras = null) {
   return { main, basis, reported, estimated: sb.estimated, nextQuarter: sb.estimated && nq && !nq.stale ? nq : null, basisRow: band?.rows?.find((r) => r.key === main.key) ?? null, stations, peer, forward, position: stationPosition(price, stations), pricedIn: pricedInLevel(price, stations, history) };
 }
 
-export function selectedRulerBand(band, mode) {
+/**
+ * PE／PB／PS 分頁：與站牌同一口徑（分母＝stationBasis，倍數＝近一年 P20–P80）。
+ * 不能算時回 { reason }，不畫區間。
+ */
+export function selectedRulerBand(band, mode, view = null) {
   if (!band || mode === 'target' || mode === 'stations') return null;
-  const row = band.rows?.find((item) => item.key === mode);
-  if (!row || !(row.low > 0) || !(row.high >= row.low)) return null;
-  const evidence = row.multiples ?? row.reference ?? null;
+  if (mode !== 'pe' && mode !== 'pb' && mode !== 'ps') return null;
+  const row = band.rows?.find((r) => r.key === mode);
+  const reported = row?.basisOk && row.basis?.kind === 'reported' && row.basis.value > 0 ? row.basis.value : null;
+  const sb = stationBasis(mode, reported, band.nextQuarter ?? null);
+  const history = mode === 'ps' ? (band.psDaily || []) : (view?.rawHistory?.[mode] || []);
+  const built = buildStations(mode, history, sb.value);
+  if (built.status !== 'ready') {
+    const why = sb.staleReason || (sb.value == null && (row?.notApplicable || row?.reason)) || built.reason;
+    return { reason: String(why) };
+  }
+  const [lo, mid, hi] = built.stations;
   const prefix = mode.toUpperCase();
-  const historical = !row.multiples || row.multiples.method !== 'peer';
+  const unit = { pe: 'EPS', pb: '每股淨值', ps: '每股營收' }[mode];
+  const fmt = (n) => Number(n).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
   return {
-    low: row.low,
-    high: row.high,
-    key: mode,
-    label: historical ? `${prefix} 歷史情境參考` : `${prefix} 同業情境`,
-    detail: `${evidence?.sampleSize ?? 0} 個獨立期 · ${evidence?.period || '期間不明'}`,
+    low: lo.price, high: hi.price, mid: mid.price, key: mode,
+    label: `${prefix} 近一年區間${sb.estimated ? '（含月營收推估一季）' : ''}`,
+    detail: `${sb.estimated ? `${unit}（近三季＋推估一季）` : `${unit}（${row?.basis?.period || '財報'}）`} NT$${fmt(sb.value)} × 近一年 ${built.days} 個交易日倍數第 20／50／80%：${fmt(lo.multiple)}／${fmt(mid.multiple)}／${fmt(hi.multiple)} 倍 → NT$${fmt(lo.price)}／${fmt(mid.price)}／${fmt(hi.price)}`,
   };
 }
 
