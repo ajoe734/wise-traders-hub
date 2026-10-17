@@ -295,6 +295,13 @@
       "when": 1792231076004,
       "tag": "0041_atomic_filing_publication",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792231491120,
+      "tag": "0042_filing_sales_eligibility",
+      "breakpoints": true
     }
   ]
 }
