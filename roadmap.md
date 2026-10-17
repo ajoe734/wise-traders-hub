@@ -33,3 +33,5 @@
 - [x] 接續 TDD（週記撰寫盤點）：issue 06 殘留「門檻與後台文案一致性」收斂 — `authoringWindowLabel(assetClass)` 抽到 `publishingWindow.ts` 單一來源（US 含「週六 08:00」、TW 含「週一~五」、禁「下週」、頁面禁硬寫），4 項新測試先 RED 後 GREEN；issue 11 五項 checkbox 全數有實作與測試證據，issue 06/11 轉 ready-for-human。
 - [x] 接續週記驗收：pending-journal-edit-wiring 週末失敗先重現再固定 Date，完整 Vitest 4196 通過／9 跳過；發布與提醒 Deno 57 通過；撰寫矩陣／輸入邊界／提前發布／ETF／表單直橫切換 E2E 49 通過。本人登入彥愷後台唯讀確認清單，未修改週記、未發推播、未發布正式站。
 - [ ] 週記 issue 06：提前發布「當週內容齊備」資格仍待明確定義與公開邊界確認；批次狀態、錯誤修正連結、真實發布後訂閱者讀回仍需安全測試週記與收件者，既有 fixture 測試不替代真人發布驗收。
+- [x] 彥愷績效 PDF 診斷與預覽修正（diagnosing-bugs）：真實公司管理員HTTP200並下載267951-byte PDF；彥愷持analyst且原函式公司管理員限定，真實HTTP分派測試RED 9／GREEN 13；僅factsheet使用本人／公司管理員guard、傳expert_id，週記限制不變；30項Vitest＋7項Deno＋7項E2E全過，函式檢查與預覽build OK。E2E涵蓋401/403/500不下載、理由、重試及所有日期範圍。
+- [ ] 彥愷績效 PDF 上線與本人驗收：待核准共用授權函式部署／正式前台發布；代登入遭平台權限拒絕，本人真實路徑UNVERIFIED，測試fixture不替代。未更動DB/RLS或帳號角色，未部署／發布。
