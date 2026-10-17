@@ -63,6 +63,16 @@ export function nextPublishMomentLabel(assetClass?: string | null): string {
 }
 
 /**
+ * 後台「撰寫視窗」說明文案的單一來源（issue 06 回歸）。
+ * 門檻改動時必須同步這裡，頁面不得硬寫字串。
+ */
+export function authoringWindowLabel(assetClass?: string | null): string {
+  return marketOfAssetClass(assetClass) === 'US'
+    ? '週一~週六 08:00 前撰寫'
+    : '週一~五撰寫';
+}
+
+/**
  * 排程截止後、下一個交易週一 08:00 前仍有待發布週記時，應主動詢問老師是否立即發布。
  * 這不是一般撰寫視窗；只供既有 pending 週記的遲交／漏發補救提示。
  */

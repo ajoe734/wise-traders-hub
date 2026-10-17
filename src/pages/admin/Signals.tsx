@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen, canRecallSignal, marketOfAssetClass, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, canRecallSignal, authoringWindowLabel, marketOfAssetClass, nextPublishMomentLabel, shouldPromptPendingJournalPublish } from '@/lib/publishingWindow';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { ExpiringSubscribersBanner } from '@/components/admin/ExpiringSubscribersBanner';
 import { useAdminSignals } from '@/hooks/useAdminSignals';
@@ -53,10 +53,9 @@ const AdminSignals = () => {
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
   const assetClass = (expert as any)?.asset_class ?? null;
-  const market = marketOfAssetClass(assetClass);
   const publishWindow = isPublishingWindowOpen(assetClass);
   const publishMomentLabel = nextPublishMomentLabel(assetClass);
-  const authoringWindowLabel = market === 'US' ? '週一~週六 08:00 前撰寫' : '週一~五撰寫';
+  const authoringWindow = authoringWindowLabel(assetClass);
 
   const [earlyPublishOpen, setEarlyPublishOpen] = useState(false);
   const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
@@ -220,7 +219,7 @@ const AdminSignals = () => {
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {isMentor
-                ? `${authoringWindowLabel}，${publishMomentLabel}${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
+                ? `${authoringWindow}，${publishMomentLabel}${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
                 : '發布即上線，可自行收回'}
             </p>
           </div>
