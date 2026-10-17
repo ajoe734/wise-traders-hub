@@ -53,7 +53,6 @@ const AdminSignals = () => {
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
   const assetClass = (expert as any)?.asset_class ?? null;
-  const market = marketOfAssetClass(assetClass);
   const publishWindow = isPublishingWindowOpen(assetClass);
   const publishMomentLabel = nextPublishMomentLabel(assetClass);
   const authoringWindow = authoringWindowLabel(assetClass);
