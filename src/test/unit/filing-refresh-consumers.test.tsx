@@ -34,6 +34,24 @@ describe('財報更新公開快取邊界', () => {
     expect(refreshed).toMatchObject({ basis: { latestPeriod: '2026-09-30' }, rows: [{ basis: { value: 7 } }] });
   });
 
+  it.each([false, true])('期限跨日前尚在途的請求，不供跨日後新消費端沿用（peers=%s）', async (peers) => {
+    vi.setSystemTime(new Date('2026-11-14T15:59:59Z'));
+    const oldPayload = { rows: [{ key: 'pe', basis: { value: 4 } }], basis: { latestPeriod: '2026-06-30' } };
+    const newPayload = { rows: [{ key: 'pe', basis: { value: 7 } }], basis: { latestPeriod: '2026-09-30' } };
+    let releaseOld: (value: typeof oldPayload) => void = () => {};
+    const oldResponse = new Promise<typeof oldPayload>((resolve) => { releaseOld = resolve; });
+    const gw = createFakeGateway({ functions: { [FUNDAMENTALS_FN]: newPayload } });
+    const invoke = vi.fn().mockReturnValueOnce(oldResponse).mockResolvedValue(newPayload);
+    gw.invoke = invoke as typeof gw.invoke;
+    const beforeDeadline = loadFundamentals(gw, '9876', false, peers);
+    vi.setSystemTime(new Date('2026-11-14T16:00:01Z'));
+    const afterDeadline = loadFundamentals(gw, '9876', false, peers);
+    releaseOld(oldPayload);
+    await beforeDeadline;
+    expect(await afterDeadline).toMatchObject({ basis: { latestPeriod: '2026-09-30' }, rows: [{ basis: { value: 7 } }] });
+    expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
   it.each(['midnight', 'hourly', 'focus', 'visibility'] as const)('%s 後清單、抽屜及同業都讀回更新，不沿用舊資料', async (trigger) => {
     vi.setSystemTime(new Date('2026-11-14T15:59:59Z'));
     const symbol = peerGroups.groups[0].symbols[0];
