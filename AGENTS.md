@@ -60,3 +60,7 @@ Blog-style teaching articles live in `expert_articles`, separate from `expert_si
 ### Article AI assist
 
 Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy` with pure gates in `_shared/articleAiCore.ts`; any image not confidently text-free is framed deterministically client-side (`src/lib/articleImageFrame.ts`, 1:1 pixels), and tidy output is rejected unless words and image order are identical; why: AI must never alter financial numbers or teacher wording.
+
+### PDF export authorization
+
+Factsheet requests must include an explicit export type and expert ID and use `requireExpertOwnerOrAdmin`; journal and legacy requests remain `requireCompanyAdmin` only. Never derive identity from request body fields; why: expert self-export must not widen journal permissions or permit cross-expert authorization.

@@ -52,7 +52,13 @@ export function FactsheetExportDialog({ expertSlug }: { expertSlug: string | und
     setBusy(true);
     const toastId = toast.loading('驗證權限並產生 PDF 中…');
     try {
-      const { data: authz, error: authzErr } = await supabase.functions.invoke('authorize-pdf-export', { body: {} });
+      const { data: authz, error: authzErr } = await supabase.functions.invoke('authorize-pdf-export', {
+        body: { export_type: 'factsheet', expert_id: fs.expert.id },
+      });
+      if (authzErr && 'context' in authzErr && authzErr.context instanceof Response) {
+        const reason = await authzErr.context.clone().json().catch(() => null);
+        if (typeof reason?.message === 'string') throw new Error(reason.message);
+      }
       if (authzErr || !authz?.allowed) throw new Error(authz?.message || authzErr?.message || '後端拒絕匯出授權');
       const { exportFactsheetPdf } = await import('@/lib/performance/factsheetPdf');
       await exportFactsheetPdf({ fs });

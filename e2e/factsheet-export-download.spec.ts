@@ -4,7 +4,7 @@ import { seedSession, installRoutes } from './helpers/supabase-mock';
 
 /** 實際 Chromium 下載驗收：點「產生 PDF」→ 取得 download 事件與 PDF 檔頭。 */
 const EXPERT = {
-  id: 'exp-1', slug: 'sharkgu', name: '彥愷', role: 'mentor', status: 'active',
+  id: '11111111-1111-4111-8111-111111111111', slug: 'sharkgu', name: '彥愷', role: 'mentor', status: 'active',
   is_test: false, avatar_url: null, created_at: '2026-01-01T00:00:00Z',
   starting_capital: 1_000_000, currency: 'TWD', asset_class: 'tw_stock',
   strategy_summary: '波段', description: null, style_tags: ['尊重趨勢'], markets: ['台股'],
@@ -29,13 +29,16 @@ test('點擊產生 PDF → Chromium 觸發下載', async ({ page }) => {
   await page.goto('/admin/sharkgu/performance');
   await page.getByTestId('factsheet-export-trigger').click();
   await expect(page.getByTestId('factsheet-export-dialog')).toBeVisible();
-  const [download] = await Promise.all([
+  const [download, authRequest] = await Promise.all([
     page.waitForEvent('download', { timeout: 45_000 }),
+    page.waitForRequest((request) => request.url().includes('authorize-pdf-export') && request.method() === 'POST'),
     page.getByTestId('factsheet-export-confirm').click(),
   ]);
+  expect(authRequest.postDataJSON()).toEqual({ export_type: 'factsheet', expert_id: EXPERT.id });
   expect(download.suggestedFilename()).toMatch(/^legendflow-sharkgu-factsheet-\d{8}\.pdf$/);
   const path = await download.path();
-  const buf = readFileSync(path!);
+  if (!path) throw new Error('PDF download has no local path');
+  const buf = readFileSync(path);
   expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
   expect(buf.byteLength).toBeGreaterThan(50_000);
   console.log('DOWNLOAD', download.suggestedFilename(), buf.byteLength);
