@@ -12,10 +12,12 @@ vi.mock('../../../supabase/functions/_shared/adminGuard.ts', () => ({
 vi.mock('../../../supabase/functions/_shared/edgeLogger.ts', () => ({
   withLogging: (_name: string, handler: unknown) => handler,
 }));
-vi.stubGlobal('Deno', { serve: vi.fn() });
+const serve = vi.fn();
+vi.stubGlobal('Deno', { serve });
 
 // Exercise the real HTTP dispatch, not a duplicated authorization rule.
-const { handler } = await import('../../../supabase/functions/authorize-pdf-export/index.ts');
+await import('../../../supabase/functions/authorize-pdf-export/index.ts');
+const handler = serve.mock.calls[0][0] as (req: Request) => Promise<Response>;
 const expertId = '11111111-1111-4111-8111-111111111111';
 const request = (body: unknown = {}, token = 'verified-owner') => new Request('http://localhost/export', {
   method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
