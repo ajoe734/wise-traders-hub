@@ -3,7 +3,7 @@ import { selectedRulerBand, buildDrawerStations } from './HoldingsDetailPanel';
 
 // 240 日 PE 序列 60..119.75（線性），P20/P80 可預期
 const peHist = Array.from({ length: 240 }, (_, i) => 60 + i * 0.25);
-const view = { industry: '半導體', rulers: [{ key: 'pe', value: 70 }], rawHistory: { pe: peHist, pb: peHist.map((x) => x / 10) } };
+const view = { industry: '半導體', rulers: [{ key: 'pe', value: 50 }], rawHistory: { pe: peHist, pb: peHist.map((x) => x / 10) } };
 const band = {
   rows: [
     { key: 'pe', basisOk: true, basis: { kind: 'reported', value: 39.01, period: '近四季' } },
