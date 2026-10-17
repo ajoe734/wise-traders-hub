@@ -47,7 +47,7 @@ export function filingDeadline(periodEnd: string): string {
 export function needsBasisRefresh(b: SalesBasis | null | undefined, today: string): boolean {
   if (!b) return true;
   const deadline = filingDeadline(nextQuarterEnd(b.latest_period));
-  return today > deadline && b.computed_at.slice(0, 10) <= deadline;
+  return today > deadline;
 }
 
 /** 當日 PS 列；sps 無效或收盤缺漏不產生（不補值）。 */

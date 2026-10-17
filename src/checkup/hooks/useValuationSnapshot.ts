@@ -15,6 +15,8 @@ import {
 } from '@/checkup/lib/valuationRulers';
 import { buildValuationScenario, type ScenarioRowInput, type ValuationScenario } from '@/checkup/lib/valuationScenario';
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../../../supabase/functions/_shared/demoFundamentalsSymbols';
+import { expiredEstimate, financialCacheValid, FILING_CHECK_MS } from '../../../supabase/functions/_shared/filingRefreshCore';
+import { useFilingRefresh } from './useFilingRefresh';
 
 /** 唯讀財報情境 Edge Function；token 只在後端。 */
 export const FUNDAMENTALS_FN = 'valuation-fundamentals';
@@ -55,14 +57,16 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
   if (Array.isArray(psDaily)) (scenario as any).psDaily = psDaily.map((x: any) => Number(x?.ps)).filter((n: number) => Number.isFinite(n) && n > 0);
   const mr = (payload as any).monthRevenue;
   if (mr && Number.isFinite(Number(mr.yoy)) && typeof mr.latestMonth === 'string') (scenario as any).monthRevenue = { yoy: Number(mr.yoy), latestMonth: mr.latestMonth };
-  const nq = (payload as any).nextQuarter;
+  const rawNq = (payload as any).nextQuarter;
+  const latestPeriod = (payload as any).basis?.latestPeriod ?? rawNq?.latestPeriod;
+  const nq = latestPeriod ? expiredEstimate(latestPeriod) ?? rawNq : rawNq;
   if (nq && nq.stale === true && typeof nq.reason === 'string') (scenario as any).nextQuarter = { stale: true, quarter: String(nq.quarter), deadline: String(nq.deadline), reason: nq.reason };
   else if (nq && typeof nq.quarter === 'string' && Number.isFinite(Number(nq.estEps))) (scenario as any).nextQuarter = nq;
   return scenario;
 }
 
 /** 財報情境前端快取：同一代碼 6 小時內共用一次結果；同時開啟的兩個元件共用同一個請求。 */
-export const FUNDAMENTALS_CLIENT_TTL_MS = 6 * 3600 * 1000;
+export const FUNDAMENTALS_CLIENT_TTL_MS = FILING_CHECK_MS;
 export const FUNDAMENTALS_TIMEOUT_MS = 25_000;
 const fundCache = new Map<string, { at: number; value: FundamentalsPayload }>();
 const fundInflight = new Map<string, Promise<FundamentalsPayload>>();
@@ -71,9 +75,9 @@ export function __resetFundamentalsCache() { fundCache.clear(); fundInflight.cle
 /** peers=false：只算目標公司（快，先畫三尺）；peers=true：含同業（慢，背景補上）。 */
 export function loadFundamentals(gateway: CheckupGateway, code: string, force = false, peers = true): Promise<FundamentalsPayload> {
   const key = peers ? code : `${code}:target`;
-  if (!peers) { const full = fundCache.get(code); if (!force && full && Date.now() - full.at < FUNDAMENTALS_CLIENT_TTL_MS) return Promise.resolve(full.value); }
+  if (!peers) { const full = fundCache.get(code); if (!force && full && financialCacheValid(full.at, Date.now())) return Promise.resolve(full.value); }
   const hit = fundCache.get(key);
-  if (!force && hit && Date.now() - hit.at < FUNDAMENTALS_CLIENT_TTL_MS) return Promise.resolve(hit.value);
+  if (!force && hit && financialCacheValid(hit.at, Date.now())) return Promise.resolve(hit.value);
   const running = fundInflight.get(key);
   if (running) return running;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -127,6 +131,7 @@ export function useValuationSnapshot(
   const [peersPending, setPeersPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const filingRevision = useFilingRefresh();
 
   const code = symbol ? String(symbol).trim() : '';
   const eligible = isTaiwanStock(code);
@@ -217,7 +222,7 @@ export function useValuationSnapshot(
     return () => {
       cancelled = true;
     };
-  }, [code, eligible, tick, opts.injectedGateway]);
+  }, [code, eligible, tick, filingRevision, opts.injectedGateway]);
 
   const refetch = useCallback(() => setTick((n) => n + 1), []);
   const nowMs = (opts.now || Date.now)();

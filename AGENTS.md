@@ -64,3 +64,7 @@ Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy
 ### Peer PS multiples
 
 Peer-reference PS comes only from `tw_ps_daily` (via `valuation_peer_multiples`), filled by `valuation-ps-sync`: per-share revenue uses the shared `computeCompanyBasis`/`dailyPsSeries` (DB-first shares) and is recomputed only after the next quarter's filing deadline; daily PS = exchange-wide close ÷ stored per-share revenue; pure logic in `_shared/peerPsCore.ts`, member list `_shared/peerPsUniverse.json` must equal the peer groups (Vitest-enforced); why: same basis as the drawer's own stations while keeping FinMind calls quarterly, not daily.
+
+### Filing refresh publication
+
+Detect issuer-quarter changes through the official filing index on the existing hourly job; publish complete statement versions and curated-peer PS basis/history only through the service-only atomic `commit_valuation_filing` RPC, matching the detected signature; why: partial input, concurrent revisions, or failed PS writes must not mark a stale financial version ready. Taipei-date expiry and client refresh share `filingRefreshCore`; peer PE/PB remain exchange-reported daily evidence, never price-derived substitutes.

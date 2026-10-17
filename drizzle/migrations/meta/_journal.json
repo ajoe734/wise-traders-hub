@@ -281,6 +281,20 @@
       "when": 1792156193551,
       "tag": "0039_lock_tw_sales_basis_to_service_role",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792230471134,
+      "tag": "0040_valuation_filing_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792231076004,
+      "tag": "0041_atomic_filing_publication",
+      "breakpoints": true
     }
   ]
 }

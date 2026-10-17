@@ -6612,6 +6612,54 @@ export type Database = {
         }
         Relationships: []
       }
+      valuation_filing_versions: {
+        Row: {
+          balance_sheet: Json | null
+          detected_at: string | null
+          expected_period: string | null
+          fetched_at: string | null
+          last_attempt_at: string | null
+          latest_period: string | null
+          prices: Json | null
+          reason: string | null
+          source: string | null
+          state: string
+          statements: Json | null
+          symbol: string
+          version: string | null
+        }
+        Insert: {
+          balance_sheet?: Json | null
+          detected_at?: string | null
+          expected_period?: string | null
+          fetched_at?: string | null
+          last_attempt_at?: string | null
+          latest_period?: string | null
+          prices?: Json | null
+          reason?: string | null
+          source?: string | null
+          state?: string
+          statements?: Json | null
+          symbol: string
+          version?: string | null
+        }
+        Update: {
+          balance_sheet?: Json | null
+          detected_at?: string | null
+          expected_period?: string | null
+          fetched_at?: string | null
+          last_attempt_at?: string | null
+          latest_period?: string | null
+          prices?: Json | null
+          reason?: string | null
+          source?: string | null
+          state?: string
+          statements?: Json | null
+          symbol?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       warrant_expiry: {
         Row: {
           call_put: string | null
@@ -7473,6 +7521,21 @@ export type Database = {
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       cleanup_old_traffic: { Args: never; Returns: undefined }
       cleanup_processed_webhook_events: { Args: never; Returns: number }
+      commit_valuation_filing: {
+        Args: {
+          _balance_sheet: Json
+          _expected: string
+          _latest: string
+          _period?: string
+          _ps_rows?: Json
+          _source: string
+          _sps?: number
+          _statements: Json
+          _symbol: string
+          _version: string
+        }
+        Returns: boolean
+      }
       compute_bsr_series_readiness: {
         Args: { p_stock_id: string }
         Returns: Json
