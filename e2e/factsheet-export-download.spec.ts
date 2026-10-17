@@ -53,7 +53,7 @@ for (const status of [401, 403, 500]) {
     page.on('download', (download) => downloads.push(download.suggestedFilename()));
     await installRoutes(page, {
       rest: {
-        profiles: () => ({ display_name: 'Owner', is_tester: false }),
+        profiles: () => ({ display_name: 'Owner', expert_slug: 'sharkgu', is_tester: false }),
         user_roles: () => [{ role: 'analyst' }],
         experts: ({ url }) => ((url.searchParams.get('select') ?? '').includes('expert_plans')
           ? [{ ...EXPERT, user_id: 'owner-1', expert_plans: [] }] : { ...EXPERT, user_id: 'owner-1' }),
