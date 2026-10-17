@@ -35,10 +35,10 @@ describe('財報更新公開快取邊界', () => {
   });
 
   it.each([
-    { peers: false, elapsed: 2000 }, { peers: true, elapsed: 2000 },
-    { peers: false, elapsed: 3600000 }, { peers: true, elapsed: 3600000 },
-  ])('跨日或滿一小時後不沿用舊在途請求：$peers / $elapsed', async ({ peers, elapsed }) => {
-    vi.setSystemTime(new Date('2026-11-14T15:59:59Z'));
+    { peers: false, elapsed: 2000, start: '2026-11-14T15:59:59Z' }, { peers: true, elapsed: 2000, start: '2026-11-14T15:59:59Z' },
+    { peers: false, elapsed: 3600000, start: '2026-11-14T00:00:00Z' }, { peers: true, elapsed: 3600000, start: '2026-11-14T00:00:00Z' },
+  ])('跨日或滿一小時後不沿用舊在途請求：$peers / $elapsed', async ({ peers, elapsed, start }) => {
+    vi.setSystemTime(new Date(start));
     const oldPayload = { rows: [{ key: 'pe', basis: { value: 4 } }], basis: { latestPeriod: '2026-06-30' } };
     const newPayload = { rows: [{ key: 'pe', basis: { value: 7 } }], basis: { latestPeriod: '2026-09-30' } };
     let releaseOld: (value: typeof oldPayload) => void = () => {};

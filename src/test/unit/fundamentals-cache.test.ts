@@ -46,6 +46,17 @@ describe('財報服務實際使用的 isolate 快取', () => {
     expect(await cached(keys[0], ttl, meter, load)).toBe(7);
     expect(load).toHaveBeenCalledTimes(3);
   });
+  it.each(keys)('%s 新回應先完成、舊回應後抵達，不覆蓋新快取', async (key) => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-14T15:59:59Z'));
+    const cached = createFundamentalsCache(); const meter = { cacheHits: 0 }; const old = deferred<number>();
+    const load = vi.fn().mockReturnValueOnce(old.promise).mockResolvedValue(7);
+    const first = cached(key, ttl, meter, load);
+    vi.setSystemTime(new Date('2026-11-14T16:00:01Z'));
+    expect(await cached(key, ttl, meter, load)).toBe(7);
+    old.resolve(4); await first;
+    expect(await cached(key, ttl, meter, load)).toBe(7);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
   it.each(['official:TWSE', 'official:TPEx'])('%s 不受財報日界限制，仍依名錄 TTL', async (key) => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-14T15:59:59Z'));
     const cached = createFundamentalsCache(); const meter = { cacheHits: 0 }; const old = deferred<number>();
