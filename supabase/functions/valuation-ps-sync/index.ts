@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   const mode = body?.mode === 'daily' ? 'daily' : 'basis';
   const limit = Math.min(Math.max(Number(body?.limit) || 60, 1), 200);
   const concurrency = Math.min(Math.max(Number(body?.concurrency) || 3, 1), 6);
-  const priority: string[] = Array.isArray(body?.symbols) ? body.symbols.filter((s: unknown) => typeof s === 'string' && /^\d{4}$/.test(s)) : [];
+  const priority: string[] = Array.isArray(body?.symbols) ? body.symbols.filter((s: unknown) => typeof s === 'string' && /^\d{4,6}$/.test(s)) : [];
   const db = serviceClient();
   const all: string[] = (universe as { symbols: string[] }).symbols;
 
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
           finmind<{ date: string; close: number }>('TaiwanStockPrice', symbol, isoDaysAgo(400)),
         ]);
         const expected = filings.get(symbol)?.expected_period ?? null;
-        const saveFiling = () => commitFiling(db,symbol,fs,bs,expected,filings.get(symbol)?.version,filings.get(symbol)?.latest_period);
+        const saveFiling = (sales?: { sps: number; period: string; rows: unknown[] }) => commitFiling(db,symbol,fs,bs,expected,filings.get(symbol)?.version,filings.get(symbol)?.latest_period,filings.get(symbol)?.source,sales);
         const complete = committedFiling(fs, bs, expected);
         if (!complete) throw new Error(`新季 ${expected} 損益或資產負債尚未完整`);
         let official = registry.get(symbol) ?? null;
@@ -141,8 +141,6 @@ Deno.serve(async (req) => {
           result.ok++; continue;
         }
         if (!all.includes(symbol)) { await saveFiling(); result.ok++; continue; }
-        const { error: basisError } = await db.from('tw_sales_basis').upsert({ symbol, sps: Number(b.sps), period: String(b.period), latest_period: b.latestPeriod, computed_at: new Date().toISOString() }, { onConflict: 'symbol' });
-        if (basisError) throw new Error(basisError.message);
         const hist = dailyPsSeries(symbol, complete.fs, complete.bs, prices, asOf, official).filter((p) => p.ps > 0)
           .map((p) => ({ symbol, trade_date: p.date, ps: Math.round(p.ps * 10000) / 10000, source: 'finmind-basis' }));
         // Historical rows preserve historical filing deadlines. The latest close uses the new actual TTM basis.
@@ -152,12 +150,8 @@ Deno.serve(async (req) => {
           const pos = hist.findIndex((p) => p.trade_date === asOf);
           if (pos >= 0) hist[pos] = current; else hist.push(current);
         }
-        if (hist.length) {
-          const { error } = await db.from('tw_ps_daily').upsert(hist, { onConflict: 'symbol,trade_date' });
-          if (error) throw new Error(error.message);
-          result.psRows += hist.length;
-        }
-        await saveFiling();
+        await saveFiling({ sps: Number(b.sps), period: String(b.period), rows: hist });
+        result.psRows += hist.length;
         result.ok++;
       } catch (e) {
         if (e instanceof QuotaError) result.stoppedForQuota = true;

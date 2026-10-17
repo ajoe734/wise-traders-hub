@@ -14,7 +14,11 @@ function check() {
   }
 }
 function schedule() {
-  timer = setTimeout(() => { check(); schedule(); }, 1000);
+  clearTimeout(timer);
+  const now = Date.now();
+  const midnight = Date.parse(`${taipeiDate(now)}T00:00:00+08:00`) + 86400000;
+  const delay = Math.max(1, Math.min(midnight - now, FILING_CHECK_MS - (now - lastCheck)));
+  timer = setTimeout(() => { check(); schedule(); }, delay);
 }
 export function useFilingRefresh(): number {
   const [value, setValue] = useState(revision);

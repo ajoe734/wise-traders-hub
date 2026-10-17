@@ -16,19 +16,19 @@ describe('財報版本儲存與失敗', () => {
   });
   it('缺新季資料不寫 ready；完整新季可提交；寫入失敗向外回報',async () => {
     const rows:any[]=[];
-    const db={from:()=>({upsert:async (r:any)=>{rows.push(r);return {error:null};}})};
-    await expect(commitFiling(db,'1234',fs,[],'2026-09-30')).rejects.toThrow();
+    const db={from:()=>({}),rpc:async (_:string,r:any)=>{rows.push(r);return {data:true,error:null};}};
+    await expect(commitFiling(db,'1234',fs,[],'2026-09-30',null,null,'official-v1')).rejects.toThrow();
     expect(rows).toHaveLength(0);
-    await commitFiling(db,'1234',fs,bs,'2026-09-30');
-    expect(rows[0]).toMatchObject({state:'ready',latest_period:'2026-09-30',statements:fs,balance_sheet:bs});
-    const broken={from:()=>({upsert:async ()=>({error:{message:'write failed'}})})};
-    await expect(commitFiling(broken,'1234',fs,bs,'2026-09-30')).rejects.toThrow('write failed');
+    await commitFiling(db,'1234',fs,bs,'2026-09-30',null,null,'official-v1');
+    expect(rows[0]).toMatchObject({_latest:'2026-09-30',_statements:fs,_balance_sheet:bs,_source:'official-v1'});
+    const broken={from:()=>({}),rpc:async ()=>({data:null,error:{message:'write failed'}})};
+    await expect(commitFiling(broken,'1234',fs,bs,'2026-09-30',null,null,'official-v1')).rejects.toThrow('write failed');
   });
   it('同季修訂上游仍舊版時不寫新完成時間',async () => {
     const rows:any[]=[];
-    const db={from:()=>({upsert:async (r:any)=>{rows.push(r);return {error:null};}})};
-    await commitFiling(db,'1234',fs,bs,'2026-09-30');
-    await expect(commitFiling(db,'1234',fs,bs,'2026-09-30',rows[0].version,'2026-09-30')).rejects.toThrow('舊版本');
+    const db={from:()=>({}),rpc:async (_:string,r:any)=>{rows.push(r);return {data:true,error:null};}};
+    await commitFiling(db,'1234',fs,bs,'2026-09-30',null,null,'official-v1');
+    await expect(commitFiling(db,'1234',fs,bs,'2026-09-30',rows[0]._version,'2026-09-30','official-v2')).rejects.toThrow('舊版本');
     expect(rows).toHaveLength(1);
   });
 });

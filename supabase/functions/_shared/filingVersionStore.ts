@@ -2,7 +2,7 @@ import { fetchOfficialFilingIndex } from './officialFilingIndex.ts';
 import { committedFiling } from './filingRefreshCore.ts';
 export { committedFiling } from './filingRefreshCore.ts';
 import type { FinRow } from './fundamentalsBasis.ts';
-type FilingDatabase = { from: (table: string) => any };
+type FilingDatabase = { from: (table: string) => any; rpc?: (name: string, args: Record<string, unknown>) => any };
 
 /** PostgREST caps each response at 1,000 rows even with limit(10000). */
 export async function readFilingVersions(db: FilingDatabase) {
@@ -31,14 +31,19 @@ export async function discoverFilings(db: FilingDatabase) {
   return { changed: rows.length, indexed: index.signals.length, failures: index.failures, successfulFeeds: index.successfulFeeds, totalFeeds: index.totalFeeds };
 }
 
-export async function commitFiling(db: FilingDatabase, symbol: string, fs: FinRow[], bs: FinRow[], expected: string | null, priorVersion?: string | null, priorPeriod?: string | null) {
+export async function commitFiling(db: FilingDatabase, symbol: string, fs: FinRow[], bs: FinRow[], expected: string | null, priorVersion?: string | null, priorPeriod?: string | null, source?: string | null, sales?: { sps: number; period: string; rows: unknown[] }) {
   const complete = committedFiling(fs, bs, expected);
   if (!complete) throw new Error(`新季 ${expected ?? '未知'} 損益或資產負債資料尚未完整，保留待更新`);
   const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([complete.fs,complete.bs])));
   const version = Array.from(new Uint8Array(digest)).map((n) => n.toString(16).padStart(2,'0')).join('');
   if (priorVersion === version && priorPeriod === expected) throw new Error('官方同季修訂已偵測，但財報來源仍回傳舊版本，保留重試');
-  const { error } = await db.from('valuation_filing_versions').upsert({ symbol, latest_period: complete.latest, statements: complete.fs, balance_sheet: complete.bs,
-    version, fetched_at: new Date().toISOString(), state: 'ready', reason: null }, { onConflict: 'symbol' });
+  if (!db.rpc || !expected || !source) throw new Error('缺財報版本提交識別');
+  const { data, error } = await db.rpc('commit_valuation_filing', {
+    _symbol: symbol, _expected: expected, _source: source, _latest: complete.latest,
+    _statements: complete.fs, _balance_sheet: complete.bs, _version: version,
+    _sps: sales?.sps ?? null, _period: sales?.period ?? null, _ps_rows: sales?.rows ?? [],
+  });
   if (error) throw new Error(error.message);
+  if (data !== true) throw new Error('官方版本已更新或上游仍舊版，保留重試');
   return complete;
 }
