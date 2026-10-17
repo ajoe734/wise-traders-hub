@@ -6,7 +6,7 @@
 
 **Category:** enhancement
 
-**Status:** ready-for-human
+**Status:** ready-for-agent
 
 **Priority:** P2
 
@@ -26,4 +26,10 @@
 
 - 新增 `authoringWindowLabel(assetClass)` 至 `src/lib/publishingWindow.ts` 為後台撰寫視窗文案單一來源；`src/pages/admin/Signals.tsx` 改為 import，不再硬寫字串。
 - `src/test/unit/publishing-window-copy.test.ts` 新增 4 項：美股文案含「週六 08:00」、台股文案含「週一~五」、文案無「下週」、Signals.tsx 必須從模組 import 且不得硬寫。
-- 5 項 checklist 全數完成，剩餘人工驗收（後台畫面確認）。
+- 僅發布視窗／文案回歸已完成；其餘四項仍未驗收，不以實作存在視同通過。
+
+## 接續驗收（2026/10/18）
+
+- 重新盤點確認：提前發布入口目前只依 pendingCount 顯示；當週內容齊備的完整前後端驗收證據不足，保留待辦，不宣稱完成。
+- 完整 Vitest 在台北週日抓到 pending-journal-edit-wiring 的 advisor 編輯案例受真實發布關窗影響；修正測試時鐘為台北週四 10:00，保留真實非 Date timers，不改正式發布規則。
+- 本人登入彥愷週記後台唯讀確認清單；本週無待發布資料，未按發布、修改週記或觸發推播，真實發布／訂閱者即時讀回仍待安全測試資料。
