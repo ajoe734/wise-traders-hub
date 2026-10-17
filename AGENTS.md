@@ -45,6 +45,8 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); shares are DB-first `official_share_registry`, live exchanges/FinMind only as fallback; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
 
+Shared client fundamentals cache freshness starts when the request begins, and responses crossing the Taipei date boundary are not cached; why: delayed pre-deadline data must not masquerade as a new-day filing for either the drawer or holdings list.
+
 ### Expert monthly payroll
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
