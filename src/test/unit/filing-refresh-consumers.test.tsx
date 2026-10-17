@@ -13,7 +13,8 @@ describe('財報更新公開快取邊界', () => {
     const gw = createFakeGateway({ functions: responses });
     let release: (value: typeof responses[typeof FUNDAMENTALS_FN]) => void = () => {};
     const originalInvoke = gw.invoke.bind(gw);
-    gw.invoke = (() => new Promise((resolve) => { release = resolve; })) as typeof gw.invoke;
+    const delayed = new Promise<typeof responses[typeof FUNDAMENTALS_FN]>((resolve) => { release = resolve; });
+    gw.invoke = (() => delayed) as typeof gw.invoke;
     const pending = loadFundamentals(gw, '9876', false, false);
     vi.setSystemTime(new Date('2026-11-14T16:00:01Z'));
     release(responses[FUNDAMENTALS_FN]);
