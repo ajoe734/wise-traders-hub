@@ -1,9 +1,9 @@
 # 01 — 財報期限停用與公布更新
 
-Status: ready-for-agent
+Status: needs-info
 Priority: P1
 Category: enhancement
-Blocked by: None — can start immediately
+Blocked by: 財報來源額度耗盡；真實新季完整財報及全產業原始欄位契約尚不可驗收。
 
 ## What to build
 
@@ -39,3 +39,14 @@ Blocked by: None — can start immediately
 
 - 不改 PE 60 倍／分散度／單季异常處理規則，不重寫未核准算法。
 - 不發布正式前台、不建立重複 HTTP 排程、不修改現有排程認證。
+## 驗證結果（2026/10/17）
+
+- 四季期限、台北跨日／快取、版本提交、官方24來源、空值／矛盾欄位、同季排序、千檔分頁：35項通過。
+- 完整單元範圍262檔、2908項通過／1跳過；最後修正另跑上述35項通過。
+- 兩個Edge函式Deno檢查、模組邊界、外部請求、手機靜態規則通過；預覽build OK。
+- 官方24來源成功，1977檔；重跑changed=0、不重複偵測；真實資料更新因402額度耗盡processed=0、pending=1977，未冒充完成。
+- 同業PE/PB保留交易所實際每日來源，不因財報提交而自行反推；RPC排除超過10日、PS異日與不可用分母。
+- 完整財報與PS透過service-only原子提交；零／負數可存在，空值與矛盾科目拒絕；同季修訂只比較該季canonical hash。
+- 不同產業FinMind未裁切欄位／母公司損益所有aliases尚未完成實證；缺損益口徑時PE本身仍由既有閘門拒絕，禁止宣稱全產業完整更新驗收。
+- 560/390/380登入截圖無溢出／頁面錯誤；卡片12項9通過，三個最窄尺寸baseline高170px而actual169px，所有差異圖已看，未改baseline。
+- 財報版本表與函式已部署共享後端，前台仍預覽未發布；真實公布日全流程及原子SQL回滾整合測試未驗收。

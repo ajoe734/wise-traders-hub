@@ -63,7 +63,7 @@ Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy
 
 ### Peer PS multiples
 
-Peer-reference PS comes only from `tw_ps_daily` (via `valuation_peer_multiples`), filled by `valuation-ps-sync`: per-share revenue uses the shared `computeCompanyBasis`/`dailyPsSeries` (DB-first shares) and is recomputed only after the next quarter's filing deadline; daily PS = exchange-wide close ÷ stored per-share revenue; pure logic in `_shared/peerPsCore.ts`, member list `_shared/peerPsUniverse.json` must equal the peer groups (Vitest-enforced); why: same basis as the drawer's own stations while keeping FinMind calls quarterly, not daily.
+Peer-reference PS comes only from `tw_ps_daily` (via `valuation_peer_multiples`), filled by `valuation-ps-sync`: per-share revenue uses the shared `computeCompanyBasis`/`dailyPsSeries` (DB-first shares) and is recomputed when the official index detects a new or revised filing; daily PS = exchange-wide close ÷ stored per-share revenue; pure logic in `_shared/peerPsCore.ts`, member list `_shared/peerPsUniverse.json` must equal the peer groups (Vitest-enforced); why: same basis as the drawer's own stations while keeping FinMind calls quarterly, not daily.
 
 ### Filing refresh publication
 
