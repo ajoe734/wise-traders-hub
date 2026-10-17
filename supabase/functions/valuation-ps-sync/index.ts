@@ -14,7 +14,7 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { needsBasisRefresh, parseCloses, psRows, type SalesBasis } from '../_shared/peerPsCore.ts';
 import { computeCompanyBasis, dailyPsSeries, latestOrdinaryShare, officialFromIssuedShares, type FinRow, type OfficialShares } from '../_shared/fundamentalsBasis.ts';
 import universe from '../_shared/peerPsUniverse.json' with { type: 'json' };
-import { discoverFilings, commitFiling, committedFiling, readFilingVersions } from '../_shared/filingVersionStore.ts';
+import { discoverFilings, commitFiling, committedFiling, readFilingVersions, readSalesBases } from '../_shared/filingVersionStore.ts';
 import { taipeiDate } from '../_shared/filingRefreshCore.ts';
 import { z } from 'npm:zod@3';
 
@@ -53,8 +53,8 @@ Deno.serve(async (req) => {
   const db = serviceClient();
   const all: string[] = (universe as { symbols: string[] }).symbols;
 
-  const { data: basesRaw, error: bErr } = await db.from('tw_sales_basis').select('symbol,sps,latest_period,computed_at').limit(5000);
-  if (bErr) return json({ error: 'DB', message: bErr.message }, 500);
+  let basesRaw: Awaited<ReturnType<typeof readSalesBases>>;
+  try { basesRaw = await readSalesBases(db); } catch (e) { return json({ error: 'DB', message: String(e) },500); }
   const bases = new Map((basesRaw ?? []).map((b) => [b.symbol, { ...b, sps: Number(b.sps) } as SalesBasis]));
   const log = async (status: string, detail: Record<string, unknown>) => {
     try { await db.from('system_jobs_log').insert({ job_name: 'valuation_ps_sync', status, detail: { mode, ...detail }, duration_ms: Date.now() - started }); } catch { /* ignore */ }
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     while (idx < queue.length && !result.stoppedForQuota) {
       const symbol = queue[idx++];
       try {
-        const { error: attemptError } = await db.from('valuation_filing_versions').update({ last_attempt_at: new Date().toISOString() }).eq('symbol',symbol);
+        const { error: attemptError } = await db.from('valuation_filing_versions').update({ last_attempt_at: new Date().toISOString() }).eq('symbol',symbol).eq('expected_period',filings.get(symbol)?.expected_period ?? '').eq('source',filings.get(symbol)?.source ?? '');
         if (attemptError) throw new Error(attemptError.message);
         const start = isoDaysAgo(7 * 365);
         const [fs, bs, px] = await Promise.all([
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
       } catch (e) {
         if (e instanceof QuotaError) result.stoppedForQuota = true;
         result.skipped.push({ symbol, reason: String((e as Error).message ?? e) });
-        const { error: stateError } = await db.from('valuation_filing_versions').update({ state: 'failed', reason: String((e as Error).message ?? e) }).eq('symbol',symbol);
+        const { error: stateError } = await db.from('valuation_filing_versions').update({ state: 'failed', reason: String((e as Error).message ?? e) }).eq('symbol',symbol).eq('expected_period',filings.get(symbol)?.expected_period ?? '').eq('source',filings.get(symbol)?.source ?? '');
         if (stateError) result.skipped.push({ symbol, reason: `狀態寫入失敗：${stateError.message}` });
       }
     }

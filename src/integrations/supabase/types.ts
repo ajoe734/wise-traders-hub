@@ -6477,6 +6477,7 @@ export type Database = {
       tw_sales_basis: {
         Row: {
           computed_at: string
+          eligible: boolean
           latest_period: string
           period: string
           source: string
@@ -6485,6 +6486,7 @@ export type Database = {
         }
         Insert: {
           computed_at?: string
+          eligible?: boolean
           latest_period: string
           period: string
           source?: string
@@ -6493,6 +6495,7 @@ export type Database = {
         }
         Update: {
           computed_at?: string
+          eligible?: boolean
           latest_period?: string
           period?: string
           source?: string

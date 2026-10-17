@@ -65,7 +65,7 @@ export function scenarioFromFundamentals(payload: FundamentalsPayload | null | u
   return scenario;
 }
 
-/** 財報情境前端快取：同一代碼 6 小時內共用一次結果；同時開啟的兩個元件共用同一個請求。 */
+/** 財報情境前端快取：同一代碼一小時且同台北日期內共用一次結果；同時開啟的兩個元件共用同一個請求。 */
 export const FUNDAMENTALS_CLIENT_TTL_MS = FILING_CHECK_MS;
 export const FUNDAMENTALS_TIMEOUT_MS = 25_000;
 const fundCache = new Map<string, { at: number; value: FundamentalsPayload }>();

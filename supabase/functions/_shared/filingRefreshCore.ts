@@ -26,11 +26,17 @@ type Row = { date: string; type: string; value: number };
 export function completeFinancialPeriods(fs: Row[], bs: Row[]): string[] {
   const fields = (rows: Row[]) => {
     const map = new Map<string, Set<string>>();
+    const values = new Map<string, number>();
+    const invalid = new Set<string>();
     for (const r of rows) {
-      if (!/^\d{4}-(03-31|06-30|09-30|12-31)$/.test(r.date) || !Number.isFinite(Number(r.value))) continue;
+      if (!/^\d{4}-(03-31|06-30|09-30|12-31)$/.test(r.date) || r.value == null || String(r.value).trim() === '' || !Number.isFinite(Number(r.value))) continue;
       const types = map.get(r.date) ?? new Set<string>();
+      const key = `${r.date}:${r.type}`;
+      if (values.has(key) && values.get(key) !== Number(r.value)) invalid.add(r.date);
+      values.set(key, Number(r.value));
       types.add(r.type); map.set(r.date, types);
     }
+    for (const date of invalid) map.delete(date);
     return map;
   };
   const f = fields(fs); const b = fields(bs);

@@ -17,6 +17,7 @@ export async function readFilingVersions(db: FilingDatabase) {
 
 export async function discoverFilings(db: FilingDatabase) {
   const index = await fetchOfficialFilingIndex();
+  if (index.failures.length) throw new Error(`官方索引來源未齊：${index.failures.join('; ')}`);
   const data = await readFilingVersions(db);
   type Stored = { symbol: string; expected_period: string | null; source: string | null };
   const stored = new Map<string, Stored>(((data ?? []) as Stored[]).map((r) => [r.symbol,r]));
@@ -34,7 +35,7 @@ export async function discoverFilings(db: FilingDatabase) {
 export async function commitFiling(db: FilingDatabase, symbol: string, fs: FinRow[], bs: FinRow[], expected: string | null, priorVersion?: string | null, priorPeriod?: string | null, source?: string | null, sales?: { sps: number; period: string; rows: unknown[] }) {
   const complete = committedFiling(fs, bs, expected);
   if (!complete) throw new Error(`新季 ${expected ?? '未知'} 損益或資產負債資料尚未完整，保留待更新`);
-  const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([complete.fs,complete.bs])));
+  const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([complete.fs,complete.bs].map((rows) => rows.filter((r) => r.date === expected).map((r) => [r.type,Number(r.value),r.origin_name ?? '']).sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))))));
   const version = Array.from(new Uint8Array(digest)).map((n) => n.toString(16).padStart(2,'0')).join('');
   if (priorVersion === version && priorPeriod === expected) throw new Error('官方同季修訂已偵測，但財報來源仍回傳舊版本，保留重試');
   if (!db.rpc || !expected || !source) throw new Error('缺財報版本提交識別');
@@ -46,4 +47,14 @@ export async function commitFiling(db: FilingDatabase, symbol: string, fs: FinRo
   if (error) throw new Error(error.message);
   if (data !== true) throw new Error('官方版本已更新或上游仍舊版，保留重試');
   return complete;
+}
+
+export async function readSalesBases(db: FilingDatabase) {
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await db.from('tw_sales_basis').select('symbol,sps,latest_period,computed_at').eq('eligible',true).order('symbol').range(offset,offset+999);
+    if (error) throw new Error(error.message);
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < 1000) return rows;
+  }
 }
