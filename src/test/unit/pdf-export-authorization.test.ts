@@ -16,7 +16,9 @@ const serve = vi.fn();
 vi.stubGlobal('Deno', { serve });
 
 // Exercise the real HTTP dispatch, not a duplicated authorization rule.
-await import('../../../supabase/functions/authorize-pdf-export/index.ts');
+// Runtime-only Deno entry: do not pull its npm: imports into the browser TS program.
+const endpointPath = '../../../supabase/functions/authorize-pdf-export/index.ts';
+await import(endpointPath);
 const handler = serve.mock.calls[0][0] as (req: Request) => Promise<Response>;
 const expertId = '11111111-1111-4111-8111-111111111111';
 const request = (body: unknown = {}, token = 'verified-owner') => new Request('http://localhost/export', {

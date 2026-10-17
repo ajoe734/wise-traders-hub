@@ -23,6 +23,7 @@ test('點擊產生 PDF → Chromium 觸發下載', async ({ page }) => {
       experts: ({ url }) => ((url.searchParams.get('select') ?? '').includes('expert_plans')
         ? [{ ...EXPERT, expert_plans: [] }] : EXPERT),
       trade_records: () => TRADES,
+      public_expert_state_active: () => ({ state: 'ready', withheld_count: 0, incomplete_count: 0, manual_review_count: 0 }),
     },
     functions: { 'authorize-pdf-export': () => ({ allowed: true }) },
   });
