@@ -17,7 +17,8 @@ import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
 import { revenue3mYoY, nextQuarterBasis } from '../_shared/monthRevenue.ts';
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../_shared/demoFundamentalsSymbols.ts';
-import { taipeiDate, financialCacheValid, completeFinancialPeriods } from '../_shared/filingRefreshCore.ts';
+import { taipeiDate, completeFinancialPeriods } from '../_shared/filingRefreshCore.ts';
+import { createFundamentalsCache } from '../_shared/fundamentalsCache.ts';
 import {
   auditPeers, buildScenarioRows, latestOrdinaryShare, officialFromIssuedShares, closeOn, computeCompanyBasis, dailyPsSeries, mapLimit, monthlyHistory, officialFromTpex, officialFromTwse,
   rankPeerCandidates, type FinRow, type OfficialShares, type PeerInput, type PriceRow,
@@ -39,21 +40,10 @@ const PEER_BUDGET_MS = 15_000;
 const CACHE_TTL_MS = 6 * 3600 * 1000;
 const OFFICIAL_TTL_MS = 12 * 3600 * 1000;
 
-const cache = new Map<string, { at: number; value: unknown }>();
-const inflight = new Map<string, Promise<unknown>>();
+const cached = createFundamentalsCache();
 
 /** finmind/official = 邏輯請求；httpAttempts = 實際 HTTP 次數（含重試）。 */
 type Meter = { finmind: number; official: number; httpAttempts: number; retries: number; cacheHits: number; timeouts: number };
-
-async function cached<T>(key: string, ttl: number, meter: Meter, load: () => Promise<T>): Promise<T> {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttl && (key.startsWith('official:') || financialCacheValid(hit.at, Date.now()))) { meter.cacheHits++; return hit.value as T; }
-  const running = inflight.get(key);
-  if (running) { meter.cacheHits++; return running as Promise<T>; }
-  const p = load().then((v) => { cache.set(key, { at: Date.now(), value: v }); return v; }).finally(() => inflight.delete(key));
-  inflight.set(key, p);
-  return p;
-}
 
 async function withTimeout<T>(ms: number, meter: Meter, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const ctl = new AbortController();
