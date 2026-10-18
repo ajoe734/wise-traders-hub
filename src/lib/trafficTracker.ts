@@ -91,10 +91,22 @@ const visitor_id = (() => {
   try { return getOrCreateVisitorId(); } catch { return ''; }
 })();
 
+/**
+ * 自動化瀏覽器（Playwright/Selenium 會設 navigator.webdriver）與本機沙盒
+ * 不計流量：它們共用正式後端，曾灌入數萬筆單頁、無來源的假訪客。
+ */
+export function isAutomatedOrLocal(): boolean {
+  try {
+    if (typeof navigator !== 'undefined' && (navigator as Navigator & { webdriver?: boolean }).webdriver) return true;
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    return host === 'localhost' || host === '127.0.0.1';
+  } catch { return false; }
+}
+
 function shouldSkip(_path: string): boolean {
-  // Always log — backend tags internal routes with is_internal=true
-  // and dashboards filter them out by default.
-  return false;
+  // Internal routes are still logged (backend tags is_internal=true);
+  // only bots/local sandboxes are dropped.
+  return isAutomatedOrLocal();
 }
 
 /**
