@@ -64,3 +64,7 @@ Factsheet requests must include an explicit export type and expert ID and use `r
 ### Campaign attribution
 
 Persist anonymous first touch on auth with original expiry; paginate platform reports and use `platformAttribution` for registration dates and conversion-platform totals; why: avoid lost sources, false signups and duplicated revenue.
+
+### Financial quota reporting
+
+Use `finmindUsage` with paginated job logs, completed-symbol deduplication and timestamped upstream observations; why: aggregate counts and internal pools cannot establish unique symbols or provider quota.

@@ -2,6 +2,7 @@
 import { FactLogHealthCard } from '@/components/company/FactLogHealthCard';
 import { BackfillQueueCard } from '@/components/company/BackfillQueueCard';
 import { ChaosDrillCard } from '@/components/company/ChaosDrillCard';
+import { FinmindUsageBoard } from '@/components/company/FinmindUsageBoard';
 
 
 import { useState } from 'react';
@@ -250,6 +251,8 @@ export default function DataSourceHealth() {
           重新整理
         </Button>
       </div>
+
+      <FinmindUsageBoard />
 
       {/* Quota Pools */}
       <section className="space-y-2">
