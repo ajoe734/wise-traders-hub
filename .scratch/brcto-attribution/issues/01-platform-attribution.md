@@ -33,3 +33,5 @@ Blocked by: None — can start immediately
 
 ## Evidence
 `attribution-auth-backfill`、`platform-attribution`、`conversion-attribution`、`payment-attribution-dispatch`、`brcto-payment-handlers`：涵蓋匿名補寫、30天、重試、五平台、四付款入口、ACpay新訂閱／續訂與拒絕簽章、匯款成功／重複／失敗。`e2e/brcto-auth-funnel.spec.ts` 驗證五平台註冊登入下單與看板分頁、註冊／成交隔離、四尺寸、空資料、錯誤。未部署共用付款函式；正式成交仍待使用者核准部署及真人付款驗收。
+
+最終：150項Vitest、13項E2E通過；看板501筆訪客跨頁讀回、1註冊／1成交799元隔離（全為mock，不寫正式資料）。後端HTTP handler mock 位於 `tests/brcto-payment-handlers.test.ts`，避免前台型別檢查載入Deno入口。既有 `share-short-link-redirect` 的og:image期待失敗（目前靜態og-image，而測試期待og-card）；未改SEO，短網址重導與UTM已另在五平台E2E通過。
