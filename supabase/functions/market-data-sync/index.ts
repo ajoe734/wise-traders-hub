@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     const { data: reqRows, error } = await db.from('market_data_requests').select('symbol,state,last_attempt_at').neq('state', 'ready').limit(1000);
     if (error) throw new Error(error.message);
     const queue = selectBackfillQueue(reqRows ?? [], limit);
-    const result = { ok: 0, failed: [] as Array<{ symbol: string; reason: string }>, stoppedForQuota: false };
+    const result = { done: 0, failed: [] as Array<{ symbol: string; reason: string }>, stoppedForQuota: false };
     for (const symbol of queue) {
       if (result.stoppedForQuota) break;
       const { data: cur } = await db.from('market_data_requests').select('attempts').eq('symbol', symbol).maybeSingle();
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
         const revRows = rev.filter((r) => Number(r.revenue) > 0).map((r) => ({ symbol, revenue_year: Number(r.revenue_year), revenue_month: Number(r.revenue_month), revenue: Number(r.revenue), source: 'finmind_month_revenue' }));
         if (revRows.length) await upsertChunks(db, 'tw_month_revenue', revRows, 'symbol,revenue_year,revenue_month');
         await db.from('market_data_requests').update({ state: 'ready', reason: `日線 ${prices.length} 根、月營收 ${revRows.length} 筆` }).eq('symbol', symbol);
-        result.ok++;
+        result.done++;
       } catch (e) {
         if (e instanceof QuotaError) { result.stoppedForQuota = true; await db.from('market_data_requests').update({ reason: e.message }).eq('symbol', symbol); break; }
         const reason = e instanceof Error ? e.message : String(e);
