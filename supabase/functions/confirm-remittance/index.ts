@@ -4,6 +4,7 @@ import { requireCompanyAdmin, authErrorResponse } from "../_shared/adminGuard.ts
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { writeRevenueSplit } from "../_shared/paymentProcessor.ts";
+import { recordConversion } from "../_shared/recordConversion.ts";
 import { validateInput, validationJsonResponse } from "../_shared/inputValidator.ts";
 
 const handler = withLogging("confirm-remittance", async (req, log) => {
@@ -113,6 +114,14 @@ const handler = withLogging("confirm-remittance", async (req, log) => {
     confirmed_by: callerId,
     subscription_id: subscriptionId,
   }).eq("id", orderId);
+
+  if (tx) await recordConversion(admin, {
+    userId: order.user_id,
+    orderKind: isCheckup ? 'checkup_sub' : 'expert_sub',
+    orderId: order.id,
+    grossAmount: order.original_amount ?? order.amount,
+    attribution: order.attribution,
+  });
 
   await admin.from("audit_logs").insert({
     actor_id: callerId,

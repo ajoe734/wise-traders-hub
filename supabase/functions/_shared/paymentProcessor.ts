@@ -122,6 +122,7 @@ export async function createSubscriptionAndTransaction(
   // Traffic attribution: record conversion (best-effort, never block)
   await recordConversion(supabase as any, {
     userId: params.userId,
+    attribution: params.attribution,
     orderKind: params.productKind === 'checkup' ? 'checkup_sub' : 'expert_sub',
     orderId: sub.id,
     grossAmount: params.originalAmount ?? params.amount,
@@ -242,6 +243,7 @@ export async function recordPaymentForExistingSubscription(
       if (sub?.user_id) {
         await recordConversion(supabase as any, {
           userId: sub.user_id,
+          attribution: params.attribution,
           orderKind: params.productKind === 'checkup' ? 'checkup_sub' : 'expert_sub',
           orderId: params.subscriptionId,
           grossAmount: params.originalAmount ?? params.amount,
