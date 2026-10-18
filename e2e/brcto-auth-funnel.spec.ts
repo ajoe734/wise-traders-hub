@@ -64,7 +64,7 @@ test('platform report shows paginated isolated totals and failure state', async 
       if (!offset) return Array.from({ length: 500 }, (_, i) => ({ visitor_id: `bulk${i}`, utm_campaign: 'brcto_journal', utm_content: 'ig', first_seen_at: now }));
       return ['ig', 'fb', 'yt', 'line', null].map((content, i) => ({ visitor_id: `v${i}`, utm_campaign: 'brcto_journal', utm_content: content, first_seen_at: now }));
     },
-    referral_attributions: () => empty ? [] : [{ user_id: 'new-member', utm_campaign: 'brcto_journal', utm_content: 'ig', created_at: now, locked_until: new Date(Date.now() + 30 * 86400000).toISOString() }],
+    referral_attributions: () => empty ? [] : [{ user_id: 'new-member', utm_campaign: 'brcto_journal', utm_content: 'ig', created_at: now, locked_until: new Date(Date.parse(now) + 30 * 86400000).toISOString() }],
     conversions: () => empty ? [] : [{ id: 'paid-test', utm_campaign: 'brcto_journal', utm_content: 'ig', gross_amount: 799, occurred_at: now }],
     get_traffic_overview: () => ({ kpi: {}, daily: [], channels: [], campaigns: [] }),
   } });
