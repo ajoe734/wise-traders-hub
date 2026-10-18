@@ -186,8 +186,9 @@ describe('checkup-sparkline — retry cooldown', () => {
     expect(calls).toBe(1);
   });
 
-  it('index.ts 確實以 coalesce 包住 provider 呼叫', () => {
+  it('index.ts 以 coalesce 包住資料庫讀取，且不再即時抓外部來源', () => {
     expect(src).toMatch(/coalesce\(\s*`sparkline:\$\{c\}:\$\{expected\}`/);
-    expect(src).toMatch(/fetchTwDailyOhlc\(c, \{ supa: sb as any \}\)/);
+    expect(src).toMatch(/readPriceHistory\(sb as any, c,/);
+    expect(src).not.toMatch(/fetchTwDailyOhlc\(/);
   });
 });
