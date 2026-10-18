@@ -1,8 +1,8 @@
 // AUTH: public  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file
 //
-// F1：本函式不再自行實作上游抓取。日 K 一律走 `_shared/twPriceWaterfall.ts`
-// （TWSE STOCK_DAY → TPEx → FinMind），該模組內含重試、退避與熔斷記錄。
+// DB-only：本函式不打任何外部來源，日 K 只讀 `tw_price_history`
+// （由排程 market-data-sync 寫入）；缺資料登記 market_data_requests 等排程回補。
 //
 // V2（收盤對齊 + retry cooldown）：
 //   - 日鍵改用 Asia/Taipei（`taipeiTodayIso`），不再用 Edge 本機 UTC 日期。
@@ -17,7 +17,8 @@ import { applyCoercion } from "../_shared/inputCoerce.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
-import { fetchTwDailyOhlc, type TwBar } from "../_shared/twPriceWaterfall.ts";
+import type { TwBar } from "../_shared/twPriceWaterfall.ts";
+import { readPriceHistory, requestSymbols } from "../_shared/marketDataStore.ts";
 import { expectedLatestBsrDate } from "../_shared/tradingDate.ts";
 import { getTwHolidaysCached, taipeiTodayIso } from "../_shared/twTradingCalendar.ts";
 import { coalesce } from "../_shared/requestCoalescer.ts";
@@ -222,7 +223,11 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
       const batch = toFetch.slice(i, i + batchSize);
       const results = await Promise.all(batch.map((c) => coalesce(
         `sparkline:${c}:${expected}`,
-        () => fetchTwDailyOhlc(c, { supa: sb as any }),
+        async () => {
+          const bars = await readPriceHistory(sb as any, c, new Date(nowMs - 120 * 86400000).toISOString().slice(0, 10));
+          if (bars.length < 2) await requestSymbols(sb as any, [c]);
+          return { bars: bars as TwBar[], source: bars.length ? 'tw_price_history' : null, complete: bars.length >= MIN_COMPLETE_BARS, attempts: [] };
+        },
       )));
       const upserts: any[] = [];
       batch.forEach((c, idx) => {

@@ -3967,6 +3967,33 @@ export type Database = {
         }
         Relationships: []
       }
+      market_data_requests: {
+        Row: {
+          attempts: number
+          last_attempt_at: string | null
+          reason: string | null
+          requested_at: string
+          state: string
+          symbol: string
+        }
+        Insert: {
+          attempts?: number
+          last_attempt_at?: string | null
+          reason?: string | null
+          requested_at?: string
+          state?: string
+          symbol: string
+        }
+        Update: {
+          attempts?: number
+          last_attempt_at?: string | null
+          reason?: string | null
+          requested_at?: string
+          state?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
       member_line_bindings: {
         Row: {
           bound_at: string
@@ -6441,6 +6468,69 @@ export type Database = {
           note?: string | null
           source?: string
           trade_date?: string
+        }
+        Relationships: []
+      }
+      tw_month_revenue: {
+        Row: {
+          fetched_at: string
+          revenue: number
+          revenue_month: number
+          revenue_year: number
+          source: string
+          symbol: string
+        }
+        Insert: {
+          fetched_at?: string
+          revenue: number
+          revenue_month: number
+          revenue_year: number
+          source: string
+          symbol: string
+        }
+        Update: {
+          fetched_at?: string
+          revenue?: number
+          revenue_month?: number
+          revenue_year?: number
+          source?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
+      tw_price_history: {
+        Row: {
+          close: number
+          fetched_at: string
+          high: number | null
+          low: number | null
+          open: number | null
+          source: string
+          symbol: string
+          trade_date: string
+          volume: number | null
+        }
+        Insert: {
+          close: number
+          fetched_at?: string
+          high?: number | null
+          low?: number | null
+          open?: number | null
+          source: string
+          symbol: string
+          trade_date: string
+          volume?: number | null
+        }
+        Update: {
+          close?: number
+          fetched_at?: string
+          high?: number | null
+          low?: number | null
+          open?: number | null
+          source?: string
+          symbol?: string
+          trade_date?: string
+          volume?: number | null
         }
         Relationships: []
       }
