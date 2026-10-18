@@ -43,7 +43,7 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 ### Valuation fundamentals
 
-Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); shares are DB-first `official_share_registry`, live exchanges/FinMind only as fallback; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
+Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); it reads only the database (filings `valuation_filing_versions`, prices `tw_price_history`, month revenue `tw_month_revenue`, shares `official_share_registry`) and returns `DATA_PENDING` + enqueues `market_data_requests` when data is missing; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
 
 Shared client fundamentals cache and in-flight deduplication freshness start when the request begins; expired or Taipei-cross-day requests cannot be reused, and only the current in-flight request may cache its response or remove its entry; why: delayed pre-deadline data must not masquerade as a new-day filing or overwrite a newer request for either the drawer or holdings list.
 
@@ -56,10 +56,6 @@ Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recogni
 ### Teacher articles
 
 Blog-style teaching articles live in `expert_articles`, separate from `expert_signals`; block parsing, layout recommendation and trial excerpts come only from pure `src/lib/articleLayout.ts`, and visibility (subscription, publish time, trial) is enforced by RLS/RPC, never by the client; publish notices only via `article-push` + `_shared/articlePushCore.ts`, deduped by `claim_article_push`; why: articles must never touch holdings/signal ledgers, and layouts may restyle but never reorder content.
-
-### Article AI assist
-
-Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy` with pure gates in `_shared/articleAiCore.ts`; any image not confidently text-free is framed deterministically client-side (`src/lib/articleImageFrame.ts`, 1:1 pixels), and tidy output is rejected unless words and image order are identical; why: AI must never alter financial numbers or teacher wording.
 
 ### PDF export authorization
 
