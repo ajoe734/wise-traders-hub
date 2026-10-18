@@ -43,11 +43,15 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 ### Valuation fundamentals
 
-Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); shares are DB-first `official_share_registry`, live exchanges/FinMind only as fallback; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
+Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); it reads only the database (filings `valuation_filing_versions`, prices `tw_price_history`, month revenue `tw_month_revenue`, shares `official_share_registry`) and returns `DATA_PENDING` + enqueues `market_data_requests` when data is missing; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
 
 Shared client fundamentals cache and in-flight deduplication freshness start when the request begins; expired or Taipei-cross-day requests cannot be reused, and only the current in-flight request may cache its response or remove its entry; why: delayed pre-deadline data must not masquerade as a new-day filing or overwrite a newer request for either the drawer or holdings list.
 
 Filing-refresh queue selection and attempt/failure state writes go only through `selectFilingQueue` / `updateFilingState` in `supabase/functions/_shared/filingVersionStore.ts` (failed rows retry, least-recently-attempted first, writes guarded by symbol+expected_period+source); why: quota/error states must stay retryable and an in-flight attempt must not clobber a newer filing version detected mid-run.
+
+### Read endpoints are database-only
+
+Page-facing read endpoints (`valuation-fundamentals`, `checkup-sparkline`) never call FinMind/TWSE/TPEx; only scheduled sync functions (`market-data-sync`, `valuation-ps-sync`, etc.) fetch externally, via `_shared/marketDataStore.ts` (Vitest `db-only-read-endpoints.test.ts` enforces); why: page refreshes and automated smoke runs must not consume upstream quota.
 
 ### Expert monthly payroll
 
