@@ -36,3 +36,4 @@
 - [x] 彥愷績效 PDF 診斷與預覽修正（diagnosing-bugs）：真實公司管理員HTTP200並下載267951-byte PDF；彥愷持analyst且原函式公司管理員限定，真實HTTP分派測試RED 9／GREEN 13；僅factsheet使用本人／公司管理員guard、傳expert_id，週記限制不變；30項Vitest＋7項Deno＋7項E2E全過，函式檢查與預覽build OK。E2E涵蓋401/403/500不下載、理由、重試及所有日期範圍。
 - [x] 彥愷績效 PDF 共用函式部署：使用者核准後僅部署 authorize-pdf-export（source SHA256 10a487ce4c39de71e56597ba3344a8cdadfd6dcf6376d00eec654f4efd0aa969）；真實管理員以factsheet+expert_id取得200並下載267953-byte PDF；legacy管理員200、無bearer401、無效bearer401、無效scope400。未更動DB/RLS或帳號角色。
 - [ ] 彥愷績效 PDF 正式前台發布與本人驗收：已核准，提出發布請求；代登入遭平台權限拒絕，本人真實路徑UNVERIFIED，測試fixture不替代。待發布完成確認與彥愷本人登入讀回。
+- [ ] brcto 短網址：修正匿名登入後歸因寫入、驗證註冊與結帳模擬全流程、流量看板依 campaign / 平台拆分；使用者選擇先完成模擬與看板，真實註冊／付款保留未驗證。
