@@ -13,3 +13,13 @@ Peer-reference PS comes only from `tw_ps_daily` (via `valuation_peer_multiples`)
 Detect issuer-quarter changes through the official filing index on the existing hourly job; publish complete statement versions and curated-peer PS basis/history only through the service-only atomic `commit_valuation_filing` RPC, matching the detected signature; why: partial input, concurrent revisions, or failed PS writes must not mark a stale financial version ready. Taipei-date expiry and client refresh share `filingRefreshCore`; peer PE/PB remain exchange-reported daily evidence, never price-derived substitutes.
 
 Financial dataset caches and in-flight deduplication use `createFundamentalsCache` with request-start freshness and current-request ownership; official registries retain their separate TTL without financial date expiry; why: delayed financial requests must neither become new-day filings nor remove or overwrite a replacement request.
+
+### Read endpoints are database-only
+
+Page-facing read endpoints (`valuation-fundamentals`, `checkup-sparkline`) never call FinMind/TWSE/TPEx; only scheduled sync functions (`market-data-sync`, `valuation-ps-sync`, etc.) fetch externally, via `_shared/marketDataStore.ts` (Vitest `db-only-read-endpoints.test.ts` enforces); why: page refreshes and automated smoke runs must not consume upstream quota.
+
+
+### Article AI assist
+
+Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy` with pure gates in `_shared/articleAiCore.ts`; any image not confidently text-free is framed deterministically client-side (`src/lib/articleImageFrame.ts`, 1:1 pixels), and tidy output is rejected unless words and image order are identical; why: AI must never alter financial numbers or teacher wording.
+

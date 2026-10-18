@@ -49,10 +49,6 @@ Shared client fundamentals cache and in-flight deduplication freshness start whe
 
 Filing-refresh queue selection and attempt/failure state writes go only through `selectFilingQueue` / `updateFilingState` in `supabase/functions/_shared/filingVersionStore.ts` (failed rows retry, least-recently-attempted first, writes guarded by symbol+expected_period+source); why: quota/error states must stay retryable and an in-flight attempt must not clobber a newer filing version detected mid-run.
 
-### Read endpoints are database-only
-
-Page-facing read endpoints (`valuation-fundamentals`, `checkup-sparkline`) never call FinMind/TWSE/TPEx; only scheduled sync functions (`market-data-sync`, `valuation-ps-sync`, etc.) fetch externally, via `_shared/marketDataStore.ts` (Vitest `db-only-read-endpoints.test.ts` enforces); why: page refreshes and automated smoke runs must not consume upstream quota.
-
 ### Expert monthly payroll
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
@@ -60,10 +56,6 @@ Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recogni
 ### Teacher articles
 
 Blog-style teaching articles live in `expert_articles`, separate from `expert_signals`; block parsing, layout recommendation and trial excerpts come only from pure `src/lib/articleLayout.ts`, and visibility (subscription, publish time, trial) is enforced by RLS/RPC, never by the client; publish notices only via `article-push` + `_shared/articlePushCore.ts`, deduped by `claim_article_push`; why: articles must never touch holdings/signal ledgers, and layouts may restyle but never reorder content.
-
-### Article AI assist
-
-Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy` with pure gates in `_shared/articleAiCore.ts`; any image not confidently text-free is framed deterministically client-side (`src/lib/articleImageFrame.ts`, 1:1 pixels), and tidy output is rejected unless words and image order are identical; why: AI must never alter financial numbers or teacher wording.
 
 ### PDF export authorization
 
