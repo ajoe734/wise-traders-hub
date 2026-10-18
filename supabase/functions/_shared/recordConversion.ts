@@ -16,6 +16,7 @@ export interface ConversionInput {
   grossAmount: number;
   platformAmount?: number;
   expertAmount?: number;
+  attribution?: { visitor_id?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string; utm_content?: string; ref_code?: string } | null;
 }
 
 export async function recordConversion(
@@ -33,7 +34,8 @@ export async function recordConversion(
     let channel = 'direct';
     let referrer_host: string | null = null;
 
-    const { data: tv } = await supabase
+    const snapshot = input.attribution;
+    const { data: tv } = snapshot ? { data: null } : await supabase
       .from('traffic_visits')
       .select('visitor_id, utm_source, utm_medium, utm_campaign, utm_content, ref_code, channel, first_referrer_host')
       .eq('user_id', input.userId)
@@ -41,7 +43,14 @@ export async function recordConversion(
       .limit(1)
       .maybeSingle();
 
-    if (tv) {
+    if (snapshot) {
+      visitor_id = snapshot.visitor_id || null;
+      utm_source = snapshot.utm_source || null;
+      utm_medium = snapshot.utm_medium || null;
+      utm_campaign = snapshot.utm_campaign || null;
+      utm_content = snapshot.utm_content || null;
+      ref_code = snapshot.ref_code || null;
+    } else if (tv) {
       visitor_id = tv.visitor_id;
       utm_source = tv.utm_source;
       utm_medium = tv.utm_medium;

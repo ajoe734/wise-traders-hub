@@ -4,6 +4,31 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const STORAGE_KEY = 'lf_attr_v1';
 const LOCK_DAYS = 30;
+const pendingWrites = new Map<string, Promise<void>>();
+
+async function persistAttribution(userId: string, payload: AttributionPayload): Promise<void> {
+  if (!payload.visitor_id) return;
+  const key = `${userId}:${payload.visitor_id}:${payload.locked_until}`;
+  const pending = pendingWrites.get(key);
+  if (pending) return pending;
+  const task = (async () => {
+    const { data, error } = await supabase.from('referral_attributions')
+      .select('id').eq('user_id', userId).eq('visitor_id', payload.visitor_id ?? '')
+      .eq('locked_until', new Date(payload.locked_until).toISOString()).limit(1);
+    if (error) throw error;
+    if (data?.length) return;
+    const { error: insertError } = await supabase.from('referral_attributions').insert({
+      user_id: userId, visitor_id: payload.visitor_id,
+      utm_source: payload.utm_source || null, utm_medium: payload.utm_medium || null,
+      utm_campaign: payload.utm_campaign || null, utm_content: payload.utm_content || null,
+      ref_code: payload.ref_code || null, landing_path: payload.landing_path || null,
+      locked_until: new Date(payload.locked_until).toISOString(),
+    });
+    if (insertError) throw insertError;
+  })();
+  pendingWrites.set(key, task);
+  try { await task; } finally { pendingWrites.delete(key); }
+}
 
 interface AttributionPayload {
   utm_source?: string;
@@ -73,31 +98,16 @@ export function useAttributionTracking() {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
-      // Persist to DB only when authenticated (RLS now requires user_id = auth.uid()).
-      // Anonymous first-touch attribution stays in localStorage and is written to
-      // the DB after login via the backfill block below.
-      if (user?.id) {
-        supabase.from('referral_attributions').insert({
-          user_id: user.id,
-          visitor_id: payload.visitor_id || null,
-          utm_source: payload.utm_source || null,
-          utm_medium: payload.utm_medium || null,
-          utm_campaign: payload.utm_campaign || null,
-          utm_content: payload.utm_content || null,
-          ref_code: payload.ref_code || null,
-          landing_path: payload.landing_path || null,
-        }).then(() => {});
-      }
     }
 
-    // Once user logs in, backfill user_id on most recent attribution row
-    if (user?.id && payload && payload.visitor_id) {
-      supabase
-        .from('referral_attributions')
-        .update({ user_id: user.id })
-        .eq('visitor_id', payload.visitor_id)
-        .is('user_id', null)
-        .then(() => {});
-    }
+    // Anonymous rows do not exist under RLS. Insert the saved first touch on
+    // login, retaining its original expiry, rather than updating a missing row.
+    const persist = () => {
+      const current = readAttribution();
+      if (user?.id && current) void persistAttribution(user.id, current).catch(() => {});
+    };
+    persist();
+    window.addEventListener('online', persist);
+    return () => window.removeEventListener('online', persist);
   }, [user?.id]);
 }

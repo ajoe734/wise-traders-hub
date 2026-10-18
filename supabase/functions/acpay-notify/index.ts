@@ -65,6 +65,8 @@ const handler = withLogging("acpay-notify", async (req, log) => {
       .eq("provider_type", "acpay").eq("is_active", true).single();
 
     const now = new Date();
+    const { data: intent } = await supabase.from('payment_intents')
+      .select('attribution').eq('trade_no', outTradeNo).maybeSingle();
 
     // W4-2: 標記 payment_intent 為已完成（用於棄單回收判定）
     await supabase.from("payment_intents")
@@ -80,19 +82,21 @@ const handler = withLogging("acpay-notify", async (req, log) => {
       if (existing && existing.length > 0) {
         subscriptionId = existing[0].id;
         const renewResult = await renewExistingSubscription(supabase, {
-          subscriptionId: subscriptionId!, billingCycle, now,
+          subscriptionId, billingCycle, now,
         });
         if (renewResult.error) log.error("renewal_extend_error", { error: String(renewResult.error) });
 
         const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
-          subscriptionId: subscriptionId!, amount: totalFee, currency: "TWD",
+          subscriptionId, amount: totalFee, currency: "TWD",
           providerTxId: transactionId, providerId: provider?.id || null, now,
+          attribution: intent?.attribution ?? null,
         });
         if (txError) log.error("tx_insert_error", { message: String(txError) });
       } else {
         const result = await createSubscriptionAndTransaction(supabase, {
           userId, planId, billingCycle, amount: totalFee, currency: "TWD",
           providerTxId: transactionId, providerId: provider?.id || null, now,
+          attribution: intent?.attribution ?? null,
         });
         if (result.error) log.error("create_sub_tx_failed", { error: String(result.error) });
         else subscriptionId = result.subscriptionId;
