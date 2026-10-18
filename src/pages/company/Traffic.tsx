@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isInternalTrackingOn, setInternalTracking } from '@/lib/trafficTracker';
+import PlatformBreakdown from '@/pages/_companyTraffic/PlatformBreakdown';
 
 const Charts = {
   Sparkline: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.Sparkline }))),
@@ -583,6 +584,7 @@ export default function CompanyTraffic() {
           </TabsContent>
 
           <TabsContent value="sources" className="space-y-4">
+            <PlatformBreakdown from={range.from.toISOString()} to={range.to.toISOString()} />
             <div className="grid md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader><CardTitle className="text-base">Channel 分布</CardTitle></CardHeader>

@@ -13,7 +13,7 @@ Issues 以本地 markdown 檔管理，放在 `.scratch/<feature-slug>/`。See `d
 
 ### Triage labels
 
-沿用五個標準 triage 角色字串（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`），記錄在每個 issue 檔的 `Status:` 行。See `docs/agents/triage-labels.md`.
+Use the five Status labels in `docs/agents/triage-labels.md`.
 
 ### Module boundaries
 
@@ -64,3 +64,7 @@ Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy
 ### PDF export authorization
 
 Factsheet requests must include an explicit export type and expert ID and use `requireExpertOwnerOrAdmin`; journal and legacy requests remain `requireCompanyAdmin` only. Never derive identity from request body fields; why: expert self-export must not widen journal permissions or permit cross-expert authorization.
+
+### Campaign attribution
+
+Persist anonymous first touch on auth with original expiry; paginate platform reports and use `platformAttribution` for registration dates and conversion-platform totals; why: avoid lost sources, false signups and duplicated revenue.
