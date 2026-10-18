@@ -17,6 +17,7 @@ import universe from '../_shared/peerPsUniverse.json' with { type: 'json' };
 import { discoverFilings, commitFiling, committedFiling, readFilingVersions, readSalesBases, selectFilingQueue, updateFilingState } from '../_shared/filingVersionStore.ts';
 import { taipeiDate } from '../_shared/filingRefreshCore.ts';
 import { z } from 'npm:zod@3';
+import { recordUpstreamQuota } from '../_shared/finmindUpstreamQuota.ts';
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -29,6 +30,7 @@ async function finmind<T>(dataset: string, id: string, start: string): Promise<T
   const token = Deno.env.get('FINMIND_TOKEN') || '';
   const res = await fetchWithRetry(`${FINMIND}?dataset=${dataset}&data_id=${encodeURIComponent(id)}&start_date=${start}`,
     token ? { headers: { Authorization: `Bearer ${token}` } } : {}, { source: `finmind_${dataset}`, policy: { maxAttempts: 2 } });
+  await recordUpstreamQuota(serviceClient(), `finmind_${dataset}`, res);
   const j = await res.json().catch(() => null);
   if (j?.status === 402 || res.status === 402) throw new QuotaError('財報資料來源今日額度已用完');
   if (j?.status !== 200 || !Array.isArray(j?.data)) throw new Error(`finmind ${dataset} ${id} status=${j?.status ?? res.status}`);
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
     par: Number(r.par), parText: r.par_text ?? String(r.par), issuedShares: Number(r.issued_shares), preferredShares: Number(r.preferred_shares ?? 0),
     paidInCapital: r.paid_in_capital != null ? Number(r.paid_in_capital) : null, source: r.source as OfficialShares['source'], reportDate: r.report_date ?? '',
   }]));
-  const result = { ok: 0, skipped: [] as Array<{ symbol: string; reason: string }>, psRows: 0, stoppedForQuota: false };
+  const result = { ok: 0, completedSymbols: [] as string[], skipped: [] as Array<{ symbol: string; reason: string }>, psRows: 0, stoppedForQuota: false };
   let idx = 0;
   const worker = async () => {
     while (idx < queue.length && !result.stoppedForQuota) {
@@ -137,9 +139,9 @@ Deno.serve(async (req) => {
           // Complete filing can be committed even when share verification blocks valuation.
           await saveFiling();
           result.skipped.push({ symbol, reason: b.reason ?? '缺近四季每股營收' });
-          result.ok++; continue;
+          result.ok++; result.completedSymbols.push(symbol); continue;
         }
-        if (!all.includes(symbol)) { await saveFiling(); result.ok++; continue; }
+        if (!all.includes(symbol)) { await saveFiling(); result.ok++; result.completedSymbols.push(symbol); continue; }
         const hist = dailyPsSeries(symbol, complete.fs, complete.bs, prices, asOf, official).filter((p) => p.ps > 0)
           .map((p) => ({ symbol, trade_date: p.date, ps: Math.round(p.ps * 10000) / 10000, source: 'finmind-basis' }));
         // Historical rows preserve historical filing deadlines. The latest close uses the new actual TTM basis.
@@ -152,6 +154,7 @@ Deno.serve(async (req) => {
         await saveFiling({ sps: Number(b.sps), period: String(b.period), rows: hist });
         result.psRows += hist.length;
         result.ok++;
+        result.completedSymbols.push(symbol);
       } catch (e) {
         if (e instanceof QuotaError) result.stoppedForQuota = true;
         result.skipped.push({ symbol, reason: String((e as Error).message ?? e) });

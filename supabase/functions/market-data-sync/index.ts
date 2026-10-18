@@ -12,6 +12,7 @@ import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { parseExchangeDaily, parseOfficialMonthRevenue, selectBackfillQueue, type PriceRowInsert, type RevenueInsert } from '../_shared/marketDataStore.ts';
 import { z } from 'npm:zod@3';
+import { recordUpstreamQuota } from '../_shared/finmindUpstreamQuota.ts';
 
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 const UA = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; legendflow/1.0)' } };
@@ -24,6 +25,7 @@ async function finmind<T>(dataset: string, id: string, start: string): Promise<T
   const token = Deno.env.get('FINMIND_TOKEN') || '';
   const res = await fetchWithRetry(`${FINMIND}?dataset=${dataset}&data_id=${encodeURIComponent(id)}&start_date=${start}`,
     token ? { headers: { Authorization: `Bearer ${token}` } } : {}, { source: `finmind_${dataset}`, policy: { maxAttempts: 2 } });
+  await recordUpstreamQuota(serviceClient(), `finmind_${dataset}`, res);
   const j = await res.json().catch(() => null);
   if (j?.status === 402 || res.status === 402 || j?.status === 429 || res.status === 429) throw new QuotaError('FinMind 今日額度已用完');
   if (j?.status !== 200 || !Array.isArray(j?.data)) throw new Error(`finmind ${dataset} ${id} status=${j?.status ?? res.status}`);
@@ -82,7 +84,7 @@ Deno.serve(async (req) => {
     const { data: reqRows, error } = await db.from('market_data_requests').select('symbol,state,last_attempt_at').neq('state', 'ready').limit(1000);
     if (error) throw new Error(error.message);
     const queue = selectBackfillQueue(reqRows ?? [], limit);
-    const result = { done: 0, failed: [] as Array<{ symbol: string; reason: string }>, stoppedForQuota: false };
+    const result = { done: 0, completedSymbols: [] as string[], failed: [] as Array<{ symbol: string; reason: string }>, stoppedForQuota: false };
     for (const symbol of queue) {
       if (result.stoppedForQuota) break;
       const { data: cur } = await db.from('market_data_requests').select('attempts').eq('symbol', symbol).maybeSingle();
@@ -97,6 +99,7 @@ Deno.serve(async (req) => {
         if (revRows.length) await upsertChunks(db, 'tw_month_revenue', revRows, 'symbol,revenue_year,revenue_month');
         await db.from('market_data_requests').update({ state: 'ready', reason: `日線 ${prices.length} 根、月營收 ${revRows.length} 筆` }).eq('symbol', symbol);
         result.done++;
+        result.completedSymbols.push(symbol);
       } catch (e) {
         if (e instanceof QuotaError) { result.stoppedForQuota = true; await db.from('market_data_requests').update({ reason: e.message }).eq('symbol', symbol); break; }
         const reason = e instanceof Error ? e.message : String(e);
