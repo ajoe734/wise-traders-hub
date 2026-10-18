@@ -12,7 +12,8 @@ export function platformName(content: string | null): string {
   return ({ ig: 'IG', instagram: 'IG', fb: 'FB', facebook: 'FB', yt: 'YouTube', youtube: 'YouTube', line: 'LINE' } as Record<string, string>)[value] ?? content?.trim() ?? '未標平台';
 }
 export function aggregatePlatforms(visits: PlatformVisit[], referrals: PlatformReferral[], conversions: PlatformConversion[], profiles: PlatformProfile[], campaign: string, from: string, to: string) {
-  const inRange = (date: string) => date >= from && date < to;
+  const fromMs = Date.parse(from), toMs = Date.parse(to);
+  const inRange = (date: string) => Date.parse(date) >= fromMs && Date.parse(date) < toMs;
   const buckets = new Map<string, { platform: string; visitors: Set<string>; signups: Set<string>; orders: Set<string>; gross: number }>();
   const bucket = (row: PlatformSource) => {
     if (row.utm_campaign !== campaign) return null;
@@ -28,7 +29,9 @@ export function aggregatePlatforms(visits: PlatformVisit[], referrals: PlatformR
   }
   for (const profile of profiles) {
     const source = first.get(profile.user_id);
-    if (source && inRange(profile.created_at) && profile.created_at < source.locked_until) bucket(source)?.signups.add(profile.user_id);
+    const registeredAt = Date.parse(profile.created_at);
+    const expiresAt = source ? Date.parse(source.locked_until) : NaN;
+    if (source && inRange(profile.created_at) && registeredAt >= expiresAt - 30 * 86400000 && registeredAt < expiresAt) bucket(source)?.signups.add(profile.user_id);
   }
   for (const row of conversions) {
     if (!inRange(row.occurred_at)) continue;

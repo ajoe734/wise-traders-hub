@@ -15,4 +15,8 @@ describe('platform attribution', () => {
     const rows = aggregatePlatforms([], [referral, referral, { ...referral, utm_content: 'fb', created_at: '2026-10-19T00:00:00Z' }, { ...referral, user_id: 'old' }, { ...referral, user_id: 'expired', locked_until: from }], [], [{ user_id: 'new', created_at: referral.created_at }, { user_id: 'old', created_at: '2025-01-01T00:00:00Z' }, { user_id: 'expired', created_at: referral.created_at }], 'brcto_journal', from, to);
     expect(rows).toEqual([{ platform: 'IG', visitors: 0, signups: 1, orders: 0, gross: 0 }]);
   });
+  it('does not attribute an earlier same-month signup to a later campaign visit', () => {
+    const rows = aggregatePlatforms([], [{ ...base, user_id: 'existing', created_at: '2026-10-18T00:00:00Z', locked_until: '2026-11-17T00:00:00Z' }], [], [{ user_id: 'existing', created_at: '2026-10-05T00:00:00Z' }], 'brcto_journal', from, to);
+    expect(rows).toEqual([]);
+  });
 });
