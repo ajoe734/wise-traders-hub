@@ -50,25 +50,37 @@ for (const platform of [undefined, 'ig', 'fb', 'yt', 'line']) {
 test('platform report shows paginated isolated totals and failure state', async ({ page }) => {
   await seedSession(page, { ...user, role: 'company_admin' });
   let fail = false;
+  let empty = false;
+  let pages = 0;
   const now = new Date().toISOString();
   await installRoutes(page, { rest: {
-    profiles: ({ url }) => url.searchParams.get('select') === 'user_id,created_at' ? [] : { display_name: 'Admin', is_tester: false },
+    profiles: ({ url }) => url.searchParams.get('select') === 'user_id,created_at' ? [{ user_id: 'new-member', created_at: now }] : { display_name: 'Admin', is_tester: false },
     user_roles: () => [{ role: 'company_admin' }],
-    traffic_visits: () => fail ? { __status: 500, body: { message: 'test unavailable' } } : ['ig', 'fb', 'yt', 'line', null].map((content, i) => ({ visitor_id: `v${i}`, utm_campaign: 'brcto_journal', utm_content: content, first_seen_at: now })),
-    referral_attributions: () => [],
-    conversions: () => [{ id: 'paid-test', utm_campaign: 'brcto_journal', utm_content: 'ig', gross_amount: 799, occurred_at: now }],
+    traffic_visits: ({ url }) => {
+      pages++;
+      if (fail) return { __status: 500, body: { message: 'test unavailable' } };
+      if (empty) return [];
+      const offset = Number(url.searchParams.get('offset') ?? 0);
+      if (!offset) return Array.from({ length: 500 }, (_, i) => ({ visitor_id: `bulk${i}`, utm_campaign: 'brcto_journal', utm_content: 'ig', first_seen_at: now }));
+      return ['ig', 'fb', 'yt', 'line', null].map((content, i) => ({ visitor_id: `v${i}`, utm_campaign: 'brcto_journal', utm_content: content, first_seen_at: now }));
+    },
+    referral_attributions: () => empty ? [] : [{ user_id: 'new-member', utm_campaign: 'brcto_journal', utm_content: 'ig', created_at: now, locked_until: new Date(Date.now() + 30 * 86400000).toISOString() }],
+    conversions: () => empty ? [] : [{ id: 'paid-test', utm_campaign: 'brcto_journal', utm_content: 'ig', gross_amount: 799, occurred_at: now }],
     get_traffic_overview: () => ({ kpi: {}, daily: [], channels: [], campaigns: [] }),
   } });
   await page.goto('/company/traffic');
   await page.getByRole('tab', { name: '流量來源', exact: true }).click();
   const report = page.getByRole('region', { name: '自媒體分平台' });
-  await expect(report.getByRole('row', { name: 'IG 1 0 1 799', exact: true })).toBeVisible();
+  await expect(report.getByRole('row', { name: 'IG 501 1 1 799', exact: true })).toBeVisible();
+  expect(pages).toBeGreaterThanOrEqual(2);
   for (const label of ['FB', 'YouTube', 'LINE', '未標平台']) await expect(report.getByRole('row', { name: `${label} 1 0 0 0`, exact: true })).toBeVisible();
   for (const width of [1280, 560, 390, 380]) {
     await page.setViewportSize({ width, height: 1800 });
     await report.screenshot({ path: `/tmp/browser/brcto-platform-${width}.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
+  empty = true; await report.getByRole('button', { name: '重新整理' }).click();
+  await expect(report.getByText('此活動於區間內尚無資料')).toBeVisible();
   fail = true; await report.getByRole('button', { name: '重新整理' }).click();
   await expect(report.getByRole('alert')).toHaveText('平台統計讀取失敗，請重新整理。', { timeout: 15000 });
 });
