@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowRight, RefreshCw, Activity, Filter, ExternalLink } from 'lucide-react';
+import { platformName } from '@/lib/analytics/platformAttribution';
 
 // P1: 統一轉換中心
 // 三個 tab：Unified Funnel / Attribution / Cohort Retention
@@ -38,6 +39,7 @@ interface ConversionRow {
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
+  utm_content: string | null;
   channel: string | null;
   gross_amount: number | null;
   occurred_at: string;
@@ -79,22 +81,28 @@ export default function ConversionCenter() {
   const { data: conversions = [], isFetching: loadingC, refetch: refetchC } = useQuery({
     queryKey: ['cc-conv', presetId],
     queryFn: async (): Promise<ConversionRow[]> => {
+      const rows: ConversionRow[] = [];
+      for (let offset = 0; ; offset += 500) {
       const { data, error } = await supabase
         .from('conversions')
-        .select('id,user_id,visitor_id,utm_source,utm_medium,utm_campaign,channel,gross_amount,occurred_at')
+        .select('id,user_id,visitor_id,utm_source,utm_medium,utm_campaign,utm_content,channel,gross_amount,occurred_at')
         .gte('occurred_at', sinceIso)
-        .order('occurred_at', { ascending: false })
-        .limit(5000);
+        .order('id')
+        .range(offset, offset + 499);
       if (error) throw error;
-      return (data ?? []) as ConversionRow[];
+      rows.push(...(data ?? []) as ConversionRow[]);
+      if ((data?.length ?? 0) < 500) return rows;
+      }
     },
   });
 
   const attribution = useMemo(() => {
-    const buckets = new Map<string, { count: number; gross: number; medium: Set<string>; campaigns: Set<string> }>();
+    const buckets = new Map<string, { source: string; platform: string; count: number; gross: number; medium: Set<string>; campaigns: Set<string> }>();
     for (const c of conversions) {
-      const key = (c.utm_source || c.channel || '(direct)').slice(0, 40);
-      const b = buckets.get(key) ?? { count: 0, gross: 0, medium: new Set(), campaigns: new Set() };
+      const source = c.utm_source || c.channel || '(direct)';
+      const platform = platformName(c.utm_content);
+      const key = JSON.stringify([source, platform, c.utm_campaign]);
+      const b = buckets.get(key) ?? { source, platform, count: 0, gross: 0, medium: new Set(), campaigns: new Set() };
       b.count += 1;
       b.gross += c.gross_amount ?? 0;
       if (c.utm_medium) b.medium.add(c.utm_medium);
@@ -102,7 +110,7 @@ export default function ConversionCenter() {
       buckets.set(key, b);
     }
     return Array.from(buckets.entries())
-      .map(([source, v]) => ({ source, count: v.count, gross: v.gross, mediums: Array.from(v.medium), campaigns: Array.from(v.campaigns) }))
+      .map(([key, v]) => ({ key, source: v.source, platform: v.platform, count: v.count, gross: v.gross, mediums: Array.from(v.medium), campaigns: Array.from(v.campaigns) }))
       .sort((a, b) => b.gross - a.gross);
   }, [conversions]);
 
@@ -259,6 +267,7 @@ export default function ConversionCenter() {
                       <thead className="text-xs text-foreground/60 border-b">
                         <tr>
                           <th className="text-left py-2 pr-4">Source</th>
+                          <th className="text-left py-2 pr-4">平台</th>
                           <th className="text-right py-2 pr-4">轉換數</th>
                           <th className="text-right py-2 pr-4">總金額</th>
                           <th className="text-right py-2 pr-4">客單價</th>
@@ -268,8 +277,9 @@ export default function ConversionCenter() {
                       </thead>
                       <tbody>
                         {attribution.map((a) => (
-                          <tr key={a.source} className="border-b last:border-0">
+                          <tr key={a.key} className="border-b last:border-0">
                             <td className="py-2 pr-4 font-medium">{a.source}</td>
+                            <td className="py-2 pr-4">{a.platform}</td>
                             <td className="py-2 pr-4 text-right tabular-nums">{a.count}</td>
                             <td className="py-2 pr-4 text-right tabular-nums">${a.gross.toLocaleString()}</td>
                             <td className="py-2 pr-4 text-right tabular-nums text-foreground/70">

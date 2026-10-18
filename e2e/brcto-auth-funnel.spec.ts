@@ -12,7 +12,7 @@ for (const platform of [undefined, 'ig', 'fb', 'yt', 'line']) {
       experts: () => expert, expert_plans: () => plan,
       profiles: () => ({ display_name: 'Test member', is_tester: false }), user_roles: () => [],
       referral_attributions: ({ method, body }) => { if (method === 'POST') referrals.push(body); return method === 'GET' ? referrals : null; },
-      payment_providers_safe: () => [{ id: 'remit', display_name: '匯款', provider_type: 'remittance', is_active: true, is_default: true, env: 'prod' }],
+      payment_providers_safe_list: () => [{ id: 'remit', display_name: '匯款', provider_type: 'remittance', is_active: true, is_default: true, env: 'prod' }],
       member_subscriptions: () => [],
     }, functions: { 'create-expert-remittance': ({ body }) => { order = body; return { orderId: 'test-order', ok: true }; } } });
     await page.route(`${host}/auth/v1/signup`, route => route.fulfill({ json: { user, session: null } }));
