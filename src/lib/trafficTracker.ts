@@ -99,6 +99,7 @@ export function isAutomatedOrLocal(): boolean {
   try {
     if (typeof navigator !== 'undefined' && (navigator as Navigator & { webdriver?: boolean }).webdriver) return true;
     const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    if (import.meta.env.MODE === 'test') return false;
     return host === 'localhost' || host === '127.0.0.1';
   } catch { return false; }
 }

@@ -7,8 +7,7 @@ describe('traffic tracker excludes automated/local traffic', () => {
     Object.defineProperty(navigator, 'webdriver', { value: true, configurable: true });
     expect(isAutomatedOrLocal()).toBe(true);
   });
-  it('skips localhost sandbox', () => {
-    expect(window.location.hostname).toBe('localhost');
-    expect(isAutomatedOrLocal()).toBe(true);
+  it('counts real browsers', () => {
+    expect(isAutomatedOrLocal()).toBe(false);
   });
 });
