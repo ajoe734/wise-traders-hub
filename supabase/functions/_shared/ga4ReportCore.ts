@@ -24,9 +24,11 @@ export interface Ga4ServiceAccount { client_email: string; private_key: string; 
 
 export interface Ga4Config { propertyId: string; account: Ga4ServiceAccount; serviceAccountEmail: string }
 
-export type ConfigResult =
-  | { ok: true; config: Ga4Config }
-  | { ok: false; status: 'NOT_CONFIGURED' | 'INVALID_CONFIG'; missing: string[]; message: string; serviceAccountEmail: string | null };
+// Flat shape (not a discriminated union) so it narrows under the app's non-strict tsconfig.
+export interface ConfigResult {
+  ok: boolean; config?: Ga4Config;
+  status?: 'NOT_CONFIGURED' | 'INVALID_CONFIG'; missing?: string[]; message?: string; serviceAccountEmail?: string | null;
+}
 
 /** Property ID must be digits only. GA account IDs and G- measurement IDs are rejected upstream by GA, but we reject G- early. */
 export function readGa4Config(env: (name: string) => string | undefined): ConfigResult {
@@ -52,11 +54,11 @@ export function readGa4Config(env: (name: string) => string | undefined): Config
   if (!/^\d{6,12}$/.test(rawProp)) {
     return { ok: false, status: 'INVALID_CONFIG', missing: [], message: 'GA4_PROPERTY_ID 必須是純數字的資源 ID（不是 G- 評估 ID，也不是帳戶 ID）', serviceAccountEmail: email };
   }
-  return { ok: true, config: { propertyId: rawProp, account: account!, serviceAccountEmail: email! } };
+  return { ok: true, config: { propertyId: rawProp, account: account!, serviceAccountEmail: email! } } as ConfigResult;
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-export function validateRange(startDate: unknown, endDate: unknown): { ok: true; startDate: string; endDate: string } | { ok: false; message: string } {
+export function validateRange(startDate: unknown, endDate: unknown): { ok: boolean; startDate?: string; endDate?: string; message?: string } {
   if (typeof startDate !== 'string' || typeof endDate !== 'string' || !DAY.test(startDate) || !DAY.test(endDate)) {
     return { ok: false, message: 'startDate / endDate 必須是 YYYY-MM-DD' };
   }
@@ -165,8 +167,8 @@ export async function runGa4Report(env: (n: string) => string | undefined, input
   const range = validateRange(input.startDate, input.endDate);
   if (!range.ok) return { status: 'INVALID_INPUT', message: range.message, serviceAccountEmail: null };
   const cfg = readGa4Config(env);
-  if (cfg.ok === false) return { status: cfg.status, message: cfg.message, missing: cfg.missing, serviceAccountEmail: cfg.serviceAccountEmail };
-  const { config } = cfg;
+  if (!cfg.ok) return { status: cfg.status, message: cfg.message, missing: cfg.missing, serviceAccountEmail: cfg.serviceAccountEmail };
+  const config = cfg.config!;
   let token: string;
   try {
     const assertion = await signServiceAccountJwt(config.account);
