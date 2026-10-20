@@ -74,8 +74,8 @@ export default function Ga4Panel({ from, to }: { from: Date; to: Date }) {
             <div role="status" data-status={r.status} className="space-y-1">
               <p><span className="font-bold">連線狀態：</span>{STATUS_LABEL[r.status] ?? r.status}{ok ? `（資源 ${r.report!.propertyId}）` : ''}</p>
               {r.message && <p className="text-muted-foreground">{r.message}</p>}
-              {r.missing && r.missing.length > 0 && <p>需要在安全表單設定：{r.missing.map((m) => <code key={m} className="mx-1">{m}</code>)}</p>}
-              {r.serviceAccountEmail && !ok && <p>服務帳戶：<code>{r.serviceAccountEmail}</code>（需在 GA4 資源存取管理加入為「檢視者」）</p>}
+              {r.missing && r.missing.length > 0 && <p>需要在安全表單設定：{r.missing.map((m) => <code key={m} className="mx-1 break-all inline-block">{m}</code>)}</p>}
+              {r.serviceAccountEmail && !ok && <p>服務帳戶：<code className="break-all">{r.serviceAccountEmail}</code>（需在 GA4 資源存取管理加入為「檢視者」）</p>}
             </div>
           )}
         </CardContent>

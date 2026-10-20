@@ -72,7 +72,3 @@ Use `finmindUsage` with paginated job logs, completed-symbol deduplication and t
 ### Traffic metrics
 
 Use `trafficQuality` for metrics and `trafficRecovery` for evidence-only recovery; run `check:traffic` (offline math + actual SQL) after traffic changes. Count named pages, never infer event-time login from visitor links; why: prevents invented history and report drift.
-
-### GA4 reporting
-
-GA4 numbers reach the admin UI only through the company_admin `ga4-report` Edge Function (pure logic `_shared/ga4ReportCore.ts`, analytics.readonly service account); never mix them with own traffic tables or send GA hits from it; why: keys stay server-side and GA vs own metrics stay separate.

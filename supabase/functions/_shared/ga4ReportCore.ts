@@ -165,7 +165,7 @@ export async function runGa4Report(env: (n: string) => string | undefined, input
   const range = validateRange(input.startDate, input.endDate);
   if (!range.ok) return { status: 'INVALID_INPUT', message: range.message, serviceAccountEmail: null };
   const cfg = readGa4Config(env);
-  if (!cfg.ok) return { status: cfg.status, message: cfg.message, missing: cfg.missing, serviceAccountEmail: cfg.serviceAccountEmail };
+  if (cfg.ok === false) return { status: cfg.status, message: cfg.message, missing: cfg.missing, serviceAccountEmail: cfg.serviceAccountEmail };
   const { config } = cfg;
   let token: string;
   try {
