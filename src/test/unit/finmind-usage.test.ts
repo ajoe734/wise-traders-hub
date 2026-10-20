@@ -46,11 +46,14 @@ describe('剩餘額度預警', () => {
 });
 describe('財報抓取紀錄各完成分支', () => {
   for (const name of ['market-data-sync','valuation-ps-sync']) it(`${name} 記錄上游與成功代碼`, () => {
-    const source = readFileSync(`supabase/functions/${name}/index.ts`, 'utf8');
+    const entry = readFileSync(`supabase/functions/${name}/index.ts`, 'utf8');
+    const source = name === 'market-data-sync'
+      ? entry + readFileSync('supabase/functions/_shared/historyBackfillRunner.ts', 'utf8')
+      : entry;
     expect(source).toContain('await recordUpstreamQuota(');
     expect(source).toContain('completedSymbols: []');
     const successes = source.match(/result\.(done|ok)\+\+/g) ?? [];
-    const records = source.match(/result\.completedSymbols\.push\(symbol\)/g) ?? [];
+    const records = source.match(/result\.completedSymbols\.push\((?:row\.)?symbol\)/g) ?? [];
     expect(records.length).toBe(successes.length); expect(records.length).toBeGreaterThan(0);
   });
 });
