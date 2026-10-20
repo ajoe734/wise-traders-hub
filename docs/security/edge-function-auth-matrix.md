@@ -3,8 +3,8 @@
 > 由 `scripts/audit-edge-fn-auth.mjs --write` 自動產生，勿手動編輯。
 > 分類憲法見 `supabase/functions/_shared/authGuard.ts`。
 
-覆蓋率：128 / 128
-Runtime guard 已上：117 / 128
+覆蓋率：146 / 146
+Runtime guard 已上：144 / 146
 
 | Function | Auth Class | Runtime Guard |
 | --- | --- | --- |
@@ -14,16 +14,20 @@ Runtime guard 已上：117 / 128
 | `acpay-recurring-manage` | user | ✅ |
 | `acpay-recurring-notify` | webhook | — |
 | `acpay-refund` | user | ✅ |
-| `admin-account-force-merge` | user | ⏳ pending |
-| `admin-ecpay-status` | user | ⏳ pending |
-| `admin-line-push` | user | ⏳ pending |
+| `admin-account-force-merge` | user+admin | ✅ |
+| `admin-bsr-admission` | admin | ✅ |
+| `admin-ecpay-status` | user+admin | ✅ |
+| `admin-line-push` | user+admin | ✅ |
 | `admin-line-push-cron` | cron | ✅ |
-| `admin-manage-users` | user | ⏳ pending |
-| `admin-view-as` | user | ✅ |
+| `admin-manage-users` | user+admin | ✅ |
+| `admin-view-as` | user+admin | ✅ |
 | `alerts-watchdog` | cron | ✅ |
-| `apologize-line-free-quota` | cron | ✅ |
-| `auth-email-hook` | webhook | ✅ |
-| `authorize-pdf-export` | user | ⏳ pending |
+| `apologize-line-free-quota` | cron+admin | ✅ |
+| `article-ai-image` | user | ⏳ pending |
+| `article-ai-tidy` | user | ⏳ pending |
+| `article-push` | user+cron+admin | ✅ |
+| `auth-email-hook` | webhook | — |
+| `authorize-pdf-export` | user+admin | ✅ |
 | `auto-cancel-failed-renewals` | public | — |
 | `backfill-daily-snapshots` | cron | ✅ |
 | `backfill-gap-orchestrator` | cron | ✅ |
@@ -45,7 +49,7 @@ Runtime guard 已上：117 / 128
 | `checkup-notify-complete` | cron | ✅ |
 | `checkup-parse` | user | ✅ |
 | `checkup-predict-events` | user | ✅ |
-| `checkup-quota-audit` | cron | ✅ |
+| `checkup-quota-audit` | cron+admin | ✅ |
 | `checkup-report` | user | ✅ |
 | `checkup-research` | user | ✅ |
 | `checkup-research-extract` | user | ✅ |
@@ -53,13 +57,14 @@ Runtime guard 已上：117 / 128
 | `checkup-telemetry` | user | ✅ |
 | `checkup-twse` | public | — |
 | `checkup-warrant-sync` | cron | ✅ |
+| `chips-chaos-drill` | cron+admin | ✅ |
 | `chips-guardian` | cron | ✅ |
 | `cleanup-announcements-cron` | cron | ✅ |
-| `cleanup-ops-logs` | user | ⏳ pending |
+| `cleanup-ops-logs` | user+admin | ✅ |
 | `confirm-linepay` | webhook | — |
-| `confirm-remittance` | user | ⏳ pending |
+| `confirm-remittance` | user+admin | ✅ |
 | `create-acpay-order` | user | ✅ |
-| `create-analyst` | user | ⏳ pending |
+| `create-analyst` | user+admin | ✅ |
 | `create-checkup-ecpay-order` | user | ✅ |
 | `create-checkup-remittance` | user | ✅ |
 | `create-ecpay-order` | user | ✅ |
@@ -72,17 +77,19 @@ Runtime guard 已上：117 / 128
 | `e2e-simulate-purchase` | user | ✅ |
 | `ecpay-callback` | webhook | — |
 | `email-push-renewal-reminder` | cron | ✅ |
-| `expert-ai-chat` | user | ✅ |
+| `expert-ai-chat` | user+admin | ✅ |
 | `expert-ai-conversation` | user | ✅ |
-| `expert-ai-index` | user | ✅ |
-| `expert-ai-studio` | user | ✅ |
-| `expert-ai-training` | user | ✅ |
+| `expert-ai-index` | user+admin | ✅ |
+| `expert-ai-studio` | user+admin | ✅ |
+| `expert-ai-training` | user+admin | ✅ |
 | `expire-stale-remittance` | cron | ✅ |
 | `expire-subscriptions` | cron | ✅ |
+| `forward-eps-extract` | user | ✅ |
 | `fx-rate-sync` | cron | ✅ |
+| `ga4-report` | admin | ✅ |
 | `knowledge-backtest` | cron | ✅ |
 | `knowledge-daily-scheduler` | cron | ✅ |
-| `knowledge-draft-claude` | user | ✅ |
+| `knowledge-draft-claude` | user+admin | ✅ |
 | `knowledge-draft-scheduler` | cron | ✅ |
 | `knowledge-full-audit` | cron | ✅ |
 | `knowledge-promote-candidates` | cron | ✅ |
@@ -92,54 +99,58 @@ Runtime guard 已上：117 / 128
 | `line-login-callback` | public | — |
 | `line-login-exchange-nonce` | public | — |
 | `line-push-renewal-reminder` | cron | ✅ |
-| `line-push-signal` | user | ✅ |
+| `line-push-signal` | user+admin | ✅ |
 | `line-webhook` | webhook | — |
+| `market-data-sync` | cron | ✅ |
 | `notify-backtest-result` | cron | ✅ |
 | `notify-payment-failure` | cron | ✅ |
+| `official-registry-sync` | cron | ✅ |
 | `og-card` | public | — |
-| `ops-health` | user | ⏳ pending |
+| `ops-health` | user+admin | ✅ |
 | `pending-journal-publish-reminder` | cron | ✅ |
-| `preview-transactional-email` | webhook | ✅ |
+| `preview-transactional-email` | webhook | — |
 | `process-refund` | user | ✅ |
 | `prune-knowledge-base` | cron | ✅ |
-| `article-push` | user+cron | ✅ |
-| `article-ai-image` | user（作者或管理員） | ✅ |
-| `article-ai-tidy` | user（作者或管理員） | ✅ |
-| `forward-eps-extract` | user（登入會員；每人每日 10 檔、同檔 24 小時快取） | ✅ |
 | `publish-weekly-journals` | user+cron | ✅ |
 | `publish-weekly-journals-runner` | cron | ✅ |
 | `publish-weekly-journals-watchdog` | cron | ✅ |
 | `reconcile-warrant-quantities` | cron | ✅ |
 | `recover-abandoned-checkout` | cron | ✅ |
 | `recover-failed-transactions` | cron | ✅ |
-| `refresh-data-source` | user | ⏳ pending |
+| `refresh-data-source` | user+admin | ✅ |
 | `refresh-targets-weekly` | cron | ✅ |
 | `setup-storage` | cron | ✅ |
 | `share-og` | public | — |
 | `signal-ai-assist` | cron | ✅ |
+| `stock-industry-classify` | cron | ✅ |
 | `stock-name-lookup` | public | — |
 | `stock-price-sync` | public | — |
 | `stream-metrics-report` | cron | ✅ |
 | `submit-remittance-info` | user | ✅ |
 | `subscribe-renew-link` | user | ✅ |
+| `subscriber-expiry-teacher-reminder` | cron | ✅ |
 | `tpex-proxy` | public | — |
 | `traffic-cleanup` | cron | ✅ |
 | `traffic-ingest` | public | — |
 | `tw-bsr-daily-sync` | cron | ✅ |
-| `tw-bsr-effect-analysis` | cron | ✅ |
-| `tw-bsr-failure-dashboard` | cron | ✅ |
+| `tw-bsr-effect-analysis` | cron+admin | ✅ |
+| `tw-bsr-failure-dashboard` | cron+admin | ✅ |
 | `tw-bsr-finmind-sync` | cron | ✅ |
-| `tw-bsr-ocr-metrics` | cron | ✅ |
+| `tw-bsr-ocr-metrics` | cron+admin | ✅ |
 | `tw-bsr-stock-timeline` | cron | ✅ |
 | `tw-bsr-window-converge` | cron | ✅ |
 | `tw-chips-detail` | public | — |
+| `tw-chips-detail-v2` | public | — |
 | `tw-chips-orchestrator` | cron | ✅ |
-| `tw-institutional-daily-sync` | cron | ✅ |
-| `tw-ocr-replay` | cron | ✅ |
+| `tw-institutional-daily-sync` | cron+admin | ✅ |
+| `tw-ocr-replay` | cron+admin | ✅ |
 | `tw-trading-calendar-catchup` | cron | ✅ |
 | `twse-proxy` | public | — |
-| `update-analyst-credentials` | user | ⏳ pending |
+| `update-analyst-credentials` | user+admin | ✅ |
 | `us-option-price-sync` | cron | ✅ |
 | `us-stock-quote` | public | — |
 | `validate-signal-prices` | cron | ✅ |
-| `weekly-journal-export` | user | ✅ |
+| `valuation-fundamentals` | user | ✅ |
+| `valuation-ps-sync` | cron | ✅ |
+| `valuation-sync` | cron | ✅ |
+| `weekly-journal-export` | cron+admin | ✅ |
