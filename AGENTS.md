@@ -45,7 +45,7 @@ Single-context：根目錄 `CONTEXT.md`（領域語彙，禁放實作細節）�
 
 Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fundamentals` Edge Function (pure math in `_shared/fundamentalsBasis.ts`, shared with Vitest); it reads only the database (filings `valuation_filing_versions`, prices `tw_price_history`, month revenue `tw_month_revenue`, shares `official_share_registry`) and returns `DATA_PENDING` + enqueues `market_data_requests` when data is missing; PE/PB/PS stay separate evidence, never intersected; personal scenarios stay device-local; why: keeps tokens server-side and forbids price-derived denominators.
 
-Shared client fundamentals cache and in-flight deduplication freshness start when the request begins; expired or Taipei-cross-day requests cannot be reused, and only the current in-flight request may cache its response or remove its entry; why: delayed pre-deadline data must not masquerade as a new-day filing or overwrite a newer request for either the drawer or holdings list.
+Client fundamentals cache freshness starts at request start; expired or Taipei-cross-day requests are not reused, and only the current in-flight request may cache or clear its entry; why: stale data must not pose as a new filing or overwrite newer requests.
 
 Filing-refresh queue selection and attempt/failure state writes go only through `selectFilingQueue` / `updateFilingState` in `supabase/functions/_shared/filingVersionStore.ts` (failed rows retry, least-recently-attempted first, writes guarded by symbol+expected_period+source); why: quota/error states must stay retryable and an in-flight attempt must not clobber a newer filing version detected mid-run.
 
@@ -71,4 +71,4 @@ Use `finmindUsage` with paginated job logs, completed-symbol deduplication and t
 
 ### Traffic metrics
 
-Page views are only the named `page_view` event (unnamed rows are dropped by a DB trigger); dashboard page ranking, visitor tiers (human/bot/test/staff, flagged not deleted), sessions, source quality and reconciliation alerts come only from pure `src/lib/analytics/trafficQuality.ts`; tracker sends identity as body `access_token` because sendBeacon cannot carry headers; why: mixed event types and silent drops previously inflated pages and erased member identity.
+Page views = named `page_view` only (a DB trigger drops unnamed rows); page ranking, visitor tiers (flag, never delete), sessions, source quality and reconciliation come only from `src/lib/analytics/trafficQuality.ts`; tracker sends `access_token` in body (sendBeacon has no headers); why: mixed events and silent drops inflated pages and lost identity.
