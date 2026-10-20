@@ -11,6 +11,14 @@ interface SafeRichHtmlProps {
   preserveLineBreaks?: boolean;
 }
 
+/**
+ * SafeRichHtml 實際輸出的 HTML：清理後把空段落補成 <p><br></p>，
+ * 與後台編輯器（ProseMirror 以 trailing <br> 撐出空行）顯示一致。
+ */
+export function renderRichHtml(html: string): string {
+  return sanitizeRichHtml(html).replace(/<p>(\s|&nbsp;)*<\/p>/g, '<p><br></p>');
+}
+
 const looksLikeHtml = (s: string) => /<\/?(p|br|strong|em|ul|ol|li|h[1-6]|blockquote|a|img|figure)\b/i.test(s);
 
 /**
@@ -22,7 +30,7 @@ export function SafeRichHtml({ html, className, clamp, preserveLineBreaks = true
     const raw = (html ?? '').trim();
     if (!raw) return { isHtml: false, content: '' };
     if (looksLikeHtml(raw)) {
-      return { isHtml: true, content: sanitizeRichHtml(raw) };
+      return { isHtml: true, content: renderRichHtml(raw) };
     }
     return { isHtml: false, content: raw };
   }, [html]);
@@ -42,7 +50,8 @@ export function SafeRichHtml({ html, className, clamp, preserveLineBreaks = true
           '[&_li]:my-0.5 [&_strong]:font-semibold [&_em]:italic [&_a]:text-primary [&_a]:underline',
           '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground',
           '[&_img]:rounded [&_img]:max-w-full [&_img]:h-auto [&_img]:my-2',
-          '[&_h3]:text-base [&_h3]:font-semibold [&_h3]:my-1.5',
+          '[&_h2]:text-lg [&_h2]:font-semibold [&_h2]:my-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:my-1.5 [&_h4]:font-semibold [&_h4]:my-1',
+          '[&_hr]:my-3 [&_hr]:border-border',
           '[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded',
           className,
         )}
