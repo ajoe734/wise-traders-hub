@@ -330,6 +330,34 @@
       "when": 1792467116565,
       "tag": "0046_history_backfill_autostop",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792471212165,
+      "tag": "0047_traffic_daily_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1792472305606,
+      "tag": "0048_traffic_overview_single_pass_daily",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792472396238,
+      "tag": "0049_traffic_evidence_report_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1792472480405,
+      "tag": "0050_traffic_pages_named_evidence",
+      "breakpoints": true
     }
   ]
 }

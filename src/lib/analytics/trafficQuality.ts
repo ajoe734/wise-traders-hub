@@ -32,16 +32,20 @@ export const KEY_ACTIONS = new Set([
   'auth_signup_submit', 'auth_signup_success', 'auth_login_success', 'checkup_upgrade_click', 'pricing_view',
 ]);
 
-export const isPageView = (e: Pick<EventRow, 'event_name'>) => !e.event_name || e.event_name === 'page_view';
+export const isPageView = (e: Pick<EventRow, 'event_name'>) => e.event_name === 'page_view';
 const ms = (s: string) => new Date(s).getTime();
 
 /** 同一位會員用過的所有訪客編號歸成同一身分（u:<user>），其餘為 v:<visitor>。 */
 export function identityMap(visits: VisitRow[], events: EventRow[]): Map<string, string> {
-  const user = new Map<string, string>();
-  for (const r of [...visits, ...events]) if (r.user_id && !user.has(r.visitor_id)) user.set(r.visitor_id, r.user_id);
+  const user = new Map<string, Set<string>>();
+  for (const r of [...visits, ...events]) if (r.user_id) {
+    const linked = user.get(r.visitor_id) ?? new Set<string>();
+    linked.add(r.user_id); user.set(r.visitor_id, linked);
+  }
   const out = new Map<string, string>();
   for (const r of [...visits, ...events]) {
-    const u = user.get(r.visitor_id);
+    const linked = user.get(r.visitor_id);
+    const u = linked?.size === 1 ? [...linked][0] : undefined;
     out.set(r.visitor_id, u ? `u:${u}` : `v:${r.visitor_id}`);
   }
   return out;
@@ -101,7 +105,7 @@ export function pageStats(events: EventRow[], ids: Map<string, string>): PageSta
     s.any.add(id);
     if (isPageView(e)) {
       s.pv += 1; s.viewers.add(id);
-      if (id.startsWith('u:')) s.logged.add(id);
+      if (e.user_id) s.logged.add(`u:${e.user_id}`);
     }
   }
   return [...m].map(([path, s]) => ({ path, pageViews: s.pv, viewers: s.viewers.size, anyEventVisitors: s.any.size, loggedInViewers: s.logged.size }))

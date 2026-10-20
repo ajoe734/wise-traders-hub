@@ -1,0 +1,4 @@
+CREATE INDEX IF NOT EXISTS traffic_events_public_pages_time_cover ON public.traffic_events (occurred_at) INCLUDE (route, visitor_id) WHERE event_name='page_view' AND is_internal IS NOT TRUE;
+CREATE INDEX IF NOT EXISTS traffic_events_signup_time_visitor ON public.traffic_events (occurred_at,visitor_id) WHERE event_name='auth_signup_success' AND is_internal IS NOT TRUE;
+CREATE INDEX IF NOT EXISTS traffic_visits_first_seen_report ON public.traffic_visits (first_seen_at) INCLUDE (channel,utm_campaign,utm_source,utm_medium,visitor_id,first_referrer_host,first_landing_path);
+CREATE INDEX IF NOT EXISTS traffic_visits_last_seen_report ON public.traffic_visits (last_seen_at,first_seen_at);
