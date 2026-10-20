@@ -11,3 +11,6 @@ export const isRichHtmlEmpty = (raw: string | null | undefined): boolean => {
   if (hasMedia) return false;
   return richHtmlToPlain(raw).trim().length === 0;
 };
+
+export const learningPointsToParagraphs = (raw: string | null | undefined): string[] =>
+  richHtmlToPlain(raw).split(/\n/).map((s) => s.trim()).filter(Boolean);

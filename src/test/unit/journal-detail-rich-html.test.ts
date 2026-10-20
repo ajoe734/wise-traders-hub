@@ -23,3 +23,20 @@ describe('isRichHtmlEmpty（週記富文本空判定）', () => {
     expect(isRichHtmlEmpty('<video src="x"></video>')).toBe(false);
   });
 });
+
+import { learningPointsToParagraphs } from '@/pages/app/_journalDetail/richHtml';
+
+describe('learningPointsToParagraphs（教學重點保留分段）', () => {
+  it('<p> 分段保留為兩段', () => {
+    expect(learningPointsToParagraphs('<p>一、持股觀察</p><p>二、新入選股</p>')).toEqual(['一、持股觀察', '二、新入選股']);
+  });
+  it('<br> 換行保留為兩段', () => {
+    expect(learningPointsToParagraphs('1.2492華新科<br>2.6830汎銓')).toEqual(['1.2492華新科', '2.6830汎銓']);
+  });
+  it('純文字換行保留為兩段', () => {
+    expect(learningPointsToParagraphs('停損紀律\n資金控管')).toEqual(['停損紀律', '資金控管']);
+  });
+  it('<li> 各自成段、空段丟棄', () => {
+    expect(learningPointsToParagraphs('<ul><li>A</li><li>B</li></ul><p></p>')).toEqual(['A', 'B']);
+  });
+});
