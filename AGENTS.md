@@ -68,3 +68,7 @@ Persist anonymous first touch on auth with original expiry; paginate platform re
 ### Financial quota reporting
 
 Use `finmindUsage` with paginated job logs, completed-symbol deduplication and timestamped upstream observations; why: aggregate counts and internal pools cannot establish unique symbols or provider quota.
+
+### Traffic metrics
+
+Page views are only the named `page_view` event (unnamed rows are dropped by a DB trigger); dashboard page ranking, visitor tiers (human/bot/test/staff, flagged not deleted), sessions, source quality and reconciliation alerts come only from pure `src/lib/analytics/trafficQuality.ts`; tracker sends identity as body `access_token` because sendBeacon cannot carry headers; why: mixed event types and silent drops previously inflated pages and erased member identity.
