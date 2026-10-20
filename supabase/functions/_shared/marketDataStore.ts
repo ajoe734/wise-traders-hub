@@ -4,7 +4,7 @@
  * - 外部抓取只在排程函式 market-data-sync 內進行。
  * 純函式（parse*、rocToIso）與 Vitest 共用。
  */
-type Db = { from: (table: string) => any };
+type Db = { from: (table: string) => any; rpc: (name: string, args?: Record<string, unknown>) => any };
 
 export type StoredBar = { date: string; open: number; high: number; low: number; close: number; volume: number | null };
 export type MonthRevenueRow = { revenue: number; revenue_year: number; revenue_month: number };
@@ -87,14 +87,14 @@ export async function readMonthRevenue(db: Db, symbol: string, sinceYear: number
 
 /** 頁面讀到缺資料時登記回補需求；已存在者不覆蓋嘗試紀錄。失敗不阻斷讀取。 */
 export async function requestSymbols(db: Db, symbols: string[]): Promise<void> {
-  const rows = [...new Set(symbols)].filter((s) => /^\d{4,6}[A-Z]?$/.test(s)).map((symbol) => ({ symbol }));
+  const rows = [...new Set(symbols)].filter((s) => /^\d{4,6}[A-Z]?$/.test(s));
   if (!rows.length) return;
-  try { await db.from('market_data_requests').upsert(rows, { onConflict: 'symbol', ignoreDuplicates: true }); } catch { /* ignore */ }
+  try { await db.rpc('enqueue_history_backfill', { p_symbols: rows }); } catch { /* missing data remains visible */ }
 }
 
 /** 回補佇列選擇：只取 pending/failed，最久未嘗試優先、代碼穩定排序。 */
 export function selectBackfillQueue<T extends { symbol: string; state: string; last_attempt_at?: string | null }>(rows: T[], limit: number): string[] {
   return rows.filter((r) => r.state !== 'ready')
     .sort((a, b) => (a.last_attempt_at ?? '').localeCompare(b.last_attempt_at ?? '') || a.symbol.localeCompare(b.symbol))
-    .slice(0, limit).map((r) => r.symbol);
+    .slice(0, Math.max(0, Math.min(40, limit))).map((r) => r.symbol);
 }
