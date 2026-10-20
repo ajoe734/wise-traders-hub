@@ -32,7 +32,7 @@ export const KEY_ACTIONS = new Set([
   'auth_signup_submit', 'auth_signup_success', 'auth_login_success', 'checkup_upgrade_click', 'pricing_view',
 ]);
 
-export const isPageView = (e: Pick<EventRow, 'event_name'>) => !e.event_name || e.event_name === 'page_view';
+export const isPageView = (e: Pick<EventRow, 'event_name'>) => e.event_name === 'page_view';
 const ms = (s: string) => new Date(s).getTime();
 
 /** 同一位會員用過的所有訪客編號歸成同一身分（u:<user>），其餘為 v:<visitor>。 */
