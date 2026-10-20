@@ -172,22 +172,32 @@ function scheduleFlush(delay = 2000) {
   }, delay);
 }
 
-export function trackPageView(pathname: string) {
-  if (!inited || !visitor_id) return;
-  if (shouldSkip(pathname)) return;
-  queue.push({ kind: 'pv', route: pathname });
-  scheduleFlush();
-}
+/**
+ * 舊版未具名看頁批次：資料庫會丟棄未具名列，且與具名 page_view 重複，
+ * 改為 no-op；看頁一律走 trackEvent('page_view')（useAutoPageView）。
+ */
+export function trackPageView(_pathname: string) { /* no-op */ }
+
+let firstPageViewSent = false;
 
 /**
  * Track a named feature event. Safe to call from anywhere — no-ops until init.
  * Flushes within 500ms (faster than page-view batch) so clicks register quickly.
  */
 export function trackEvent(name: string, props?: Record<string, unknown>) {
-  if (!inited || !visitor_id) return;
-  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  if (typeof window === 'undefined' || !visitor_id) return;
+  // 子元件 effect 可能早於 tracker init 執行：先 init，避免進站頁的 page_view 被丟掉。
+  if (!inited) initTrafficTracker();
+  const path = window.location.pathname;
   if (shouldSkip(path)) return;
   queue.push({ kind: 'ev', name, props, route: path });
+  if (name === 'page_view' && !firstPageViewSent) {
+    // 進站頁立即送出：IG/FB 內建瀏覽器常在 1 秒內關閉且不觸發 pagehide。
+    firstPageViewSent = true;
+    if (flushTimer != null) { clearTimeout(flushTimer); flushTimer = null; flushDueAt = Infinity; }
+    flushEvents();
+    return;
+  }
   scheduleFlush(500);
 }
 
@@ -225,9 +235,6 @@ export function initTrafficTracker() {
   const path = window.location.pathname;
   if (!shouldSkip(path)) {
     logFirstVisit();
-    // 進站頁立即送出：IG/FB 內建瀏覽器常在 2 秒內關閉且不觸發 pagehide。
-    queue.push({ kind: 'pv', route: path });
-    flushEvents();
   }
 
   const flushNow = () => {
