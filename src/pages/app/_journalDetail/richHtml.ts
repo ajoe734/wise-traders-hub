@@ -12,5 +12,16 @@ export const isRichHtmlEmpty = (raw: string | null | undefined): boolean => {
   return richHtmlToPlain(raw).trim().length === 0;
 };
 
-export const learningPointsToParagraphs = (raw: string | null | undefined): string[] =>
-  richHtmlToPlain(raw).split(/\n/).map((s) => s.trim()).filter(Boolean);
+/** 教學重點轉段落（PDF 用）：依 <p>/<br>/<li>/區塊/換行切段，各段各自壓空白。 */
+export const learningPointsToParagraphs = (raw: string | null | undefined): string[] => {
+  if (!raw) return [];
+  const marked = raw
+    .replace(/\\n/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|li|div|h[1-6]|blockquote)>/gi, '\n')
+    .replace(/<(p|li|div|h[1-6]|blockquote)\b[^>]*>/gi, '\n');
+  return marked
+    .split(/\n/)
+    .map((seg) => richHtmlToPlain(seg))
+    .filter(Boolean);
+};
