@@ -63,7 +63,7 @@ Factsheet requests must include an explicit export type and expert ID and use `r
 
 ### Campaign attribution
 
-Persist anonymous first touch on auth with original expiry; paginate platform reports and use `platformAttribution` for registration dates and conversion-platform totals; why: avoid lost sources, false signups and duplicated revenue.
+Persist anonymous first touch on login with original expiry; platform reports paginate and use `platformAttribution`; why: no lost sources, false signups or duplicated revenue.
 
 ### Financial quota reporting
 
