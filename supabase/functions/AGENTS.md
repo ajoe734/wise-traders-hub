@@ -23,3 +23,7 @@ Page-facing read endpoints (`valuation-fundamentals`, `checkup-sparkline`) never
 
 Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy` with pure gates in `_shared/articleAiCore.ts`; any image not confidently text-free is framed deterministically client-side (`src/lib/articleImageFrame.ts`, 1:1 pixels), and tidy output is rejected unless words and image order are identical; why: AI must never alter financial numbers or teacher wording.
 
+### Historical backfill lifecycle
+
+Historical-price backfill uses service-only enqueue/claim/finish RPCs and `historyBackfillRunner`; claims cap at 40, leases guard completion, persisted recent bars gate readiness, and queue writes lock scheduling before rows and unschedule on drain; why: concurrency must not lose wakeups, duplicate upstream work, or turn failed history into completed charts.
+

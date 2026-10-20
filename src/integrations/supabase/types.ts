@@ -3971,6 +3971,9 @@ export type Database = {
         Row: {
           attempts: number
           last_attempt_at: string | null
+          lease_token: string | null
+          lease_until: string | null
+          next_attempt_at: string
           reason: string | null
           requested_at: string
           state: string
@@ -3979,6 +3982,9 @@ export type Database = {
         Insert: {
           attempts?: number
           last_attempt_at?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          next_attempt_at?: string
           reason?: string | null
           requested_at?: string
           state?: string
@@ -3987,6 +3993,9 @@ export type Database = {
         Update: {
           attempts?: number
           last_attempt_at?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          next_attempt_at?: string
           reason?: string | null
           requested_at?: string
           state?: string
@@ -7600,6 +7609,13 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_history_backfill: {
+        Args: { p_limit?: number }
+        Returns: {
+          lease_token: string
+          symbol: string
+        }[]
+      }
       claim_institutional_new_stock: {
         Args: { _lease_seconds?: number }
         Returns: {
@@ -7728,6 +7744,7 @@ export type Database = {
         Args: { p_lookback_days?: number; p_max_stocks?: number }
         Returns: Json
       }
+      enqueue_history_backfill: { Args: { p_symbols: string[] }; Returns: Json }
       enqueue_institutional_backfill_universe: { Args: never; Returns: number }
       enqueue_institutional_new_stock: {
         Args: { _stock_id: string }
@@ -7758,6 +7775,15 @@ export type Database = {
           plan_type: string
           subscription_id: string
         }[]
+      }
+      finish_history_backfill: {
+        Args: {
+          p_outcome: string
+          p_reason?: string
+          p_symbol: string
+          p_token: string
+        }
+        Returns: Json
       }
       finmind_admit: {
         Args: {
@@ -8051,6 +8077,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      history_backfill_status: { Args: never; Returns: Json }
       is_backtestable_trigger: { Args: { _cond: Json }; Returns: boolean }
       is_snapshot_sealed: { Args: { _trade_date: string }; Returns: boolean }
       is_subscribed_to_plan: {
@@ -8232,6 +8259,7 @@ export type Database = {
           rows_upserted: number
         }[]
       }
+      refresh_history_backfill_schedule: { Args: never; Returns: Json }
       refund_article_ai_quota: {
         Args: { _expert_id: string; _kind: string }
         Returns: undefined

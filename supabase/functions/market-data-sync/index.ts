@@ -10,7 +10,8 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { parseExchangeDaily, parseOfficialMonthRevenue, selectBackfillQueue, type PriceRowInsert, type RevenueInsert } from '../_shared/marketDataStore.ts';
+import { parseExchangeDaily, parseOfficialMonthRevenue, type PriceRowInsert, type RevenueInsert } from '../_shared/marketDataStore.ts';
+import { runHistoryBackfill } from '../_shared/historyBackfillRunner.ts';
 import { z } from 'npm:zod@3';
 import { recordUpstreamQuota } from '../_shared/finmindUpstreamQuota.ts';
 
@@ -49,7 +50,7 @@ Deno.serve(async (req) => {
     .safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
   const { mode } = parsed.data;
-  const limit = parsed.data.limit ?? 20;
+  const limit = Math.min(40, parsed.data.limit ?? 40);
   const db = serviceClient();
   const started = Date.now();
   const log = async (status: string, detail: Record<string, unknown>) => {
@@ -81,34 +82,13 @@ Deno.serve(async (req) => {
     }
 
     // backfill
-    const { data: reqRows, error } = await db.from('market_data_requests').select('symbol,state,last_attempt_at').neq('state', 'ready').limit(1000);
-    if (error) throw new Error(error.message);
-    const queue = selectBackfillQueue(reqRows ?? [], limit);
-    const result = { done: 0, completedSymbols: [] as string[], failed: [] as Array<{ symbol: string; reason: string }>, stoppedForQuota: false };
-    for (const symbol of queue) {
-      if (result.stoppedForQuota) break;
-      const { data: cur } = await db.from('market_data_requests').select('attempts').eq('symbol', symbol).maybeSingle();
-      await db.from('market_data_requests').update({ last_attempt_at: new Date().toISOString(), attempts: (cur?.attempts ?? 0) + 1 }).eq('symbol', symbol);
-      try {
-        const px = await finmind<{ date: string; open: number; max: number; min: number; close: number; Trading_Volume: number }>('TaiwanStockPrice', symbol, isoDaysAgo(5 * 365 + 10));
-        const rev = await finmind<{ revenue: number; revenue_year: number; revenue_month: number }>('TaiwanStockMonthRevenue', symbol, isoDaysAgo(460)).catch((e) => { if (e instanceof QuotaError) throw e; return []; });
-        const prices = px.filter((p) => Number(p.close) > 0).map((p) => ({ symbol, trade_date: p.date, open: Number(p.open) || null, high: Number(p.max) || null, low: Number(p.min) || null, close: Number(p.close), volume: Number(p.Trading_Volume) > 0 ? Number(p.Trading_Volume) : null, source: 'finmind_price' }));
-        if (!prices.length) throw new Error('來源無日線資料（可能非上市櫃）');
-        await upsertChunks(db, 'tw_price_history', prices, 'symbol,trade_date');
-        const revRows = rev.filter((r) => Number(r.revenue) > 0).map((r) => ({ symbol, revenue_year: Number(r.revenue_year), revenue_month: Number(r.revenue_month), revenue: Number(r.revenue), source: 'finmind_month_revenue' }));
-        if (revRows.length) await upsertChunks(db, 'tw_month_revenue', revRows, 'symbol,revenue_year,revenue_month');
-        await db.from('market_data_requests').update({ state: 'ready', reason: `日線 ${prices.length} 根、月營收 ${revRows.length} 筆` }).eq('symbol', symbol);
-        result.done++;
-        result.completedSymbols.push(symbol);
-      } catch (e) {
-        if (e instanceof QuotaError) { result.stoppedForQuota = true; await db.from('market_data_requests').update({ reason: e.message }).eq('symbol', symbol); break; }
-        const reason = e instanceof Error ? e.message : String(e);
-        result.failed.push({ symbol, reason });
-        await db.from('market_data_requests').update({ state: 'failed', reason }).eq('symbol', symbol);
-      }
-    }
-    await log(result.failed.length || result.stoppedForQuota ? 'partial' : 'success', { queued: queue.length, ...result });
-    return json({ ok: true, mode, queued: queue.length, ...result });
+    const result = await runHistoryBackfill(db, {
+      prices: (symbol) => finmind('TaiwanStockPrice', symbol, isoDaysAgo(5 * 365 + 10)),
+      revenue: (symbol) => finmind('TaiwanStockMonthRevenue', symbol, isoDaysAgo(460)),
+      isQuota: (e) => e instanceof QuotaError,
+    }, limit);
+    await log(result.failed.length || result.stoppedForQuota ? 'partial' : 'success', result);
+    return json({ ok: true, mode, ...result });
   } catch (e) {
     await log('failed', { error: String(e) });
     return json({ ok: false, error: String(e) }, 502);
