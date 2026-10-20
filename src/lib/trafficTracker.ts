@@ -59,8 +59,19 @@ export function isInternalTrackingOn(): boolean { return internalModeOn(); }
 
 const INGEST_URL = `${SUPABASE_URL}/functions/v1/traffic-ingest`;
 
+/** sendBeacon 不能帶 Authorization 標頭，登入身分改放在 body 由後端驗證。 */
+function accessToken(): string | null {
+  try {
+    const raw = localStorage.getItem(`sb-${import.meta.env.VITE_SUPABASE_PROJECT_ID}-auth-token`);
+    if (!raw) return null;
+    const t = JSON.parse(raw)?.access_token;
+    return typeof t === 'string' ? t : null;
+  } catch { return null; }
+}
+
 async function post(payload: Record<string, unknown>): Promise<void> {
-  const body = JSON.stringify(payload);
+  const token = accessToken();
+  const body = JSON.stringify(token ? { ...payload, access_token: token } : payload);
   // NOTE: traffic-ingest is one of the few endpoints that receives credentials
   // (sendBeacon always includes cookies; fetch fallback opts in explicitly).
   // The edge function echoes Origin + sets Allow-Credentials to match.
@@ -214,8 +225,9 @@ export function initTrafficTracker() {
   const path = window.location.pathname;
   if (!shouldSkip(path)) {
     logFirstVisit();
+    // 進站頁立即送出：IG/FB 內建瀏覽器常在 2 秒內關閉且不觸發 pagehide。
     queue.push({ kind: 'pv', route: path });
-    scheduleFlush();
+    flushEvents();
   }
 
   const flushNow = () => {
