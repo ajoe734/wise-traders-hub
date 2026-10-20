@@ -12,4 +12,9 @@ describe('evidence-only historical traffic recovery', () => {
     expect(restored).toMatchObject({ id: 'original', event_name: 'page_view', occurred_at: old.occurred_at });
     expect(recoverLegacyPage(restored)).toEqual(restored);
   });
+  it('links a visitor only to one evidenced member without claiming event-time login', () => {
+    expect(recoverVisitorIdentity('v1', null, [
+      { visitor_id: 'v1', user_id: 'member', occurred_at: '2026-10-01T00:00:00Z' },
+    ])).toBe('member');
+  });
 });
