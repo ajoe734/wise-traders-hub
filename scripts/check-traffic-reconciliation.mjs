@@ -10,4 +10,7 @@ if (!files.some(f => f.endsWith('/traffic-recovery.test.ts'))) throw new Error('
 console.log(`Traffic gate: ${files.length} test files; offline, no production writes`);
 const result = spawnSync('bun', ['run', 'test:run:raw', ...files], { stdio: 'inherit' });
 if (result.error) throw result.error;
-process.exit(result.status ?? 1);
+if (result.status !== 0) process.exit(result.status ?? 1);
+const sql = spawnSync('node', ['scripts/test-traffic-overview.mjs'], { stdio: 'inherit' });
+if (sql.error) throw sql.error;
+process.exit(sql.status ?? 1);

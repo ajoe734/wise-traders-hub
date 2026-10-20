@@ -55,4 +55,14 @@ describe('evidence-only historical traffic recovery', () => {
     expect(reconcileDaily(events, [{ day: '2026-10-20', path: '/extra', page_views: 1 }])).toHaveLength(2);
     expect(reconcileDaily([], [])).toEqual([]);
   });
+  it('rejects duplicate report buckets and invalid counts rather than hiding them', () => {
+    const bucket = { day: '2026-10-20', path: '/', page_views: 0 };
+    expect(reconcileDaily([], [bucket, bucket])).toContain('2026-10-20|/: duplicate reported bucket');
+    expect(reconcileDaily([], [{ ...bucket, page_views: -1 }])).toContain('2026-10-20|/: invalid reported count');
+  });
+  it('compares the actual instant, not lexical timezone formatting', () => {
+    const row = { id: 'tz', event_name: null, event_props: null, occurred_at: '2026-08-30T17:59:59+08:00' };
+    expect(recoverLegacyPage(row).event_name).toBe('page_view');
+    expect(recoverLegacyPage({ ...row, occurred_at: '2026-08-30T18:00:00+08:00' }).event_name).toBeNull();
+  });
 });

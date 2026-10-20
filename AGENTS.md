@@ -71,4 +71,4 @@ Use `finmindUsage` with paginated job logs, completed-symbol deduplication and t
 
 ### Traffic metrics
 
-Page views = named `page_view` only (a DB trigger drops unnamed rows); page ranking, visitor tiers (flag, never delete), sessions, source quality and reconciliation come only from `src/lib/analytics/trafficQuality.ts`; tracker sends `access_token` in body (sendBeacon has no headers); why: mixed events and silent drops inflated pages and lost identity.
+Use `trafficQuality` for metrics and `trafficRecovery` for evidence-only recovery; run `check:traffic` (offline math + actual SQL) after traffic changes. Count named pages, never infer event-time login from visitor links; why: prevents invented history and report drift.

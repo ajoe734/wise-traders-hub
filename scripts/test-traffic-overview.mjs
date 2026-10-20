@@ -1,17 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
-import pg from 'pg';
+import { PGlite } from '@electric-sql/pglite';
 
-// Socket-only throwaway cluster. Never accepts URLs, credentials or remote hosts.
-const state = readFileSync('/tmp/bsr-eph-session', 'utf8');
-const socket = /^EPH_DIR=(.+)$/m.exec(state)?.[1];
-assert(socket?.startsWith('/tmp/bsr-eph-'));
-const db = new pg.Client({ host: socket, port: 5432, ssl: false, password: '', user: 'postgres', database: 'bsr_ephemeral' });
-await db.connect();
+// In-memory PostgreSQL: no host, credentials, Cloud writes or fake visitors.
+const db = new PGlite();
 try {
-  const guard = (await db.query('select current_database() AS db, inet_server_addr() AS addr')).rows[0];
-  assert.equal(guard.db, 'bsr_ephemeral'); assert.equal(guard.addr, null);
-  await db.query(`BEGIN;
+  await db.exec(`BEGIN;
     CREATE SCHEMA auth;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT null::uuid $$;
     CREATE FUNCTION public.has_role(uuid,text) RETURNS boolean LANGUAGE sql AS $$ SELECT current_setting('traffic.test_admin',true)='true' $$;
@@ -33,7 +27,7 @@ try {
     INSERT INTO conversions VALUES('2026-10-19T18:00Z',100,20,'direct','mia');`);
   const sql = process.argv[2] ?? readdirSync('drizzle/migrations').filter(f => f.endsWith('_traffic_daily_reconciliation.sql')).sort().at(-1);
   assert(sql, 'missing actual overview migration');
-  await db.query(readFileSync(process.argv[2] ? sql : `drizzle/migrations/${sql}`, 'utf8'));
+  await db.exec(readFileSync(process.argv[2] ? sql : `drizzle/migrations/${sql}`, 'utf8'));
   const from = '2026-10-19T16:00:00Z', to = '2026-10-20T16:00:00Z';
   const result = (await db.query('select get_traffic_overview($1,$2) AS s', [from,to])).rows[0].s;
   assert.equal(result.kpi.page_views, 2, 'named, non-internal pages only');
@@ -49,4 +43,4 @@ try {
   await db.query("SET traffic.test_admin='false'");
   await assert.rejects(db.query('select get_traffic_overview($1,$2)',[from,to]), /Forbidden/);
   console.log('PASS actual overview SQL: identity/signup, internal/null exclusion, Taipei boundaries, partial/multiple days, KPI reconciliation, admin restriction');
-} finally { await db.query('ROLLBACK'); await db.end(); }
+} finally { await db.exec('ROLLBACK'); await db.close(); }
