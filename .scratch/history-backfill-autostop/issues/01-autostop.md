@@ -1,9 +1,9 @@
 # 01 — 歷史股價回補自動停排
 
-Status: needs-info
+Status: ready-for-agent
 Priority: P1
 Category: enhancement
-Blocked by: TDD 公開驗收邊界確認
+Blocked by: none（TDD 公開驗收邊界已確認）
 
 ## What to build
 
