@@ -47,7 +47,7 @@ Holdings-drawer PE/PB/PS denominators come only from the read-only `valuation-fu
 
 Client fundamentals cache freshness starts at request start; expired or Taipei-cross-day requests are not reused, and only the current in-flight request may cache or clear its entry; why: stale data must not pose as a new filing or overwrite newer requests.
 
-Filing-refresh queue selection and attempt/failure state writes go only through `selectFilingQueue` / `updateFilingState` in `supabase/functions/_shared/filingVersionStore.ts` (failed rows retry, least-recently-attempted first, writes guarded by symbol+expected_period+source); why: quota/error states must stay retryable and an in-flight attempt must not clobber a newer filing version detected mid-run.
+Filing-refresh queue picks and state writes go only through `selectFilingQueue` / `updateFilingState` (`_shared/filingVersionStore.ts`; failures retry oldest-attempt first, writes guarded by symbol+period+source); why: errors stay retryable and runs cannot clobber newer filings.
 
 ### Expert monthly payroll
 
