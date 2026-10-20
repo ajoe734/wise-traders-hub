@@ -71,9 +71,14 @@ try {
     assert.equal(signed.logged_in_visitors,1,'event-time member evidence is deduplicated');
     assert.equal(signed.page_views,2);
   }
-  await assert.rejects(db.query('select get_traffic_overview($1,$2)',[to,from]), /invalid date window/);
+  const rejected = async (sql, args, expected) => {
+    await db.exec('SAVEPOINT invalid_request');
+    await assert.rejects(db.query(sql,args), expected);
+    await db.exec('ROLLBACK TO SAVEPOINT invalid_request; RELEASE SAVEPOINT invalid_request');
+  };
+  await rejected('select get_traffic_overview($1,$2)',[to,from], /invalid date window/);
   await db.query("SET traffic.test_admin='false'");
-  await assert.rejects(db.query('select get_traffic_overview($1,$2)',[from,to]), /Forbidden/);
-  await assert.rejects(db.query('select get_page_analytics($1,$2,false)',[from,to]), /Forbidden/);
+  await rejected('select get_traffic_overview($1,$2)',[from,to], /Forbidden/);
+  await rejected('select get_page_analytics($1,$2,false)',[from,to], /Forbidden/);
   console.log('PASS actual overview SQL: identity/signup, internal/null exclusion, Taipei boundaries, partial/multiple days, KPI reconciliation, admin restriction');
 } finally { await db.exec('ROLLBACK'); await db.close(); }
