@@ -11,6 +11,7 @@ import {
   type EventRow, type VisitRow, type Tier,
 } from '@/lib/analytics/trafficQuality';
 
+const PageTrendDrawer = lazy(() => import('@/pages/_companyTraffic/PageTrendDrawer'));
 const HorizontalBar = lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.HorizontalBar })));
 /** 收集方式修正上線日（台北）。此日前的看頁紀錄、登入身分有遺漏。 */
 export const METRICS_FIX_DATE = '2026-10-20';
@@ -46,6 +47,7 @@ export default function TrafficQuality({ from, to }: { from: Date; to: Date }) {
   const { data, isLoading, error, refetch } = useTrafficRaw(from, to);
   const [showAll, setShowAll] = useState(false);
   const [drill, setDrill] = useState<string | null>(null);
+  const [trendPath, setTrendPath] = useState<string | null>(null);
 
   const calc = useMemo(() => {
     if (!data) return null;
@@ -63,7 +65,7 @@ export default function TrafficQuality({ from, to }: { from: Date; to: Date }) {
     cls.forEach(c => { tiers[c.tier] += 1; });
     const people = new Set(visits.map(v => ids.get(v.visitor_id))).size;
     return {
-      cls, pages, tiers, people, sessions,
+      cls, pages, tiers, people, sessions, ids,
       sources: sourceQuality(visits, events),
       alerts: reconcile(pages.slice(0, 30), landed, landedWithPv).alerts,
       landed, events,
@@ -93,14 +95,16 @@ export default function TrafficQuality({ from, to }: { from: Date; to: Date }) {
     </div>
 
     <Card><CardHeader><CardTitle className="text-base">熱門頁面（依看頁人數）</CardTitle>
-      <p className="text-xs text-muted-foreground">口徑：只算真正打開這頁的人；「有動作」包含按鈕、區塊曝光等其他紀錄。點路徑可看明細。</p></CardHeader>
+      <p className="text-xs text-muted-foreground">口徑：只算真正打開這頁的人；「有動作」包含按鈕、區塊曝光等其他紀錄。點長條或路徑可看每日折線圖；「原始紀錄」看明細。</p></CardHeader>
       <CardContent className="space-y-4">
         {calc.pages.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">尚無資料</p> :
-          <Suspense fallback={<div className="h-[400px]" />}><HorizontalBar data={calc.pages.slice(0, 15).map(p => ({ name: p.path, value: p.viewers }))} /></Suspense>}
+          <Suspense fallback={<div className="h-[400px]" />}><HorizontalBar data={calc.pages.slice(0, 15).map(p => ({ name: p.path, value: p.viewers }))} onBarClick={setTrendPath} /></Suspense>}
         <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>路徑</TableHead><TableHead className="text-right">看頁人數</TableHead><TableHead className="text-right">看頁次數</TableHead><TableHead className="text-right">有動作人數</TableHead><TableHead className="text-right">登入會員</TableHead></TableRow></TableHeader>
           <TableBody>{calc.pages.slice(0, 50).map(p => <TableRow key={p.path}>
-            <TableCell className="font-mono text-xs"><button type="button" className="underline-offset-2 hover:underline" onClick={() => setDrill(drill === p.path ? null : p.path)}>{p.path}</button></TableCell>
+            <TableCell className="font-mono text-xs"><button type="button" className="underline-offset-2 hover:underline" onClick={() => setTrendPath(p.path)}>{p.path}</button>
+              <button type="button" className="ml-2 text-muted-foreground underline-offset-2 hover:underline" onClick={() => setDrill(drill === p.path ? null : p.path)}>原始紀錄</button></TableCell>
             <TableCell className="text-right">{p.viewers}</TableCell><TableCell className="text-right">{p.pageViews}</TableCell><TableCell className="text-right">{p.anyEventVisitors}</TableCell><TableCell className="text-right">{p.loggedInViewers}</TableCell></TableRow>)}</TableBody></Table></div>
+        {trendPath && <Suspense fallback={null}><PageTrendDrawer path={trendPath} stat={calc.pages.find(p => p.path === trendPath)} events={calc.events} ids={calc.ids} from={from} to={to} onClose={() => setTrendPath(null)} /></Suspense>}
         {drill && <div aria-label="明細" className="rounded-md border p-3"><p className="mb-2 text-sm font-bold">{drill} 原始紀錄（{drillRows.length} 筆）</p>
           <div className="max-h-80 overflow-auto"><Table><TableHeader><TableRow><TableHead>時間</TableHead><TableHead>訪客</TableHead><TableHead>紀錄</TableHead><TableHead>分級</TableHead></TableRow></TableHeader>
             <TableBody>{drillRows.slice(0, 300).map((e, i) => <TableRow key={i}><TableCell className="text-xs">{new Date(e.occurred_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })}</TableCell>
