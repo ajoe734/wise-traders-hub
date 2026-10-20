@@ -35,7 +35,7 @@ Treat `position_events` as the append-only source for member-visible holding cha
 
 ### Subdirectories
 
-Subdirectories have their own `AGENTS.md` (`src/checkup/AGENTS.md`, `supabase/functions/AGENTS.md`); read it before changing files there.
+Read nested `AGENTS.md` in `src/checkup` and `supabase/functions` before edits; follow the latter's history-backfill lifecycle rule to prevent lost wakeups.
 
 ### Domain docs
 
