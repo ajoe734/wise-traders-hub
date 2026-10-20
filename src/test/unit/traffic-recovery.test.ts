@@ -34,4 +34,25 @@ describe('evidence-only historical traffic recovery', () => {
     const rows = ['member1', 'member2'].map(user_id => ({ visitor_id: 'a', user_id, route: '/', event_name: 'page_view', occurred_at: '2026-10-01T00:00:00Z', is_internal: false }));
     expect(identityMap([], rows).get('a')).toBe('v:a');
   });
+  it.each([
+    { event_name: 'checkout_open', event_props: null, occurred_at: '2026-08-01T00:00:00Z' },
+    { event_name: null, event_props: { unknown: true }, occurred_at: '2026-08-01T00:00:00Z' },
+    { event_name: null, event_props: null, occurred_at: '2026-08-30T10:00:00Z' },
+    { event_name: '', event_props: null, occurred_at: '2026-08-01T00:00:00Z' },
+    { event_name: null, event_props: null, occurred_at: 'invalid' },
+  ])('leaves non-evidence events unchanged: %j', row => {
+    const event = { id: 'original', ...row };
+    expect(recoverLegacyPage(event)).toBe(event);
+  });
+  it('never uses future evidence, conflicting members or an unrelated visitor', () => {
+    expect(recoverVisitorIdentity('a', null, [{ visitor_id: 'a', user_id: 'future', occurred_at: '2026-10-20T00:00:00Z' }])).toBeNull();
+    expect(recoverVisitorIdentity('a', null, ['u1', 'u2'].map(user_id => ({ visitor_id: 'a', user_id, occurred_at: '2026-10-01T00:00:00Z' })))).toBeNull();
+    expect(recoverVisitorIdentity('a', null, [{ visitor_id: 'b', user_id: 'other', occurred_at: '2026-10-01T00:00:00Z' }])).toBeNull();
+    expect(recoverVisitorIdentity('a', 'existing', [])).toBe('existing');
+  });
+  it('fails reconciliation for a missing date/path and an extra reported path', () => {
+    const events = [{ visitor_id: 'a', user_id: null, route: '/not-top-15', event_name: 'page_view', occurred_at: '2026-10-19T15:59:59Z', is_internal: false }];
+    expect(reconcileDaily(events, [{ day: '2026-10-20', path: '/extra', page_views: 1 }])).toHaveLength(2);
+    expect(reconcileDaily([], [])).toEqual([]);
+  });
 });
