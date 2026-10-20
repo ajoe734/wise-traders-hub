@@ -17,4 +17,13 @@ describe('evidence-only historical traffic recovery', () => {
       { visitor_id: 'v1', user_id: 'member', occurred_at: '2026-10-01T00:00:00Z' },
     ])).toBe('member');
   });
+  it('reconciles every Taipei date and route, excluding internal and unnamed rows', () => {
+    const events = [
+      { visitor_id: 'a', user_id: null, route: '/', event_name: 'page_view', occurred_at: '2026-10-19T16:00:00Z', is_internal: false },
+      { visitor_id: 'b', user_id: null, route: '/', event_name: null, occurred_at: '2026-10-19T16:00:01Z', is_internal: false },
+      { visitor_id: 'c', user_id: null, route: '/company', event_name: 'page_view', occurred_at: '2026-10-19T16:00:02Z', is_internal: true },
+    ];
+    expect(reconcileDaily(events, [{ day: '2026-10-20', path: '/', page_views: 1 }])).toEqual([]);
+    expect(reconcileDaily(events, [{ day: '2026-10-20', path: '/', page_views: 2 }])).toHaveLength(1);
+  });
 });
