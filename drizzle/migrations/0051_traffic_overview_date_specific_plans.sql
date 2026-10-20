@@ -1,0 +1,2 @@
+ALTER FUNCTION public.get_traffic_overview(timestamptz,timestamptz) SET plan_cache_mode TO force_custom_plan;
+ALTER FUNCTION public.get_page_analytics(timestamptz,timestamptz,boolean) SET plan_cache_mode TO force_custom_plan;
