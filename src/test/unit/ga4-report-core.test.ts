@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import {
