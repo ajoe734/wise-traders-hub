@@ -191,9 +191,9 @@ export function PageTrendLine({ data, showLoggedIn }: { data: Array<{ day: strin
         <Tooltip formatter={(v: number) => fmtNum(v)}
           contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 12 }} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Line type="monotone" dataKey="pageViews" name="瀏覽" stroke="hsl(var(--primary) / 0.45)" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="viewers" name="不重複訪客" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-        {showLoggedIn && <Line type="monotone" dataKey="loggedIn" name="登入訪客" stroke="hsl(var(--mentor))" strokeWidth={2} dot={false} />}
+        <Line type="linear" dataKey="pageViews" name="瀏覽" stroke="hsl(var(--primary) / 0.45)" strokeWidth={2} dot={{ r: 2 }} />
+        <Line type="linear" dataKey="viewers" name="不重複訪客" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} />
+        {showLoggedIn && <Line type="linear" dataKey="loggedIn" name="登入訪客" stroke="hsl(var(--mentor))" strokeWidth={2} dot={{ r: 2 }} />}
       </LineChart>
     </ResponsiveContainer>
   );
