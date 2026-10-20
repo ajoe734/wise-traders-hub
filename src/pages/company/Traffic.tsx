@@ -29,6 +29,8 @@ const ChartFallback = ({ h = 240 }: { h?: number }) => (
   <div className="flex items-center justify-center text-xs text-muted-foreground" style={{ height: h }}>載入圖表…</div>
 );
 
+const Ga4Panel = lazy(() => import('@/pages/_companyTraffic/Ga4Panel'));
+
 const fmtMoney = (n: number) => `NT$${(n || 0).toLocaleString()}`;
 const fmtNum = (n: number) => (n || 0).toLocaleString();
 const fmtTs = (s?: string | null) => s ? new Date(s).toLocaleString('zh-TW', { hour12: false }) : '—';
@@ -321,6 +323,7 @@ export default function CompanyTraffic() {
             <TabsTrigger value="instruments">熱門個股</TabsTrigger>
             <TabsTrigger value="sources">流量來源</TabsTrigger>
             <TabsTrigger value="campaigns">廣告與營收</TabsTrigger>
+            <TabsTrigger value="ga4">GA4</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -698,6 +701,12 @@ export default function CompanyTraffic() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="ga4" className="space-y-4">
+            <Suspense fallback={<div className="text-sm text-muted-foreground">載入中…</div>}>
+              <Ga4Panel from={range.from} to={range.to} />
+            </Suspense>
           </TabsContent>
         </Tabs>
       </div>

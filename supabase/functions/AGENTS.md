@@ -27,3 +27,6 @@ Article image restyle/tidy go only through `article-ai-image` / `article-ai-tidy
 
 Historical-price backfill uses service-only enqueue/claim/finish RPCs and `historyBackfillRunner`; claims cap at 40, leases guard completion, persisted recent bars gate readiness, and queue writes lock scheduling before rows and unschedule on drain; why: concurrency must not lose wakeups, duplicate upstream work, or turn failed history into completed charts.
 
+### GA4 reporting
+
+GA4 numbers reach the admin UI only via company_admin `ga4-report` (pure `_shared/ga4ReportCore.ts`, analytics.readonly service account); never mix with own traffic tables or send GA hits; why: keys stay server-side, GA and own metrics stay separate.
