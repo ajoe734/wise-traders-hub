@@ -28,6 +28,10 @@ try {
   const sql = process.argv[2] ?? readdirSync('drizzle/migrations').filter(f => f.endsWith('_traffic_daily_reconciliation.sql')).sort().at(-1);
   assert(sql, 'missing actual overview migration');
   await db.exec(readFileSync(process.argv[2] ? sql : `drizzle/migrations/${sql}`, 'utf8'));
+  if (!process.argv[2]) {
+    const patches = readdirSync('drizzle/migrations').filter(f => f.endsWith('_traffic_overview_single_pass_daily.sql')).sort();
+    for (const patch of patches) await db.exec(readFileSync(`drizzle/migrations/${patch}`, 'utf8'));
+  }
   const from = '2026-10-19T16:00:00Z', to = '2026-10-20T16:00:00Z';
   const result = (await db.query('select get_traffic_overview($1,$2) AS s', [from,to])).rows[0].s;
   assert.equal(result.kpi.page_views, 2, 'named, non-internal pages only');
