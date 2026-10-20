@@ -149,27 +149,52 @@ export function ChannelDonut({ data }: { data: Array<{ name: string; value: numb
 /* Horizontal bar (events / referrers / landings / instruments)  */
 /* ──────────────────────────────────────────────────────────── */
 export function HorizontalBar({
-  data, valueLabel = '訪客', color = 'hsl(var(--primary))', height,
+  data, valueLabel = '訪客', color = 'hsl(var(--primary))', height, onBarClick,
 }: {
   data: Array<{ name: string; value: number }>;
   valueLabel?: string;
   color?: string;
   height?: number;
+  onBarClick?: (name: string) => void;
 }) {
   const h = height ?? Math.max(160, data.length * 26 + 20);
   if (!data || data.length === 0) return <EmptyChart height={160} />;
+  const click = onBarClick ? (name: unknown) => { if (typeof name === 'string') onBarClick(name); } : undefined;
   return (
     <ResponsiveContainer width="100%" height={h}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}
+        style={onBarClick ? { cursor: 'pointer' } : undefined}
+        onClick={click ? (s: { activeLabel?: unknown } | null) => click(s?.activeLabel) : undefined}>
         <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
         <XAxis type="number" tick={{ fontSize: 11 }} />
-        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={180} />
+        <YAxis type="category" dataKey="name" tick={{ fontSize: 11, cursor: onBarClick ? 'pointer' : undefined }} width={180}
+          onClick={click ? (t: { value?: unknown }) => click(t?.value) : undefined} />
         <Tooltip
           formatter={(v: number) => [`${fmtNum(v)} ${valueLabel}`, '']}
           contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 12 }}
         />
-        <Bar dataKey="value" fill={color} radius={[0, 3, 3, 0]} barSize={16} />
+        <Bar dataKey="value" fill={color} radius={[0, 3, 3, 0]} barSize={16}
+          onClick={click ? (d: { name?: unknown }) => click(d?.name) : undefined} />
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function PageTrendLine({ data, showLoggedIn }: { data: Array<{ day: string; pageViews: number; viewers: number; loggedIn: number }>; showLoggedIn: boolean }) {
+  const rows = data.map(d => ({ ...d, label: d.day.replace(/-/g, '/') }));
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <LineChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} minTickGap={16} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+        <Tooltip formatter={(v: number) => fmtNum(v)}
+          contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Line type="linear" dataKey="pageViews" name="瀏覽" stroke="hsl(var(--primary) / 0.45)" strokeWidth={2} dot={{ r: 2 }} />
+        <Line type="linear" dataKey="viewers" name="不重複訪客" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} />
+        {showLoggedIn && <Line type="linear" dataKey="loggedIn" name="登入訪客" stroke="hsl(var(--mentor))" strokeWidth={2} dot={{ r: 2 }} />}
+      </LineChart>
     </ResponsiveContainer>
   );
 }
