@@ -23,6 +23,24 @@ export function recoverVisitorIdentity(visitor: string, existing: string | null,
 }
 
 export interface DailyPageCount { day: string; path: string; page_views: number }
+export function reconcilePageCounts(actual: DailyPageCount[], expected: DailyPageCount[]): string[] {
+  const errors: string[] = [];
+  const index = (rows: DailyPageCount[], label: string) => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const key = JSON.stringify([r.day, r.path]);
+      if (map.has(key)) errors.push(`${label}: duplicate bucket ${key}`);
+      if (!Number.isSafeInteger(r.page_views) || r.page_views < 0) errors.push(`${label}: invalid count ${key}`);
+      map.set(key, r.page_views);
+    }
+    return map;
+  };
+  const a = index(actual, 'collected'), b = index(expected, 'reported');
+  for (const key of new Set([...a.keys(), ...b.keys()])) {
+    if ((a.get(key) ?? 0) !== (b.get(key) ?? 0)) errors.push(`${key}: collected=${a.get(key) ?? 0}, reported=${b.get(key) ?? 0}`);
+  }
+  return errors;
+}
 export const taipeiTrafficDay = (timestamp: string) => new Date(timestamp).toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
 /** Compare every day AND every path; neither top-N nor sampling may hide a mismatch. */
 export function reconcileDaily(events: EventRow[], expected: DailyPageCount[]): string[] {

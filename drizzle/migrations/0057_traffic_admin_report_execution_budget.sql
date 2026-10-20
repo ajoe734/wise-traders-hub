@@ -1,0 +1,3 @@
+ALTER FUNCTION public.get_traffic_overview(timestamptz,timestamptz) SET statement_timeout TO '30s';
+ALTER FUNCTION public.get_page_analytics(timestamptz,timestamptz,boolean) SET statement_timeout TO '30s';
+CREATE INDEX IF NOT EXISTS traffic_events_public_page_identity_cover ON public.traffic_events(occurred_at) INCLUDE(route,visitor_id,user_id) WHERE event_name='page_view' AND is_internal IS NOT TRUE;

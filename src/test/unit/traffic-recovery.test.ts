@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { isPageView, pageStats, identityMap } from '@/lib/analytics/trafficQuality';
-import { recoverLegacyPage, recoverVisitorIdentity, reconcileDaily } from '@/lib/analytics/trafficRecovery';
+import { recoverLegacyPage, recoverVisitorIdentity, reconcileDaily, reconcilePageCounts } from '@/lib/analytics/trafficRecovery';
 
 describe('evidence-only historical traffic recovery', () => {
+  it('compares aggregate-only snapshots without synthetic events or hidden duplicates', () => {
+    const a = [{ day: '2026-10-19', path: '/all-pages', page_views: 681407 }];
+    expect(reconcilePageCounts(a, a)).toEqual([]);
+    expect(reconcilePageCounts(a, [{ ...a[0], page_views: 681406 }])).toHaveLength(1);
+    expect(reconcilePageCounts(a, [a[0], a[0]])).toHaveLength(1);
+    expect(reconcilePageCounts([{ ...a[0], page_views: -1 }], [])).not.toEqual([]);
+  });
   it('does not count unnamed unknown events as page views before recovery', () => {
     expect(isPageView({ event_name: null })).toBe(false);
   });

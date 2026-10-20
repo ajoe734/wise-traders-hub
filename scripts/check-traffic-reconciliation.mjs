@@ -13,4 +13,7 @@ if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
 const sql = spawnSync('node', ['scripts/test-traffic-overview.mjs'], { stdio: 'inherit' });
 if (sql.error) throw sql.error;
-process.exit(sql.status ?? 1);
+if (sql.status !== 0) process.exit(sql.status ?? 1);
+const snapshot = spawnSync('bun', ['scripts/verify-traffic-snapshot.ts', 'src/test/fixtures/traffic-recovery-20261020.aggregate.json'], { stdio: 'inherit' });
+if (snapshot.error) throw snapshot.error;
+process.exit(snapshot.status ?? 1);

@@ -358,6 +358,62 @@
       "when": 1792472480405,
       "tag": "0050_traffic_pages_named_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1792472954302,
+      "tag": "0051_traffic_overview_date_specific_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792473207603,
+      "tag": "0052_traffic_overview_shared_window_scan",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1792473305198,
+      "tag": "0053_traffic_overview_indexed_window_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1792473446732,
+      "tag": "0054_traffic_reports_disable_jit",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1792473551376,
+      "tag": "0055_traffic_overview_signup_index_scan",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1792473688230,
+      "tag": "0056_traffic_overview_bounded_aggregation_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1792473812274,
+      "tag": "0057_traffic_admin_report_execution_budget",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792474357851,
+      "tag": "0058_traffic_campaign_full_evidence_key",
+      "breakpoints": true
     }
   ]
 }
