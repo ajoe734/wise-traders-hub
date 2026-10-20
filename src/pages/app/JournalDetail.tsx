@@ -11,6 +11,7 @@ import { taipeiMondayOf, taipeiWeekRangeLabelMD } from '@/lib/taipeiWeek';
 import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, AlertTriangle, Eye, Download, MessageCircle, ArrowLeft } from 'lucide-react';
 import { richHtmlToPlain } from '@/components/SafeRichHtml';
 import { SafeRichHtml } from '@/components/SafeRichHtml';
+import { isRichHtmlEmpty, learningPointsToParagraphs } from './_journalDetail/richHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { SubscriptionTimeline } from '@/components/SubscriptionTimeline';
 import { UnavailableContent } from '@/components/UnavailableContent';
@@ -97,10 +98,10 @@ const JournalDetail = () => {
   const TITLE_COLLAPSE_THRESHOLD = 80;
   const isTitleLong = weekTitle.length > TITLE_COLLAPSE_THRESHOLD;
 
-  const allLearningPoints = weekSignals
-    .map(s => richHtmlToPlain(s.learning_points))
-    .filter(Boolean)
-    .flatMap(lp => lp.split(/\\n|\n/).filter(l => l.trim()));
+  const learningPointHtmls = weekSignals
+    .map(s => s.learning_points)
+    .filter((lp): lp is string => !isRichHtmlEmpty(lp));
+  const allLearningPoints = learningPointHtmls.flatMap(learningPointsToParagraphs);
 
   const canExportPdf = hasRole('company_admin');
 
@@ -321,19 +322,19 @@ const JournalDetail = () => {
         )}
 
         {/* Learning Points */}
-        {allLearningPoints.length > 0 && (
+        {learningPointHtmls.length > 0 && (
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-mentor" /> 本週教學重點
               </h2>
-              <ul className="space-y-2">
-                {allLearningPoints.map((point, idx) => (
-                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-mentor">•</span> {point}
-                  </li>
+              <div className="divide-y divide-border" data-testid="journal-learning-points">
+                {learningPointHtmls.map((html, idx) => (
+                  <div key={idx} className="py-2 first:pt-0 last:pb-0">
+                    <SafeRichHtml html={html} />
+                  </div>
                 ))}
-              </ul>
+              </div>
             </CardContent>
           </Card>
         )}
