@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPageView } from '@/lib/analytics/trafficQuality';
+import { isPageView, pageStats, identityMap } from '@/lib/analytics/trafficQuality';
 import { recoverLegacyPage, recoverVisitorIdentity, reconcileDaily } from '@/lib/analytics/trafficRecovery';
 
 describe('evidence-only historical traffic recovery', () => {
@@ -25,5 +25,13 @@ describe('evidence-only historical traffic recovery', () => {
     ];
     expect(reconcileDaily(events, [{ day: '2026-10-20', path: '/', page_views: 1 }])).toEqual([]);
     expect(reconcileDaily(events, [{ day: '2026-10-20', path: '/', page_views: 2 }])).toHaveLength(1);
+  });
+  it('does not call historical anonymous page views logged-in after linking a visitor', () => {
+    const rows = [{ visitor_id: 'a', user_id: null, route: '/', event_name: 'page_view', occurred_at: '2026-10-01T00:00:00Z', is_internal: false }];
+    expect(pageStats(rows, new Map([['a', 'u:member']]))[0].loggedInViewers).toBe(0);
+  });
+  it('does not merge shared visitor IDs into an arbitrary member', () => {
+    const rows = ['member1', 'member2'].map(user_id => ({ visitor_id: 'a', user_id, route: '/', event_name: 'page_view', occurred_at: '2026-10-01T00:00:00Z', is_internal: false }));
+    expect(identityMap([], rows).get('a')).toBe('v:a');
   });
 });
