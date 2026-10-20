@@ -112,6 +112,30 @@ export function pageStats(events: EventRow[], ids: Map<string, string>): PageSta
     .sort((a, b) => b.viewers - a.viewers || b.anyEventVisitors - a.anyEventVisitors);
 }
 
+export interface PageDay { day: string; pageViews: number; viewers: number; loggedIn: number }
+const taipeiDay = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
+/** 單一路徑每日（台北日）具名看頁；口徑與 pageStats 相同，期間 totals 為去重人數。 */
+export function pageDailyTrend(events: EventRow[], ids: Map<string, string>, path: string, from: Date, to: Date): { days: PageDay[]; totals: Omit<PageDay, 'day'> } {
+  const keys: string[] = [];
+  for (let t = from.getTime(); t < to.getTime(); t += 86400000) { const d = taipeiDay(t); if (keys[keys.length - 1] !== d) keys.push(d); }
+  const last = taipeiDay(to.getTime() - 1); if (to > from && keys[keys.length - 1] !== last) keys.push(last);
+  const m = new Map(keys.map(k => [k, { pv: 0, v: new Set<string>(), u: new Set<string>() }]));
+  const tv = new Set<string>(), tu = new Set<string>(); let tpv = 0;
+  for (const e of events) {
+    if (e.route !== path || !isPageView(e)) continue;
+    const ms = new Date(e.occurred_at).getTime();
+    if (ms < from.getTime() || ms >= to.getTime()) continue;
+    const s = m.get(taipeiDay(ms)); if (!s) continue;
+    const id = ids.get(e.visitor_id) ?? `v:${e.visitor_id}`;
+    s.pv += 1; s.v.add(id); tpv += 1; tv.add(id);
+    if (e.user_id) { s.u.add(e.user_id); tu.add(e.user_id); }
+  }
+  return {
+    days: keys.map(day => { const s = m.get(day)!; return { day, pageViews: s.pv, viewers: s.v.size, loggedIn: s.u.size }; }),
+    totals: { pageViews: tpv, viewers: tv.size, loggedIn: tu.size },
+  };
+}
+
 export function sourceOf(v: VisitRow): string {
   if (v.utm_campaign) return v.utm_campaign;
   const h = v.first_referrer_host ?? '';
