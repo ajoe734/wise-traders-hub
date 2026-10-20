@@ -48,7 +48,15 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
   try { body = await req.json(); } catch { body = {}; }
 
   const supabase = serviceClient();
-  const userId = await getCallerUserId(req);
+  // sendBeacon 無法帶 Authorization：前端把 access_token 放 body，這裡驗證後才採用。
+  let userId = await getCallerUserId(req);
+  if (!userId && typeof body.access_token === 'string' && body.access_token.length < 4096) {
+    try {
+      const { data } = await supabase.auth.getUser(body.access_token);
+      userId = data.user?.id ?? null;
+    } catch { userId = null; }
+  }
+  const country = (req.headers.get('cf-ipcountry') || req.headers.get('x-country') || req.headers.get('x-vercel-ip-country') || '').slice(0, 2).toUpperCase() || null;
 
   // Validate envelope: kind + visitor_id required, the rest validated per-branch
   const { validateInput, validationJsonResponse } = await import('../_shared/inputValidator.ts');
@@ -86,7 +94,7 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
       // Check if visitor exists (no UPSERT — we want to preserve first-touch fields).
       const { data: existing } = await supabase
         .from('traffic_visits')
-        .select('id, page_views, user_id')
+        .select('id, visits, metrics_version, user_id, country')
         .eq('visitor_id', visitor_id)
         .maybeSingle();
 
@@ -95,8 +103,9 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
           .from('traffic_visits')
           .update({
             last_seen_at: new Date().toISOString(),
-            page_views: (existing.page_views || 0) + 1,
+            visits: (existing.visits || 0) + 1,
             user_id: existing.user_id || userId || null,
+            country: existing.country || country,
           })
           .eq('id', existing.id);
       } else {
@@ -109,6 +118,10 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
           utm_source, utm_medium, utm_campaign, utm_content, utm_term, ref_code,
           channel,
           device_kind,
+          country,
+          page_views: 0,
+          visits: 1,
+          metrics_version: 2,
         });
       }
 
@@ -161,6 +174,8 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
             user_id: userId || null,
             route: nr,
             referrer_host,
+            // 必須具名：資料庫觸發器會丟棄 event_name 為空的列（舊版看頁紀錄因此全數遺失）。
+            event_name: 'page_view',
             is_internal: isInternalRoute(nr),
           };
         });
@@ -170,11 +185,17 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
       }
       await supabase.from('traffic_events').insert(rows);
 
-      // Also bump traffic_visits.last_seen_at + user_id backfill (best-effort, async)
-      supabase.from('traffic_visits').update({
-        last_seen_at: new Date().toISOString(),
-        user_id: userId || undefined,
-      }).eq('visitor_id', visitor_id).then(() => {});
+      // 真實頁數：只在 metrics_version>=2 的列累加看頁數；同時補登入身分。
+      const pvCount = rows.filter((r) => r.event_name === 'page_view').length;
+      const { data: cur } = await supabase.from('traffic_visits')
+        .select('id, page_views, metrics_version, user_id').eq('visitor_id', visitor_id).maybeSingle();
+      if (cur) {
+        await supabase.from('traffic_visits').update({
+          last_seen_at: new Date().toISOString(),
+          user_id: cur.user_id || userId || null,
+          ...(cur.metrics_version >= 2 && pvCount ? { page_views: (cur.page_views || 0) + pvCount } : {}),
+        }).eq('id', cur.id);
+      }
 
       return jsonResponse({ ok: true, count: rows.length }, {}, req, CORS_OPTS);
     }

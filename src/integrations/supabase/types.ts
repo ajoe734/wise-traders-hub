@@ -5631,6 +5631,7 @@ export type Database = {
           first_seen_at: string
           id: string
           last_seen_at: string
+          metrics_version: number
           page_views: number
           ref_code: string | null
           user_id: string | null
@@ -5640,6 +5641,7 @@ export type Database = {
           utm_source: string | null
           utm_term: string | null
           visitor_id: string
+          visits: number
         }
         Insert: {
           channel?: string
@@ -5652,6 +5654,7 @@ export type Database = {
           first_seen_at?: string
           id?: string
           last_seen_at?: string
+          metrics_version?: number
           page_views?: number
           ref_code?: string | null
           user_id?: string | null
@@ -5661,6 +5664,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           visitor_id: string
+          visits?: number
         }
         Update: {
           channel?: string
@@ -5673,6 +5677,7 @@ export type Database = {
           first_seen_at?: string
           id?: string
           last_seen_at?: string
+          metrics_version?: number
           page_views?: number
           ref_code?: string | null
           user_id?: string | null
@@ -5682,6 +5687,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           visitor_id?: string
+          visits?: number
         }
         Relationships: []
       }
