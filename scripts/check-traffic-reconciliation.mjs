@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 const files = readdirSync('src/test/unit').filter(f =>
-  /^(traffic-|funnel-|conversion-attribution|platform-attribution)/.test(f) && /\.test\.tsx?$/.test(f)
+  /(traffic|funnel|attribution)/.test(f) && /\.test\.tsx?$/.test(f)
 ).map(f => `src/test/unit/${f}`);
 files.push('src/test/integration/1.40-traffic-cost-controls.test.ts');
 if (!files.some(f => f.endsWith('/traffic-recovery.test.ts'))) throw new Error('Missing recovery reconciliation seam');
