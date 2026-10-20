@@ -85,7 +85,7 @@ export default function TrafficQuality({ from, to }: { from: Date; to: Date }) {
 
     {calc.alerts.length > 0 && <Card className="border-destructive"><CardHeader><CardTitle className="text-base text-destructive">對帳警示（差距超過 20%）</CardTitle></CardHeader>
       <CardContent><ul className="list-disc space-y-1 pl-5 text-sm">{calc.alerts.map(a => <li key={a}>{a}</li>)}</ul>
-        <p className="mt-2 text-xs text-muted-foreground">{METRICS_FIX_DATE} 前的資料因收集方式漏記看頁與登入身分，差距屬已知問題。</p></CardContent></Card>}
+        <p className="mt-2 text-xs text-muted-foreground">{METRICS_FIX_DATE.replace(/-/g, '/')} 前的資料因收集方式漏記看頁與登入身分，差距屬已知問題。</p></CardContent></Card>}
 
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {[['不重複人數（跨裝置合併）', calc.people], ['來訪次數', calc.sessions.length], ['每次來訪頁數', avgPages.toFixed(1)], ['每次停留（分）', avgMin.toFixed(1)]].map(([k, v]) =>
