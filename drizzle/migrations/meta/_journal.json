@@ -330,6 +330,13 @@
       "when": 1792467116565,
       "tag": "0046_history_backfill_autostop",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792471212165,
+      "tag": "0047_traffic_daily_reconciliation",
+      "breakpoints": true
     }
   ]
 }
