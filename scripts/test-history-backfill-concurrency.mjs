@@ -6,8 +6,8 @@ import pg from 'pg';
 const session = readFileSync('/tmp/bsr-eph-session', 'utf8');
 const socket = /^EPH_DIR=(.+)$/m.exec(session)?.[1];
 assert(socket?.startsWith('/tmp/bsr-eph-'));
-const a = new pg.Client({ host: socket, user: 'postgres', database: 'bsr_ephemeral' });
-const b = new pg.Client({ host: socket, user: 'postgres', database: 'bsr_ephemeral' });
+const a = new pg.Client({ host: socket, port: 5432, password: '', user: 'postgres', database: 'bsr_ephemeral' });
+const b = new pg.Client({ host: socket, port: 5432, password: '', user: 'postgres', database: 'bsr_ephemeral' });
 await a.connect(); await b.connect();
 try {
   const guard = await a.query('select current_database() db,inet_server_addr() addr');
