@@ -51,6 +51,9 @@ try {
   const split = (await db.query('select get_traffic_overview($1,$2) AS s', [from,to])).rows[0].s;
   assert.equal(split.campaigns.reduce((n,c)=>n+c.gross,0),100,'campaign source buckets must not duplicate revenue');
   assert.equal(split.campaigns.find(c=>c.source==='fb').orders,0,'conversion source evidence is required');
+  await db.exec(`INSERT INTO traffic_visits VALUES('signup',null,'2026-10-19T18:00Z','2026-10-19T18:00Z','social','mia','ig','social',null,'/');`);
+  const attributed = (await db.query('select get_traffic_overview($1,$2) AS s', [from,to])).rows[0].s;
+  assert.equal(attributed.campaigns.reduce((n,c)=>n+c.signups,0),1,'duplicate signup events count once in the unique visitor campaign');
   const partial = (await db.query('select get_traffic_overview($1,$2) AS s', ['2026-10-19T17:00Z','2026-10-20T15:59:59Z'])).rows[0].s;
   assert.equal(partial.kpi.page_views,0); assert.equal(partial.daily[0].page_views,0);
   const all = (await db.query('select get_traffic_overview($1,$2) AS s', ['2026-10-19T15:00Z','2026-10-20T17:00Z'])).rows[0].s;
@@ -63,8 +66,14 @@ try {
     assert.equal(pages.find(p=>p.path==='/').logged_in_visitors,0);
     const internal = (await db.query('select get_page_analytics($1,$2,true) AS p',[from,to])).rows[0].p;
     assert.equal(internal.reduce((n,p)=>n+p.page_views,0),3);
+    await db.exec(`INSERT INTO traffic_events VALUES('member','00000000-0000-0000-0000-000000000001','/signed-in','page_view','2026-10-19T18:00Z',false),('member','00000000-0000-0000-0000-000000000001','/signed-in','page_view','2026-10-19T18:01Z',false);`);
+    const signed = (await db.query('select get_page_analytics($1,$2,false) AS p',[from,to])).rows[0].p.find(p=>p.path==='/signed-in');
+    assert.equal(signed.logged_in_visitors,1,'event-time member evidence is deduplicated');
+    assert.equal(signed.page_views,2);
   }
+  await assert.rejects(db.query('select get_traffic_overview($1,$2)',[to,from]), /invalid date window/);
   await db.query("SET traffic.test_admin='false'");
   await assert.rejects(db.query('select get_traffic_overview($1,$2)',[from,to]), /Forbidden/);
+  await assert.rejects(db.query('select get_page_analytics($1,$2,false)',[from,to]), /Forbidden/);
   console.log('PASS actual overview SQL: identity/signup, internal/null exclusion, Taipei boundaries, partial/multiple days, KPI reconciliation, admin restriction');
 } finally { await db.exec('ROLLBACK'); await db.close(); }

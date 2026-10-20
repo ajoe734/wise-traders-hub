@@ -6,6 +6,7 @@ assert(input, 'Usage: bun scripts/verify-traffic-snapshot.ts <aggregate-only sna
 const snapshot = JSON.parse(readFileSync(input, 'utf8')) as {
   collected: DailyPageCount[]; reported: DailyPageCount[];
   overview: { day: string; page_views: number }[];
+  from: string; toExclusive: string;
 };
 assert(snapshot.collected.length > 0, 'empty snapshot is not full-period verification');
 assert.deepEqual(reconcilePageCounts(snapshot.collected, snapshot.reported), []);
@@ -20,4 +21,8 @@ for (const r of snapshot.overview) {
   days.delete(r.day);
 }
 assert.equal(days.size, 0, 'overview omitted dates');
+assert(Number.isFinite(Date.parse(snapshot.from)) && Date.parse(snapshot.from) < Date.parse(snapshot.toExclusive), 'missing full-period bounds');
+for (let day = Date.parse(snapshot.from); day < Date.parse(snapshot.toExclusive); day += 86400000) {
+  assert(seen.has(new Date(day).toISOString().slice(0,10)), 'overview omitted zero-traffic date');
+}
 console.log(`PASS entire snapshot: ${snapshot.collected.length} date/routes, ${snapshot.overview.length} days, ${snapshot.collected.reduce((n,r)=>n+r.page_views,0)} pages`);
