@@ -1,3 +1,4 @@
+import { isPageView, pageStats, type EventRow } from './trafficQuality';
 /** Evidence recovery preserves the original row and timestamp; it never creates traffic. */
 export const TRAFFIC_RECOVERY_CUTOFF = '2026-10-19T16:00:00Z';
 // Unnamed rows with no properties are the original route-only page writer.
@@ -19,4 +20,22 @@ export function recoverVisitorIdentity(visitor: string, existing: string | null,
   const users = new Set(evidence.filter(e => e.visitor_id === visitor && e.user_id
     && Number.isFinite(Date.parse(e.occurred_at)) && Date.parse(e.occurred_at) < Date.parse(TRAFFIC_RECOVERY_CUTOFF)).map(e => e.user_id));
   return users.size === 1 ? [...users][0] ?? null : null;
+}
+
+export interface DailyPageCount { day: string; path: string; page_views: number }
+export const taipeiTrafficDay = (timestamp: string) => new Date(timestamp).toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
+/** Compare every day AND every path; neither top-N nor sampling may hide a mismatch. */
+export function reconcileDaily(events: EventRow[], expected: DailyPageCount[]): string[] {
+  const days = new Map<string, EventRow[]>();
+  for (const e of events) {
+    if (e.is_internal || !isPageView(e)) continue;
+    const day = taipeiTrafficDay(e.occurred_at);
+    const rows = days.get(day) ?? [];
+    rows.push(e); days.set(day, rows);
+  }
+  const actual = new Map<string, number>();
+  for (const [day, rows] of days) for (const p of pageStats(rows, new Map())) actual.set(`${day}|${p.path}`, p.pageViews);
+  const wanted = new Map(expected.map(r => [`${r.day}|${r.path}`, Number(r.page_views)]));
+  return [...new Set([...actual.keys(), ...wanted.keys()])].sort().flatMap(key =>
+    (actual.get(key) ?? 0) === (wanted.get(key) ?? 0) ? [] : [`${key}: collected=${actual.get(key) ?? 0}, reported=${wanted.get(key) ?? 0}`]);
 }
