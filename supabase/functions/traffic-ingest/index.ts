@@ -174,6 +174,8 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
             user_id: userId || null,
             route: nr,
             referrer_host,
+            // 必須具名：資料庫觸發器會丟棄 event_name 為空的列（舊版看頁紀錄因此全數遺失）。
+            event_name: 'page_view',
             is_internal: isInternalRoute(nr),
           };
         });
@@ -184,7 +186,7 @@ Deno.serve(withLogging('traffic-ingest', async (req) => {
       await supabase.from('traffic_events').insert(rows);
 
       // 真實頁數：只在 metrics_version>=2 的列累加看頁數；同時補登入身分。
-      const pvCount = rows.filter((r) => !r.event_name).length;
+      const pvCount = rows.filter((r) => r.event_name === 'page_view').length;
       const { data: cur } = await supabase.from('traffic_visits')
         .select('id, page_views, metrics_version, user_id').eq('visitor_id', visitor_id).maybeSingle();
       if (cur) {
