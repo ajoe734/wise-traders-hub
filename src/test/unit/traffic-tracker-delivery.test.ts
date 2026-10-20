@@ -14,16 +14,15 @@ describe('trafficTracker delivery', () => {
 
   it('sends the landing page view immediately (in-app browsers close before 2s)', async () => {
     const mod = await import('@/lib/trafficTracker');
-    mod.initTrafficTracker();
-    vi.advanceTimersByTime(0);
-    expect(beacons.some(b => Array.isArray(b.routes) && b.routes.length === 1)).toBe(true);
+    mod.trackEvent('page_view', { path: '/' }); // 未先 init 也必須送出
+    expect(beacons.some(b => b.events?.[0]?.name === 'page_view')).toBe(true);
   });
 
   it('carries the signed-in access token in the body (sendBeacon cannot send headers)', async () => {
     localStorage.setItem(`sb-${import.meta.env.VITE_SUPABASE_PROJECT_ID}-auth-token`, JSON.stringify({ access_token: 'tok123' }));
     const mod = await import('@/lib/trafficTracker');
-    mod.initTrafficTracker();
-    vi.advanceTimersByTime(0);
+    mod.trackEvent('page_view', { path: '/' });
+    expect(beacons.length).toBeGreaterThan(0);
     expect(beacons.every(b => b.access_token === 'tok123')).toBe(true);
   });
 });
