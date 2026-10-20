@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isInternalTrackingOn, setInternalTracking } from '@/lib/trafficTracker';
 import PlatformBreakdown from '@/pages/_companyTraffic/PlatformBreakdown';
+import TrafficQuality from '@/pages/_companyTraffic/TrafficQuality';
 
 const Charts = {
   Sparkline: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.Sparkline }))),
@@ -316,7 +317,7 @@ export default function CompanyTraffic() {
             <TabsTrigger value="products">產品線</TabsTrigger>
             <TabsTrigger value="funnel">轉換漏斗</TabsTrigger>
             <TabsTrigger value="events">功能熱度</TabsTrigger>
-            <TabsTrigger value="pages">頁面分析</TabsTrigger>
+            <TabsTrigger value="pages">頁面與品質</TabsTrigger>
             <TabsTrigger value="instruments">熱門個股</TabsTrigger>
             <TabsTrigger value="sources">流量來源</TabsTrigger>
             <TabsTrigger value="campaigns">廣告與營收</TabsTrigger>
@@ -489,52 +490,7 @@ export default function CompanyTraffic() {
           </TabsContent>
 
           <TabsContent value="pages" className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base">Top 15 頁面（依 UV）</CardTitle></CardHeader>
-              <CardContent>
-                {(pages || []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
-                ) : (
-                  <Suspense fallback={<ChartFallback h={400} />}>
-                    <Charts.HorizontalBar
-                      data={[...(pages || [])]
-                        .sort((a, b) => b.unique_visitors - a.unique_visitors)
-                        .slice(0, 15)
-                        .map(p => ({ name: p.path, value: p.unique_visitors }))}
-                    />
-                  </Suspense>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">頁面分析（PV / UV / 登入會員）</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">依路徑彙總；右上方開關控制是否包含 /company /admin 內部流量</p>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader><TableRow>
-                    <TableHead>路徑</TableHead>
-                    <TableHead className="text-right">PV</TableHead>
-                    <TableHead className="text-right">UV</TableHead>
-                    <TableHead className="text-right">登入會員</TableHead>
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {(pages || []).map((p) => (
-                      <TableRow key={p.path}>
-                        <TableCell className="font-mono text-xs">{p.path}</TableCell>
-                        <TableCell className="text-right">{fmtNum(p.page_views)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(p.unique_visitors)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(p.logged_in_visitors)}</TableCell>
-                      </TableRow>
-                    ))}
-                    {(!pages || pages.length === 0) && (
-                      <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">尚無資料</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <TrafficQuality from={range.from} to={range.to} />
           </TabsContent>
 
           <TabsContent value="instruments" className="space-y-4">
