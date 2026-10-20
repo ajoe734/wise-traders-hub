@@ -309,6 +309,13 @@
       "when": 1792352547698,
       "tag": "0043_market_data_store",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792461398243,
+      "tag": "0044_traffic_visits_visit_count",
+      "breakpoints": true
     }
   ]
 }
