@@ -36,24 +36,24 @@ describe('財報分母與股數核對來源文案', () => {
     const text = basisVerificationText(scenario('official', false));
     expect(text).toBe('財報分母 3/3 已核實');
     const rendered = renderBoth(scenario('official', false));
-    expect(rendered.headline).toContain(text);
+    expect(rendered.headline).not.toContain(text);
     expect(rendered.details).toContain(text);
   });
 
   it('FinMind 後備且特別股未知時，兩處都保守揭露', () => {
     const text = '財報分母 3/3 已計算；股數採 FinMind 後備核對，特別股待官方確認';
     const rendered = renderBoth(scenario('fallback', true));
-    expect(rendered.headline).toContain(text);
+    expect(rendered.headline).not.toContain(text);
     expect(rendered.details).toContain(text);
-    expect(rendered.headline + rendered.details).not.toContain('已核實');
+    expect(rendered.details).not.toContain('已核實');
   });
 
   it('來源未知時，兩處只說已計算', () => {
     const text = '財報分母 3/3 已計算';
     const rendered = renderBoth(scenario('unknown', false));
-    expect(rendered.headline).toContain(text);
+    expect(rendered.headline).not.toContain(text);
     expect(rendered.details).toContain(text);
-    expect(rendered.headline + rendered.details).not.toMatch(/已核實|官方名錄|後備核對/);
+    expect(rendered.details).not.toMatch(/已核實|官方名錄|後備核對/);
   });
 });
 
