@@ -288,7 +288,7 @@ export type HeadlineStation = {
 };
 
 /** 抽屜估值判讀大字：未登入／服務失敗／全無分母／部分尺可用分開陳述，不把未登入誤報為分母不足；
- *  有站牌時以站牌結果陳述，同業可用即不得說「同業不足」，不足時寫出實際原因。 */
+ *  有站牌時以站牌結果陳述，同業可用即不得說「同業不足」，不足時不再寫出原因（站長 2026/10/22：不足的地方不用寫出來）。 */
 export function valuationHeadlineText(band: Pick<ValuationScenario, 'basisCount' | 'blocker' | 'rows'>, hasPeerEvidence: boolean, station?: HeadlineStation | null): string {
   if (band.blocker === 'auth') return '登入後查看財報估值';
   if (band.blocker === 'service') return '財報資料暫時取不到，稍後重試';
@@ -297,14 +297,14 @@ export function valuationHeadlineText(band: Pick<ValuationScenario, 'basisCount'
     const where = `現價${station.position}（${RULER_NAME[station.ruler]} 近一年）`;
     return station.peer.status === 'ready'
       ? `${where}・同業 ${station.peer.n} 家可比`
-      : `${where}・僅歷史倍數定位（${station.peer.reason}）`;
+      : `${where}・僅歷史倍數定位`;
   }
   if (band.basisCount < 3) {
     const ok = band.rows.filter((r) => r.basisOk).map((r) => RULER_NAME[r.key]).join('／');
     return `已核實 ${band.basisCount} 把尺（${ok}），尚不能判定合理價`;
   }
   if (hasPeerEvidence || station?.peer.status === 'ready') return '尚不能判定合理價';
-  return station?.peer.status === 'insufficient' ? `僅歷史情境參考（${station.peer.reason}）` : '同業倍數不足，僅歷史情境參考';
+  return '僅歷史情境參考';
 }
 
 /** 倍數信心：站牌同業可用時不得標「僅歷史」。 */
