@@ -10,6 +10,8 @@ import { track } from "@/lib/analytics/events";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingsWorkbench from "@/checkup/components/freecheckup/HoldingsWorkbench";
 
+import HoldingsVisualSummary from "./HoldingsVisualSummary";
+import { buildLiveHoldingsSummary } from "../../lib/liveHoldingsSummary";
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
 import PortfolioValuationStrip from "@/checkup/components/freecheckup/PortfolioValuationStrip";
 import PricedInList from "@/checkup/components/freecheckup/PricedInList";
@@ -185,6 +187,14 @@ function HoldingsTab(props) {
     return s;
   }, [sectorFilter, H, STOCK_META, overrides]);
 
+  const visualSummary = useMemo(() => buildLiveHoldingsSummary(H, totalCost, totalVal, STOCK_META, overrides), [H, totalCost, totalVal, STOCK_META, overrides, industryMapVersion]);
+  const selectSummary = (kind, key) => {
+    const items = sectorFilter.items.some((it) => it.kind === kind && it.key === key)
+      ? sectorFilter.items.filter((it) => !(it.kind === kind && it.key === key))
+      : [...sectorFilter.items, { kind, key }];
+    setSectorFilterPersisted({ items, mode: items.length < 2 ? "union" : sectorFilter.mode });
+  };
+
   // E-Maint-R1: 6 個 derived useMemo 下沉
   const rawSorted = filteredSortedList; // 命名相容性
   const sorted = useMemo(
@@ -261,7 +271,9 @@ function HoldingsTab(props) {
         C={C}
         alpha={alpha}
       />
+      <HoldingsVisualSummary summary={visualSummary} source={isDemo ? "示範持倉" : "本人目前持倉"} onIndustry={(key) => selectSummary("industry", key)} onStrategy={(key) => selectSummary("strategy", key)} isIndustrySelected={(key) => sectorFilter.items.some((it) => it.kind === "industry" && it.key === key)} />
       <HoldingsHero
+        controlsOnly
         totalVal={totalVal}
         totalCost={totalCost}
         holdingsCount={H.length}
@@ -289,6 +301,7 @@ function HoldingsTab(props) {
 
       {/* 族群分佈總覽（產業＋題材）— 讓使用者一眼看出集中/分散；點 chip 直接篩選下方卡片 */}
       <HoldingsSectorSummary
+        controlsOnly
         key={`sector-${industryMapVersion}`}
 
         holdings={H}

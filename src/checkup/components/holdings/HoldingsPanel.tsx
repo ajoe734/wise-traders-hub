@@ -1,6 +1,8 @@
 // @ts-nocheck — F-Maint-R4：與其他 holdings 元件一致採漸進式 TS，完整型別化留待後續
 // F-Maint-R3：原 createElement(h, ...) 全面改寫為 JSX。語意/樣式逐行對照原版維持 1:1。
 import { useMemo, useState } from 'react';
+import HoldingsVisualSummary from '../freecheckup/HoldingsVisualSummary';
+import { buildLiveHoldingsSummary } from '../../lib/liveHoldingsSummary';
 import { C, alpha } from '../../theme.js';
 import { IND_COLOR, STOCK_META } from '../../seedData.js';
 import { getHoldingMarketValue, getHoldingReturnPct } from '../../lib/holdings.js';
@@ -513,9 +515,8 @@ export function HoldingsPanel({
 }) {
   return (
     <div>
-      <HoldingsSummary holdings={holdings} totalVal={totalVal} totalCost={totalCost} />
+      <HoldingsVisualSummary summary={buildLiveHoldingsSummary(holdings, totalCost, totalVal, STOCK_META)} pendingCount={holdingsIntegrityIssues.length} />
       <HoldingsIntegrityWarning issues={holdingsIntegrityIssues} />
-      <PortfolioHealthCheck holdings={holdings} />
       <Top5Holdings holdings={holdings} totalVal={totalVal} />
       <WinLossSummary winners={winners} losers={losers} />
       {children}

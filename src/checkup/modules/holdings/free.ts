@@ -8,6 +8,7 @@ export { default as HoldingsDetailPanel, RangeBand } from '../../components/free
 export { default as HoldingDeleteDialog } from '../../components/freecheckup/HoldingDeleteDialog';
 export { default as HoldingEditDialog } from '../../components/freecheckup/HoldingEditDialog';
 export { default as HoldingsWorkbench } from '../../components/freecheckup/HoldingsWorkbench';
+export { default as HoldingsVisualSummary, useSummaryReveal } from '../../components/freecheckup/HoldingsVisualSummary';
 export { default as HoldingsHero } from '../../components/freecheckup/HoldingsHero';
 export { default as HoldingsSectorSummary } from '../../components/freecheckup/HoldingsSectorSummary';
 export { default as HoldingsSectorValuation } from '../../components/freecheckup/HoldingsSectorValuation';

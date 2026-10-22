@@ -27,6 +27,7 @@ const SCHEMA = {
   isDemo: 'boolean',
   WB: 'object',
   wbTone: 'function',
+  controlsOnly: { type: 'boolean', optional: true },
   holdings: { type: 'array', optional: true }, // Array<Holding>，用來彙總價格來源與最舊抓取時間
 };
 
@@ -133,6 +134,7 @@ function HoldingsHeroImpl(props) {
 
   return (
     <section
+      className={props.controlsOnly ? "hs-controls-only" : undefined}
       aria-label="持倉概覽"
       data-testid="holdings-hero"
       style={{
@@ -151,7 +153,7 @@ function HoldingsHeroImpl(props) {
         }}
       >
         {/* 左：未實現損益 大字 */}
-        <div>
+        {!props.controlsOnly && <div>
           <div className="cm-label" style={{ marginBottom: 12 }}>未實現損益</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
             <span
@@ -178,7 +180,7 @@ function HoldingsHeroImpl(props) {
               {fmtSigned(totalPct)}%
             </span>
           </div>
-        </div>
+        </div>}
 
         {/* 右：市值 · 檔數 · 即時 一行 */}
         <div
