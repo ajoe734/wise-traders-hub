@@ -65,14 +65,52 @@ export function parseDoActionResponse(text: string): DoActionResult {
     return { ok: rtnCode === '1', rtnCode, rtnMsg: rest.join('|').trim() };
   }
 
+  const params = parseUrlencoded(raw);
+  const rtnCode = (params.RtnCode ?? '').trim();
+  const rtnMsg = (params.RtnMsg ?? '').trim();
+  if (!rtnCode) return { ok: false, rtnCode: '', rtnMsg: rtnMsg || raw };
+  return { ok: rtnCode === '1', rtnCode, rtnMsg };
+}
+
+function parseUrlencoded(raw: string): Record<string, string> {
   const params: Record<string, string> = {};
   for (const pair of raw.split('&')) {
     const idx = pair.indexOf('=');
     if (idx <= 0) continue;
     params[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1));
   }
-  const rtnCode = (params.RtnCode ?? '').trim();
-  const rtnMsg = (params.RtnMsg ?? '').trim();
-  if (!rtnCode) return { ok: false, rtnCode: '', rtnMsg: rtnMsg || raw };
-  return { ok: rtnCode === '1', rtnCode, rtnMsg };
+  return params;
+}
+
+/** 訂單查詢（QueryTradeInfo V5）參數，不含 CheckMacValue。 */
+export function buildQueryParams(
+  merchantTradeNo: string,
+  merchantId: string,
+  timestamp: number,
+): Record<string, string> {
+  return {
+    MerchantID: merchantId,
+    MerchantTradeNo: merchantTradeNo,
+    TimeStamp: String(timestamp),
+  };
+}
+
+export function queryUrl(env: 'stage' | 'production'): string {
+  return env === 'production'
+    ? 'https://payment.ecpay.com.tw/Cashier/QueryTradeInfo/V5'
+    : 'https://payment-stage.ecpay.com.tw/Cashier/QueryTradeInfo/V5';
+}
+
+export interface QueryResult {
+  ok: boolean;
+  fields: Record<string, string>;
+}
+
+/** 解析 QueryTradeInfo 回應（urlencoded）；RtnCode=1 為查詢成功。 */
+export function parseQueryResponse(text: string): QueryResult {
+  const raw = (text ?? '').trim();
+  if (!raw) return { ok: false, fields: {} };
+  const fields = parseUrlencoded(raw);
+  const ok = (fields.RtnCode ?? '').trim() === '1';
+  return { ok, fields };
 }
