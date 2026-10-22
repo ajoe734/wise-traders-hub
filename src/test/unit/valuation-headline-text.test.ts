@@ -26,9 +26,11 @@ describe('標題與站牌一致', () => {
     expect(t).not.toContain('不足');
     expect(t).toBe('現價介於下車安全帶與高壓站（PS 近一年）・同業 4 家可比');
   });
-  it('無同業時寫出實際原因', () => {
+  it('無同業時不再寫出不足原因', () => {
     const t = valuationHeadlineText(full, false, { ruler: 'ps', position: '低於上車站', peer: { status: 'insufficient', reason: '同業不足 3 家（ASIC設計服務 可用 2 家）' } });
-    expect(t).toBe('現價低於上車站（PS 近一年）・僅歷史倍數定位（同業不足 3 家（ASIC設計服務 可用 2 家））');
+    expect(t).toBe('現價低於上車站（PS 近一年）・僅歷史倍數定位');
+    expect(t).not.toContain('2 家');
+    expect(t).not.toContain('不足');
   });
   it('有站牌但分母 0 仍顯示分母不足', () => {
     expect(valuationHeadlineText({ basisCount: 0, rows: [] }, false, { ruler: 'pe', position: '低於上車站', peer: { status: 'ready', n: 3, group: 'x' } })).toBe('財報分母不足，無法判讀現價要求');

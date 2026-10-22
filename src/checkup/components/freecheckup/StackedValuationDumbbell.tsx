@@ -124,7 +124,7 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
       </svg>
       {selRow && <div data-testid="dumbbell-selected" style={{ fontSize: 12, color: WB.ink, fontVariantNumeric: 'tabular-nums' }}>
         <strong>{selRow.name}</strong>{' '}
-        {ready(selRow) ? (selRow.single ? `NT$${n0(selRow.mid)}` : `便宜 NT$${n0(selRow.lo)}／中間 NT$${n0(selRow.mid)}／偏熱 NT$${n0(selRow.hi)}`) : `資料不足（${selRow.missing}）`}
+        {ready(selRow) ? (selRow.single ? `NT$${n0(selRow.mid)}` : `便宜 NT$${n0(selRow.lo)}／中間 NT$${n0(selRow.mid)}／偏熱 NT$${n0(selRow.hi)}`) : '資料不足'}
       </div>}
     </div>
   );
