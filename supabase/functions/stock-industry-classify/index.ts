@@ -11,6 +11,7 @@
  *   - missing（預設）：只分類尚未有紀錄的個股
  *   - all：全市場重分類（reviewed=true 的手動確認列不覆蓋）
  *   - symbols：指定代號
+ *   - evidence：只重跑尚無分類依據（evidence 空）且未人工確認的個股（依據補齊用，可重複呼叫續跑）
  *
  * 僅接受排程金鑰（X-Cron-Key）。
  */
@@ -243,15 +244,17 @@ Deno.serve(async (req) => {
   // 已存在紀錄
   const existing = new Map<string, boolean>();
   const cachedBiz = new Map<string, { desc: string | null; at: number }>();
+  const hasEvidence = new Set<string>();
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase
       .from('stock_industry_map')
-      .select('symbol, reviewed, business_desc, business_fetched_at')
+      .select('symbol, reviewed, evidence, business_desc, business_fetched_at')
       .order('symbol')
       .range(from, from + pageSize - 1);
     if (error) break;
     for (const row of data ?? []) {
       existing.set(row.symbol as string, row.reviewed as boolean);
+      if (row.evidence) hasEvidence.add(row.symbol as string);
       if (row.business_fetched_at) {
         cachedBiz.set(row.symbol as string, {
           desc: (row.business_desc as string) ?? null,
@@ -267,6 +270,8 @@ Deno.serve(async (req) => {
   if (mode === 'symbols') {
     const set = new Set(wantedSymbols);
     pending = pending.filter((c) => set.has(c.symbol));
+  } else if (mode === 'evidence') {
+    pending = pending.filter((c) => existing.get(c.symbol) !== true && !hasEvidence.has(c.symbol));
   } else if (mode === 'all') {
     pending = pending.filter((c) => existing.get(c.symbol) !== true);
   } else {
