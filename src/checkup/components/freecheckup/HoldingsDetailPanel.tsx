@@ -857,7 +857,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
       '--spectrum-ink': WB.ink, '--spectrum-sub': WB.inkSub, '--spectrum-mute': WB.inkMute,
       '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent,
       '--spectrum-surface': WB.surface }}>
-       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} peersPending={peersPending} station={{ ruler: st.main.key, position: st.position, peer: st.peer }} />
+       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} peersPending={peersPending} station={{ ruler: st.main.key, position: st.position, peer: extras.peersLoading && st.peer.status !== 'ready' ? { status: 'insufficient', reason: '同業倍數載入中' } : st.peer }} />
       <div className="price-spectrum-heading">
         <span>價格與估值 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 單一等比例軸</small></span>
         {mode === 'target' && tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
