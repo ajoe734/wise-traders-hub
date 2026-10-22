@@ -55,4 +55,5 @@ export { HoldingCardBsr } from '../../components/freecheckup/_ui/holdingCard/Hol
 export { useHoldingDetailViewModel } from '../../hooks/useHoldingDetailViewModel';
 // 抽屜單一 TWD 價格軸（AGENTS.md Holdings price spectrum）
 export { PriceSpectrum } from '../../components/freecheckup/PriceSpectrum';
+export { StackedValuationDumbbell, buildDumbbellRows } from '../../components/freecheckup/StackedValuationDumbbell';
 export { CustomMultiplesEditor, useCustomMultiples } from '../../components/freecheckup/CustomMultiplesEditor';
