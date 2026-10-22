@@ -6,7 +6,7 @@
  * C 一頁儀表：F11 Tick Gauge + F5 Tick Rows
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HoldingsVisualSummary } from '@/checkup/modules/holdings/free';
+import { HoldingsVisualSummary } from '@/checkup/modules/holdings';
 import { buildSummary, type DemoHolding, type Summary } from '@/lib/holdingsSummaryViz';
 
 const W = {

@@ -23,7 +23,7 @@ export function useSummaryReveal() {
   }, []);
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
+    if (!node) return () => { if (timer.current !== null) clearTimeout(timer.current); };
     if (typeof IntersectionObserver === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setOn(true); return; }
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) { replay(); observer.disconnect(); }
