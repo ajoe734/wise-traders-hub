@@ -41,6 +41,7 @@ import { buildCustomScenario, multipleConfidenceText, valuationHeadlineText as h
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 import { StackedValuationDumbbell, buildDumbbellRows } from '@/checkup/components/freecheckup/StackedValuationDumbbell';
+import { getMultiMeta } from '@/checkup/lib/stockMetaMulti.js';
 
 
 /**
@@ -77,6 +78,7 @@ function HoldingsDetailPanelImpl({
   selected,
   decisionsMap = {},
   stockMeta = {},
+  overrides = {},
   targets,
   avgTarget,
   normalizedEvents = [],
@@ -123,7 +125,8 @@ function HoldingsDetailPanelImpl({
 
   const h = selected || {};
   const dec = decisionsMap[h.code];
-  const meta = stockMeta[h.code] || null;
+  const multiMeta = getMultiMeta(h.code, stockMeta, overrides?.[h.code]);
+  const meta = { ...stockMeta[h.code], ...multiMeta, industry: multiMeta.primaryIndustry };
   const baseTarget = targets && avgTarget && h.code ? avgTarget(h.code) : null;
   // 估值快照只抓一次，同時供價格軸（參考區間）與計算依據使用。
   const valuation = useValuationSnapshot(h?.code);
