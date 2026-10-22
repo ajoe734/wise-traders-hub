@@ -56,12 +56,18 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
     return () => io.disconnect();
   }, [k]);
 
-  const vals = [price, cost, target, custom?.low, custom?.high, ...rows.flatMap((r) => (ready(r) ? [r.lo, r.hi] : []))].filter(ok) as number[];
+  // 軸以三把尺＋前瞻＋現價為核心；同業／成本／目標若遠在外側，釘在邊緣並照寫數字，不壓扁主圖
+  const coreVals = [price, ...rows.filter((r) => r.key !== 'peer').flatMap((r) => (ready(r) ? [r.lo, r.hi] : []))].filter(ok) as number[];
+  const c0 = Math.min(...coreVals), c1 = Math.max(...coreVals), cSpan = Math.max(c1 - c0, c1 * 0.05);
+  const reach = { lo: c0 - cSpan * 0.6, hi: c1 + cSpan * 0.6 };
+  const extra = [cost, target, custom?.low, custom?.high, ...rows.filter((r) => r.key === 'peer').flatMap((r) => (ready(r) ? [r.mid] : []))].filter(ok) as number[];
+  const vals = [...coreVals, ...extra.map((v) => Math.min(Math.max(v, reach.lo), reach.hi))];
   const lo0 = Math.min(...vals), hi0 = Math.max(...vals), span = Math.max(hi0 - lo0, hi0 * 0.05);
   const dom = { lo: lo0 - span * 0.06, hi: hi0 + span * 0.06 };
   const lw = 76, pad = 18, rowH = 36, top = 18;
   const h = top + rows.length * rowH + 30;
-  const x = (v: number) => lw + ((v - dom.lo) / (dom.hi - dom.lo)) * (w - lw - pad);
+  const x = (v: number) => lw + ((Math.min(Math.max(v, dom.lo), dom.hi) - dom.lo) / (dom.hi - dom.lo)) * (w - lw - pad);
+  const outside = (v: number) => v < dom.lo || v > dom.hi;
   const ease = 'cubic-bezier(.165,.84,.44,1)';
   const fade = (i: number) => ({ transition: `opacity 520ms ${ease} ${i * 90}ms`, opacity: on ? 1 : 0 });
   const selRow = rows.find((r) => r.key === sel);
@@ -94,9 +100,9 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
                   {(() => {
                     // 端點離中點太近就移到線下、向外對齊，避免數字互壓
                     const tight = !r.single && j !== 1 && Math.abs(x(v) - x(r.mid)) < 40;
-                    const anchor = tight ? (j === 0 ? 'end' : 'start') : 'middle';
+                    const anchor = tight ? (j === 0 ? 'end' : 'start') : outside(v) ? (v > dom.hi ? 'end' : 'start') : 'middle';
                     const tx = tight ? x(v) + (j === 0 ? -2 : 2) : x(v);
-                    return <text x={tx} y={tight ? cy + 15 : cy - 8} textAnchor={anchor} fontSize={10.5} fontWeight={700} fill={ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{n0(v)}</text>;
+                    return <text x={tx} y={tight ? cy + 15 : cy - 8} textAnchor={anchor} fontSize={10.5} fontWeight={700} fill={ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{outside(v) ? (v > dom.hi ? `${n0(v)} ›` : `‹ ${n0(v)}`) : n0(v)}</text>;
                   })()}
                 </g>;
               })}
@@ -105,11 +111,11 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
         })}
         {showTarget && <g data-testid="dumbbell-target" style={fade(10)}>
           <path d={`M${x(target!) - 5},${h - 24} L${x(target!) + 5},${h - 24} L${x(target!)},${h - 17} Z`} fill={WB.inkSub} />
-          <text x={lbl(target!, !costLeft).x} y={h - 4} textAnchor={lbl(target!, !costLeft).anchor as any} fontSize={10.5} fill={WB.inkSub}>目標 {n0(target!)}</text>
+          <text x={lbl(target!, !costLeft).x} y={h - 4} textAnchor={lbl(target!, !costLeft).anchor as any} fontSize={10.5} fill={WB.inkSub}>目標 {n0(target!)}{outside(target!) ? (target! > dom.hi ? ' ›' : '') : ''}</text>
         </g>}
         {showCost && <g style={fade(11)}>
           <circle cx={x(cost!)} cy={h - 20} r={4} fill={WB.surface || '#F5F3EF'} stroke={WB.ink} strokeWidth={1.2} />
-          <text x={lbl(cost!, costLeft).x} y={h - 4} textAnchor={lbl(cost!, costLeft).anchor as any} fontSize={10.5} fill={WB.ink}>成本 {n0(cost!)}</text>
+          <text x={lbl(cost!, costLeft).x} y={h - 4} textAnchor={lbl(cost!, costLeft).anchor as any} fontSize={10.5} fill={WB.ink}>{outside(cost!) && cost! < dom.lo ? '‹ ' : ''}成本 {n0(cost!)}</text>
         </g>}
         {ok(price) && <g data-testid="dumbbell-price" style={fade(12)}>
           <line x1={x(price)} x2={x(price)} y1={12} y2={h - 16} stroke={WB.accent} strokeWidth={1.4} />
