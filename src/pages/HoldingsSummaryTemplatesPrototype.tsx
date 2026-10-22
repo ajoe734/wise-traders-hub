@@ -5,7 +5,7 @@
  * B 權重地圖：F13 Nested Treemap
  * C 一頁儀表：F11 Tick Gauge + F5 Tick Rows
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildSummary, type DemoHolding, type Summary } from '@/lib/holdingsSummaryViz';
 
 const W = {
@@ -40,9 +40,30 @@ function useReveal() {
   }, []);
   return on;
 }
+
+/** skill obsReveal：滾入視野（threshold .3）才播；點擊重播；timer 清理；減少動態直接顯示 */
+function useObsReveal<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [on, setOn] = useState(false);
+  const timer = useRef<number | null>(null);
+  const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const play = useCallback(() => {
+    if (timer.current) window.clearTimeout(timer.current);
+    if (reduce) { setOn(true); return; }
+    setOn(false);
+    timer.current = window.setTimeout(() => setOn(true), 40);
+  }, [reduce]);
+  useEffect(() => {
+    const n = ref.current; if (!n) return;
+    const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { play(); io.disconnect(); } }, { threshold: 0.3 });
+    io.observe(n);
+    return () => { io.disconnect(); if (timer.current) window.clearTimeout(timer.current); };
+  }, [play]);
+  return { ref, on, replay: play };
+}
 const ease = 'cubic-bezier(0.165,0.84,0.44,1)'; // quarticOut
 
-function Card({ title, sub, src, children, testid }: { title: string; sub: string; src: string; children: React.ReactNode; testid: string }) {
+function Card({ title, sub, src, children, testid }: { title: string; sub: React.ReactNode; src: string; children: React.ReactNode; testid: string }) {
   return (
     <section data-testid={testid} style={{ background: W.card, borderRadius: 8, padding: '20px 18px 14px', marginBottom: 20 }}>
       <h2 style={{ fontSize: 16, fontWeight: 700, color: W.ink, margin: 0, lineHeight: 1.4 }}>{title}</h2>
@@ -76,7 +97,7 @@ function CountDots({ s, on }: { s: Summary; on: boolean }) {
               <span style={{ fontSize: 11, color: W.ink, minWidth: 36 }}>{k}</span>
               <span style={{ display: 'flex', gap: 3 }}>
                 {Array.from({ length: n }).map((_, i) => (
-                  <span key={i} style={{ width: 7, height: 7, borderRadius: 4, background: ri === 0 ? W.ink : W.g3, opacity: on ? 1 : 0, transition: `opacity 300ms ${ease} ${(ri * 4 + i) * 12}ms` }} />
+                  <span key={i} style={{ width: 7, height: 7, borderRadius: 4, background: ri === 0 ? W.ink : W.g3, opacity: on ? 1 : 0, transform: on ? 'scale(1)' : 'scale(0)', transition: `opacity 300ms ${ease} ${(ri * 4 + i) * 12}ms, transform 360ms ${ease} ${(ri * 4 + i) * 12}ms` }} />
                 ))}
               </span>
               <span className="tn" style={{ fontSize: 10, color: W.g2 }}>{n}</span>
@@ -221,7 +242,8 @@ function TemplateC({ s }: { s: Summary }) {
               const r1 = 84, r2 = i % 5 === 0 ? 102 : 96;
               const inRange = (i >= Math.min(lit, mid) && i <= Math.max(lit, mid));
               const color = inRange && i !== mid ? pnlColor(s.pnlPct) : W.g4;
-              return <line key={i} x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : color} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} />;
+              const tv = -range + i * 2;
+        return <g key={i}>{hover && <line x1={110 + 76 * Math.cos(a)} y1={112 - 76 * Math.sin(a)} x2={110 + 108 * Math.cos(a)} y2={112 - 108 * Math.sin(a)} stroke="transparent" strokeWidth={9} onMouseEnter={() => setHv(tv)} onMouseLeave={() => setHv(null)} />}<line pointerEvents="none" x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : color} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} />;
             })}
             <text x={110} y={92} fontSize={20} fontWeight={800} fill={pnlColor(s.pnl)} textAnchor="middle">{pct(s.pnlPct)}</text>
             <text x={110} y={108} fontSize={8} fill={W.g2} textAnchor="middle">{`${signed(s.pnl)} 元`}</text>
@@ -254,7 +276,8 @@ function TemplateC({ s }: { s: Summary }) {
 
 
 // ═══ 重組用積木：F11 刻度半環 / L14 百格方陣 / L15 點陣計數 ═══
-function GaugeSvg({ s, on, width = '100%' }: { s: Summary; on: boolean; width?: number | string }) {
+function GaugeSvg({ s, on, width = '100%', hover }: { s: Summary; on: boolean; width?: number | string; hover?: boolean }) {
+  const [hv, setHv] = useState<number | null>(null);
   const range = 30, ticks = 31, mid = (ticks - 1) / 2;
   const val = Math.max(-range, Math.min(range, s.pnlPct));
   const lit = Math.round(((val + range) / (2 * range)) * (ticks - 1));
@@ -264,8 +287,10 @@ function GaugeSvg({ s, on, width = '100%' }: { s: Summary; on: boolean; width?: 
         const a = Math.PI - (i / (ticks - 1)) * Math.PI;
         const r1 = 84, r2 = i % 5 === 0 ? 102 : 96;
         const inRange = i >= Math.min(lit, mid) && i <= Math.max(lit, mid) && i !== mid;
-        return <line key={i} x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : inRange ? pnlColor(s.pnlPct) : W.g4} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} />;
+        const tv = -range + i * 2;
+        return <g key={i}>{hover && <line x1={110 + 76 * Math.cos(a)} y1={112 - 76 * Math.sin(a)} x2={110 + 108 * Math.cos(a)} y2={112 - 108 * Math.sin(a)} stroke="transparent" strokeWidth={9} onMouseEnter={() => setHv(tv)} onMouseLeave={() => setHv(null)} />}<line pointerEvents="none" x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : inRange ? pnlColor(s.pnlPct) : W.g4} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} /></g>;
       })}
+      {hv != null && <text x={110} y={60} fontSize={8} fill={W.g2} textAnchor="middle">{`刻度 ${hv >= 0 ? '+' : ''}${hv}%`}</text>}
       <text x={110} y={92} fontSize={20} fontWeight={800} fill={pnlColor(s.pnl)} textAnchor="middle">{pct(s.pnlPct)}</text>
       <text x={110} y={108} fontSize={8} fill={W.g2} textAnchor="middle">{`${signed(s.pnl)} 元`}</text>
       <text x={16} y={122} fontSize={7} fill={W.g3}>-30%</text><text x={204} y={122} fontSize={7} fill={W.g3} textAnchor="end">+30%</text>
@@ -279,23 +304,23 @@ function Totals({ s }: { s: Summary }) {
     </div>
   );
 }
-function FieldGrid({ s, on, size = 160 }: { s: Summary; on: boolean; size?: number }) {
+function FieldGrid({ s, on, size = 160, hi = null, onHi }: { s: Summary; on: boolean; size?: number; hi?: number | null; onHi?: (i: number | null) => void }) {
   const cells: number[] = [];
   s.industries.forEach((r, idx) => { for (let i = 0; i < r.cells; i++) cells.push(idx); });
   return (
     <svg viewBox="0 0 120 120" width={size} style={{ flexShrink: 0, display: 'block' }} role="img" aria-label="產業佔比方陣">
       {cells.map((idx, i) => (
-        <rect key={i} x={(i % 10) * 12 + 1} y={Math.floor(i / 10) * 12 + 1} width={10} height={10} rx={2} fill={idx === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(idx - 1, 4)]} style={{ opacity: on ? 1 : 0, transition: `opacity 260ms ${ease} ${i * 9}ms` }} />
+        <rect key={i} x={(i % 10) * 12 + 1} y={Math.floor(i / 10) * 12 + 1} width={10} height={10} rx={2} fill={idx === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(idx - 1, 4)]} onMouseEnter={onHi ? () => onHi(idx) : undefined} onMouseLeave={onHi ? () => onHi(null) : undefined} style={{ opacity: on ? (hi == null || hi === idx ? 1 : 0.18) : 0, transform: on ? 'scale(1)' : 'scale(0.4)', transformOrigin: `${(i % 10) * 12 + 6}px ${Math.floor(i / 10) * 12 + 6}px`, transition: hi === undefined || !on ? `opacity 260ms ${ease} ${i * 9}ms, transform 360ms ${ease} ${i * 9}ms` : `opacity 160ms ${ease}, transform 360ms ${ease} ${i * 9}ms` }}><title>{`${s.industries[idx].name} ${s.industries[idx].cells}%`}</title></rect>
       ))}
     </svg>
   );
 }
-function FieldLegend({ s, compact }: { s: Summary; compact?: boolean }) {
+function FieldLegend({ s, compact, hi = null, onHi }: { s: Summary; compact?: boolean; hi?: number | null; onHi?: (i: number | null) => void }) {
   const sw = (i: number) => (i === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(i - 1, 4)]);
   return (
     <div style={{ flex: 1, minWidth: 140 }}>
       {s.industries.map((r, i) => (
-        <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: i === 0 ? W.ink : W.g1, fontWeight: i === 0 ? 700 : 400, padding: compact ? '2px 0' : '3px 0', borderBottom: `0.5px solid ${W.g5}` }}>
+        <div key={r.name} data-testid="field-legend-row" onMouseEnter={onHi ? () => onHi(i) : undefined} onMouseLeave={onHi ? () => onHi(null) : undefined} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: i === 0 ? W.ink : W.g1, fontWeight: i === 0 ? 700 : 400, padding: compact ? '2px 0' : '3px 0', borderBottom: `0.5px solid ${W.g5}`, opacity: hi == null || hi === i ? 1 : 0.35, transition: 'opacity 160ms', cursor: onHi ? 'default' : undefined }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: sw(i), flexShrink: 0 }} />
           <span style={{ flex: 1 }}>{r.name}<span style={{ color: W.g3, marginLeft: 6, fontWeight: 400 }}>{r.count}檔</span></span><span className="tn">{r.cells}%</span>
         </div>
@@ -308,18 +333,27 @@ const lbl = { fontSize: 10, color: W.g2, letterSpacing: '0.12em', marginBottom: 
 
 // ═══ D 並肩：半環＋方陣同列，點陣在下 ═══
 function TemplateD({ s }: { s: Summary }) {
-  const on = useReveal();
+  const g = useObsReveal<HTMLDivElement>();
+  const f = useObsReveal<HTMLDivElement>();
+  const c = useObsReveal<HTMLDivElement>();
+  const [hi, setHi] = useState<number | null>(null);
+  const hint = <span style={{ color: W.g3 }}> · 點圖重播</span>;
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 20 }}>
-        <Card testid="tpl-d-gauge" title={`總報酬 ${pct(s.pnlPct)}`} sub="刻度 = 每格 2% · 中線 = 損益兩平 · 範圍 ±30%" src="F11 Tick Gauge · 示範資料">
-          <GaugeSvg s={s} on={on} /><Totals s={s} />
+        <Card testid="tpl-d-gauge" title={`總報酬 ${pct(s.pnlPct)}`} sub={<>刻度 = 每格 2% · 中線 = 損益兩平 · 範圍 ±30%{hint}</>} src="F11 Tick Gauge · 示範資料">
+          <div ref={g.ref} data-testid="d-gauge-stage" data-on={g.on ? '1' : '0'} onClick={g.replay} style={{ cursor: 'pointer' }}><GaugeSvg s={s} on={g.on} hover /></div><Totals s={s} />
         </Card>
-        <Card testid="tpl-d-field" title={`${s.industries[0]?.name} 佔了 ${s.industries[0]?.cells} 格`} sub="1 格 = 1% 持股市值 · 橘 = 最大產業 · 灰階深淺 = 佔比排序" src="L14 Hundred Field · 示範資料">
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}><FieldGrid s={s} on={on} size={130} /><FieldLegend s={s} compact /></div>
+        <Card testid="tpl-d-field" title={hi == null ? `${s.industries[0]?.name} 佔了 ${s.industries[0]?.cells} 格` : `${s.industries[hi].name} 佔 ${s.industries[hi].cells} 格 · ${s.industries[hi].count} 檔`} sub={<>1 格 = 1% 持股市值 · 橘 = 最大產業 · 滑過格子或清單同步標示{hint}</>} src="L14 Hundred Field · 示範資料">
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div ref={f.ref} data-testid="d-field-stage" data-on={f.on ? '1' : '0'} onClick={f.replay} style={{ cursor: 'pointer' }}><FieldGrid s={s} on={f.on} size={130} hi={hi} onHi={setHi} /></div>
+            <FieldLegend s={s} compact hi={hi} onHi={setHi} />
+          </div>
         </Card>
       </div>
-      <Card testid="tpl-d-counts" title="怎麼持有：策略、週期、定位" sub="1 點 = 1 檔 · 黑點 = 該組最多" src="L15 Ballot Tally · 示範資料"><CountDots s={s} on={on} /></Card>
+      <Card testid="tpl-d-counts" title="怎麼持有：策略、週期、定位" sub={<>1 點 = 1 檔 · 黑點 = 該組最多{hint}</>} src="L15 Ballot Tally · 示範資料">
+        <div ref={c.ref} data-on={c.on ? '1' : '0'} onClick={c.replay} style={{ cursor: 'pointer' }}><CountDots s={s} on={c.on} /></div>
+      </Card>
     </>
   );
 }
