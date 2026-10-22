@@ -4,6 +4,9 @@ import {
   buildDoActionParams,
   doActionUrl,
   parseDoActionResponse,
+  buildQueryParams,
+  queryUrl,
+  parseQueryResponse,
 } from '../../../supabase/functions/_shared/ecpayRefundCore';
 
 describe('validateRefundRequest', () => {
@@ -73,5 +76,43 @@ describe('parseDoActionResponse', () => {
 
   it('空回應為失敗', () => {
     expect(parseDoActionResponse('').ok).toBe(false);
+  });
+});
+
+describe('buildQueryParams / queryUrl', () => {
+  it('查詢參數含 MerchantID、MerchantTradeNo、TimeStamp，不自行帶簽章', () => {
+    const p = buildQueryParams('CK1792589247358', '2000132', 1770000000);
+    expect(p).toEqual({
+      MerchantID: '2000132',
+      MerchantTradeNo: 'CK1792589247358',
+      TimeStamp: '1770000000',
+    });
+    expect(p.CheckMacValue).toBeUndefined();
+  });
+
+  it('正式／測試查詢端點不同', () => {
+    expect(queryUrl('production')).toBe('https://payment.ecpay.com.tw/Cashier/QueryTradeInfo/V5');
+    expect(queryUrl('stage')).toBe('https://payment-stage.ecpay.com.tw/Cashier/QueryTradeInfo/V5');
+  });
+});
+
+describe('parseQueryResponse', () => {
+  it('解析 urlencoded 回應並取出交易狀態欄位', () => {
+    const text = 'MerchantTradeNo=CK1792589247358&TradeNo=2610212127277634&TradeStatus=1&TradeAmt=699&PaymentDate=2026/10/21 21:28:15&RtnCode=1&RtnMsg=OK';
+    const r = parseQueryResponse(text);
+    expect(r.ok).toBe(true);
+    expect(r.fields.TradeStatus).toBe('1');
+    expect(r.fields.TradeAmt).toBe('699');
+    expect(r.fields.RtnMsg).toBe('OK');
+  });
+
+  it('RtnCode 非 1 為失敗並保留訊息', () => {
+    const r = parseQueryResponse('RtnCode=10200047&RtnMsg=查無此訂單');
+    expect(r.ok).toBe(false);
+    expect(r.fields.RtnMsg).toContain('查無此訂單');
+  });
+
+  it('空回應為失敗', () => {
+    expect(parseQueryResponse('').ok).toBe(false);
   });
 });
