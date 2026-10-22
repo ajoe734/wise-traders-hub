@@ -236,19 +236,7 @@ function TemplateC({ s }: { s: Summary }) {
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 20 }}>
         <Card testid="tpl-c-gauge" title={`總報酬 ${pct(s.pnlPct)}`} sub="刻度 = 每格 2% · 中線 = 損益兩平 · 範圍 ±30%" src="F11 Tick Gauge · 示範資料">
-          <svg viewBox="0 0 220 124" width="100%" role="img" aria-label="總報酬率刻度">
-            {Array.from({ length: ticks }).map((_, i) => {
-              const a = Math.PI - (i / (ticks - 1)) * Math.PI;
-              const r1 = 84, r2 = i % 5 === 0 ? 102 : 96;
-              const inRange = (i >= Math.min(lit, mid) && i <= Math.max(lit, mid));
-              const color = inRange && i !== mid ? pnlColor(s.pnlPct) : W.g4;
-              const tv = -range + i * 2;
-        return <g key={i}>{hover && <line x1={110 + 76 * Math.cos(a)} y1={112 - 76 * Math.sin(a)} x2={110 + 108 * Math.cos(a)} y2={112 - 108 * Math.sin(a)} stroke="transparent" strokeWidth={9} onMouseEnter={() => setHv(tv)} onMouseLeave={() => setHv(null)} />}<line pointerEvents="none" x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : color} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} />;
-            })}
-            <text x={110} y={92} fontSize={20} fontWeight={800} fill={pnlColor(s.pnl)} textAnchor="middle">{pct(s.pnlPct)}</text>
-            <text x={110} y={108} fontSize={8} fill={W.g2} textAnchor="middle">{`${signed(s.pnl)} 元`}</text>
-            <text x={16} y={122} fontSize={7} fill={W.g3}>-30%</text><text x={204} y={122} fontSize={7} fill={W.g3} textAnchor="end">+30%</text>
-          </svg>
+          <GaugeSvg s={s} on={on} />
           <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: 11, color: W.g1 }}>
             <span>成本 <b className="tn">{fmt(s.cost)}</b></span><span>市值 <b className="tn">{fmt(s.value)}</b></span><span><b>{s.count}</b> 檔</span>
           </div>
