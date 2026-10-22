@@ -98,7 +98,9 @@ const handler = withLogging("ecpay-refund", async (req, log) => {
   }
 
   const creds = await loadEcpayCreds(admin);
-  const params = buildDoActionParams(validated.value, creds.merchantId);
+  // 預設退刷（N，請款前）；訂單已關帳時改用退款（R）
+  const refundAction: "N" | "R" = body.refundAction === "R" ? "R" : "N";
+  const params = buildDoActionParams(validated.value, creds.merchantId, refundAction);
   params.CheckMacValue = await ecpayGenerateCheckMacValue(params, creds.hashKey, creds.hashIV);
 
   let doResult;
