@@ -414,6 +414,13 @@
       "when": 1792474357851,
       "tag": "0058_traffic_campaign_full_evidence_key",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792672685035,
+      "tag": "0059_peer_multiples_security_definer",
+      "breakpoints": true
     }
   ]
 }
