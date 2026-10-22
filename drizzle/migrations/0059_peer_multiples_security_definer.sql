@@ -1,0 +1,1 @@
+ALTER FUNCTION public.valuation_peer_multiples(text[]) SECURITY DEFINER;

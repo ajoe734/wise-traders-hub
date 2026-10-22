@@ -37,7 +37,7 @@ import { PriceSpectrum } from './PriceSpectrum';
 import { useStationExtras } from '@/checkup/hooks/useStationExtras';
 import { pickMainRuler, peDispersionOf, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, stationPosition, stationBasis, pricedInLevel } from '@/checkup/lib/valuationStations';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
-import { buildCustomScenario, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
+import { buildCustomScenario, multipleConfidenceText, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
@@ -857,7 +857,7 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
       '--spectrum-ink': WB.ink, '--spectrum-sub': WB.inkSub, '--spectrum-mute': WB.inkMute,
       '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent,
       '--spectrum-surface': WB.surface }}>
-       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} peersPending={peersPending} />
+       <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} peersPending={peersPending} station={{ ruler: st.main.key, position: st.position, peer: extras.peersLoading && st.peer.status !== 'ready' ? { status: 'insufficient', reason: '同業倍數載入中' } : st.peer }} />
       <div className="price-spectrum-heading">
         <span>價格與估值 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 單一等比例軸</small></span>
         {mode === 'target' && tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
@@ -907,19 +907,8 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
   );
 }
 
-/** 倍數證據：與分母可用數分開陳述。 */
-function confidenceText(band) {
-  const rows = band.rows.filter((r) => r.basisOk);
-  if (!rows.length) return '—';
-  const c = rows.map((r) => r.confidence);
-  if (c.every((x) => x === 'peer')) return '有同業證據';
-  if (c.some((x) => x === 'insufficient')) return `依據不足（${c.filter((x) => x === 'insufficient').length} 尺）`;
-  if (c.some((x) => x === 'low')) return '低（僅歷史情境參考）';
-  return '歷史情境參考';
-}
-
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
-export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false }) {
+export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false, station = null }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
   const ratioText = ratioAsOf ? String(ratioAsOf).split('-').join('/') : null;
   if (loading && !band) {
@@ -931,7 +920,7 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
     );
   }
   if (!band) return <div data-testid="valuation-band-headline" data-status={error ? 'error' : 'insufficient'} style={{ marginBottom: 12, color: WB.ink, fontWeight: 700 }}>估值判讀：{error ? '資料暫時取不到，尚不能判定合理價' : '尚未取得可核實分母，不能判讀現價要求'}</div>;
-  const conf = confidenceText(band);
+  const conf = multipleConfidenceText(band, station);
   const meta = [
     basisVerificationText(band),
     `倍數信心：${conf}`,
@@ -945,7 +934,7 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
         <span style={{ fontSize: 13, color: WB.inkSub }}>估值判讀</span>
         <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: WB.ink, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
-          {headlineText(band, hasPeerEvidence)}
+          {headlineText(band, hasPeerEvidence, station)}
         </span>
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>

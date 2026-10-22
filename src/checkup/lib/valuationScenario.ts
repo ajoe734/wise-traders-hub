@@ -280,14 +280,40 @@ export function historyReferenceBands(band: ValuationScenario | null | undefined
 
 const RULER_NAME: Record<ScenarioKey, string> = { pe: 'PE', pb: 'PB', ps: 'PS' };
 
-/** 抽屜估值判讀大字：未登入／服務失敗／全無分母／部分尺可用分開陳述，不把未登入誤報為分母不足。 */
-export function valuationHeadlineText(band: Pick<ValuationScenario, 'basisCount' | 'blocker' | 'rows'>, hasPeerEvidence: boolean): string {
+/** 站牌結果（與下方站牌同一份輸出），用來讓標題與站牌一致。 */
+export type HeadlineStation = {
+  ruler: ScenarioKey;
+  position: string | null;
+  peer: { status: 'ready'; n: number; group: string } | { status: 'insufficient'; reason: string };
+};
+
+/** 抽屜估值判讀大字：未登入／服務失敗／全無分母／部分尺可用分開陳述，不把未登入誤報為分母不足；
+ *  有站牌時以站牌結果陳述，同業可用即不得說「同業不足」，不足時寫出實際原因。 */
+export function valuationHeadlineText(band: Pick<ValuationScenario, 'basisCount' | 'blocker' | 'rows'>, hasPeerEvidence: boolean, station?: HeadlineStation | null): string {
   if (band.blocker === 'auth') return '登入後查看財報估值';
   if (band.blocker === 'service') return '財報資料暫時取不到，稍後重試';
   if (band.basisCount === 0) return '財報分母不足，無法判讀現價要求';
+  if (station?.position) {
+    const where = `現價${station.position}（${RULER_NAME[station.ruler]} 近一年）`;
+    return station.peer.status === 'ready'
+      ? `${where}・同業 ${station.peer.n} 家可比`
+      : `${where}・僅歷史倍數定位（${station.peer.reason}）`;
+  }
   if (band.basisCount < 3) {
     const ok = band.rows.filter((r) => r.basisOk).map((r) => RULER_NAME[r.key]).join('／');
     return `已核實 ${band.basisCount} 把尺（${ok}），尚不能判定合理價`;
   }
-  return hasPeerEvidence ? '尚不能判定合理價' : '同業倍數不足，僅歷史情境參考';
+  if (hasPeerEvidence || station?.peer.status === 'ready') return '尚不能判定合理價';
+  return station?.peer.status === 'insufficient' ? `僅歷史情境參考（${station.peer.reason}）` : '同業倍數不足，僅歷史情境參考';
+}
+
+/** 倍數信心：站牌同業可用時不得標「僅歷史」。 */
+export function multipleConfidenceText(band: Pick<ValuationScenario, 'rows'>, station?: HeadlineStation | null): string {
+  const rows = band.rows.filter((r) => r.basisOk);
+  if (!rows.length) return '—';
+  const c = rows.map((r) => (r as any).confidence);
+  if (c.every((x) => x === 'peer') || station?.peer.status === 'ready') return '有同業證據';
+  if (c.some((x) => x === 'insufficient')) return `依據不足（${c.filter((x) => x === 'insufficient').length} 尺）`;
+  if (c.some((x) => x === 'low')) return '低（僅歷史情境參考）';
+  return '歷史情境參考';
 }

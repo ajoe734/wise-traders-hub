@@ -9,7 +9,7 @@ import { isJwtExpired } from '@/checkup/hooks/useValuationSnapshot';
 import { useFilingRefresh } from './useFilingRefresh';
 
 export type PeerMultipleRow = { symbol: string; trade_date: string | null; pe: number | null; pb: number | null; ps: number | null; ps_date?: string | null };
-export type StationExtras = { group: PeerGroup | null; peerRows: PeerMultipleRow[]; forward: (ForwardInput & { asOf: string; epsSource: string; ai: boolean }) | null; forwardBlocked: string | null; loading: boolean };
+export type StationExtras = { group: PeerGroup | null; peerRows: PeerMultipleRow[]; forward: (ForwardInput & { asOf: string; epsSource: string; ai: boolean }) | null; forwardBlocked: string | null; loading: boolean; peersLoading?: boolean };
 
 const attempted = new Map<string, string | null>();
 
@@ -21,7 +21,7 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
     if (!/^\d{4,6}$/.test(code)) { setState({ group: null, peerRows: [], forward: null, forwardBlocked: null, loading: false }); return; }
     let cancelled = false;
     const group = findPeerGroup(code, industry);
-    setState((s) => ({ ...s, group, loading: true }));
+    setState((s) => ({ ...s, group, loading: true, peersLoading: !!group }));
     const gw = getCheckupGateway();
     const peerP = group
       ? Promise.resolve(gw.rpc<PeerMultipleRow[]>('valuation_peer_multiples', { _symbols: group.symbols.filter((s) => s !== code) })).catch(() => [])
@@ -47,12 +47,16 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
           return { row: null, blocked };
         } catch { attempted.set(code, null); return { row: null, blocked: null }; }
       });
+    const normRows = (rows: any) => Array.isArray(rows) ? rows.map((r: any) => ({ ...r, pe: r.pe == null ? null : Number(r.pe), pb: r.pb == null ? null : Number(r.pb), ps: r.ps == null ? null : Number(r.ps) })) : [];
+    // 同業倍數先到先顯示，不等前瞻 AI 抽取（避免載入期間誤報「可用 0 家」）
+    peerP.then((rows) => { if (!cancelled) setState((s) => ({ ...s, group, peerRows: normRows(rows), peersLoading: false })); });
     Promise.all([peerP, fwdP]).then(([rows, fr]) => {
       const f = fr?.row ?? null;
       if (cancelled) return;
       setState({
         group,
-        peerRows: Array.isArray(rows) ? rows.map((r) => ({ ...r, pe: r.pe == null ? null : Number(r.pe), pb: r.pb == null ? null : Number(r.pb), ps: r.ps == null ? null : Number(r.ps) })) : [],
+        peersLoading: false,
+        peerRows: normRows(rows),
         forward: f ? { eps: Number(f.eps), multiple: f.forward_pe == null ? null : Number(f.forward_pe), period: f.period, source: f.pe_source ?? null, epsSource: f.eps_source, asOf: f.as_of, ai: String(f.note || '').startsWith('ai_extraction:') } : null,
         forwardBlocked: f ? null : fr?.blocked ?? null,
         loading: false,
