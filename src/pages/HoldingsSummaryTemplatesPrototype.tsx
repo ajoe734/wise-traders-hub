@@ -91,18 +91,19 @@ function CountDots({ s, on }: { s: Summary; on: boolean }) {
 // ═══ A：F12 Dumbbell + L14 Hundred Field ═══
 function TemplateA({ s }: { s: Summary }) {
   const on = useReveal();
-  const max = Math.max(s.cost, s.value) * 1.08;
-  const x = (v: number) => 16 + (v / max) * 328;
+  const lo = Math.min(s.cost, s.value) * 0.9, hi = Math.max(s.cost, s.value) * 1.05;
+  const max = hi;
+  const x = (v: number) => 16 + ((v - lo) / (hi - lo)) * 328;
   const cells: { ind: string; idx: number }[] = [];
   s.industries.forEach((r, idx) => { for (let i = 0; i < r.cells; i++) cells.push({ ind: r.name, idx }); });
   return (
     <>
-      <Card testid="tpl-a-dumbbell" title={`投入 ${fmt(s.cost)}，現在值 ${fmt(s.value)}`} sub="空心點 = 總成本 · 實心點 = 總市值 · 兩點距離 = 未實現損益" src="F12 Dumbbell · 示範資料">
+      <Card testid="tpl-a-dumbbell" title={`投入 ${fmt(s.cost)}，現在值 ${fmt(s.value)}`} sub="軸線不從 0 起算 · 空心點 = 總成本 · 實心點 = 總市值 · 兩點距離 = 未實現損益" src="F12 Dumbbell · 示範資料">
         <BigPnl s={s} />
         <svg viewBox="0 0 360 64" width="100%" style={{ marginTop: 10, overflow: 'visible' }} role="img" aria-label="成本到市值">
           {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-            <g key={t}><line x1={x(max * t)} x2={x(max * t)} y1={18} y2={46} stroke={W.g5} strokeWidth={0.6} strokeDasharray="2 2" />
-              <text x={x(max * t)} y={60} fontSize={7} fill={W.g3} textAnchor="middle">{`${Math.round((max * t) / 10000)}萬`}</text></g>
+            <g key={t}><line x1={x(lo + (hi - lo) * t)} x2={x(lo + (hi - lo) * t)} y1={18} y2={46} stroke={W.g5} strokeWidth={0.6} strokeDasharray="2 2" />
+              <text x={x(lo + (hi - lo) * t)} y={60} fontSize={7} fill={W.g3} textAnchor="middle">{`${Math.round((lo + (hi - lo) * t) / 10000)}萬`}</text></g>
           ))}
           <line x1={x(s.cost)} x2={on ? x(s.value) : x(s.cost)} y1={32} y2={32} stroke={pnlColor(s.pnl)} strokeWidth={2} style={{ transition: `all 700ms ${ease}` }} />
           <circle cx={x(s.cost)} cy={32} r={5} fill={W.card} stroke={W.ink} strokeWidth={1.2} />
@@ -174,7 +175,7 @@ function TemplateB({ s }: { s: Summary }) {
             return (
               <g key={g.name} style={{ opacity: on ? 1 : 0, transition: `opacity 400ms ${ease} ${gi * 110}ms` }}>
                 <rect x={g.x + 0.5} y={g.y + 0.5} width={g.w - 1} height={g.h - 1} rx={3} fill="none" stroke={gi === 0 ? W.hero : W.g4} strokeWidth={gi === 0 ? 1.4 : 0.7} />
-                {g.w > 34 && <text x={g.x + 4} y={g.y + 10} fontSize={8} fontWeight={700} fill={W.ink}>{g.name}</text>}
+                {g.w > 52 && <text x={g.x + 4} y={g.y + 10} fontSize={8} fontWeight={700} fill={W.ink}>{g.name}</text>}
                 {leaves.map((l) => {
                   const k = `${g.name}/${l.name}`;
                   return (
@@ -230,7 +231,7 @@ function TemplateC({ s }: { s: Summary }) {
             <span>成本 <b className="tn">{fmt(s.cost)}</b></span><span>市值 <b className="tn">{fmt(s.value)}</b></span><span><b>{s.count}</b> 檔</span>
           </div>
         </Card>
-        <Card testid="tpl-c-rows" title={`前 ${rows.length} 大產業佔 ${rows.reduce((a, r) => a + r.cells, 0)}%`} sub="刻度長度 = 市值佔比 · 橘 = 最大產業" src="F5 Tick Rows · 示範資料">
+        <Card testid="tpl-c-rows" title={`${rows[0]?.name} 一個產業就佔 ${rows[0]?.cells}%`} sub="刻度長度 = 市值佔比 · 橘 = 最大產業" src="F5 Tick Rows · 示範資料">
           {rows.map((r, i) => (
             <div key={r.name} style={{ display: 'grid', gridTemplateColumns: '68px 1fr 34px', alignItems: 'center', gap: 6, marginBottom: 7 }}>
               <span style={{ fontSize: 11, color: W.ink, fontWeight: i === 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
