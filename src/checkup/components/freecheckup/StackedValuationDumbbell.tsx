@@ -39,7 +39,7 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(340);
-  const [on, setOn] = useState(false);
+  const [on, setOn] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   const [k, setK] = useState(0);
   const [sel, setSel] = useState<string | null>(null);
   useEffect(() => {
@@ -66,6 +66,10 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
   const fade = (i: number) => ({ transition: `opacity 520ms ${ease} ${i * 90}ms`, opacity: on ? 1 : 0 });
   const selRow = rows.find((r) => r.key === sel);
   const showCost = ok(cost), showTarget = ok(target);
+  // 成本與目標標籤太近時，各自往外側對齊
+  const near = showCost && showTarget && Math.abs(x(cost!) - x(target!)) < 76;
+  const costLeft = near && cost! <= target!;
+  const lbl = (v: number, left: boolean) => (near ? { x: x(v) + (left ? 4 : -4), anchor: left ? 'end' : 'start' } : { x: x(v), anchor: 'middle' });
 
   return (
     <div data-testid="valuation-dumbbell" ref={ref} style={{ minWidth: 0, margin: '4px 0 6px' }}>
@@ -87,7 +91,13 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
                 const big = r.single || j === 1;
                 return <g key={j} style={fade(i * 2 + j)}>
                   <circle cx={x(v)} cy={cy} r={big ? 5 : 3.5} fill={big ? ink : WB.surface || '#F5F3EF'} stroke={ink} strokeWidth={1.2} />
-                  <text x={x(v)} y={cy - 8} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{n0(v)}</text>
+                  {(() => {
+                    // 端點離中點太近就移到線下、向外對齊，避免數字互壓
+                    const tight = !r.single && j !== 1 && Math.abs(x(v) - x(r.mid)) < 40;
+                    const anchor = tight ? (j === 0 ? 'end' : 'start') : 'middle';
+                    const tx = tight ? x(v) + (j === 0 ? 2 : -2) : x(v);
+                    return <text x={tx} y={tight ? cy + 15 : cy - 8} textAnchor={anchor} fontSize={10.5} fontWeight={700} fill={ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{n0(v)}</text>;
+                  })()}
                 </g>;
               })}
             </>}
@@ -95,11 +105,11 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
         })}
         {showTarget && <g data-testid="dumbbell-target" style={fade(10)}>
           <path d={`M${x(target!) - 5},${h - 24} L${x(target!) + 5},${h - 24} L${x(target!)},${h - 17} Z`} fill={WB.inkSub} />
-          <text x={x(target!)} y={h - 4} textAnchor="middle" fontSize={10.5} fill={WB.inkSub}>目標 {n0(target!)}</text>
+          <text x={lbl(target!, !costLeft).x} y={h - 4} textAnchor={lbl(target!, !costLeft).anchor as any} fontSize={10.5} fill={WB.inkSub}>目標 {n0(target!)}</text>
         </g>}
         {showCost && <g style={fade(11)}>
           <circle cx={x(cost!)} cy={h - 20} r={4} fill={WB.surface || '#F5F3EF'} stroke={WB.ink} strokeWidth={1.2} />
-          <text x={x(cost!)} y={h - 4} textAnchor="middle" fontSize={10.5} fill={WB.ink}>成本 {n0(cost!)}</text>
+          <text x={lbl(cost!, costLeft).x} y={h - 4} textAnchor={lbl(cost!, costLeft).anchor as any} fontSize={10.5} fill={WB.ink}>成本 {n0(cost!)}</text>
         </g>}
         {ok(price) && <g data-testid="dumbbell-price" style={fade(12)}>
           <line x1={x(price)} x2={x(price)} y1={12} y2={h - 16} stroke={WB.accent} strokeWidth={1.4} />
