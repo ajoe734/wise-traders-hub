@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import Ga4ReconcileCard from '@/pages/_companyTraffic/Ga4ReconcileCard';
 
 type Status = 'OK' | 'NO_DATA' | 'NOT_CONFIGURED' | 'INVALID_CONFIG' | 'INVALID_INPUT' | 'AUTH_FAILED' | 'PERMISSION_DENIED' | 'API_DISABLED' | 'PROPERTY_NOT_FOUND' | 'QUERY_ERROR' | 'FORBIDDEN' | 'UNAUTHENTICATED';
 interface Report {
@@ -120,6 +121,7 @@ export default function Ga4Panel({ from, to }: { from: Date; to: Date }) {
                 )}
               </CardContent>
             </Card>
+            <Ga4ReconcileCard ga4={rep} startDate={rep.startDate} endDate={rep.endDate} />
           </>
         );
       })()}
