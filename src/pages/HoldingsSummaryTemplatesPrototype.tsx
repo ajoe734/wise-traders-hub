@@ -252,10 +252,121 @@ function TemplateC({ s }: { s: Summary }) {
   );
 }
 
+
+// ═══ 重組用積木：F11 刻度半環 / L14 百格方陣 / L15 點陣計數 ═══
+function GaugeSvg({ s, on, width = '100%' }: { s: Summary; on: boolean; width?: number | string }) {
+  const range = 30, ticks = 31, mid = (ticks - 1) / 2;
+  const val = Math.max(-range, Math.min(range, s.pnlPct));
+  const lit = Math.round(((val + range) / (2 * range)) * (ticks - 1));
+  return (
+    <svg viewBox="0 0 220 124" width={width} role="img" aria-label="總報酬率刻度" style={{ display: 'block', margin: '0 auto' }}>
+      {Array.from({ length: ticks }).map((_, i) => {
+        const a = Math.PI - (i / (ticks - 1)) * Math.PI;
+        const r1 = 84, r2 = i % 5 === 0 ? 102 : 96;
+        const inRange = i >= Math.min(lit, mid) && i <= Math.max(lit, mid) && i !== mid;
+        return <line key={i} x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : inRange ? pnlColor(s.pnlPct) : W.g4} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} />;
+      })}
+      <text x={110} y={92} fontSize={20} fontWeight={800} fill={pnlColor(s.pnl)} textAnchor="middle">{pct(s.pnlPct)}</text>
+      <text x={110} y={108} fontSize={8} fill={W.g2} textAnchor="middle">{`${signed(s.pnl)} 元`}</text>
+      <text x={16} y={122} fontSize={7} fill={W.g3}>-30%</text><text x={204} y={122} fontSize={7} fill={W.g3} textAnchor="end">+30%</text>
+    </svg>
+  );
+}
+function Totals({ s }: { s: Summary }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-around', gap: 8, flexWrap: 'wrap', fontSize: 11, color: W.g1, marginTop: 6 }}>
+      <span>成本 <b className="tn">{fmt(s.cost)}</b></span><span>市值 <b className="tn">{fmt(s.value)}</b></span><span><b>{s.count}</b> 檔</span>
+    </div>
+  );
+}
+function FieldGrid({ s, on, size = 160 }: { s: Summary; on: boolean; size?: number }) {
+  const cells: number[] = [];
+  s.industries.forEach((r, idx) => { for (let i = 0; i < r.cells; i++) cells.push(idx); });
+  return (
+    <svg viewBox="0 0 120 120" width={size} style={{ flexShrink: 0, display: 'block' }} role="img" aria-label="產業佔比方陣">
+      {cells.map((idx, i) => (
+        <rect key={i} x={(i % 10) * 12 + 1} y={Math.floor(i / 10) * 12 + 1} width={10} height={10} rx={2} fill={idx === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(idx - 1, 4)]} style={{ opacity: on ? 1 : 0, transition: `opacity 260ms ${ease} ${i * 9}ms` }} />
+      ))}
+    </svg>
+  );
+}
+function FieldLegend({ s, compact }: { s: Summary; compact?: boolean }) {
+  const sw = (i: number) => (i === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(i - 1, 4)]);
+  return (
+    <div style={{ flex: 1, minWidth: 140 }}>
+      {s.industries.map((r, i) => (
+        <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: i === 0 ? W.ink : W.g1, fontWeight: i === 0 ? 700 : 400, padding: compact ? '2px 0' : '3px 0', borderBottom: `0.5px solid ${W.g5}` }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: sw(i), flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>{r.name}<span style={{ color: W.g3, marginLeft: 6, fontWeight: 400 }}>{r.count}檔</span></span><span className="tn">{r.cells}%</span>
+        </div>
+      ))}
+      {s.warnings.length > 0 && <div style={{ fontSize: 10, color: W.g1, marginTop: 8 }}>{`↳ 集中提醒：${s.warnings.join('、')}`}</div>}
+    </div>
+  );
+}
+const lbl = { fontSize: 10, color: W.g2, letterSpacing: '0.12em', marginBottom: 8 } as const;
+
+// ═══ D 並肩：半環＋方陣同列，點陣在下 ═══
+function TemplateD({ s }: { s: Summary }) {
+  const on = useReveal();
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 20 }}>
+        <Card testid="tpl-d-gauge" title={`總報酬 ${pct(s.pnlPct)}`} sub="刻度 = 每格 2% · 中線 = 損益兩平 · 範圍 ±30%" src="F11 Tick Gauge · 示範資料">
+          <GaugeSvg s={s} on={on} /><Totals s={s} />
+        </Card>
+        <Card testid="tpl-d-field" title={`${s.industries[0]?.name} 佔了 ${s.industries[0]?.cells} 格`} sub="1 格 = 1% 持股市值 · 橘 = 最大產業 · 灰階深淺 = 佔比排序" src="L14 Hundred Field · 示範資料">
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}><FieldGrid s={s} on={on} size={130} /><FieldLegend s={s} compact /></div>
+        </Card>
+      </div>
+      <Card testid="tpl-d-counts" title="怎麼持有：策略、週期、定位" sub="1 點 = 1 檔 · 黑點 = 該組最多" src="L15 Ballot Tally · 示範資料"><CountDots s={s} on={on} /></Card>
+    </>
+  );
+}
+
+// ═══ E 一卡三欄：損益｜產業｜持有方式，全部收進一張 ═══
+function TemplateE({ s }: { s: Summary }) {
+  const on = useReveal();
+  return (
+    <Card testid="tpl-e-panel" title={`總報酬 ${pct(s.pnlPct)}，${s.industries[0]?.name} 佔 ${s.industries[0]?.cells}%`} sub="左：刻度每格 2% · 中：1 格 = 1% 市值，橘 = 最大產業 · 右：1 點 = 1 檔" src="F11 · L14 · L15 · 示範資料">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 20, alignItems: 'start' }}>
+        <div><div style={lbl}>損益</div><GaugeSvg s={s} on={on} /><Totals s={s} /></div>
+        <div><div style={lbl}>產業佔比</div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}><FieldGrid s={s} on={on} size={96} />
+            <div style={{ flex: 1 }}>{s.industries.slice(0, 4).map((r, i) => (<div key={r.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: i === 0 ? W.ink : W.g1, fontWeight: i === 0 ? 700 : 400, padding: '2px 0' }}><span>{r.name}</span><span className="tn">{r.cells}%</span></div>))}
+              {s.industries.length > 4 && <div style={{ fontSize: 10, color: W.g3 }}>{`其他 ${s.industries.slice(4).reduce((a, r) => a + r.cells, 0)}%`}</div>}</div>
+          </div>
+          {s.warnings.length > 0 && <div style={{ fontSize: 10, color: W.g1, marginTop: 8 }}>{`↳ 集中：${s.warnings.join('、')}`}</div>}
+        </div>
+        <div><div style={lbl}>持有方式</div><div style={{ display: 'grid', gap: 10 }}><CountDots s={s} on={on} /></div></div>
+      </div>
+    </Card>
+  );
+}
+
+// ═══ F 直式敘事：半環置頂當主角，方陣與點陣依序展開 ═══
+function TemplateF({ s }: { s: Summary }) {
+  const on = useReveal();
+  return (
+    <Card testid="tpl-f-story" title={`這批持股目前 ${s.pnl >= 0 ? '賺' : '賠'} ${fmt(Math.abs(s.pnl))} 元`} sub="由上而下：賺多少 → 錢放在哪 → 怎麼持有" src="F11 · L14 · L15 · 示範資料">
+      <div style={{ maxWidth: 360, margin: '0 auto' }}><GaugeSvg s={s} on={on} /><Totals s={s} /></div>
+      <div style={{ borderTop: `0.5px solid ${W.g4}`, margin: '18px 0 14px' }} />
+      <div style={lbl}>{`錢放在哪 · ${s.industries[0]?.name} 佔 ${s.industries[0]?.cells} 格`}</div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}><FieldGrid s={s} on={on} size={150} /><FieldLegend s={s} /></div>
+      <div style={{ borderTop: `0.5px solid ${W.g4}`, margin: '18px 0 14px' }} />
+      <div style={lbl}>怎麼持有 · 1 點 = 1 檔</div>
+      <CountDots s={s} on={on} />
+    </Card>
+  );
+}
+
 const TEMPLATES = {
   a: { label: 'A 帳本總覽', C: TemplateA },
   b: { label: 'B 權重地圖', C: TemplateB },
   c: { label: 'C 一頁儀表', C: TemplateC },
+  d: { label: 'D 並肩', C: TemplateD },
+  e: { label: 'E 一卡三欄', C: TemplateE },
+  f: { label: 'F 直式敘事', C: TemplateF },
 } as const;
 type Key = keyof typeof TEMPLATES;
 
@@ -263,7 +374,7 @@ export default function HoldingsSummaryTemplatesPrototype() {
   const s = useMemo(() => buildSummary(DEMO), []);
   const initial = (() => {
     const v = new URLSearchParams(window.location.search).get('v')?.toLowerCase() || 'a';
-    return (['a', 'b', 'c'] as Key[]).find((k) => v.startsWith(k)) || 'a';
+    return (['a', 'b', 'c', 'd', 'e', 'f'] as Key[]).find((k) => v.startsWith(k)) || 'a';
   })();
   const [cur, setCur] = useState<Key>(initial);
   const pick = (k: Key) => {
