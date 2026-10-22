@@ -356,7 +356,7 @@ export function ValuationRulersView({
         onClick={() => setBasisOpen((v) => !v)}
         style={{ fontSize: 12, color: WB.inkSub, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', letterSpacing: '0.08em' }}
       >
-         {basisOpen ? '▾' : '▸'} 怎麼算（三把尺、同業參考）
+         {basisOpen ? '▾' : '▸'} 同業參考
       </button>
       {basisOpen && (
       <div data-testid="valuation-basis" style={{ marginTop: 8, minWidth: 0 }}>
