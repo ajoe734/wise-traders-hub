@@ -235,10 +235,12 @@
   },
   {
    "code": "ECMP-11",
-   "name": "PCB/CCL",
+   "name": "PCB板廠",
    "sector": "電子零組件",
    "sectorCode": "ECMP",
-   "aliases": []
+   "aliases": [
+    "PCB/CCL"
+   ]
   },
   {
    "code": "ECMP-12",
@@ -889,6 +891,34 @@
    "name": "其他",
    "sector": "其他",
    "sectorCode": "OTHR",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-24",
+   "name": "CCL銅箔基板",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-25",
+   "name": "玻纖紗/玻纖布",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-26",
+   "name": "銅箔",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
+   "aliases": []
+  },
+  {
+   "code": "ECMP-27",
+   "name": "PCB化學品及耗材",
+   "sector": "電子零組件",
+   "sectorCode": "ECMP",
    "aliases": []
   }
  ]
