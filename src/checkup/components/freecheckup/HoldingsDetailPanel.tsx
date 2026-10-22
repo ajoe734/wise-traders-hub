@@ -40,6 +40,7 @@ import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEdit
 import { buildCustomScenario, multipleConfidenceText, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
+import { StackedValuationDumbbell, buildDumbbellRows } from '@/checkup/components/freecheckup/StackedValuationDumbbell';
 
 
 /**
