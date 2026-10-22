@@ -31,7 +31,7 @@ describe('live summary presentation projection', () => {
   });
   it('uses the real count of stocks in concentration warnings', () => {
     const s = buildLiveHoldingsSummary([{ code: '2330', value: 1 }, { code: '2454', value: 1 }, { code: '3443', value: 1 }, { code: '2881', value: 97 }], 100, 100, {}, {
-      '2330': { industries: ['晶圓代工'] }, '2454': { industries: ['晶圓代工'] }, '3443': { industries: ['晶圓代工'] }, '2881': { industries: ['金融'] },
+      '2330': { industries: ['晶圓代工'], revenue_mix: [{ industry: '晶圓代工', pct: 100 }] }, '2454': { industries: ['晶圓代工'], revenue_mix: [{ industry: '晶圓代工', pct: 100 }] }, '3443': { industries: ['晶圓代工'], revenue_mix: [{ industry: '晶圓代工', pct: 100 }] }, '2881': { industries: ['金融'], revenue_mix: [{ industry: '金融', pct: 100 }] },
     });
     expect(s.warnings).toContain('晶圓代工(3檔)'); expect(s.warnings).toContain('金融(1檔)');
   });

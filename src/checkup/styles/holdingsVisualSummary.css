@@ -22,7 +22,7 @@
 .hs-warning { font-size:11px; line-height:1.7; margin:10px 0 0; overflow-wrap:anywhere; }
 .hs-counts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; cursor:pointer; }
 .hs-counts h3 { font-size:11px; margin:0 0 8px; color:var(--hs-gray-1); }
-.hs-count-row { display:flex; align-items:center; gap:6px; min-height:25px; font-size:11px; }
+.hs-count-row { display:grid; grid-template-columns:minmax(40px,60px) minmax(0,1fr) auto; align-items:center; gap:6px; min-height:25px; font-size:11px; }
 .hs-summary .hs-count-name { font-size:11px; padding:0; height:auto; min-width:40px; max-width:85px; white-space:normal; overflow-wrap:anywhere; color:var(--hs-ink); justify-content:flex-start; }
 .hs-dot-list { display:flex; flex:1; flex-wrap:wrap; gap:3px; min-width:0; padding:4px 0; }
 .hs-dot { display:block; width:7px; height:7px; border-radius:50%; flex-shrink:0; }
@@ -32,6 +32,6 @@
 .hs-stage[data-on="0"] .hs-cell,.hs-stage[data-on="0"] .hs-tick,.hs-counts[data-on="0"] .hs-dot { transition:none; }
 .hs-controls-only .wb-hero-grid { display:block !important; }
 .hs-controls-only .wb-hero-market { align-items:flex-start !important; }
-@media(max-width:560px) { .hs-top { grid-template-columns:minmax(0,1fr); gap:0; } .hs-counts { gap:10px; } .hs-count-row { flex-wrap:wrap; } .hs-count-name { width:100%; } }
-@media(max-width:380px) { .hs-counts { grid-template-columns:minmax(0,1fr); } .hs-count-row { flex-wrap:nowrap; } .hs-summary .hs-count-name { width:auto; min-width:50px; } }
+@media(max-width:560px) { .hs-top { grid-template-columns:minmax(0,1fr); gap:0; } .hs-counts { gap:10px; } .hs-count-row { grid-template-columns:minmax(0,1fr) auto; } .hs-count-name { grid-column:1 / -1; } }
+@media(max-width:380px) { .hs-counts { grid-template-columns:minmax(0,1fr); } .hs-count-row { grid-template-columns:50px minmax(0,1fr) auto; } .hs-summary .hs-count-name { grid-column:auto; width:auto; min-width:50px; } }
 @media(prefers-reduced-motion:reduce) { .hs-cell,.hs-dot,.hs-tick { transition:none !important; transform:none !important; opacity:1 !important; } }
