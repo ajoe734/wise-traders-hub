@@ -162,7 +162,7 @@ const ready = (r: Rule): r is Extract<Rule, { lo: number }> => 'lo' in r;
 function TemplateD({ sel, setSel }) {
   const [ref, w] = useWidth();
   const rv = useReveal();
-  const lw = 74, pad = 16, rowH = 34, rows = [...RULERS, { key: 'fwd', name: '前瞻參考', ...FWD }, { key: 'peer', name: '同業平均', lo: PEER, mid: PEER, hi: PEER }] as Rule[];
+  const lw = 74, pad = 16, rowH = 36, rows = [...RULERS, { key: 'fwd', name: '前瞻參考', ...FWD }, { key: 'peer', name: '同業平均', lo: PEER, mid: PEER, hi: PEER }] as Rule[];
   const h = rows.length * rowH + 34;
   const x = (v: number) => lw + ((v - AXIS.lo) / (AXIS.hi - AXIS.lo)) * (w - lw - pad);
   return (
@@ -173,7 +173,7 @@ function TemplateD({ sel, setSel }) {
           const main = ready(r) && r.main, ink = main ? C.ink : C.sub, active = sel === r.key;
           return <g key={r.key} cursor="pointer" onClick={(e) => { e.stopPropagation(); setSel(active ? null : r.key); }}>
             <text x={0} y={cy + 4} fontSize={12} fontWeight={main ? 800 : 600} fill={active ? C.accent : ink}>{r.name}</text>
-            {main && <text x={0} y={cy + 16} fontSize={10} fontWeight={700} fill={C.accent}>主尺</text>}
+            {main && <text x={0} y={cy - 10} fontSize={10} fontWeight={700} fill={C.accent}>主尺</text>}
             <line x1={lw} x2={w - pad} y1={cy} y2={cy} stroke={C.hair} strokeWidth={0.6} />
             {!ready(r) ? <text x={lw + 4} y={cy + 4} fontSize={11} fill={C.mute}>資料不足（{r.missing}）</text> : <>
               {r.hi > r.lo && <line x1={x(r.lo)} x2={rv.on ? x(r.hi) : x(r.lo)} y1={cy} y2={cy} stroke={main ? C.ink : C.light} strokeWidth={main ? 4 : 3} strokeLinecap="round" style={{ transition: `x2 600ms cubic-bezier(.165,.84,.44,1) ${i * 110}ms` }} />}
@@ -199,7 +199,7 @@ function TemplateD({ sel, setSel }) {
 function TemplateE({ sel, setSel }) {
   const [ref, w] = useWidth();
   const rv = useReveal();
-  const pad = 16, y = 72, h = 150;
+  const pad = 16, y = 88, h = 166;
   const x = (v: number) => pad + ((v - AXIS.lo) / (AXIS.hi - AXIS.lo)) * (w - pad * 2);
   const m = RULERS[0] as Extract<Rule, { lo: number }>;
   const seg = [[AXIS.lo, m.lo, C.hair, '便宜'], [m.lo, m.mid, C.light, '合理'], [m.mid, m.hi, C.mute, '偏熱'], [m.hi, AXIS.hi, C.sub, '過熱']] as const;
@@ -213,7 +213,7 @@ function TemplateE({ sel, setSel }) {
         <text x={pad} y={14} fontSize={11} fontWeight={700} fill={C.ink}>主尺 PS 近一年</text>
         {seg.map(([a, b, c, t], i) => <g key={t} style={tr(rv.on, i)}>
           <rect x={x(a)} y={y - 8} width={Math.max(0, x(b) - x(a))} height={16} fill={c} />
-          <text x={(x(a) + x(b)) / 2} y={y + 4} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={i >= 2 ? C.paper : C.ink}>{t}</text>
+          {x(b) - x(a) > 34 && <text x={(x(a) + x(b)) / 2} y={y + 4} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={i >= 2 ? C.paper : C.ink}>{t}</text>}
         </g>)}
         {[m.lo, m.mid, m.hi].map((v, i) => <text key={i} x={x(v)} y={y + 22} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={C.ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round(v)}</text>)}
         {pins.map((p, i) => { const up = i % 2 === 0, active = sel === p.key; return <g key={p.key} cursor="pointer" style={tr(rv.on, 4 + i)} onClick={(e) => { e.stopPropagation(); setSel(active ? null : p.key); }}>
@@ -222,7 +222,7 @@ function TemplateE({ sel, setSel }) {
           <text x={x(p.v)} y={up ? y - 24 : y + 60} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={C.ink}>{Math.round(p.v)}</text>
         </g>; })}
         <line x1={x(PRICE)} x2={x(PRICE)} y1={y - 14} y2={y + 12} stroke={C.accent} strokeWidth={2.4} style={tr(rv.on, 10)} />
-        <text x={x(PRICE)} y={y - 46} textAnchor="middle" fontSize={11} fontWeight={800} fill={C.accent}>現價 {PRICE}</text>
+        <text x={x(PRICE)} y={y - 58} textAnchor="middle" fontSize={11} fontWeight={800} fill={C.accent}>現價 {PRICE}</text>
         <text x={pad} y={h - 4} fontSize={10.5} fill={C.mute}>PB 資料不足 · 成本 {COST}</text>
       </svg>
     </div>
