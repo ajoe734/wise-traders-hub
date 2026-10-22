@@ -69,7 +69,7 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
   // 成本與目標標籤太近時，各自往外側對齊
   const near = showCost && showTarget && Math.abs(x(cost!) - x(target!)) < 76;
   const costLeft = near && cost! <= target!;
-  const lbl = (v: number, left: boolean) => (near ? { x: x(v) + (left ? 4 : -4), anchor: left ? 'end' : 'start' } : { x: x(v), anchor: 'middle' });
+  const lbl = (v: number, left: boolean) => (near ? { x: x(v) + (left ? -4 : 4), anchor: left ? 'end' : 'start' } : { x: x(v), anchor: 'middle' });
 
   return (
     <div data-testid="valuation-dumbbell" ref={ref} style={{ minWidth: 0, margin: '4px 0 6px' }}>
@@ -95,7 +95,7 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
                     // 端點離中點太近就移到線下、向外對齊，避免數字互壓
                     const tight = !r.single && j !== 1 && Math.abs(x(v) - x(r.mid)) < 40;
                     const anchor = tight ? (j === 0 ? 'end' : 'start') : 'middle';
-                    const tx = tight ? x(v) + (j === 0 ? 2 : -2) : x(v);
+                    const tx = tight ? x(v) + (j === 0 ? -2 : 2) : x(v);
                     return <text x={tx} y={tight ? cy + 15 : cy - 8} textAnchor={anchor} fontSize={10.5} fontWeight={700} fill={ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{n0(v)}</text>;
                   })()}
                 </g>;
