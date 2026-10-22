@@ -278,6 +278,11 @@ Deno.serve(async (req) => {
     pending = pending.filter((c) => !existing.has(c.symbol));
   }
 
+  // 分片：shards>1 時只處理代號數值 % shards === shard 的個股，可平行續跑互不重疊
+  const shards = Math.max(1, Math.min(8, Number(body.shards ?? 1) || 1));
+  const shard = Math.max(0, Number(body.shard ?? 0) || 0) % shards;
+  if (shards > 1) pending = pending.filter((c) => (parseInt(c.symbol, 10) || 0) % shards === shard);
+
   const batches: Candidate[][] = [];
   for (let i = 0; i < pending.length; i += BATCH_SIZE) batches.push(pending.slice(i, i + BATCH_SIZE));
   const runBatches = batches.slice(0, Math.max(0, maxBatches));
