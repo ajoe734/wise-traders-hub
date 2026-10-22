@@ -270,6 +270,9 @@ Deno.serve(async (req) => {
   if (mode === 'symbols') {
     const set = new Set(wantedSymbols);
     pending = pending.filter((c) => set.has(c.symbol));
+  } else if (mode === 'nobiz') {
+    // 補抓主要經營業務：尚無業務資料且未人工確認
+    pending = pending.filter((c) => existing.get(c.symbol) !== true && !cachedBiz.get(c.symbol)?.desc);
   } else if (mode === 'evidence') {
     pending = pending.filter((c) => existing.get(c.symbol) !== true && !hasEvidence.has(c.symbol));
   } else if (mode === 'all') {
@@ -300,7 +303,8 @@ Deno.serve(async (req) => {
         const fetchedNow = new Set<string>();
         for (const c of batch) {
           const hit = cachedBiz.get(c.symbol);
-          if (hit && Date.now() - hit.at < BUSINESS_TTL_MS) { c.business = hit.desc; continue; }
+          // 抓不到（多半是被限流）不快取，下次重抓
+          if (hit && hit.desc && Date.now() - hit.at < BUSINESS_TTL_MS) { c.business = hit.desc; continue; }
           try { c.business = await fetchMainBusiness(c.symbol); } catch { c.business = null; }
           fetchedNow.add(c.symbol);
           await new Promise((r) => setTimeout(r, 400));
