@@ -46,15 +46,15 @@ describe('buildDoActionParams', () => {
     expect(p.CheckMacValue).toBeUndefined();
   });
 
-  it('已關帳訂單改走退款（Action=R）並帶 AmountToRefund', () => {
+  it('已關帳訂單改走退款（Action=R），金額同樣以 TotalAmount 傳', () => {
     const p = buildDoActionParams(
       { merchantTradeNo: 'CK1792589247358', tradeNo: '2610212127277634', totalAmount: 699 },
       '2000132',
       'R',
     );
     expect(p.Action).toBe('R');
-    expect(p.AmountToRefund).toBe('699');
-    expect(p.TotalAmount).toBeUndefined();
+    expect(p.TotalAmount).toBe('699');
+    expect(p.AmountToRefund).toBeUndefined();
   });
 });
 

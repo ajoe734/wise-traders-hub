@@ -30,24 +30,22 @@ export function validateRefundRequest(input: Partial<RefundRequestInput>): Valid
 
 /**
  * 信用卡 DoAction 參數（不含 CheckMacValue，簽章由呼叫端加）。
- *  - action='N'：退刷（請款前），參數 TotalAmount
- *  - action='R'：退款（已關帳／已請款），參數 AmountToRefund
+ *  - action='N'：退刷（請款前）
+ *  - action='R'：退款（已關帳／已請款）
+ * 兩種動作此端點都以 TotalAmount 傳金額（Action=R 傳 AmountToRefund 會被拒）。
  */
 export function buildDoActionParams(
   input: RefundRequestInput,
   merchantId: string,
   action: 'N' | 'R' = 'N',
 ): Record<string, string> {
-  const base = {
+  return {
     MerchantID: merchantId,
     MerchantTradeNo: input.merchantTradeNo,
     TradeNo: input.tradeNo,
     Action: action,
+    TotalAmount: String(input.totalAmount),
   };
-  if (action === 'R') {
-    return { ...base, AmountToRefund: String(input.totalAmount) };
-  }
-  return { ...base, TotalAmount: String(input.totalAmount) };
 }
 
 export function doActionUrl(env: 'stage' | 'production'): string {
