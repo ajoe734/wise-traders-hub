@@ -35,7 +35,7 @@ for (const width of WIDTHS) {
       await expect(row).toHaveCount(1);
     }
     await expect(chart.locator('[data-status="missing"] circle')).toHaveCount(0);
-    for (const t of await chart.locator('[data-status="missing"]').allInnerTexts()) expect(t).toContain('資料不足');
+    for (const t of await chart.locator('[data-status="missing"]').evaluateAll((els) => els.map((e) => e.textContent || ''))) expect(t).toContain('資料不足');
     await expect(chart.getByTestId('dumbbell-price')).toHaveCount(1);
     await chart.getByTestId('dumbbell-row-ps').click();
     await expect(chart.getByTestId('dumbbell-selected')).toContainText('PS');
