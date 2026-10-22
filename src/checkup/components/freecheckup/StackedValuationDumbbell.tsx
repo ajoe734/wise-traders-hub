@@ -18,15 +18,15 @@ export function buildDumbbellRows({ mainKey, rulerOf, forward, peer }): Dumbbell
     const r = rulerOf(key);
     return r && ok(r.low) && ok(r.mid) && ok(r.high)
       ? { key, name: RULER_NAME[key], main: key === mainKey, lo: r.low, mid: r.mid, hi: r.high }
-      : { key, name: RULER_NAME[key], main: key === mainKey, missing: r?.reason ? String(r.reason) : '資料不足' };
+      : { key, name: RULER_NAME[key], main: key === mainKey, missing: '資料不足' };
   });
   if (forward?.status === 'ready' && ok(forward.price)) {
     rows.push(forward.mode === 'historical' && ok(forward.low) && ok(forward.high)
       ? { key: 'forward', name: '前瞻參考', lo: forward.low, mid: forward.price, hi: forward.high }
       : { key: 'forward', name: '前瞻參考', lo: forward.price, mid: forward.price, hi: forward.price, single: true });
-  } else rows.push({ key: 'forward', name: '前瞻參考', missing: forward?.reason ? String(forward.reason) : '資料不足' });
+  } else rows.push({ key: 'forward', name: '前瞻參考', missing: '資料不足' });
   if (peer?.status === 'ready' && ok(peer.price)) rows.push({ key: 'peer', name: '同業平均', lo: peer.price, mid: peer.price, hi: peer.price, single: true });
-  else rows.push({ key: 'peer', name: '同業平均', missing: peer?.reason ? String(peer.reason) : '資料不足' });
+  else rows.push({ key: 'peer', name: '同業平均', missing: '資料不足' });
   return rows;
 }
 
@@ -124,7 +124,7 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
       </svg>
       {selRow && <div data-testid="dumbbell-selected" style={{ fontSize: 12, color: WB.ink, fontVariantNumeric: 'tabular-nums' }}>
         <strong>{selRow.name}</strong>{' '}
-        {ready(selRow) ? (selRow.single ? `NT$${n0(selRow.mid)}` : `便宜 NT$${n0(selRow.lo)}／中間 NT$${n0(selRow.mid)}／偏熱 NT$${n0(selRow.hi)}`) : `資料不足（${selRow.missing}）`}
+        {ready(selRow) ? (selRow.single ? `NT$${n0(selRow.mid)}` : `便宜 NT$${n0(selRow.lo)}／中間 NT$${n0(selRow.mid)}／偏熱 NT$${n0(selRow.hi)}`) : '資料不足'}
       </div>}
     </div>
   );
