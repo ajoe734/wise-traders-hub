@@ -46,3 +46,21 @@ describe('ga4Reconcile', () => {
     expect([rare.comparable, rare.flagged]).toEqual([false, false]);
   });
 });
+
+describe('ga4Reconcile 路徑口徑對齊本站收集', () => {
+  it('UUID 與 4 位以上數字段改為 :id（與本站收集規則相同）', () => {
+    expect(normalizePath('/app/journal/2f1c9a3e-1b2c-4d5e-8f90-123456789abc')).toBe('/app/journal/:id');
+    expect(normalizePath('/checkout/sharkgu/12345')).toBe('/checkout/sharkgu/:id');
+    expect(normalizePath('/app/journal/123')).toBe('/app/journal/123');
+  });
+  it('後台頁不列入（本站不收集後台）', () => {
+    const r = reconcileGa4({ daily: [], topPages: [{ path: '/company/traffic', pageViews: 40, users: 2 }] }, [], new Map(), from, to);
+    expect(r.pages).toEqual([]);
+  });
+  it('GA4 已滿 15 筆時，範本路徑只含部分網址，不判定差距', () => {
+    const top = [{ path: '/app/journal/11111', pageViews: 100, users: 9 }, ...Array.from({ length: 14 }, (_, i) => ({ path: `/g${i}`, pageViews: 100, users: 90 }))];
+    const events = Array.from({ length: 300 }, (_, i) => ev('/app/journal/:id', '2026-10-20T03:00:00Z', `v${i}`));
+    const j = reconcileGa4({ daily: [], topPages: top }, events, new Map(), from, to).pages.find(p => p.path === '/app/journal/:id')!;
+    expect([j.ga4PageViews, j.comparable, j.flagged]).toEqual([100, false, false]);
+  });
+});
