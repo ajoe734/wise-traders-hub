@@ -30,3 +30,7 @@ Historical-price backfill uses service-only enqueue/claim/finish RPCs and `histo
 ### GA4 reporting
 
 GA4 numbers reach the admin UI only via company_admin `ga4-report` (pure `_shared/ga4ReportCore.ts`, analytics.readonly service account); never mix with own traffic tables or send GA hits; why: keys stay server-side, GA and own metrics stay separate.
+
+### ECPay refunds
+
+Credit-card refunds go only through company_admin `ecpay-refund` (pure `_shared/ecpayRefundCore.ts`): Action=N pre-capture, Action=R post-capture, both with TotalAmount; idempotent via `REFUND-<MerchantTradeNo>` ledger key, single attempt (no auto-retry on financial mutations), every outcome audited with payment_intents uuid as target; why: refunds must be ledgered once, never double-sent, and unknown network states must be checked manually before retry.

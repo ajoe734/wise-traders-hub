@@ -3,8 +3,8 @@
 > 由 `scripts/audit-edge-fn-auth.mjs --write` 自動產生，勿手動編輯。
 > 分類憲法見 `supabase/functions/_shared/authGuard.ts`。
 
-覆蓋率：146 / 146
-Runtime guard 已上：144 / 146
+覆蓋率：147 / 147
+Runtime guard 已上：145 / 147
 
 | Function | Auth Class | Runtime Guard |
 | --- | --- | --- |
@@ -76,6 +76,7 @@ Runtime guard 已上：144 / 146
 | `data-upsert` | user | ✅ |
 | `e2e-simulate-purchase` | user | ✅ |
 | `ecpay-callback` | webhook | — |
+| `ecpay-refund` | admin | ✅ |
 | `email-push-renewal-reminder` | cron | ✅ |
 | `expert-ai-chat` | user+admin | ✅ |
 | `expert-ai-conversation` | user | ✅ |
