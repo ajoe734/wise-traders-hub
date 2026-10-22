@@ -97,6 +97,14 @@
     --holdings-flow-foreign: 30 4% 13%;
     --holdings-flow-trust: 51 4% 42%;
     --holdings-flow-dealer: 53 6% 74%;
+    /* Approved D holdings-summary wire palette, shared by live and fixture surfaces. */
+    --hs-ink: #292520;
+    --hs-accent: #EC662D;
+    --hs-gray-1: #4A4640;
+    --hs-gray-2: #7A756C;
+    --hs-gray-3: #A8A298;
+    --hs-gray-4: #CFC9BF;
+    --hs-line: #E4DFD6;
     
     --warning: 38 92% 50%;
     --warning-light: 38 92% 95%;
