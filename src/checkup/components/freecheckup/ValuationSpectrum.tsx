@@ -15,11 +15,11 @@ export default function ValuationSpectrum({ rulers, name }: { rulers: SpectrumRu
   useEffect(() => {
     const el = (ref as any).current as HTMLElement | null;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (w > 0) setW(Math.max(280, Math.min(560, w))); });
+    const ro = new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (w > 0) setW(Math.max(280, w)); });
     ro.observe(el); return () => ro.disconnect();
   }, [ref]);
   const extent = Math.max(1, ...rulers.map(r => Math.abs(r.weightedPremium ?? 0)));
-  const left = W < 400 ? 84 : 120, right = W - 14, mid = (left + right) / 2, half = (right - left) / 2;
+  const left = W < 400 ? 84 : 120, right = Math.min(W - 14, left + 640), mid = (left + right) / 2, half = (right - left) / 2;
   const px = (v: number) => mid + v / extent * half;
   const ticks = [left, (left + mid) / 2, mid, (mid + right) / 2, right];
   return <div ref={ref} className="hv-spectrum-wrap">
