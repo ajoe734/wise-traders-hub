@@ -77,6 +77,10 @@ Persist anonymous first touch on login with original expiry; platform reports pa
 
 Use `finmindUsage` with paginated job logs, completed-symbol deduplication and timestamped upstream observations; why: aggregate counts and internal pools cannot establish unique symbols or provider quota.
 
+### Stock classification evidence
+
+Classify stocks from the official MOPS main-business text (`_shared/mopsBusiness.ts`) into the taxonomy's supply-chain-tiered industries; only rows passing `isAdoptedClassification` (reviewed, or confidence at or above the threshold with evidence) reach the front end or peer universes, others stay in the admin pending list; why: unevidenced AI guesses mislabeled upstream materials as downstream boards and polluted peer valuation.
+
 ### Traffic metrics
 
 Use `trafficQuality` for metrics, `trafficRecovery` for recovery, and `ga4Reconcile` for the separate GA4 comparison view; run `check:traffic` after changes. Count named pages, never infer event-time login; why: prevents invented history and mixed-source totals.
