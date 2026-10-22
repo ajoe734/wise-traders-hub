@@ -33,11 +33,9 @@ for (const width of WIDTHS) {
     for (const key of ['pe', 'pb', 'ps', 'forward', 'peer']) {
       const row = chart.getByTestId(`dumbbell-row-${key}`);
       await expect(row).toHaveCount(1);
-      if ((await row.getAttribute('data-status')) === 'missing') {
-        await expect(row.locator('circle')).toHaveCount(0);
-        await expect(row).toContainText('資料不足');
-      }
     }
+    await expect(chart.locator('[data-status="missing"] circle')).toHaveCount(0);
+    for (const t of await chart.locator('[data-status="missing"]').allInnerTexts()) expect(t).toContain('資料不足');
     await expect(chart.getByTestId('dumbbell-price')).toHaveCount(1);
     await chart.getByTestId('dumbbell-row-ps').click();
     await expect(chart.getByTestId('dumbbell-selected')).toContainText('PS');
