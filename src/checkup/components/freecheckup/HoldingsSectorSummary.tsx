@@ -747,13 +747,13 @@ function HoldingsSectorSummaryImpl({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gridTemplateColumns: controlsOnly ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))',
               gap: 0,
               borderTop: '1px solid var(--cm-hair)',
               borderBottom: '1px solid var(--cm-ink)',
             }}
           >
-            <ColumnIndex
+            {!controlsOnly && <ColumnIndex
               title="產業"
               rows={industryByValue.map((x: any) => ({
                 key: x.key,
@@ -765,7 +765,7 @@ function HoldingsSectorSummaryImpl({
               toggle={toggle}
               accentFirst
               isRight={false}
-            />
+            />}
             <ColumnIndex
               title="題材"
               rows={themeByCount.map((t: any) => ({ key: t.key, primary: `${t.count}`, secondary: '檔' }))}
@@ -774,14 +774,14 @@ function HoldingsSectorSummaryImpl({
               toggle={toggle}
               emptyText="無題材標籤"
             />
-            <ColumnIndex
+            {!controlsOnly && <ColumnIndex
               title="策略"
               rows={strategyByCount.map((s: any) => ({ key: s.key, primary: `${s.count}`, secondary: '檔' }))}
               kind="strategy"
               isSelected={isSelected}
               toggle={toggle}
               isRight
-            />
+            />}
           </div>
         )}
         {/* 市場族群：市場慣用俗稱（散熱三雄…），純標籤，不影響上方產業佔比 */}
