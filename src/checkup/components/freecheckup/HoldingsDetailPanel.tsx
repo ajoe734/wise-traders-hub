@@ -940,9 +940,6 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
           {headlineText(band, hasPeerEvidence, station)}
         </span>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
-        {meta}
-      </div>
     </div>
   );
 }

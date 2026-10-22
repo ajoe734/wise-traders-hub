@@ -313,7 +313,7 @@ export function ValuationRulersView({
 
   return (
     <div data-testid="valuation-rulers" style={{ marginTop: 16, minWidth: 0 }}>
-      <div data-testid="valuation-selection-summary" style={{ borderTop: `1px solid ${WB.ink}`, borderBottom: `1px solid ${WB.hair}`, padding: '12px 0 10px', marginBottom: 12 }}>
+      <div data-testid="valuation-selection-summary" hidden={!basisOpen} style={{ borderTop: `1px solid ${WB.ink}`, borderBottom: `1px solid ${WB.hair}`, padding: '12px 0 10px', marginBottom: 12, display: basisOpen ? undefined : 'none' }}>
         <div style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: WB.ink }}>選尺與現價要求</div>
         <div data-testid="valuation-selection-conclusion" style={{ fontSize: 13, color: WB.ink, fontWeight: 700, marginTop: 3 }}>尚不能判定合理價；先看每把尺要求市場相信什麼。</div>
         {basisOpen && <div style={{ fontSize: 11, color: WB.inkSub, lineHeight: 1.65, marginTop: 4 }}>不依粗產業自動指定主要尺：PE 看獲利品質與持續性；PB 看資產品質與 ROE；PS 看利潤率與何時能獲利。</div>}
