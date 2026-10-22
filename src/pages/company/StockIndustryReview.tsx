@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Check, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { ADOPT_MIN_CONFIDENCE } from '@/checkup/lib/industryTaxonomy';
 
 type Row = {
   symbol: string;
@@ -21,14 +22,18 @@ type Row = {
   market_groups: string[] | null;
   confidence: number | null;
   rationale: string | null;
+  evidence: string | null;
+  business_desc: string | null;
+  chain_tier: string | null;
   reviewed: boolean | null;
   source: string | null;
   updated_at: string | null;
 };
 
-type Mode = 'low' | 'unreviewed' | 'all';
+type Mode = 'pending' | 'low' | 'unreviewed' | 'all';
 
 const MODE_LABEL: Record<Mode, string> = {
+  pending: '待審（未上線）',
   low: '低信心（< 0.7）',
   unreviewed: '尚未人工確認',
   all: '全部',
@@ -36,7 +41,7 @@ const MODE_LABEL: Record<Mode, string> = {
 
 export default function StockIndustryReview() {
   const qc = useQueryClient();
-  const [mode, setMode] = useState<Mode>('low');
+  const [mode, setMode] = useState<Mode>('pending');
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -48,9 +53,11 @@ export default function StockIndustryReview() {
     queryFn: async () => {
       let q = supabase
         .from('stock_industry_map')
-        .select('symbol, name, market, official_industry, industries, themes, market_groups, confidence, rationale, reviewed, source, updated_at')
+        .select('symbol, name, market, official_industry, industries, themes, market_groups, confidence, rationale, evidence, business_desc, chain_tier, reviewed, source, updated_at')
         .order('confidence', { ascending: true })
         .limit(500);
+      // 未上線＝未人工確認，且（信心 < 0.9 或沒有依據）；與 isAdoptedClassification 同一門檻
+      if (mode === 'pending') q = q.eq('reviewed', false).or(`confidence.lt.${ADOPT_MIN_CONFIDENCE},confidence.is.null,evidence.is.null`);
       if (mode === 'low') q = q.lt('confidence', 0.7);
       if (mode === 'unreviewed') q = q.eq('reviewed', false);
       const { data, error } = await q;
@@ -66,7 +73,8 @@ export default function StockIndustryReview() {
       const total = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true });
       const low = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true }).lt('confidence', 0.7);
       const reviewed = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true }).eq('reviewed', true);
-      return { total: total.count ?? 0, low: low.count ?? 0, reviewed: reviewed.count ?? 0 };
+      const pending = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true }).eq('reviewed', false).or(`confidence.lt.${ADOPT_MIN_CONFIDENCE},confidence.is.null,evidence.is.null`);
+      return { total: total.count ?? 0, low: low.count ?? 0, reviewed: reviewed.count ?? 0, pending: pending.count ?? 0 };
     },
   });
 
@@ -111,7 +119,7 @@ export default function StockIndustryReview() {
             <div>
               <CardTitle>個股分類審核</CardTitle>
               <CardDescription>
-                全市場細分產業與題材。低信心或明顯判錯的可直接改，改完標記為已確認，之後重跑分類不會覆蓋。
+                依公司申報的主要經營業務分類。待審的分類不會上線（前台改用官方大類），確認或修正後才會生效，之後重跑不會覆蓋。
               </CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -120,7 +128,7 @@ export default function StockIndustryReview() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="text-sm text-muted-foreground">
-              已分類 {counts?.total ?? '—'} 檔 · 低信心 {counts?.low ?? '—'} 檔 · 已人工確認 {counts?.reviewed ?? '—'} 檔
+              已分類 {counts?.total ?? '—'} 檔 · 待審未上線 {counts?.pending ?? '—'} 檔 · 低信心 {counts?.low ?? '—'} 檔 · 已人工確認 {counts?.reviewed ?? '—'} 檔
             </div>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
@@ -146,6 +154,7 @@ export default function StockIndustryReview() {
                       <TableHead>代號</TableHead>
                       <TableHead>名稱</TableHead>
                       <TableHead>官方大類</TableHead>
+                      <TableHead>主要經營業務／依據</TableHead>
                       <TableHead>細分產業</TableHead>
                       <TableHead>市場族群</TableHead>
                       <TableHead>題材</TableHead>
@@ -168,7 +177,12 @@ export default function StockIndustryReview() {
                           <TableCell className="font-mono">{r.symbol}</TableCell>
                           <TableCell>{r.name || '—'}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">{r.official_industry || '—'}</TableCell>
+                          <TableCell className="min-w-[240px] max-w-[320px] text-xs">
+                            <div>{r.business_desc || '—'}</div>
+                            {r.evidence && <div className="text-muted-foreground mt-1">{r.evidence}</div>}
+                          </TableCell>
                           <TableCell className="min-w-[220px]">
+                            {r.chain_tier && <div className="text-xs text-muted-foreground mb-1">{r.chain_tier}</div>}
                             <Input
                               value={value}
                               onChange={(e) => setDraft((d) => ({ ...d, [r.symbol]: e.target.value }))}
@@ -214,7 +228,7 @@ export default function StockIndustryReview() {
                     })}
                     {visible.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                           沒有符合條件的個股
                         </TableCell>
                       </TableRow>
