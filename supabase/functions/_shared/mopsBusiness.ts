@@ -11,7 +11,7 @@ export function parseMainBusiness(html: string): string | null {
   const tail = html.slice(i + '主要經營業務'.length, i + 4000);
   const td = tail.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
   const raw = (td ? td[1] : tail)
-    .replace(/<br\s*\/?>/gi, '；')
+    .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;?/g, ' ')
     .replace(/\s+/g, ' ')
