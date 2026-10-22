@@ -6,6 +6,7 @@
  * C 一頁儀表：F11 Tick Gauge + F5 Tick Rows
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { HoldingsVisualSummary } from '@/checkup/modules/holdings';
 import { buildSummary, type DemoHolding, type Summary } from '@/lib/holdingsSummaryViz';
 
 const W = {
@@ -386,7 +387,7 @@ const TEMPLATES = {
   a: { label: 'A 帳本總覽', C: TemplateA },
   b: { label: 'B 權重地圖', C: TemplateB },
   c: { label: 'C 一頁儀表', C: TemplateC },
-  d: { label: 'D 並肩', C: TemplateD },
+  d: { label: 'D 並肩', C: ({ s }: { s: Summary }) => <HoldingsVisualSummary summary={s} source="示範持倉" /> },
   e: { label: 'E 一卡三欄', C: TemplateE },
   f: { label: 'F 直式敘事', C: TemplateF },
 } as const;

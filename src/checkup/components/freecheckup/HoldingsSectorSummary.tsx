@@ -58,6 +58,7 @@ function HoldingsSectorSummaryImpl({
   stockMeta,
   overrides,
   selected,
+  controlsOnly = false,
   onSelect,
 }: any) {
   // ── hooks（無條件呼叫）
@@ -243,7 +244,7 @@ function HoldingsSectorSummaryImpl({
       }}
     >
       {/* ═══ 節標：serif 標題 + 編輯註記 ═══ */}
-      <div style={{ borderTop: '1px solid var(--cm-ink)', padding: '14px 0 10px' }}>
+      {!controlsOnly && <div style={{ borderTop: '1px solid var(--cm-ink)', padding: '14px 0 10px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
           <h3
             className="cm-serif"
@@ -267,7 +268,7 @@ function HoldingsSectorSummaryImpl({
             {concentrationNote}
           </div>
         )}
-      </div>
+      </div>}
 
 
       {/* ═══ 已選條件 & 操作列 ═══ */}
@@ -663,7 +664,7 @@ function HoldingsSectorSummaryImpl({
       )}
 
       {/* ═══ 100% 產業帶（高 34px + 2px 白縫） ═══ */}
-      <div style={{ padding: '8px 0 6px' }}>
+      {!controlsOnly && <div style={{ padding: '8px 0 6px' }}>
         <div
           role="img"
           aria-label={`產業市值分佈：${bandSegs.map((s) => `${s.key} ${s.pct.toFixed(0)}%`).join('、')}`}
@@ -721,7 +722,7 @@ function HoldingsSectorSummaryImpl({
             </span>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ═══ 索引 ↓（收合三欄清單 + 篩選預設） ═══ */}
       <div style={{ marginTop: 10, borderTop: '1px solid var(--cm-hair)' }}>
