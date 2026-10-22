@@ -34,6 +34,7 @@ import NotFound from "../pages/NotFound";
 import { isHarnessHostAllowed } from "./harnessHostGate";
 
 const HoldingsSummaryTemplatesPrototype = lazy(() => import("../pages/HoldingsSummaryTemplatesPrototype"));
+const ValuationStationsTemplatesHarness = lazy(() => import("../pages/ValuationStationsTemplatesHarness"));
 const HoldingCardHarnessEntry = lazy(() => import("../pages/HoldingCardHarnessEntry"));
 const RangeBandHarnessEntry = lazy(() => import("../pages/RangeBandHarnessEntry"));
 const HoldingsTableTargetHarnessEntry = lazy(() => import("../pages/HoldingsTableTargetHarnessEntry"));
@@ -104,6 +105,7 @@ export const harnessRoutes = () => [
   <Route key="e2e-holding-delete-sell" path="/e2e/holding-delete-sell-harness" element={guarded(<HoldingDeleteSellHarnessEntry />)} />,
   <Route key="e2e-valuation-rulers" path="/e2e/valuation-rulers-harness" element={guarded(<ValuationRulersHarnessEntry />)} />,
   <Route key="e2e-holdings-summary-templates" path="/e2e/holdings-summary-templates" element={guarded(<HoldingsSummaryTemplatesPrototype />)} />,
+  <Route key="e2e-valuation-stations-templates" path="/e2e/valuation-stations-templates" element={guarded(<ValuationStationsTemplatesHarness />)} />,
   <Route key="e2e-holdings-drawer-visual" path="/e2e/holdings-drawer-visual-prototype" element={guarded(<HoldingsDrawerVisualPrototype />)} />,
   <Route key="e2e-journal-current-holdings" path="/e2e/journal-current-holdings-harness" element={guarded(<JournalCurrentHoldingsHarnessEntry />)} />,
 ];
