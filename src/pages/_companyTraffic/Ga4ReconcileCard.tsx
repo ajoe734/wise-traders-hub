@@ -33,7 +33,7 @@ export default function Ga4ReconcileCard({ ga4, startDate, endDate }: { ga4: Ga4
         <CardTitle className="text-base">GA4 與本站流量對帳（看頁次數）</CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
           期間 {slash(startDate)} – {slash(endDate)} 台北整日；本站只算「真人」具名看頁（排除疑似機器／測試／自家人）。差距＝GA4 − 本站，超過 20% 且量 ≥ 10 標紅。
-          人數定義不同（GA 使用者 vs 本站跨裝置合併人數），只並列不判定；今日 GA 尚在處理不判定。
+          人數定義不同（GA 使用者 vs 本站跨裝置合併人數），只並列不判定；今日 GA 尚在處理不判定。每日 GA4 數字含後台頁，本站不收集後台，管理員常用時 GA4 會偏高；熱門頁面已排除後台頁。
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -53,7 +53,7 @@ export default function Ga4ReconcileCard({ ga4, startDate, endDate }: { ga4: Ga4
             <p className="mb-1 text-sm font-bold">熱門頁面對帳（雙方前 15 聯集）</p>
             <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>路徑</TableHead><TableHead className="text-right">GA4 瀏覽</TableHead><TableHead className="text-right">本站看頁</TableHead><TableHead className="text-right">差距</TableHead><TableHead className="text-right">GA4 使用者</TableHead><TableHead className="text-right">本站人數</TableHead></TableRow></TableHeader>
               <TableBody>{r.pages.map(p => <TableRow key={p.path} data-flagged={p.flagged} className={p.flagged ? 'text-destructive font-bold' : ''}>
-                <TableCell className="font-mono text-xs break-all">{p.path}{!p.inGa4Top && !p.comparable ? <span className="ml-1 font-sans text-muted-foreground">（GA4 前 15 外，無法比較）</span> : ''}</TableCell>
+                <TableCell className="font-mono text-xs break-all">{p.path}{!p.comparable ? <span className="ml-1 font-sans text-muted-foreground">{p.inGa4Top ? '（GA4 前 15 只含部分網址，無法比較）' : '（GA4 前 15 外，無法比較）'}</span> : ''}</TableCell>
                 <TableCell className="text-right">{p.ga4PageViews ?? '—'}</TableCell><TableCell className="text-right">{p.sitePageViews}</TableCell>
                 <TableCell className="text-right">{p.diff == null ? '—' : `${p.diff > 0 ? '+' : ''}${p.diff}（${pct(p.pct)}）`}</TableCell>
                 <TableCell className="text-right">{p.ga4Users ?? '—'}</TableCell><TableCell className="text-right">{p.siteViewers}</TableCell></TableRow>)}
