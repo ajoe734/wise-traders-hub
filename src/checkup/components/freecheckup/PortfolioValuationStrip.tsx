@@ -11,6 +11,9 @@
  *   - 手機 ≤640px 允許換行，禁止橫向溢出。
  */
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import ValuationSpectrum from './ValuationSpectrum';
+import { formatClock } from '@/checkup/lib/freshness';
 import {
   PORTFOLIO_VALUATION_CONTRACT,
   summarizePortfolioValuation,
@@ -25,19 +28,6 @@ function fmtPremium(v: number | null): string {
   const pct = v * 100;
   const rounded = Math.sign(pct) * (Math.round(Math.abs(pct) * 10) / 10);
   return `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}%`;
-}
-
-function fmtClock(ts: number): string {
-  try {
-    return new Date(ts).toLocaleTimeString('zh-TW', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'Asia/Taipei',
-    });
-  } catch {
-    return '';
-  }
 }
 
 export default function PortfolioValuationStrip({
@@ -97,21 +87,13 @@ export default function PortfolioValuationStrip({
 
   return (
     <div
+      className="hs-summary hv-section"
       data-testid="portfolio-valuation-strip"
       data-contract={PORTFOLIO_VALUATION_CONTRACT}
-      style={{
-        margin: '4px 0 10px',
-        border: `1px solid ${WB.hair}`,
-        padding: '10px 12px',
-        minWidth: 0,
-      }}
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em' }}>
-          投組估值（市值加權 vs 同業中位數）
-        </div>
-        <button
-          type="button"
+        <h2>投組估值</h2>
+        <Button variant="ghost" className="hv-toggle"
           data-testid="portfolio-valuation-explain-toggle"
           aria-expanded={explainOpen}
           onClick={() => setExplainOpen((v) => !v)}
@@ -128,8 +110,9 @@ export default function PortfolioValuationStrip({
           }}
         >
           {explainOpen ? '收起說明' : '計算說明'}
-        </button>
+        </Button>
       </div>
+      <p className="hv-sub">市值加權 vs 同業中位數 · 各尺獨立，不合成答案</p>
       {explainOpen && (
         <div
           data-testid="portfolio-valuation-explain"
@@ -147,6 +130,7 @@ export default function PortfolioValuationStrip({
           <div>判讀：加權溢折價絕對值在 10% 以內顯示「與同業相當」。以上僅描述與同業的相對位置，不構成任何買賣建議。</div>
         </div>
       )}
+      {summary && result && <ValuationSpectrum rulers={result.rulers} name="投組估值" />}
       {!summary ? (
         <div data-testid="portfolio-valuation-insufficient" style={{ fontSize: 11, color: WB.inkMute }}>
           估值資料不足，暫不顯示投組加權指數
@@ -161,7 +145,7 @@ export default function PortfolioValuationStrip({
             minWidth: 0,
           }}
         >
-          {result!.rulers.map((r) => (
+          {result?.rulers.map((r) => (
             <div key={r.key} data-testid={`portfolio-valuation-${r.key}`} style={{ minWidth: 0 }}>
               <span style={{ fontSize: 11, color: WB.inkSub }}>{r.label} </span>
               <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: WB.ink }}>
@@ -185,7 +169,7 @@ export default function PortfolioValuationStrip({
         {'・來源：交易所公告'}
         <span data-testid="portfolio-valuation-autorefresh">
           {'・每 30 分鐘自動更新'}
-          {lastFetchedAt ? `（上次 ${fmtClock(lastFetchedAt)}）` : ''}
+          {lastFetchedAt ? `（上次 ${formatClock(lastFetchedAt)}）` : ''}
         </span>
       </div>
     </div>

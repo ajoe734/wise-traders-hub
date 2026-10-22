@@ -10,6 +10,8 @@
  *   - 手機 ≤640px 允許換行，禁止橫向溢出。
  */
 import { useCallback, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import ValuationSpectrum from './ValuationSpectrum';
 import {
   PORTFOLIO_BUCKET_VALUATION_CONTRACT,
   type BucketAssignment,
@@ -18,8 +20,6 @@ import {
 import { usePortfolioValuation, type PortfolioHoldingLike } from '@/checkup/hooks/usePortfolioValuation';
 import { getMultiMeta } from '@/checkup/lib/stockMetaMulti';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
-
-const SERIF = '"Source Serif 4", "Noto Serif TC", serif';
 
 function pct(v: number | null | undefined): string {
   if (v == null) return '—';
@@ -33,42 +33,14 @@ function fmtPremium(v: number | null): string {
   return `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}%`;
 }
 
-function BucketRow({ WB, b, maxShare }: { WB: any; b: BucketValuation; maxShare: number }) {
-  const barPct = maxShare > 0 ? Math.round((b.weightShare / maxShare) * 100) : 0;
-  return (
-    <div
-      data-testid={`holdings-bucket-valuation-${b.key}`}
-      data-kind={b.kind}
-      style={{ borderTop: `1px solid ${WB.hair}`, padding: '6px 0', minWidth: 0 }}
-    >
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '2px 8px', minWidth: 0 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: WB.ink, minWidth: 0 }}>{b.key}</span>
-        <span style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 700, color: WB.ink }}>{pct(b.weightShare)}</span>
-        <span style={{ fontSize: 10, color: WB.inkMute }}>{b.stockCount} 檔</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, margin: '3px 0' }}>
-        <span style={{ flex: '1 1 auto', minWidth: 0, height: 6, background: WB.hair }}>
-          <span style={{ display: 'block', width: `${barPct}%`, height: '100%', background: WB.ink, opacity: 0.55 }} />
-        </span>
-      </div>
-      {b.insufficient ? (
-        <div data-testid={`holdings-bucket-insufficient-${b.key}`} style={{ fontSize: 10, color: WB.inkMute }}>
-          同業樣本不足，暫不顯示加權指數
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', minWidth: 0 }}>
-          {b.rulers.map((r) => (
-            <span key={r.key} data-testid={`holdings-bucket-${b.key}-${r.key}`} style={{ fontSize: 10, color: WB.inkSub, whiteSpace: 'nowrap' }}>
-              {r.label} {fmtPremium(r.weightedPremium)}（{r.text}）
-            </span>
-          ))}
-          <span data-testid={`holdings-bucket-coverage-${b.key}`} style={{ fontSize: 10, color: WB.inkMute, whiteSpace: 'nowrap' }}>
-            涵蓋 {pct(b.coverage)}
-          </span>
-        </div>
-      )}
-    </div>
-  );
+function BucketRow({ b }: { b: BucketValuation }) {
+  return <div data-testid={`holdings-bucket-valuation-${b.key}`} data-kind={b.kind}>
+    {b.insufficient ? <p className="hv-sub" data-testid={`holdings-bucket-insufficient-${b.key}`}>同業樣本不足，暫不顯示加權指數</p> : <>
+      <ValuationSpectrum rulers={b.rulers} name={`${b.key}估值`} />
+      <div className="hv-values">{b.rulers.map(r => <div key={r.key} data-testid={`holdings-bucket-${b.key}-${r.key}`}><strong>{r.label} {fmtPremium(r.weightedPremium)}</strong><p>{r.text}</p></div>)}</div>
+      <p className="hv-sub" data-testid={`holdings-bucket-coverage-${b.key}`}>涵蓋 {pct(b.coverage)} 該桶市值</p>
+    </>}
+  </div>;
 }
 
 export default function HoldingsSectorValuation({
@@ -77,7 +49,6 @@ export default function HoldingsSectorValuation({
   overrides,
   WB,
   injectedGateway,
-  maxRows = 8,
 }: {
   holdings: PortfolioHoldingLike[] | null | undefined;
   stockMeta?: any;
@@ -86,7 +57,8 @@ export default function HoldingsSectorValuation({
   injectedGateway?: CheckupGateway;
   maxRows?: number;
 }) {
-  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const bucketsOf = useCallback(
     (symbol: string): BucketAssignment[] => {
@@ -138,69 +110,19 @@ export default function HoldingsSectorValuation({
   }
   if (industryBuckets.length === 0 && groupBuckets.length === 0) return null;
 
-  const indShown = open ? industryBuckets : industryBuckets.slice(0, maxRows);
-  const grpShown = open ? groupBuckets : groupBuckets.slice(0, maxRows);
-  const maxIndShare = Math.max(...industryBuckets.map((b) => b.weightShare), 0);
-  const maxGrpShare = Math.max(...groupBuckets.map((b) => b.weightShare), 0);
-  const hidden =
-    Math.max(industryBuckets.length - indShown.length, 0) + Math.max(groupBuckets.length - grpShown.length, 0);
-
-  return (
-    <div
-      data-testid="holdings-sector-valuation"
-      data-contract={PORTFOLIO_BUCKET_VALUATION_CONTRACT}
-      style={{ margin: '4px 0 10px', border: `1px solid ${WB.hair}`, padding: '10px 12px', minWidth: 0 }}
-    >
-      <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em', marginBottom: 4 }}>
-        產業分布與市場族群（市值佔比 vs 同業中位數）
-      </div>
-
-      {industryBuckets.length > 0 && (
-        <div data-testid="holdings-sector-distribution">
-          <div style={{ fontSize: 10, color: WB.inkSub, marginTop: 4 }}>產業分布（依細分產業，合計 100%）</div>
-          {indShown.map((b) => (
-            <BucketRow key={`ind-${b.key}`} WB={WB} b={b} maxShare={maxIndShare} />
-          ))}
-        </div>
-      )}
-
-      {groupBuckets.length > 0 && (
-        <div data-testid="holdings-group-distribution" style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 10, color: WB.inkSub }}>市場族群（純標籤，一檔可屬多個族群，比例不互斥）</div>
-          {grpShown.map((b) => (
-            <BucketRow key={`grp-${b.key}`} WB={WB} b={b} maxShare={maxGrpShare} />
-          ))}
-        </div>
-      )}
-
-      {hidden > 0 && (
-        <button
-          type="button"
-          data-testid="holdings-sector-valuation-toggle"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          style={{
-            border: 'none',
-            background: 'transparent',
-            padding: 0,
-            marginTop: 6,
-            font: 'inherit',
-            fontSize: 10,
-            color: WB.inkMute,
-            textDecoration: 'underline',
-            textUnderlineOffset: 2,
-            cursor: 'pointer',
-          }}
-        >
-          {open ? '收合' : `展開其餘 ${hidden} 項`}
-        </button>
-      )}
-
-      <div data-testid="holdings-sector-valuation-meta" style={{ fontSize: 10, color: WB.inkMute, marginTop: 6, lineHeight: 1.7 }}>
-        每個產業／族群各自以市值加權計算與同業中位數的溢折價；同業中位數需至少 3 家同業有當日有效數值，
-        不足者不計入涵蓋率。涵蓋率＝該桶內算得出溢折價的市值 ÷ 該桶市值。僅描述相對位置，不構成買賣建議。
-        {asOf ? `・截至 ${asOf.split('-').join('/')}` : ''}
-      </div>
-    </div>
-  );
+  const available = [...industryBuckets, ...groupBuckets];
+  const active = available.find(b => `${b.kind}:${b.key}` === selected) || available[0];
+  return <section className="hs-summary hv-section" data-testid="holdings-sector-valuation" data-contract={PORTFOLIO_BUCKET_VALUATION_CONTRACT}>
+    <header><h2>產業／族群估值</h2></header>
+    <p className="hv-sub">各桶市值加權 vs 同業中位數 · 三把尺分開判讀</p>
+    <div className="hv-selector"><select aria-label="選擇產業或市場族群估值" value={active ? `${active.kind}:${active.key}` : ''} onChange={e=>setSelected(e.target.value)}>
+      {industryBuckets.length>0 && <optgroup label="產業">{industryBuckets.map(b=><option key={b.key} value={`industry:${b.key}`}>{b.key}</option>)}</optgroup>}
+      {groupBuckets.length>0 && <optgroup label="市場族群">{groupBuckets.map(b=><option key={b.key} value={`marketGroup:${b.key}`}>{b.key}</option>)}</optgroup>}
+    </select></div>
+    {active && <BucketRow b={active} />}
+    {active?.kind === 'marketGroup' && <p className="hv-sub">市場族群持股市值 {pct(active.weightShare)} · 標籤不互斥</p>}
+    <Button variant="ghost" className="hv-toggle" aria-expanded={detailsOpen} onClick={()=>setDetailsOpen(v=>!v)}>{detailsOpen ? '收合估值依據' : '估值依據'}</Button>
+    {detailsOpen && <p className="hv-meta">每個產業／族群各自以市值加權計算與同業中位數的溢折價；同業中位數需至少 3 家同業有當日有效數值，不足者不計入涵蓋率。涵蓋率＝該桶內算得出溢折價的市值 ÷ 該桶市值。僅描述相對位置，不構成買賣建議。</p>}
+    <p className="hv-meta" data-testid="holdings-sector-valuation-meta">{asOf ? `截至 ${asOf.split('-').join('/')}` : '資料日期未提供'}</p>
+  </section>;
 }

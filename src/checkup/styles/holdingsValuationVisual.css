@@ -1,0 +1,23 @@
+.hv-section { color:var(--hs-ink); border-top:1px solid var(--hs-line); padding:16px 0; margin-bottom:12px; min-width:0; }
+.hv-section header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.hv-section h2 { font-size:16px; font-weight:700; margin:0; }
+.hv-sub,.hv-meta { font-size:11px; color:var(--hs-gray-1); line-height:1.7; overflow-wrap:anywhere; }
+.hv-meta { margin-top:8px; }
+.hv-spectrum { width:100%; display:block; max-height:280px; }
+.hv-spectrum .hv-point { transition:opacity 350ms cubic-bezier(.165,.84,.44,1),transform 350ms cubic-bezier(.165,.84,.44,1); transform-box:fill-box; transform-origin:center; }
+.hv-spectrum[data-on="0"] .hv-point { opacity:0; transform:scale(.3); transition:none; }
+.hv-values { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; font-size:12px; }
+.hv-values p { margin:4px 0; overflow-wrap:anywhere; }
+.hv-values strong { font-weight:700; }
+.hv-explain { font-size:11px; line-height:1.8; padding:12px 0; }
+.hv-section .hv-toggle { font-size:11px; height:auto; padding:4px 0; white-space:normal; text-align:left; }
+.hv-composition { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+.hv-ring { width:180px; height:180px; flex-shrink:0; }
+.hv-legend { display:grid; gap:8px; font-size:12px; }
+.hv-legend span { display:inline-block; width:8px; height:8px; margin-right:8px; background:var(--hv-tone); }
+.hv-detail-row { display:grid; grid-template-columns:minmax(110px,1fr) minmax(0,2fr); gap:10px; padding:8px 0; border-top:1px solid var(--hs-line); font-size:12px; line-height:1.7; }
+.hv-detail-row strong { font-weight:700; overflow-wrap:anywhere; }
+.hv-selector { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; }
+.hv-selector select { color:var(--hs-ink); background:hsl(var(--background)); border:1px solid var(--hs-line); padding:6px; font:inherit; font-size:12px; max-width:100%; min-width:0; }
+@media(max-width:560px) { .hv-values { grid-template-columns:minmax(0,1fr); gap:4px; } .hv-detail-row { grid-template-columns:minmax(0,1fr); gap:2px; } }
+@media(prefers-reduced-motion:reduce) { .hv-point { transition:none !important; opacity:1 !important; transform:none !important; } }

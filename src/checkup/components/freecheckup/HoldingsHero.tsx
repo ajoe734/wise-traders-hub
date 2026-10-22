@@ -201,13 +201,13 @@ function HoldingsHeroImpl(props) {
             alignItems: 'baseline',
             gap: 6,
           }}>
-            <span style={{ color: 'var(--cm-ink-mute)' }}>市值</span>
+            {!props.controlsOnly && <><span style={{ color: 'var(--cm-ink-mute)' }}>市值</span>
             <span style={{ color: 'var(--cm-ink)', fontWeight: 500 }}>
               {totalVal > 0 ? fmtWan(totalVal) : '—'}
             </span>
             <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>
             <span>{holdingsCount > 0 ? `${holdingsCount} 檔` : '— 檔'}</span>
-            <span style={{ color: 'var(--cm-hair-strong)' }}>·</span>
+            <span style={{ color: 'var(--cm-hair-strong)' }}>·</span></>}
             <span
               style={{
                 color: rtConnected ? 'var(--cm-accent)' : 'var(--cm-ink-mute)',
