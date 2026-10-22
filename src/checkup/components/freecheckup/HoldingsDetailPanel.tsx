@@ -894,13 +894,12 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
           </details>
         </div> : mode === 'target' ? <>
           <strong>{target != null ? `目標價 NT$${Number(target).toLocaleString('zh-TW')}` : '尚無分析師目標價'}</strong>
-          <span>目標價為分析師估計，不作為財報分母</span>
         </> : selectedCustom ? <>
-          <strong>我的 {mode.toUpperCase()} 情境（僅此裝置）</strong><span>具名來源 · 同期間口徑</span>
+          <strong>我的 {mode.toUpperCase()} 情境</strong>
         </> : ruler ? <>
-          <strong>{ruler.label}</strong><span>{ruler.detail}</span>
+          <strong>{ruler.label}</strong>
         </> : <>
-          <strong>{mode.toUpperCase()} 無法估算</strong><span>{rulerRes?.reason || selectedRow?.reason || '缺可核實分母與同期間倍數'}，價格軸不畫假區間</span>
+          <strong>{mode.toUpperCase()} 無法估算</strong><span>{rulerRes?.reason || selectedRow?.reason || '缺可核實分母與同期間倍數'}</span>
         </>}
       </div>
       {mode === 'target' && note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
