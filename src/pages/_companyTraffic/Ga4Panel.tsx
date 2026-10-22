@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Ga4ReconcileCard from '@/pages/_companyTraffic/Ga4ReconcileCard';
 
 type Status = 'OK' | 'NO_DATA' | 'NOT_CONFIGURED' | 'INVALID_CONFIG' | 'INVALID_INPUT' | 'AUTH_FAILED' | 'PERMISSION_DENIED' | 'API_DISABLED' | 'PROPERTY_NOT_FOUND' | 'QUERY_ERROR' | 'FORBIDDEN' | 'UNAUTHENTICATED';
@@ -53,7 +54,8 @@ export default function Ga4Panel({ from, to }: { from: Date; to: Date }) {
   });
 
   const r = q.data;
-  const ok = r && (r.status === 'OK' || r.status === 'NO_DATA') && r.report;
+  const report = r && (r.status === 'OK' || r.status === 'NO_DATA') ? r.report : undefined;
+  const ok = !!report;
 
   return (
     <div className="space-y-4" data-testid="ga4-panel">
@@ -73,7 +75,7 @@ export default function Ga4Panel({ from, to }: { from: Date; to: Date }) {
           {q.isError && <p role="alert">讀取失敗：{(q.error as Error).message}</p>}
           {r && (
             <div role="status" data-status={r.status} className="space-y-1">
-              <p><span className="font-bold">連線狀態：</span>{STATUS_LABEL[r.status] ?? r.status}{ok ? `（資源 ${r.report!.propertyId}）` : ''}</p>
+              <p><span className="font-bold">連線狀態：</span>{STATUS_LABEL[r.status] ?? r.status}{report ? `（資源 ${report.propertyId}）` : ''}</p>
               {r.message && <p className="text-muted-foreground">{r.message}</p>}
               {r.missing && r.missing.length > 0 && <p>需要在安全表單設定：{r.missing.map((m) => <code key={m} className="mx-1 break-all inline-block">{m}</code>)}</p>}
               {r.serviceAccountEmail && !ok && <p>服務帳戶：<code className="break-all">{r.serviceAccountEmail}</code>（需在 GA4 資源存取管理加入為「檢視者」）</p>}
@@ -82,10 +84,18 @@ export default function Ga4Panel({ from, to }: { from: Date; to: Date }) {
         </CardContent>
       </Card>
 
-      {ok && (() => {
-        const rep = r.report!;
+      {report && (() => {
+        const rep = report;
         return (
-          <>
+          <Tabs defaultValue="comparison" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="comparison">GA4 與網站資料對比</TabsTrigger>
+              <TabsTrigger value="report">GA4 報表</TabsTrigger>
+            </TabsList>
+            <TabsContent value="comparison">
+              {rep.timeZone === 'Asia/Taipei' ? <Ga4ReconcileCard ga4={rep} startDate={rep.startDate} endDate={rep.endDate} /> : <p role="alert" className="text-sm text-destructive">GA4 時區不是 Asia/Taipei，無法與網站每日資料直接對帳。</p>}
+            </TabsContent>
+            <TabsContent value="report" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[['使用者（期間去重）', rep.totals.users], ['工作階段', rep.totals.sessions], ['瀏覽', rep.totals.pageViews]].map(([l, v]) => (
                 <Card key={l as string}><CardContent className="pt-4"><p className="text-xs text-muted-foreground">{l}</p><p className="text-xl font-bold">{fmt(v as number)}</p></CardContent></Card>
@@ -121,8 +131,8 @@ export default function Ga4Panel({ from, to }: { from: Date; to: Date }) {
                 )}
               </CardContent>
             </Card>
-            <Ga4ReconcileCard ga4={rep} startDate={rep.startDate} endDate={rep.endDate} />
-          </>
+            </TabsContent>
+          </Tabs>
         );
       })()}
     </div>
