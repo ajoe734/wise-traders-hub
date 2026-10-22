@@ -12,9 +12,13 @@ export interface PageGap {
 }
 
 export function normalizePath(p: string): string {
-  const s = (p || '/').split(/[?#]/)[0] || '/';
+  // 與 traffic-ingest normalizeRoute 相同的範本化規則
+  const s = ((p || '/').split(/[?#]/)[0] || '/')
+    .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/:id')
+    .replace(/\/\d{4,}/g, '/:id').slice(0, 200);
   return s.length > 1 ? s.replace(/\/+$/, '') || '/' : '/';
 }
+const isInternal = (p: string) => p.startsWith('/company') || p.startsWith('/admin');
 const taipeiDay = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
 
 function gap(site: number, ga4: number) {
@@ -49,6 +53,7 @@ export function reconcileGa4(ga4: Ga4Input, events: EventRow[], ids: Map<string,
   const gaPages = new Map<string, { pv: number; u: number }>();
   for (const p of ga4.topPages) {
     const k = normalizePath(p.path);
+    if (isInternal(k)) continue;
     const s = gaPages.get(k) ?? { pv: 0, u: 0 };
     gaPages.set(k, { pv: s.pv + p.pageViews, u: s.u + p.users });
   }
@@ -58,7 +63,8 @@ export function reconcileGa4(ga4: Ga4Input, events: EventRow[], ids: Map<string,
   const pages: PageGap[] = [...paths].map(path => {
     const s = perPage.get(path), g = gaPages.get(path);
     const sitePv = s?.pv ?? 0;
-    const comparable = !!g || gaFull;
+    // GA 前 15 已滿時：清單外無法比較；範本路徑（:id）在 GA 只含部分網址，也無法比較
+    const comparable = gaFull || (!!g && !path.includes(':id'));
     const ga4Pv = g ? g.pv : gaFull ? 0 : null;
     const r = comparable ? gap(sitePv, ga4Pv ?? 0) : { diff: null, pct: null, flagged: false };
     return {
