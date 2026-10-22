@@ -943,9 +943,6 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
         {meta}
       </div>
-      <div data-testid="valuation-reference-summary" style={{ fontSize: 13, color: WB.inkSub, marginTop: 4, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
-        先看現價要多少獲利，再選一把尺試算自己的價格。
-      </div>
     </div>
   );
 }
