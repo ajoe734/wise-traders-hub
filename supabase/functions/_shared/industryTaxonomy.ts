@@ -87,3 +87,25 @@ export function sanitizeMarketGroups(groups: unknown): string[] {
   const list = Array.isArray(groups) ? groups.filter(isValidMarketGroup).map(String) : []
   return Array.from(new Set(list)).slice(0, MAX_MARKET_GROUPS)
 }
+
+/** 產業鏈位置（鏡像 src/checkup/lib/industryTaxonomy.ts） */
+export const CHAIN_TIERS: Record<string, string> =
+  ((taxonomyJson as unknown as { chainTiers?: Record<string, string> }).chainTiers) ?? {}
+
+export function chainTierOf(industry: string | null | undefined): string | null {
+  return (industry && CHAIN_TIERS[industry]) || null
+}
+
+export const ADOPT_MIN_CONFIDENCE = 0.9
+
+/** 分類能否上線：人工確認，或（信心 ≥ 0.9 且有依據文字） */
+export function isAdoptedClassification(row: {
+  reviewed?: boolean | null
+  confidence?: number | null
+  evidence?: string | null
+}): boolean {
+  if (row?.reviewed === true) return true
+  const c = Number(row?.confidence)
+  const ev = String(row?.evidence ?? '').trim()
+  return Number.isFinite(c) && c >= ADOPT_MIN_CONFIDENCE && ev.length >= 4
+}
