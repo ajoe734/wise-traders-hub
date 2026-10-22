@@ -28,6 +28,8 @@ Keep unapproved drawer design directions on runtime-guarded `/e2e/*` fixture rou
 
 Use `HoldingsVisualSummary` for the approved summary and its fixture preview; `buildLiveHoldingsSummary` projects existing ledger totals and `aggregateBySector` weights without querying or recalculating cost basis; why: prototype and live animations must agree without becoming a second financial ledger.
 
+Render peer premiums through `ValuationSpectrum` from existing valuation hook results, and keep bucket evidence selectable rather than repeating summary distributions; why: presentation must not create another valuation calculation or duplicate portfolio composition.
+
 ### Journal current holdings
 
 Render the journal-detail current-holdings grid only from `useExpertHoldingsBundle` and its public projection gate; why: weekly editorial data must not become a second holdings ledger or leak unverified economic numbers.
