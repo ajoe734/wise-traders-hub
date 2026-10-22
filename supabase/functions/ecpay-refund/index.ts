@@ -24,6 +24,9 @@ import {
   buildDoActionParams,
   doActionUrl,
   parseDoActionResponse,
+  buildQueryParams,
+  queryUrl,
+  parseQueryResponse,
 } from "../_shared/ecpayRefundCore.ts";
 
 const handler = withLogging("ecpay-refund", async (req, log) => {
@@ -35,6 +38,33 @@ const handler = withLogging("ecpay-refund", async (req, log) => {
   const admin = serviceClient();
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
+
+  // 訂單查詢模式（唯讀）：診斷用，不觸發任何退刷
+  if (body.action === "query") {
+    const merchantTradeNo = String(body.merchantTradeNo ?? "").trim();
+    if (!merchantTradeNo) {
+      return errorResponse("缺少商家訂單編號（MerchantTradeNo）", 400, { code: "INVALID_INPUT" }, req);
+    }
+    const creds = await loadEcpayCreds(admin);
+    const qParams = buildQueryParams(merchantTradeNo, creds.merchantId, Math.floor(Date.now() / 1000));
+    qParams.CheckMacValue = await ecpayGenerateCheckMacValue(qParams, creds.hashKey, creds.hashIV);
+    const res = await fetchWithRetry(
+      queryUrl(creds.env),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(qParams).toString(),
+      },
+      { source: "ecpay_query", policy: { maxAttempts: 2 } },
+    );
+    const parsed = parseQueryResponse(await res.text());
+    const safeFields: Record<string, string> = {};
+    for (const k of ["MerchantTradeNo", "TradeNo", "TradeStatus", "TradeAmt", "TradeDate", "PaymentDate", "PaymentType", "RtnCode", "RtnMsg"]) {
+      if (parsed.fields[k] !== undefined) safeFields[k] = parsed.fields[k];
+    }
+    return jsonResponse({ ok: parsed.ok, fields: safeFields });
+  }
+
   const validated = validateRefundRequest({
     merchantTradeNo: body.merchantTradeNo as string,
     tradeNo: body.tradeNo as string,
