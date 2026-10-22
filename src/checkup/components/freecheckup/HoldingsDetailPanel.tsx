@@ -37,7 +37,7 @@ import { PriceSpectrum } from './PriceSpectrum';
 import { useStationExtras } from '@/checkup/hooks/useStationExtras';
 import { pickMainRuler, peDispersionOf, buildStations, buildPeerReference, buildForwardReference, selfForwardEps, stationPosition, stationBasis, pricedInLevel } from '@/checkup/lib/valuationStations';
 import { CustomMultiplesEditor, useCustomMultiples } from './CustomMultiplesEditor';
-import { buildCustomScenario, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
+import { buildCustomScenario, multipleConfidenceText, valuationHeadlineText as headlineText } from '@/checkup/lib/valuationScenario';
 import HoldingDeleteDialog from '@/checkup/components/freecheckup/HoldingDeleteDialog';
 import HoldingEditDialog from '@/checkup/components/freecheckup/HoldingEditDialog';
 
