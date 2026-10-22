@@ -421,6 +421,13 @@
       "when": 1792672685035,
       "tag": "0059_peer_multiples_security_definer",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792674268338,
+      "tag": "0060_tw_sales_basis_authenticated_read",
+      "breakpoints": true
     }
   ]
 }
