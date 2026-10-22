@@ -65,7 +65,7 @@ export default function Ga4Panel({ from, to }: { from: Date; to: Date }) {
             <CardTitle className="text-base">Google Analytics 4（直接讀取 GA 報表）</CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               期間 {slash(startDate)} – {slash(endDate)}（日期依 GA 資源時區解讀{ok && r.report?.timeZone ? `：${r.report.timeZone}` : ''}）。
-              本分頁數字全部來自 GA，不與本站自有流量紀錄混用。
+              GA4 報表來自 Google；對比視圖另列網站紀錄，兩者不混算。
             </p>
           </div>
           <Button size="sm" variant="outline" onClick={() => q.refetch()} disabled={q.isFetching}>重新讀取</Button>
