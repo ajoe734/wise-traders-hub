@@ -21,8 +21,6 @@ import { usePortfolioValuation, type PortfolioHoldingLike } from '@/checkup/hook
 import { getMultiMeta } from '@/checkup/lib/stockMetaMulti';
 import type { CheckupGateway } from '@/checkup/lib/gateway';
 
-const SERIF = '"Source Serif 4", "Noto Serif TC", serif';
-
 function pct(v: number | null | undefined): string {
   if (v == null) return '—';
   return `${Math.round(v * 1000) / 10}%`;
@@ -35,7 +33,7 @@ function fmtPremium(v: number | null): string {
   return `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}%`;
 }
 
-function BucketRow({ b }: { WB?: any; b: BucketValuation; maxShare?: number }) {
+function BucketRow({ b }: { b: BucketValuation }) {
   return <div data-testid={`holdings-bucket-valuation-${b.key}`} data-kind={b.kind}>
     {b.insufficient ? <p className="hv-sub" data-testid={`holdings-bucket-insufficient-${b.key}`}>同業樣本不足，暫不顯示加權指數</p> : <>
       <ValuationSpectrum rulers={b.rulers} name={`${b.key}估值`} />
@@ -51,7 +49,6 @@ export default function HoldingsSectorValuation({
   overrides,
   WB,
   injectedGateway,
-  maxRows = 8,
 }: {
   holdings: PortfolioHoldingLike[] | null | undefined;
   stockMeta?: any;

@@ -92,9 +92,7 @@ export default function PortfolioValuationStrip({
       data-contract={PORTFOLIO_VALUATION_CONTRACT}
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ fontSize: 10, color: WB.inkMute, letterSpacing: '0.12em' }}>
-          投組估值 · 市值加權 vs 同業中位數
-        </div>
+        <h2>投組估值</h2>
         <Button variant="ghost" className="hv-toggle"
           data-testid="portfolio-valuation-explain-toggle"
           aria-expanded={explainOpen}
@@ -114,6 +112,7 @@ export default function PortfolioValuationStrip({
           {explainOpen ? '收起說明' : '計算說明'}
         </Button>
       </div>
+      <p className="hv-sub">市值加權 vs 同業中位數 · 各尺獨立，不合成答案</p>
       {explainOpen && (
         <div
           data-testid="portfolio-valuation-explain"

@@ -13,16 +13,35 @@ const pctW = (w: number | null) => (w == null ? '—' : `${(w * 100).toFixed(1)}
 export default function PricedInList({ holdings, WB }: { holdings: any[] | null | undefined; WB: any }) {
   const { items, loading } = usePricedInList(holdings);
   const [open, setOpen] = useState(false);
-  const ring = useSummaryReveal();
   if (!items.length) return null;
   const lv = weightByLevel(items);
-  const levels = [ ['under', '尚未反映', 'var(--hs-ink)'], ['partial', '部分反映', 'var(--hs-gray-1)'], ['heavy', '已大幅反映', 'var(--hs-accent)'], ['unknown', '無法判斷', 'var(--hs-gray-3)'] ] as const;
-  let cursor = 0;
-  const segments = levels.map(([key,label,tone]) => { const start = cursor; cursor += lv[key]; return { key,label,tone,start,weight:lv[key] }; });
   return (
     <section className="hs-summary hv-section" data-testid="priced-in-list">
       <header><h2>已反映程度</h2></header>
       <p className="hv-sub">現價 ÷ 站牌下車安全帶 · 近三季＋月營收推估一季{loading ? ' · 計算中…' : ''}</p>
+      <PricedInComposition lv={lv} />
+      <Button variant="ghost" className="hv-toggle" aria-expanded={open} onClick={() => setOpen(v=>!v)}>{open ? '收合個股判定' : `個股判定 · ${items.length} 檔`}</Button>
+      {open && <div>{items.map((i) => (
+          <div key={i.code} data-testid={`priced-in-${i.code}`} className="hv-detail-row">
+            <strong>{i.name} {i.code}</strong>
+            <div><span data-testid={`priced-in-weight-${i.code}`}>持股 {pctW(i.weight)} · </span>
+            {!i.pricedIn ? <span>計算中…</span>
+              : i.pricedIn.level === 'unknown' ? <span>無法判斷（{i.pricedIn.reason}）</span>
+              : <><strong>{i.pricedIn.label}</strong> · {Math.round(i.pricedIn.ratioToBelt * 100)}%{i.pricedIn.impliedPercentile != null ? ` · 隱含倍數落在近一年第 ${Math.round(i.pricedIn.impliedPercentile * 100)}%` : ''}</>}
+            </div>
+          </div>
+        ))}</div>}
+    </section>
+  );
+}
+
+function PricedInComposition({ lv }: { lv: ReturnType<typeof weightByLevel> }) {
+  const ring = useSummaryReveal();
+  const levels = [ ['under', '尚未反映', 'var(--hs-ink)'], ['partial', '部分反映', 'var(--hs-gray-1)'], ['heavy', '已大幅反映', 'var(--hs-accent)'], ['unknown', '無法判斷', 'var(--hs-gray-3)'] ] as const;
+  let cursor = 0;
+  const segments = levels.map(([key,label,tone]) => { const start = cursor; cursor += lv[key]; return { key,label,tone,start,weight:lv[key] }; });
+  return (
+    <>
       <div className="hv-composition" ref={ring.ref}>
         <svg className="hv-ring hv-spectrum" data-on={ring.on ? '1' : '0'} viewBox="0 0 180 180" role="img" aria-label="已反映程度持股比例" onClick={ring.replay}>
           {Array.from({length:100},(_,i) => {
@@ -36,23 +55,6 @@ export default function PricedInList({ holdings, WB }: { holdings: any[] | null 
         <div className="hv-legend" data-testid="priced-in-weight-summary">{segments.map(seg => <div key={seg.key}><span style={{background:seg.tone}} />{seg.label} <b>{pctW(seg.weight)}</b></div>)}</div>
       </div>
       <p className="hv-sub">1 刻度 ≈ 1% 市值 · 精確比例見旁列 · 未完成部分留灰</p>
-      <Button variant="ghost" className="hv-toggle" aria-expanded={open} onClick={() => setOpen(v=>!v)}>{open ? '收合個股判定' : `個股判定 · ${items.length} 檔`}</Button>
-      {open && <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {items.map((i) => (
-          <div key={i.code} data-testid={`priced-in-${i.code}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', alignItems: 'baseline', minWidth: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: WB.ink, minWidth: 96 }}>{i.name} {i.code}</span>
-            <span data-testid={`priced-in-weight-${i.code}`} style={{ fontSize: 12, fontWeight: 700, color: WB.ink, minWidth: 48, fontVariantNumeric: 'tabular-nums' }}>持股 {pctW(i.weight)}</span>
-            {!i.pricedIn ? <span style={{ fontSize: 11, color: WB.inkMute }}>計算中…</span>
-              : i.pricedIn.level === 'unknown' ? <span style={{ fontSize: 11, color: WB.inkSub }}>無法判斷（{i.pricedIn.reason}）</span>
-              : <>
-                <span style={{ fontSize: 13, fontWeight: i.pricedIn.level === 'heavy' ? 700 : 600, color: i.pricedIn.level === 'heavy' ? WB.accent : WB.ink }}>{i.pricedIn.label}</span>
-                <span style={{ fontSize: 12, color: WB.inkSub }}>{Math.round(i.pricedIn.ratioToBelt * 100)}%{i.pricedIn.impliedPercentile != null ? `・隱含倍數落在近一年第 ${Math.round(i.pricedIn.impliedPercentile * 100)}%` : ''}</span>
-              </>}
-          </div>
-        ))}
-      </div>
-      </div>}
-    </section>
+    </>
   );
 }

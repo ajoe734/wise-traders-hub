@@ -10,18 +10,18 @@ export const formatPremium = (v: number | null) => v == null ? '—' : `${v > 0 
 export default function ValuationSpectrum({ rulers, name }: { rulers: SpectrumRuler[]; name: string }) {
   const { ref, on, replay } = useSummaryReveal();
   const extent = Math.max(1, ...rulers.map(r => Math.abs(r.weightedPremium ?? 0)));
-  const px = (v: number) => 210 + v / extent * 158;
+  const px = (v: number) => 300 + v / extent * 160;
   return <div ref={ref}>
     <Button variant="ghost" size="icon" aria-label={`重播${name}動畫`} title={`重播${name}動畫`} onClick={replay}><RotateCcw size={13} /></Button>
-    <svg className="hv-spectrum" data-on={on ? '1' : '0'} viewBox={`0 0 420 ${rulers.length * 48 + 38}`} role="img" aria-label={`${name}，零線為同業中位數`} onClick={replay}>
-      <text x="52" y="12" fontSize="10" fill="var(--hs-gray-1)">低於同業</text><text x="210" y="12" textAnchor="middle" fontSize="10" fill="var(--hs-gray-1)">0</text><text x="368" y="12" textAnchor="end" fontSize="10" fill="var(--hs-gray-1)">高於同業</text>
+    <svg className="hv-spectrum" data-on={on ? '1' : '0'} viewBox={`0 0 500 ${rulers.length * 48 + 38}`} role="img" aria-label={`${name}，零線為同業中位數`} onClick={replay}>
+      <text x="140" y="12" fontSize="12" fill="var(--hs-gray-1)">低於同業</text><text x="300" y="12" textAnchor="middle" fontSize="12" fill="var(--hs-gray-1)">0</text><text x="460" y="12" textAnchor="end" fontSize="12" fill="var(--hs-gray-1)">高於同業</text>
       {rulers.map((r,i) => { const y = 40 + i * 48; return <g key={r.key}>
-        <text x="10" y={y + 4} fontSize="10" fontWeight="700" fill="var(--hs-ink)">{r.label}</text>
-        <line x1="52" x2="368" y1={y} y2={y} stroke="var(--hs-gray-3)" />
-        {[52,131,210,289,368].map(x => <line key={x} x1={x} x2={x} y1={y-4} y2={y+4} stroke={x===210 ? 'var(--hs-ink)' : 'var(--hs-gray-3)'} />)}
+        <text x="10" y={y + 4} fontSize="12" fontWeight="700" fill="var(--hs-ink)">{r.label}</text>
+        <line x1="140" x2="460" y1={y} y2={y} stroke="var(--hs-gray-3)" />
+        {[140,220,300,380,460].map(x => <line key={x} x1={x} x2={x} y1={y-4} y2={y+4} stroke={x===300 ? 'var(--hs-ink)' : 'var(--hs-gray-3)'} />)}
         {r.weightedPremium !== null && Number.isFinite(r.weightedPremium) && <circle className="hv-point" cx={px(r.weightedPremium)} cy={y} r="5" fill="var(--hs-ink)" style={{transitionDelay:`${i*100}ms`}}><title>{r.label} {formatPremium(r.weightedPremium)} · {r.text}</title></circle>}
       </g>; })}
-      <text x="52" y={rulers.length*48+30} fontSize="9" fill="var(--hs-gray-1)">{formatPremium(-extent)}</text><text x="368" y={rulers.length*48+30} textAnchor="end" fontSize="9" fill="var(--hs-gray-1)">{formatPremium(extent)}</text>
+      <text x="140" y={rulers.length*48+30} fontSize="11" fill="var(--hs-gray-1)">{formatPremium(-extent)}</text><text x="460" y={rulers.length*48+30} textAnchor="end" fontSize="11" fill="var(--hs-gray-1)">{formatPremium(extent)}</text>
     </svg>
   </div>;
 }
