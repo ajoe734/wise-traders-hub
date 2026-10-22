@@ -359,6 +359,7 @@ function HoldingsWorkbench(props) {
                 selected={selected}
                 decisionsMap={decisionsMap}
                 stockMeta={STOCK_META}
+                overrides={overrides}
                 targets={targets}
                 avgTarget={avgTarget}
                 normalizedEvents={normalizedEvents}
