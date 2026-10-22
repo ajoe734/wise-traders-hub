@@ -17,3 +17,7 @@ Forward/peer valuation evidence for the holdings drawer lives in the pure `src/c
 ### Station extras
 
 Curated peer multiples and forward EPS reach the drawer only via `useStationExtras` (RPC `valuation_peer_multiples`, table `forward_eps_estimates`, admin-write); why: the RPC's own peer scope is not the curated list, and forward inputs must carry named sources. AI-extracted forward rows are written only by `forward-eps-extract` after all four gates in `supabase/functions/_shared/forwardEpsCore.ts` pass (verbatim quote, number-in-quote, two independent extractions agree, sanity bounds); EPS is computed by fixed formula; a stored multiple must be a broker-stated forward P/E of the same period, never derived from a target price. When no broker multiple exists, the station forward reference (pure `buildForwardReference`) falls back to named-source EPS, then monthly-revenue self EPS, × the stock's own 1-year PE P20/P50/P80, always labelled 「歷史倍數，非券商前瞻倍數」; why: free data has no broker multiples, and the substitution must stay visible.
+
+### Valuation headline
+
+The drawer headline and 倍數信心 derive from the same station output (`valuationHeadlineText` / `multipleConfidenceText` with the station's ruler, position and peer reference); peer insufficiency must state the concrete reason and never be reported while peer multiples are still loading; why: the headline must not contradict the stations shown below it.
