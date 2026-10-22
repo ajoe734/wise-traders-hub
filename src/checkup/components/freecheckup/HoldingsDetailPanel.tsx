@@ -873,8 +873,12 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
       </div>
       <div className="price-scale-status" data-testid="price-scale-status" aria-live="polite">
         {mode === 'stations' ? <div data-testid="stations-status" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {st.pricedIn.level !== 'unknown' && <strong data-testid="stations-priced-in">{st.pricedIn.label}：{st.pricedIn.sentence}{st.pricedIn.impliedPercentile != null ? `（現價隱含 ${fmt(price / st.basis, 1)} 倍，落在近一年第 ${Math.round(st.pricedIn.impliedPercentile * 100)}%）` : ''}</strong>}
-          <strong>主尺 {st.main.key.toUpperCase()}（{st.main.reason}）{st.position ? `・現價${st.position}` : ''}</strong>
+          <strong data-testid="stations-priced-in">{st.position ? `現價${st.position}` : st.pricedIn.level !== 'unknown' ? st.pricedIn.label : '估值資料準備中'}・{st.main.key.toUpperCase()}{st.pricedIn.impliedPercentile != null ? ` 近一年第 ${Math.round(st.pricedIn.impliedPercentile * 100)}%` : ''}</strong>
+          <details data-testid="stations-how" style={{ marginTop: 4 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 12, color: WB.inkMute }}>怎麼算</summary>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4, fontSize: 12 }}>
+          {st.pricedIn.level !== 'unknown' && <span>{st.pricedIn.label}：{st.pricedIn.sentence}{st.pricedIn.impliedPercentile != null ? `（現價隱含 ${fmt(price / st.basis, 1)} 倍）` : ''}</span>}
+          <span>主尺 {st.main.key.toUpperCase()}（{st.main.reason}）</span>
           {st.stations.status === 'ready'
             ? <span>{st.estimated && st.nextQuarter
               ? `${st.main.key === 'pe' ? 'EPS' : '每股營收'}（近三季已公布＋${st.nextQuarter.quarter} 月營收推估一季）NT$${fmt(st.basis)}：最新一季 EPS NT$${fmt(st.nextQuarter.latestEps)} ×（${st.nextQuarter.months.map((m) => Number(m.slice(5))).join('、')} 月營收 ÷ 最新一季營收 = ${fmt(st.nextQuarter.ratio, 3)}）≈ 推估 EPS NT$${fmt(st.nextQuarter.estEps)}，沿用最新一季淨利率；近四季實際 NT$${fmt(st.reported)}`
@@ -885,6 +889,9 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
             ? `${st.forward.period} 預估 EPS NT$${fmt(st.forward.eps)}（${st.forward.source}${st.forward.epsKind === 'news' && extras.forward?.asOf ? `，資料日 ${String(extras.forward.asOf).split('-').join('/')}` : ''}）× 近一年本益比第 20／50／80%：${fmt(st.forward.multiples.p20)}／${fmt(st.forward.multiples.p50)}／${fmt(st.forward.multiples.p80)} 倍（歷史倍數，非券商前瞻倍數）≈ NT$${fmt(st.forward.low, 0)}–${fmt(st.forward.high, 0)}，中點 NT$${fmt(st.forward.price, 0)}；壓力測試（EPS 八折）≈ NT$${fmt(st.forward.stressLow, 0)}–${fmt(st.forward.stressHigh, 0)}${st.forward.impliedMultiple ? `；以預估 EPS 算，現價約 ${fmt(st.forward.impliedMultiple, 1)} 倍` : ''}${st.forward.epsKind === 'news' && extras.forward?.ai ? '；EPS 經 AI 多輪自動確認' : ''}`
             : st.forward.status === 'ready' ? `${st.forward.period} 預估 EPS NT$${fmt(extras.forward?.eps)}（${extras.forward?.epsSource}）× 前瞻本益比 ${fmt(extras.forward?.multiple)} 倍（${st.forward.source}）≈ NT$${fmt(st.forward.price, 0)}；壓力測試（EPS 八折）≈ NT$${fmt(st.forward.stress, 0)}${st.forward.impliedMultiple ? `；以未來獲利算，現價只給約 ${fmt(st.forward.impliedMultiple, 1)} 倍` : ''}（資料日 ${String(extras.forward?.asOf || '').split('-').join('/')}）${extras.forward?.ai ? '；AI 自財報／法說／券商報告抽取，已通過自動多輪確認' : ''}` : `資料不足（${st.forward.reason}${extras.forwardBlocked ? `；AI 自動確認未通過：${extras.forwardBlocked}` : ''}）`}</span>
           <span>其他尺只當驗證尺，三把尺價格不平均；殖利率、法人目標價只當附註。</span>
+          <span data-testid="valuation-band-note">現價與持倉成本只供定位；PE／PB／PS 各自獨立，不取交集，也不反推財報分母。</span>
+          </div>
+          </details>
         </div> : mode === 'target' ? <>
           <strong>{target != null ? `目標價 NT$${Number(target).toLocaleString('zh-TW')}` : '尚無分析師目標價'}</strong>
           <span>目標價為分析師估計，不作為財報分母</span>
@@ -897,9 +904,6 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
         </>}
       </div>
       {mode === 'target' && note && <div style={{ marginTop: 8, fontFamily: SERIF, fontSize: 13, color: WB.inkSub, lineHeight: 1.65 }}>{note}</div>}
-      <div data-testid="valuation-band-note" style={{ marginTop: 8, fontSize: 12, color: WB.inkSub, lineHeight: 1.6 }}>
-        現價與持倉成本只供定位；PE／PB／PS 各自獨立，不取交集，也不反推財報分母。
-      </div>
       {symbol && band && band.basisCount > 0 && (
         <CustomMultiplesEditor WB={WB} symbol={symbol} scenario={band} custom={custom} today={today} price={price} />
       )}
