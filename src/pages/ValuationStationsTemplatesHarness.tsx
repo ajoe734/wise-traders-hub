@@ -291,7 +291,7 @@ export default function ValuationStationsTemplatesHarness() {
             <T sel={sel} setSel={setSel} />
           </section>
         ); })}
-        <div aria-live="polite" style={{ fontSize: 13, minHeight: 20, color: C.ink, fontWeight: 700 }}>{picked ? `${picked.label} ${fmt(picked.v)}` : ''}</div>
+        <div aria-live="polite" style={{ fontSize: 13, minHeight: 20, color: C.ink, fontWeight: 700 }}>{picked ? `${picked.label} ${fmt(picked.v)}` : sel && SEL_LABEL[sel] ? SEL_LABEL[sel] : ''}</div>
       </div>
     </main>
   );
