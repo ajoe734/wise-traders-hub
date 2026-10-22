@@ -1,0 +1,288 @@
+/**
+ * 持倉看板上方摘要 — 三個 lieflat wire 視覺模板預覽（僅 /e2e harness）。
+ * 固定示範資料，不讀任何真實使用者資料；選定前不影響正式持倉看板。
+ * A 帳本總覽：F12 Dumbbell + L14 Hundred Field
+ * B 權重地圖：F13 Nested Treemap
+ * C 一頁儀表：F11 Tick Gauge + F5 Tick Rows
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { buildSummary, type DemoHolding, type Summary } from '@/lib/holdingsSummaryViz';
+
+const W = {
+  bg: '#F5F3EF', card: '#FBFAF7', ink: '#292520', g1: '#4A4640', g2: '#7A756C',
+  g3: '#A8A298', g4: '#CFC9BF', g5: '#E4DFD6', hero: '#EC662D',
+};
+const FONT = '"Source Serif 4", "Noto Serif TC", serif';
+
+const DEMO: DemoHolding[] = [
+  { code: '2330', name: '台積電', industry: '晶圓代工', strategy: '趨勢', period: '中長', position: '核心', cost: 520000, value: 612000 },
+  { code: '3443', name: '創意', industry: 'IC 設計', strategy: '趨勢', period: '中', position: '核心', cost: 310000, value: 286000 },
+  { code: '2454', name: '聯發科', industry: 'IC 設計', strategy: '價值', period: '中長', position: '核心', cost: 240000, value: 262000 },
+  { code: '3017', name: '奇鋐', industry: '散熱', strategy: '題材', period: '短', position: '衛星', cost: 150000, value: 181000 },
+  { code: '3324', name: '雙鴻', industry: '散熱', strategy: '題材', period: '短中', position: '衛星', cost: 120000, value: 109000 },
+  { code: '2382', name: '廣達', industry: 'AI 伺服器', strategy: '趨勢', period: '中', position: '衛星', cost: 180000, value: 196000 },
+  { code: '2881', name: '富邦金', industry: '金融', strategy: '價值', period: '中長', position: '防守', cost: 140000, value: 151000 },
+  { code: '0056', name: '元大高股息', industry: 'ETF', strategy: '價值', period: '中長', position: '防守', cost: 100000, value: 98000 },
+];
+
+const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+const signed = (n: number) => `${n >= 0 ? '+' : ''}${fmt(n)}`;
+const pct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
+const pnlColor = (n: number) => (n >= 0 ? W.hero : W.g1);
+
+function useReveal() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { setOn(true); return; }
+    const t = window.setTimeout(() => setOn(true), 60);
+    return () => window.clearTimeout(t);
+  }, []);
+  return on;
+}
+const ease = 'cubic-bezier(0.165,0.84,0.44,1)'; // quarticOut
+
+function Card({ title, sub, src, children, testid }: { title: string; sub: string; src: string; children: React.ReactNode; testid: string }) {
+  return (
+    <section data-testid={testid} style={{ background: W.card, borderRadius: 8, padding: '20px 18px 14px', marginBottom: 20 }}>
+      <h2 style={{ fontSize: 16, fontWeight: 700, color: W.ink, margin: 0, lineHeight: 1.4 }}>{title}</h2>
+      <div style={{ fontSize: 11, color: W.g2, marginTop: 4, marginBottom: 14, lineHeight: 1.5 }}>{sub}</div>
+      {children}
+      <div style={{ fontSize: 9, color: W.g3, letterSpacing: '0.12em', marginTop: 12, textTransform: 'uppercase' }}>{src}</div>
+    </section>
+  );
+}
+
+function BigPnl({ s }: { s: Summary }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+      <span className="tn" style={{ fontSize: 22, fontWeight: 700, color: pnlColor(s.pnl) }}>{signed(s.pnl)}</span>
+      <span style={{ fontSize: 12, color: pnlColor(s.pnl) }}>{pct(s.pnlPct)}</span>
+      <span style={{ fontSize: 11, color: W.g2 }}>{`${s.count} 檔 · 市值 ${fmt(s.value)}`}</span>
+    </div>
+  );
+}
+
+/** 三組計數小點陣（1 點 = 1 檔） */
+function CountDots({ s, on }: { s: Summary; on: boolean }) {
+  const groups: [string, [string, number][]][] = [['策略', s.strategy], ['週期', s.period], ['定位', s.position]];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(96px,1fr))', gap: 12 }}>
+      {groups.map(([label, rows]) => (
+        <div key={label}>
+          <div style={{ fontSize: 10, color: W.g2, letterSpacing: '0.1em', marginBottom: 6 }}>{label}</div>
+          {rows.map(([k, n], ri) => (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ fontSize: 11, color: W.ink, minWidth: 36 }}>{k}</span>
+              <span style={{ display: 'flex', gap: 3 }}>
+                {Array.from({ length: n }).map((_, i) => (
+                  <span key={i} style={{ width: 7, height: 7, borderRadius: 4, background: ri === 0 ? W.ink : W.g3, opacity: on ? 1 : 0, transition: `opacity 300ms ${ease} ${(ri * 4 + i) * 12}ms` }} />
+                ))}
+              </span>
+              <span className="tn" style={{ fontSize: 10, color: W.g2 }}>{n}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══ A：F12 Dumbbell + L14 Hundred Field ═══
+function TemplateA({ s }: { s: Summary }) {
+  const on = useReveal();
+  const lo = Math.min(s.cost, s.value) * 0.9, hi = Math.max(s.cost, s.value) * 1.05;
+  const max = hi;
+  const x = (v: number) => 16 + ((v - lo) / (hi - lo)) * 328;
+  const cells: { ind: string; idx: number }[] = [];
+  s.industries.forEach((r, idx) => { for (let i = 0; i < r.cells; i++) cells.push({ ind: r.name, idx }); });
+  return (
+    <>
+      <Card testid="tpl-a-dumbbell" title={`投入 ${fmt(s.cost)}，現在值 ${fmt(s.value)}`} sub="軸線不從 0 起算 · 空心點 = 總成本 · 實心點 = 總市值 · 兩點距離 = 未實現損益" src="F12 Dumbbell · 示範資料">
+        <BigPnl s={s} />
+        <svg viewBox="0 0 360 64" width="100%" style={{ marginTop: 10, overflow: 'visible' }} role="img" aria-label="成本到市值">
+          {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+            <g key={t}><line x1={x(lo + (hi - lo) * t)} x2={x(lo + (hi - lo) * t)} y1={18} y2={46} stroke={W.g5} strokeWidth={0.6} strokeDasharray="2 2" />
+              <text x={x(lo + (hi - lo) * t)} y={60} fontSize={7} fill={W.g3} textAnchor="middle">{`${Math.round((lo + (hi - lo) * t) / 10000)}萬`}</text></g>
+          ))}
+          <line x1={x(s.cost)} x2={on ? x(s.value) : x(s.cost)} y1={32} y2={32} stroke={pnlColor(s.pnl)} strokeWidth={2} style={{ transition: `all 700ms ${ease}` }} />
+          <circle cx={x(s.cost)} cy={32} r={5} fill={W.card} stroke={W.ink} strokeWidth={1.2} />
+          <circle cx={on ? x(s.value) : x(s.cost)} cy={32} r={5} fill={W.ink} style={{ transition: `all 700ms ${ease}` }} />
+          <text x={x(s.cost)} y={14} fontSize={8} fill={W.g2} textAnchor="middle">成本</text>
+          <text x={x(s.value)} y={14} fontSize={8} fill={W.ink} textAnchor="middle" fontWeight={700}>市值</text>
+        </svg>
+      </Card>
+      <Card testid="tpl-a-field" title={`${s.industries[0]?.name} 佔了 ${s.industries[0]?.cells} 格`} sub="1 格 = 1% 持股市值 · 橘 = 最大產業 · 灰階深淺 = 佔比排序" src="L14 Hundred Field · 示範資料">
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <svg viewBox="0 0 120 120" width={160} style={{ flexShrink: 0 }} role="img" aria-label="產業佔比方陣">
+            {cells.map((c, i) => {
+              const col = i % 10, row = Math.floor(i / 10);
+              const fill = c.idx === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(c.idx - 1, 4)];
+              return <rect key={i} x={col * 12 + 1} y={row * 12 + 1} width={10} height={10} rx={2} fill={fill} style={{ opacity: on ? 1 : 0, transition: `opacity 260ms ${ease} ${i * 9}ms` }} />;
+            })}
+          </svg>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            {s.industries.map((r, i) => (
+              <div key={r.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: i === 0 ? W.ink : W.g1, fontWeight: i === 0 ? 700 : 400, padding: '3px 0', borderBottom: `0.5px solid ${W.g5}` }}>
+                <span>{r.name}<span style={{ color: W.g3, marginLeft: 6 }}>{r.count}檔</span></span><span className="tn">{r.cells}%</span>
+              </div>
+            ))}
+            {s.warnings.length > 0 && <div style={{ fontSize: 10, color: W.g1, marginTop: 8 }}>{`↳ 集中提醒：${s.warnings.join('、')}`}</div>}
+          </div>
+        </div>
+      </Card>
+      <Card testid="tpl-a-counts" title="怎麼持有：策略、週期、定位" sub="分段條長度 = 檔數 · 最深段 = 該組最多" src="F7 Stacked Rungs · 示範資料">
+        {([['策略', s.strategy], ['週期', s.period], ['定位', s.position]] as [string, [string, number][]][]).map(([label, rows]) => (
+          <div key={label} style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: W.g2, marginBottom: 4 }}>{label}</div>
+            <div style={{ display: 'flex', gap: 2, height: 14 }}>
+              {rows.map(([k, n], i) => (
+                <div key={k} title={`${k} ${n}`} style={{ flex: on ? n : 0.0001, background: [W.ink, W.g2, W.g3, W.g4][Math.min(i, 3)], borderRadius: 3, transition: `flex 600ms ${ease} ${i * 100}ms`, color: i < 2 ? W.card : W.ink, fontSize: 9, display: 'flex', alignItems: 'center', paddingLeft: 4, overflow: 'hidden', whiteSpace: 'nowrap' }}>{`${k} ${n}`}</div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </Card>
+    </>
+  );
+}
+
+// ═══ B：F13 Nested Treemap（slice-and-dice，兩層） ═══
+type Rect = { x: number; y: number; w: number; h: number };
+function slice<T extends { v: number }>(items: T[], r: Rect, horiz: boolean): (T & Rect)[] {
+  const total = items.reduce((a, b) => a + b.v, 0) || 1;
+  let off = 0;
+  return items.map((it) => {
+    const f = it.v / total;
+    const out = horiz ? { ...it, x: r.x + off, y: r.y, w: r.w * f, h: r.h } : { ...it, x: r.x, y: r.y + off, w: r.w, h: r.h * f };
+    off += horiz ? r.w * f : r.h * f;
+    return out;
+  });
+}
+function TemplateB({ s }: { s: Summary }) {
+  const on = useReveal();
+  const [hover, setHover] = useState<string | null>(null);
+  const groups = slice(s.tree.map((g) => ({ ...g, v: g.value })), { x: 0, y: 0, w: 360, h: 220 }, true);
+  const top = groups[0]?.name;
+  return (
+    <>
+      <Card testid="tpl-b-treemap" title={`${top} 撐起最大一塊`} sub="面積 = 持股市值 · 外框 = 產業 · 格內 = 個股損益 % · 橘框 = 最大產業" src="F13 Nested Treemap · 示範資料">
+        <BigPnl s={s} />
+        <svg viewBox="0 0 360 220" width="100%" style={{ marginTop: 12 }} role="img" aria-label="產業與個股市值矩形樹圖">
+          {groups.map((g, gi) => {
+            const inner = { x: g.x + 2, y: g.y + 14, w: Math.max(g.w - 4, 0), h: g.h - 16 };
+            const leaves = slice(g.children.map((c) => ({ ...c, v: c.value })), inner, false);
+            return (
+              <g key={g.name} style={{ opacity: on ? 1 : 0, transition: `opacity 400ms ${ease} ${gi * 110}ms` }}>
+                <rect x={g.x + 0.5} y={g.y + 0.5} width={g.w - 1} height={g.h - 1} rx={3} fill="none" stroke={gi === 0 ? W.hero : W.g4} strokeWidth={gi === 0 ? 1.4 : 0.7} />
+                {g.w > 52 && <text x={g.x + 4} y={g.y + 10} fontSize={8} fontWeight={700} fill={W.ink}>{g.name}</text>}
+                {leaves.map((l) => {
+                  const k = `${g.name}/${l.name}`;
+                  return (
+                    <g key={l.code} onMouseEnter={() => setHover(k)} onMouseLeave={() => setHover(null)}>
+                      <rect x={l.x + 1} y={l.y + 1} width={Math.max(l.w - 2, 0)} height={Math.max(l.h - 2, 0)} rx={2} fill={hover === k ? W.g4 : W.g5} />
+                      {l.w > 36 && l.h > 24 && (<>
+                        <text x={l.x + 5} y={l.y + 13} fontSize={8} fill={W.ink}>{l.name}</text>
+                        <text x={l.x + 5} y={l.y + 24} fontSize={8} fontWeight={700} fill={pnlColor(l.pct)}>{pct(l.pct)}</text>
+                      </>)}
+                      <title>{`${g.name} › ${l.name}　市值 ${fmt(l.value)}（${((l.value / s.value) * 100).toFixed(1)}%）　${pct(l.pct)}`}</title>
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
+        </svg>
+      </Card>
+      <Card testid="tpl-b-counts" title="怎麼持有：策略、週期、定位" sub="1 點 = 1 檔 · 黑點 = 該組最多" src="L15 Ballot Tally · 示範資料">
+        <CountDots s={s} on={on} />
+      </Card>
+    </>
+  );
+}
+
+// ═══ C：F11 Tick Gauge + F5 Tick Rows ═══
+function TemplateC({ s }: { s: Summary }) {
+  const on = useReveal();
+  const range = 30; // ±30%
+  const ticks = 31;
+  const val = Math.max(-range, Math.min(range, s.pnlPct));
+  const lit = Math.round(((val + range) / (2 * range)) * (ticks - 1));
+  const mid = (ticks - 1) / 2;
+  const rows = s.industries.slice(0, 6);
+  const maxPct = Math.max(...rows.map((r) => r.share), 1);
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 20 }}>
+        <Card testid="tpl-c-gauge" title={`總報酬 ${pct(s.pnlPct)}`} sub="刻度 = 每格 2% · 中線 = 損益兩平 · 範圍 ±30%" src="F11 Tick Gauge · 示範資料">
+          <svg viewBox="0 0 220 124" width="100%" role="img" aria-label="總報酬率刻度">
+            {Array.from({ length: ticks }).map((_, i) => {
+              const a = Math.PI - (i / (ticks - 1)) * Math.PI;
+              const r1 = 84, r2 = i % 5 === 0 ? 102 : 96;
+              const inRange = (i >= Math.min(lit, mid) && i <= Math.max(lit, mid));
+              const color = inRange && i !== mid ? pnlColor(s.pnlPct) : W.g4;
+              return <line key={i} x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : color} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} />;
+            })}
+            <text x={110} y={92} fontSize={20} fontWeight={800} fill={pnlColor(s.pnl)} textAnchor="middle">{pct(s.pnlPct)}</text>
+            <text x={110} y={108} fontSize={8} fill={W.g2} textAnchor="middle">{`${signed(s.pnl)} 元`}</text>
+            <text x={16} y={122} fontSize={7} fill={W.g3}>-30%</text><text x={204} y={122} fontSize={7} fill={W.g3} textAnchor="end">+30%</text>
+          </svg>
+          <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: 11, color: W.g1 }}>
+            <span>成本 <b className="tn">{fmt(s.cost)}</b></span><span>市值 <b className="tn">{fmt(s.value)}</b></span><span><b>{s.count}</b> 檔</span>
+          </div>
+        </Card>
+        <Card testid="tpl-c-rows" title={`${rows[0]?.name} 一個產業就佔 ${rows[0]?.cells}%`} sub="刻度長度 = 市值佔比 · 橘 = 最大產業" src="F5 Tick Rows · 示範資料">
+          {rows.map((r, i) => (
+            <div key={r.name} style={{ display: 'grid', gridTemplateColumns: '68px 1fr 34px', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+              <span style={{ fontSize: 11, color: W.ink, fontWeight: i === 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+              <div style={{ position: 'relative', height: 10 }}>
+                <div style={{ position: 'absolute', top: 5, left: 0, right: 0, height: 0.5, background: W.g5 }} />
+                <div style={{ position: 'absolute', top: 2, left: 0, height: 6, borderRadius: 3, width: on ? `${(r.share / maxPct) * 100}%` : 0, background: i === 0 ? W.hero : W.g1, transition: `width 600ms ${ease} ${i * 100}ms` }} />
+              </div>
+              <span className="tn" style={{ fontSize: 10, color: W.g1, textAlign: 'right' }}>{`${r.cells}%`}</span>
+            </div>
+          ))}
+          {s.warnings.length > 0 && <div style={{ fontSize: 10, color: W.g1, marginTop: 4 }}>{`↳ 集中提醒：${s.warnings.join('、')}`}</div>}
+        </Card>
+      </div>
+      <Card testid="tpl-c-counts" title="怎麼持有：策略、週期、定位" sub="1 點 = 1 檔 · 黑點 = 該組最多" src="L15 Ballot Tally · 示範資料">
+        <CountDots s={s} on={on} />
+      </Card>
+    </>
+  );
+}
+
+const TEMPLATES = {
+  a: { label: 'A 帳本總覽', C: TemplateA },
+  b: { label: 'B 權重地圖', C: TemplateB },
+  c: { label: 'C 一頁儀表', C: TemplateC },
+} as const;
+type Key = keyof typeof TEMPLATES;
+
+export default function HoldingsSummaryTemplatesPrototype() {
+  const s = useMemo(() => buildSummary(DEMO), []);
+  const initial = (() => {
+    const v = new URLSearchParams(window.location.search).get('v')?.toLowerCase() || 'a';
+    return (['a', 'b', 'c'] as Key[]).find((k) => v.startsWith(k)) || 'a';
+  })();
+  const [cur, setCur] = useState<Key>(initial);
+  const pick = (k: Key) => {
+    setCur(k);
+    const u = new URL(window.location.href); u.searchParams.set('v', k);
+    window.history.replaceState(null, '', u.toString());
+  };
+  const T = TEMPLATES[cur].C;
+  return (
+    <div data-testid="holdings-summary-templates" style={{ background: W.bg, minHeight: '100vh', fontFamily: FONT, color: W.ink }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px 48px' }}>
+        <div style={{ fontSize: 11, color: W.g2, letterSpacing: '0.12em' }}>持倉看板 · 上方摘要 · 視覺模板預覽（示範資料）</div>
+        <div role="tablist" style={{ display: 'flex', gap: 8, margin: '12px 0 20px', flexWrap: 'wrap' }}>
+          {(Object.keys(TEMPLATES) as Key[]).map((k) => (
+            <button key={k} role="tab" aria-selected={cur === k} onClick={() => pick(k)} style={{ fontFamily: FONT, fontSize: 13, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', background: 'transparent', color: cur === k ? W.ink : W.g2, border: `1px solid ${cur === k ? W.ink : W.g4}`, fontWeight: cur === k ? 700 : 400 }}>{TEMPLATES[k].label}</button>
+          ))}
+        </div>
+        <T key={cur} s={s} />
+      </div>
+    </div>
+  );
+}
