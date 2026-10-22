@@ -4,10 +4,10 @@ import { INDUSTRIES } from '@/checkup/lib/industryTaxonomy';
 import { PEER_GROUPS, findPeerGroup, buildPeerReference } from '@/checkup/lib/valuationStations';
 
 describe('產業代碼表', () => {
-  it('字典 125 個細分產業全部有唯一代碼', () => {
+  it('字典 129 個細分產業全部有唯一代碼', () => {
     const live = INDUSTRY_CODES.filter((c) => !c.retired);
-    expect(INDUSTRIES.length).toBe(125);
-    expect(new Set(live.map((c) => c.code)).size).toBe(125);
+    expect(INDUSTRIES.length).toBe(129);
+    expect(new Set(live.map((c) => c.code)).size).toBe(129);
     for (const n of INDUSTRIES) expect(industryCodeOf(n)).not.toBeNull();
   });
   it('全形斜線、空白寫法對應同一代碼', () => {
