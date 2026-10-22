@@ -148,8 +148,10 @@ function TemplateC({ sel, setSel }) {
 const VARIANTS = { a: { t: 'A｜站牌刻度尺', C: TemplateA }, b: { t: 'B｜三列啞鈴', C: TemplateB }, c: { t: 'C｜刻度橫條', C: TemplateC } };
 
 export default function ValuationStationsTemplatesHarness() {
-  const v = (new URLSearchParams(window.location.search).get('v') || 'all').toLowerCase();
+  const init = (new URLSearchParams(window.location.search).get('v') || 'all').toLowerCase();
+  const [v, setV] = useState(init in VARIANTS ? init : 'all');
   const keys = v in VARIANTS ? [v] : Object.keys(VARIANTS);
+  const tabs = [['all', '全部'], ['a', 'A 刻度尺'], ['b', 'B 啞鈴'], ['c', 'C 橫條']];
   const [sel, setSel] = useState<string | null>(null);
   const picked = MARKS.find((m) => m.key === sel);
   return (
@@ -157,6 +159,10 @@ export default function ValuationStationsTemplatesHarness() {
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>估值站牌模板試看</h1>
         <p style={{ fontSize: 12, color: C.sub, margin: '0 0 16px' }}>站牌價位取自截圖；現價 {PRICE}／成本 {COST} 為示範值 · 點圖重播 · 點價位看完整名稱</p>
+        <div role="tablist" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {tabs.map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={v === k} data-testid={`stations-tab-${k}`} onClick={() => setV(k)}
+            style={{ fontSize: 13, fontWeight: 700, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${C.ink}`, background: v === k ? C.ink : 'transparent', color: v === k ? C.paper : C.ink }}>{t}</button>)}
+        </div>
         {keys.map((k) => { const { t, C: T } = VARIANTS[k]; return (
           <section key={k} data-testid={`stations-template-${k}`} style={{ borderTop: `1px solid ${C.ink}`, padding: '12px 0 16px' }}>
             <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 8px' }}>{t}</h2>
