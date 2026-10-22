@@ -51,7 +51,7 @@ function useObsReveal<T extends HTMLElement>() {
     if (timer.current) window.clearTimeout(timer.current);
     if (reduce) { setOn(true); return; }
     setOn(false);
-    timer.current = window.setTimeout(() => setOn(true), 40);
+    timer.current = window.setTimeout(() => setOn(true), 60);
   }, [reduce]);
   useEffect(() => {
     const n = ref.current; if (!n) return;
@@ -97,7 +97,7 @@ function CountDots({ s, on }: { s: Summary; on: boolean }) {
               <span style={{ fontSize: 11, color: W.ink, minWidth: 36 }}>{k}</span>
               <span style={{ display: 'flex', gap: 3 }}>
                 {Array.from({ length: n }).map((_, i) => (
-                  <span key={i} style={{ width: 7, height: 7, borderRadius: 4, background: ri === 0 ? W.ink : W.g3, opacity: on ? 1 : 0, transform: on ? 'scale(1)' : 'scale(0)', transition: `opacity 300ms ${ease} ${(ri * 4 + i) * 12}ms, transform 360ms ${ease} ${(ri * 4 + i) * 12}ms` }} />
+                  <span key={i} style={{ width: 7, height: 7, borderRadius: 4, background: ri === 0 ? W.ink : W.g3, opacity: on ? 1 : 0, transform: on ? 'scale(1)' : 'scale(0)', transition: on ? `opacity 300ms ${ease} ${(ri * 4 + i) * 12}ms, transform 360ms ${ease} ${(ri * 4 + i) * 12}ms` : 'none' }} />
                 ))}
               </span>
               <span className="tn" style={{ fontSize: 10, color: W.g2 }}>{n}</span>
@@ -276,7 +276,7 @@ function GaugeSvg({ s, on, width = '100%', hover }: { s: Summary; on: boolean; w
         const r1 = 84, r2 = i % 5 === 0 ? 102 : 96;
         const inRange = i >= Math.min(lit, mid) && i <= Math.max(lit, mid) && i !== mid;
         const tv = -range + i * 2;
-        return <g key={i}>{hover && <line x1={110 + 76 * Math.cos(a)} y1={112 - 76 * Math.sin(a)} x2={110 + 108 * Math.cos(a)} y2={112 - 108 * Math.sin(a)} stroke="transparent" strokeWidth={9} onMouseEnter={() => setHv(tv)} onMouseLeave={() => setHv(null)} />}<line pointerEvents="none" x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : inRange ? pnlColor(s.pnlPct) : W.g4} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` }} /></g>;
+        return <g key={i}>{hover && <line x1={110 + 76 * Math.cos(a)} y1={112 - 76 * Math.sin(a)} x2={110 + 108 * Math.cos(a)} y2={112 - 108 * Math.sin(a)} stroke="transparent" strokeWidth={9} onMouseEnter={() => setHv(tv)} onMouseLeave={() => setHv(null)} />}<line pointerEvents="none" x1={110 + r1 * Math.cos(a)} y1={112 - r1 * Math.sin(a)} x2={110 + r2 * Math.cos(a)} y2={112 - r2 * Math.sin(a)} stroke={i === mid ? W.ink : inRange ? pnlColor(s.pnlPct) : W.g4} strokeWidth={i % 5 === 0 ? 2 : 1.4} strokeLinecap="round" style={{ opacity: on || !inRange ? 1 : 0, transition: on ? `opacity 200ms ${ease} ${Math.abs(i - mid) * 40}ms` : 'none' }} /></g>;
       })}
       {hv != null && <text x={110} y={60} fontSize={8} fill={W.g2} textAnchor="middle">{`刻度 ${hv >= 0 ? '+' : ''}${hv}%`}</text>}
       <text x={110} y={92} fontSize={20} fontWeight={800} fill={pnlColor(s.pnl)} textAnchor="middle">{pct(s.pnlPct)}</text>
@@ -298,7 +298,7 @@ function FieldGrid({ s, on, size = 160, hi = null, onHi }: { s: Summary; on: boo
   return (
     <svg viewBox="0 0 120 120" width={size} style={{ flexShrink: 0, display: 'block' }} role="img" aria-label="產業佔比方陣">
       {cells.map((idx, i) => (
-        <rect key={i} x={(i % 10) * 12 + 1} y={Math.floor(i / 10) * 12 + 1} width={10} height={10} rx={2} fill={idx === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(idx - 1, 4)]} onMouseEnter={onHi ? () => onHi(idx) : undefined} onMouseLeave={onHi ? () => onHi(null) : undefined} style={{ opacity: on ? (hi == null || hi === idx ? 1 : 0.18) : 0, transform: on ? 'scale(1)' : 'scale(0.4)', transformOrigin: `${(i % 10) * 12 + 6}px ${Math.floor(i / 10) * 12 + 6}px`, transition: hi === undefined || !on ? `opacity 260ms ${ease} ${i * 9}ms, transform 360ms ${ease} ${i * 9}ms` : `opacity 160ms ${ease}, transform 360ms ${ease} ${i * 9}ms` }}><title>{`${s.industries[idx].name} ${s.industries[idx].cells}%`}</title></rect>
+        <rect key={i} x={(i % 10) * 12 + 1} y={Math.floor(i / 10) * 12 + 1} width={10} height={10} rx={2} fill={idx === 0 ? W.hero : [W.ink, W.g1, W.g2, W.g3, W.g4][Math.min(idx - 1, 4)]} onMouseEnter={onHi ? () => onHi(idx) : undefined} onMouseLeave={onHi ? () => onHi(null) : undefined} style={{ opacity: on ? (hi == null || hi === idx ? 1 : 0.18) : 0, transform: on ? 'scale(1)' : 'scale(0.4)', transformOrigin: `${(i % 10) * 12 + 6}px ${Math.floor(i / 10) * 12 + 6}px`, transition: !on ? 'none' : `opacity 160ms ${ease} ${hi == null ? i * 9 : 0}ms, transform 360ms ${ease} ${i * 9}ms` }}><title>{`${s.industries[idx].name} ${s.industries[idx].cells}%`}</title></rect>
       ))}
     </svg>
   );
