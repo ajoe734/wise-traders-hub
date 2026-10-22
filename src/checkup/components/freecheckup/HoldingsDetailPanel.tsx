@@ -908,18 +908,8 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
 }
 
 /** 倍數證據：與分母可用數分開陳述。 */
-function confidenceText(band) {
-  const rows = band.rows.filter((r) => r.basisOk);
-  if (!rows.length) return '—';
-  const c = rows.map((r) => r.confidence);
-  if (c.every((x) => x === 'peer')) return '有同業證據';
-  if (c.some((x) => x === 'insufficient')) return `依據不足（${c.filter((x) => x === 'insufficient').length} 尺）`;
-  if (c.some((x) => x === 'low')) return '低（僅歷史情境參考）';
-  return '歷史情境參考';
-}
-
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
-export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false }) {
+export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false, station = null }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
   const ratioText = ratioAsOf ? String(ratioAsOf).split('-').join('/') : null;
   if (loading && !band) {
@@ -931,7 +921,7 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
     );
   }
   if (!band) return <div data-testid="valuation-band-headline" data-status={error ? 'error' : 'insufficient'} style={{ marginBottom: 12, color: WB.ink, fontWeight: 700 }}>估值判讀：{error ? '資料暫時取不到，尚不能判定合理價' : '尚未取得可核實分母，不能判讀現價要求'}</div>;
-  const conf = confidenceText(band);
+  const conf = multipleConfidenceText(band, station);
   const meta = [
     basisVerificationText(band),
     `倍數信心：${conf}`,
