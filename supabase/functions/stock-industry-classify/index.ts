@@ -2,6 +2,8 @@
  * stock-industry-classify —— 全市場細分產業／題材分類（STOCK_INDUSTRY_MAP_V1）
  *
  * 來源：public.tw_industry_peers（官方大類＋市場別）＋ public.stock_names（名稱）
+ *       ＋ 公開資訊觀測站「主要經營業務」（存 business_desc，180 天內不重抓）
+ * 依據：每檔必回 evidence；未達採用門檻（isAdoptedClassification）者前台不採用、進後台待審
  * 分類：Lovable AI Gateway（chat completions + 嚴格 json_schema，enum 限定字典值）
  * 落地：public.stock_industry_map（symbol PK upsert）
  *
@@ -25,11 +27,15 @@ import {
   sanitizeIndustries,
   sanitizeThemes,
   sanitizeMarketGroups,
+  chainTierOf,
+  INDUSTRY_GROUPS as GROUPS,
 } from '../_shared/industryTaxonomy.ts';
+import { fetchMainBusiness } from '../_shared/mopsBusiness.ts';
 
 const GATEWAY = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const MODEL = 'google/gemini-3.8-flash';
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 15;
+const BUSINESS_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 const DEFAULT_MAX_BATCHES = 20;
 const CONCURRENCY = 4;
 
@@ -38,6 +44,7 @@ type Candidate = {
   name: string | null;
   market: string | null;
   official: string | null;
+  business: string | null;
 };
 
 const SCHEMA = {
@@ -50,7 +57,7 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['symbol', 'industries', 'revenueMix', 'themes', 'marketGroups', 'confidence'],
+        required: ['symbol', 'industries', 'revenueMix', 'themes', 'marketGroups', 'evidence', 'confidence'],
         properties: {
           symbol: { type: 'string' },
           industries: {
@@ -77,6 +84,7 @@ const SCHEMA = {
             maxItems: 3,
             items: { type: 'string', enum: MARKET_GROUPS },
           },
+          evidence: { type: 'string' },
           confidence: { type: 'number' },
         },
       },
@@ -96,8 +104,10 @@ function systemPrompt(): string {
     '3. 細分產業要盡量精準：字典若有更細的類別就用細的（例：散熱廠用「液冷散熱」或「均熱片/VC」而非泛用「散熱模組」；電源管理晶片廠用「電源管理IC」而非「IC設計」；ABF 載板用「載板ABF/BT」而非「PCB/CCL」）。真的無法再細分時才用泛用類。',
     '4. 只有一個主業時就只給 1 個細分產業，不要硬湊。',
     '5. marketGroups 是台股市場慣用的族群俗稱（例：3017 奇鋐／3324 雙鴻／3653 健策＝「散熱三雄」；2330 台積電＝「晶圓雙雄」「台灣50成分股」）。只有市場公認屬於該族群的個股才給，寧缺勿濫，不確定就回傳空陣列。',
-    '6. confidence 0-1：熟悉且確定 0.8 以上；只能靠官方大類推測給 0.4 以下。',
-    '7. 官方大類僅供參考，請以公司實際業務為準（例：3443 創意是 ASIC 設計服務，不是泛半導體）。',
+    '6. 分類一律依「主要經營業務」（公司向主管機關申報的產品／業務）判斷公司實際賣什麼，並放在產業鏈正確位置：上游材料廠不能歸到下游成品（例：1815 富喬主要業務為電子級玻璃纖維＝「玻纖紗/玻纖布」，不是「CCL銅箔基板」或「PCB板廠」；8358 金居＝「銅箔」；6274 台燿、2383 台光電＝「CCL銅箔基板」；3044 健鼎＝「PCB板廠」）。',
+    '7. evidence：用一句話引用主要經營業務或公認主力產品說明為何如此分類（例：「主要經營業務：電子級玻璃纖維」）。主要經營業務空白且你不確定時，evidence 回空字串。',
+    '8. confidence 0-1：主要經營業務明確對應字典類別才給 0.9 以上；需要推測、業務描述只有營業登記代碼、或跨多個不相關大類時給 0.8 以下；只能靠官方大類推測給 0.4 以下。',
+    '9. 官方大類僅供參考，請以公司實際業務為準（例：3443 創意是 ASIC 設計服務，不是泛半導體）。',
     '',
     '【細分產業字典】',
     dict,
@@ -115,7 +125,7 @@ async function classifyBatch(
   batch: Candidate[],
 ): Promise<Array<Record<string, unknown>>> {
   const userLines = batch
-    .map((c) => `${c.symbol}\t${c.name ?? ''}\t官方大類:${c.official ?? '未知'}\t市場:${c.market ?? '未知'}`)
+    .map((c) => `${c.symbol}\t${c.name ?? ''}\t官方大類:${c.official ?? '未知'}\t市場:${c.market ?? '未知'}\t主要經營業務:${c.business ?? '（無）'}`)
     .join('\n');
 
   let attempt = 0;
@@ -132,7 +142,7 @@ async function classifyBatch(
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt() },
-          { role: 'user', content: `請分類以下台股（代號\t名稱\t官方大類\t市場）：\n${userLines}` },
+          { role: 'user', content: `請分類以下台股（代號\t名稱\t官方大類\t市場\t主要經營業務）：\n${userLines}` },
         ],
         response_format: {
           type: 'json_schema',
@@ -210,6 +220,7 @@ Deno.serve(async (req) => {
         name: null,
         market: (row.market as string) ?? null,
         official: (row.industry as string) ?? null,
+        business: null,
       });
     }
     if (!data || data.length < pageSize) break;
@@ -231,14 +242,23 @@ Deno.serve(async (req) => {
 
   // 已存在紀錄
   const existing = new Map<string, boolean>();
+  const cachedBiz = new Map<string, { desc: string | null; at: number }>();
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase
       .from('stock_industry_map')
-      .select('symbol, reviewed')
+      .select('symbol, reviewed, business_desc, business_fetched_at')
       .order('symbol')
       .range(from, from + pageSize - 1);
     if (error) break;
-    for (const row of data ?? []) existing.set(row.symbol as string, row.reviewed as boolean);
+    for (const row of data ?? []) {
+      existing.set(row.symbol as string, row.reviewed as boolean);
+      if (row.business_fetched_at) {
+        cachedBiz.set(row.symbol as string, {
+          desc: (row.business_desc as string) ?? null,
+          at: Date.parse(row.business_fetched_at as string),
+        });
+      }
+    }
     if (!data || data.length < pageSize) break;
   }
 
@@ -266,6 +286,15 @@ Deno.serve(async (req) => {
       const idx = cursor++;
       const batch = runBatches[idx];
       try {
+        // 先補主要經營業務（逐檔、間隔 400ms，避免觀測站限流）
+        const fetchedNow = new Set<string>();
+        for (const c of batch) {
+          const hit = cachedBiz.get(c.symbol);
+          if (hit && Date.now() - hit.at < BUSINESS_TTL_MS) { c.business = hit.desc; continue; }
+          try { c.business = await fetchMainBusiness(c.symbol); } catch { c.business = null; }
+          fetchedNow.add(c.symbol);
+          await new Promise((r) => setTimeout(r, 400));
+        }
         const results = await classifyBatch(apiKey!, batch);
         const bySymbol = new Map(results.map((r) => [String(r.symbol ?? ''), r]));
         const rows = [];
@@ -280,8 +309,19 @@ Deno.serve(async (req) => {
             stats.skipped += 1;
             continue;
           }
+          // 採用門檻的伺服端防線：無業務依據或跨不相關大類 → 信心上限 0.85（進待審）
+          let confidence = Number.isFinite(Number(r.confidence)) ? Number(r.confidence) : null;
+          const evidence = String(r.evidence ?? '').trim() || null;
+          const groupsHit = new Set(industries.map((ind) => Object.entries(GROUPS).find(([, l]) => l.includes(ind))?.[0]));
+          if (confidence != null && (!c.business || !evidence || (groupsHit.size > 1 && !revenueMix))) {
+            confidence = Math.min(confidence, 0.85);
+          }
           rows.push({
             symbol: c.symbol,
+            business_desc: c.business,
+            ...(fetchedNow.has(c.symbol) || c.business ? { business_fetched_at: new Date().toISOString() } : {}),
+            evidence,
+            chain_tier: chainTierOf(industries[0]),
             name: c.name,
             market: c.market,
             official_industry: c.official,
@@ -291,7 +331,7 @@ Deno.serve(async (req) => {
             market_groups: isNonEquity({ symbol: c.symbol, officialIndustry: c.official, name: c.name })
               ? []
               : sanitizeMarketGroups(r.marketGroups),
-            confidence: Number.isFinite(Number(r.confidence)) ? Number(r.confidence) : null,
+            confidence,
             model: MODEL,
             source: 'ai',
             updated_at: new Date().toISOString(),
