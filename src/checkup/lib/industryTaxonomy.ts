@@ -112,3 +112,29 @@ export function sanitizeMarketGroups(groups: unknown): string[] {
   const list = Array.isArray(groups) ? groups.filter(isValidMarketGroup).map(String) : []
   return Array.from(new Set(list)).slice(0, MAX_MARKET_GROUPS)
 }
+
+/** 產業鏈位置（上游／中游／下游），僅供顯示與同業分群，不在字典內者回 null */
+export const CHAIN_TIERS: Record<string, string> =
+  ((taxonomyJson as unknown as { chainTiers?: Record<string, string> }).chainTiers) ?? {}
+
+export function chainTierOf(industry: string | null | undefined): string | null {
+  return (industry && CHAIN_TIERS[industry]) || null
+}
+
+/** AI 分類採用門檻：未人工確認者必須信心 ≥ 此值且附依據 */
+export const ADOPT_MIN_CONFIDENCE = 0.9
+
+/**
+ * 分類能否上線：人工確認，或（信心 ≥ 0.9 且有依據文字）。
+ * 不採用者前台退回官方大類、同業母體排除，並留在後台待審清單。
+ */
+export function isAdoptedClassification(row: {
+  reviewed?: boolean | null
+  confidence?: number | null
+  evidence?: string | null
+}): boolean {
+  if (row?.reviewed === true) return true
+  const c = Number(row?.confidence)
+  const ev = String(row?.evidence ?? '').trim()
+  return Number.isFinite(c) && c >= ADOPT_MIN_CONFIDENCE && ev.length >= 4
+}

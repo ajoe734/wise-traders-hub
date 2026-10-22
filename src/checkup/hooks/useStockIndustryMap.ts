@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
 import { createDocumentCache } from '@/checkup/lib/checkupCacheStore';
 import { setAutoIndustryMap, getAutoIndustryMapVersion } from '@/checkup/lib/stockMetaMulti.js';
+import { isAdoptedClassification } from '@/checkup/lib/industryTaxonomy';
 
 export interface AutoIndustryEntry {
   industries: string[];
@@ -31,8 +32,8 @@ interface CachedDoc {
 }
 
 const cache = createDocumentCache<CachedDoc>({
-  // v2：新增 marketGroups 欄位，舊快取缺欄位一律作廢
-  storageKey: 'lf.checkup.stockIndustryMap.v2',
+  // v3：只收通過採用門檻（人工確認或高信心有依據）的分類，舊快取作廢
+  storageKey: 'lf.checkup.stockIndustryMap.v3',
   empty: () => ({ at: 0, map: {} }),
 });
 
@@ -53,7 +54,9 @@ let inflight: Promise<AutoIndustryMap> | null = null;
 let applied = false;
 
 
-function normalizeRow(row: any): AutoIndustryEntry | null {
+export function normalizeRow(row: any): AutoIndustryEntry | null {
+  // 未人工確認且無依據的 AI 猜測不上線，退回官方大類
+  if (!isAdoptedClassification(row)) return null;
   const industries = Array.isArray(row?.industries) ? row.industries.filter(Boolean).map(String) : [];
   if (industries.length === 0) return null;
   const mixRaw = Array.isArray(row?.revenue_mix) ? row.revenue_mix : null;
@@ -81,7 +84,7 @@ async function fetchAll(): Promise<AutoIndustryMap> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await db
       .from('stock_industry_map')
-      .select('symbol, industries, revenue_mix, themes, market_groups')
+      .select('symbol, industries, revenue_mix, themes, market_groups, reviewed, confidence, evidence')
       .order('symbol')
       .range(from, from + PAGE - 1);
     if (error) throw new Error(error.message || 'stock_industry_map read failed');

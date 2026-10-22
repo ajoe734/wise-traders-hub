@@ -16,14 +16,14 @@ afterEach(() => clearAutoIndustryMap());
 const EMPTY_META: Record<string, any> = {};
 
 describe('autoMap 層', () => {
-  it('富喬採用全市場PCB/CCL主分類，不回退舊PCB/材料；人工修正仍優先', () => {
+  it('富喬依主要經營業務（電子級玻璃纖維）歸玻纖紗/玻纖布，不回退舊PCB/材料；人工修正仍優先', () => {
     setAutoIndustryMap({
-      '1815': { industries: ['PCB/CCL', '玻璃陶瓷'], revenueMix: null, themes: ['5G', 'AI伺服器'] },
+      '1815': { industries: ['玻纖紗/玻纖布'], revenueMix: null, themes: ['5G', 'AI伺服器'] },
     });
     const seed = { '1815': { industry: 'PCB/材料', strategy: '景氣循環' } };
     const meta = getMultiMeta('1815', seed);
-    expect(meta.primaryIndustry).toBe('PCB/CCL');
-    expect(meta.industries).toEqual(['PCB/CCL', '玻璃陶瓷']);
+    expect(meta.primaryIndustry).toBe('玻纖紗/玻纖布');
+    expect(meta.industries).toEqual(['玻纖紗/玻纖布']);
     expect(meta.revenueMix).toBeNull();
     expect(meta.strategy).toBe('景氣循環');
     expect(getMultiMeta('1815', seed, { industries: ['玻璃陶瓷'] }).primaryIndustry).toBe('玻璃陶瓷');

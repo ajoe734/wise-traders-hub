@@ -5109,7 +5109,11 @@ export type Database = {
       }
       stock_industry_map: {
         Row: {
+          business_desc: string | null
+          business_fetched_at: string | null
+          chain_tier: string | null
           confidence: number | null
+          evidence: string | null
           industries: string[]
           market: string | null
           market_groups: string[]
@@ -5125,7 +5129,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          business_desc?: string | null
+          business_fetched_at?: string | null
+          chain_tier?: string | null
           confidence?: number | null
+          evidence?: string | null
           industries?: string[]
           market?: string | null
           market_groups?: string[]
@@ -5141,7 +5149,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          business_desc?: string | null
+          business_fetched_at?: string | null
+          chain_tier?: string | null
           confidence?: number | null
+          evidence?: string | null
           industries?: string[]
           market?: string | null
           market_groups?: string[]

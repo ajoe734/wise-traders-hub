@@ -18,9 +18,9 @@ const names = { '3231': '緯創', '2382': '廣達', '2454': '聯發科', '3443':
 describe('assembleIndustryOverview', () => {
   const { sections, customGroups } = assembleIndustryOverview(codes, groups, counts, names);
 
-  it('13 大類全部出現，且涵蓋 125 個代碼', () => {
+  it('13 大類全部出現，且涵蓋 129 個代碼', () => {
     expect(sections.length).toBe(13);
-    expect(sections.reduce((n, s) => n + s.rows.length, 0)).toBe(125);
+    expect(sections.reduce((n, s) => n + s.rows.length, 0)).toBe(129);
   });
 
   it('每個代碼只出現一次', () => {
@@ -59,7 +59,7 @@ describe('assembleIndustryOverview', () => {
   it('每個有代碼的名單都掛到對應產業列上', () => {
     const rows = sections.flatMap((s) => s.rows);
     const withGroup = rows.filter((r) => r.peerGroup !== null);
-    expect(withGroup.length).toBe(123); // 124 組 - 1 自訂組
+    expect(withGroup.length).toBe(127); // 新增 PCB 鏈上游 4 組
   });
 });
 

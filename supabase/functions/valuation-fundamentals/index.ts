@@ -6,6 +6,7 @@
  * 一般登入者可呼叫（範例持股免登入）；除回補登記外不寫資料表。
  */
 // AUTH: user
+import { isAdoptedClassification } from '../_shared/industryTaxonomy.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders, errorResponse, jsonResponse } from '../_shared/cors.ts';
 import { requireCaller, AuthError } from '../_shared/authGuard.ts';
@@ -87,7 +88,9 @@ Deno.serve(async (req) => {
   const fetchedAt = new Date().toISOString();
   try {
     const supa = serviceClient();
-    const { data: meta, error } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').eq('symbol', symbol).maybeSingle();
+    const { data: metaRaw, error } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups,reviewed,confidence,evidence').eq('symbol', symbol).maybeSingle();
+    // 未達採用門檻（未人工確認且無依據）的分類不當同業母體依據
+    const meta = metaRaw && isAdoptedClassification(metaRaw as any) ? metaRaw : null;
     if (error) throw new Error(`industry_map: ${error.message}`);
     const t0 = Date.now();
     const timings = { industryMapMs: t0 - started, officialMs: 0, targetMs: 0, peersMs: 0 };
@@ -116,9 +119,9 @@ Deno.serve(async (req) => {
     const core = industries[0];
     let audit: ReturnType<typeof auditPeers> = [];
     if (core && withPeers) {
-      const { data: uni, error: uErr } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups').contains('industries', [core]).limit(300);
+      const { data: uni, error: uErr } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups,reviewed,confidence,evidence').contains('industries', [core]).limit(300);
       if (uErr) throw new Error(`peer_universe: ${uErr.message}`);
-      const ranked = rankPeerCandidates({ symbol, industries, market_groups: meta?.market_groups ?? [] }, (uni ?? []) as any, (s) => official(s)?.paidInCapital ?? null);
+      const ranked = rankPeerCandidates({ symbol, industries, market_groups: meta?.market_groups ?? [] }, ((uni ?? []) as any[]).filter((r) => isAdoptedClassification(r)) as any, (s) => official(s)?.paidInCapital ?? null);
       audit = auditPeers(ranked, (s) => !idx || official(s) != null, MAX_PEERS);
     }
     const tp = Date.now();
