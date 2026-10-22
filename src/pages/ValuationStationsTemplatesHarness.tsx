@@ -92,7 +92,7 @@ function TemplateB({ sel, setSel }) {
   const rv = useReveal();
   const lw = 56, pad = 14, rowH = 40, h = rowH * 3 + 28;
   const x = (v: number) => lw + ((v - AXIS.lo) / (AXIS.hi - AXIS.lo)) * (w - lw - pad);
-  const rows: { name: string; group: Mark['group'] }[] = [{ name: '歷史站牌', group: 'hist' }, { name: '前瞻', group: 'fwd' }, { name: '同業', group: 'peer' }];
+  const rows: { name: string; group: Mark['group'] }[] = [{ name: '過去一年行情', group: 'hist' }, { name: '前瞻', group: 'fwd' }, { name: '同業', group: 'peer' }];
   return (
     <div ref={(el) => { (ref as any).current = el; (rv.ref as any).current = el; }} onClick={rv.replay} key={rv.k}>
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label="估值三列啞鈴">
