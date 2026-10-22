@@ -59,7 +59,7 @@ describe('assembleIndustryOverview', () => {
   it('每個有代碼的名單都掛到對應產業列上', () => {
     const rows = sections.flatMap((s) => s.rows);
     const withGroup = rows.filter((r) => r.peerGroup !== null);
-    expect(withGroup.length).toBe(123); // 124 組 - 1 自訂組
+    expect(withGroup.length).toBe(127); // 新增 PCB 鏈上游 4 組
   });
 });
 
