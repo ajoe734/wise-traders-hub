@@ -18,8 +18,7 @@ export function parseMainBusiness(html: string): string | null {
     .trim();
   if (!raw) return null;
   // 同一品項常重複出現（例：電子級玻璃纖維 ×3），去重
-  const parts = Array.from(new Set(raw.split(/[；;、,，\s]+/).map((x) => x.trim()).filter(Boolean)));
-  const out = parts.join('、').slice(0, 400);
+  const out = raw.replace(/(\S+)(\s+\1)+/g, '$1').slice(0, 400);
   return out || null;
 }
 
