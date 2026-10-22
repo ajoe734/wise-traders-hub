@@ -907,7 +907,6 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
   );
 }
 
-/** 倍數證據：與分母可用數分開陳述。 */
 /** 主標：只有三尺獨立財報與倍數理由都通過檢查，才呈現情境價。 */
 export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAsOf = null, peersPending = false, station = null }) {
   const dateText = band?.asOf ? band.asOf.split('-').join('/') : null;
@@ -935,7 +934,7 @@ export function ValuationBandHeadline({ WB, band, loading, error, stale, ratioAs
       <div className="hdp-band-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 0 }}>
         <span style={{ fontSize: 13, color: WB.inkSub }}>估值判讀</span>
         <span data-testid="valuation-band-value" style={{ fontSize: 18, fontWeight: 700, color: WB.ink, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
-          {headlineText(band, hasPeerEvidence)}
+          {headlineText(band, hasPeerEvidence, station)}
         </span>
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub, marginTop: 2, lineHeight: 1.6 }}>
