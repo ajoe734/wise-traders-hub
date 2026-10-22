@@ -80,6 +80,14 @@ const handler = withLogging("ecpay-refund", async (req, log) => {
       : null;
   const reason = typeof body.reason === "string" ? body.reason : "";
 
+  // audit_logs.target_id 是 uuid，指向對應 payment_intents
+  const { data: intent } = await admin
+    .from("payment_intents")
+    .select("id")
+    .eq("trade_no", merchantTradeNo)
+    .maybeSingle();
+  const intentId: string | null = intent?.id ?? null;
+
   // 冪等：已退刷過直接回報，不重複送綠界
   const refundTxKey = `REFUND-${merchantTradeNo}`;
   const { data: existing } = await admin
@@ -131,8 +139,8 @@ const handler = withLogging("ecpay-refund", async (req, log) => {
       actor_id: callerId,
       action: "ecpay_refund.failed",
       target_type: "payment_intents",
-      target_id: merchantTradeNo,
-      detail: { tradeNo, totalAmount, rtnCode: doResult.rtnCode, rtnMsg: doResult.rtnMsg, reason },
+      target_id: intentId,
+      detail: { merchantTradeNo, tradeNo, totalAmount, rtnCode: doResult.rtnCode, rtnMsg: doResult.rtnMsg, reason },
     });
     return errorResponse(
       `綠界退刷失敗：${doResult.rtnMsg || doResult.rtnCode}`,
@@ -190,10 +198,12 @@ const handler = withLogging("ecpay-refund", async (req, log) => {
     actor_id: callerId,
     action: "ecpay_refund",
     target_type: "payment_intents",
-    target_id: merchantTradeNo,
+    target_id: intentId,
     detail: {
+      merchantTradeNo,
       tradeNo,
       totalAmount,
+      refundAction,
       checkupSubscriptionId,
       canceledSubscription,
       reason,
