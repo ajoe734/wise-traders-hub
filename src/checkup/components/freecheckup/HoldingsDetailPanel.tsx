@@ -841,6 +841,12 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
   const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
   const custom = useMemo(() => buildCustomScenario(band, customInput, today), [band, customInput, today]);
   const rulerRes = useMemo(() => selectedRulerBand(band, mode, view), [band, mode, view]);
+  const dumbbellRows = useMemo(() => buildDumbbellRows({
+    mainKey: st.main.key,
+    rulerOf: (key) => selectedRulerBand(band, key, view) ?? { reason: bandLoading ? '載入中' : '資料不足' },
+    forward: st.forward,
+    peer: extras.peersLoading && st.peer.status !== 'ready' ? { status: 'insufficient', reason: '同業倍數載入中' } : st.peer,
+  }), [st, band, view, bandLoading, extras.peersLoading]);
   const ruler = rulerRes && rulerRes.low > 0 ? rulerRes : null;
   const selectedRow = band?.rows?.find((item) => item.key === mode) ?? null;
   const selectedCustom = custom.status === 'ready' && custom.key === mode
@@ -858,19 +864,9 @@ function PriceAxis({ WB, price, cost, target, upside, tpHistory, band = null, vi
       '--spectrum-light': WB.inkLight, '--spectrum-hair': WB.hair, '--spectrum-accent': WB.accent,
       '--spectrum-surface': WB.surface }}>
        <ValuationBandHeadline WB={WB} band={band} loading={bandLoading} error={bandError} stale={stale} ratioAsOf={ratioAsOf} peersPending={peersPending} station={{ ruler: st.main.key, position: st.position, peer: extras.peersLoading && st.peer.status !== 'ready' ? { status: 'insufficient', reason: '同業倍數載入中' } : st.peer }} />
-      <div className="price-spectrum-heading">
-        <span>價格與估值 <small style={{ fontSize: 13, fontWeight: 600, color: WB.inkSub }}>新台幣 · 單一等比例軸</small></span>
-        {mode === 'target' && tpLabel && <span className="price-spectrum-heading-note">{tpLabel}</span>}
-      </div>
-      <div className="price-scale-switch" aria-label="切換價格與估值尺">
-        {PRICE_SCALE_MODES.map((item) => <Button key={item.key} type="button" variant="ghost" size="sm"
-          data-testid={`price-scale-mode-${item.key}`} aria-pressed={mode === item.key}
-          onClick={() => setMode(item.key)}>{item.label}</Button>)}
-      </div>
-      <div key={mode} className="price-spectrum-transition">
-        <PriceSpectrum WB={WB} price={price} cost={cost} target={mode === 'target' ? target : null}
-          customBand={mode === 'stations' ? null : selectedCustom} rulerBand={mode === 'stations' || selectedCustom ? null : ruler} stations={stationMarks} />
-      </div>
+      <StackedValuationDumbbell WB={WB} price={price} cost={cost} target={target}
+        custom={custom.status === 'ready' ? { key: custom.key, low: custom.low, high: custom.high } : null}
+        rows={dumbbellRows} />
       <div className="price-scale-status" data-testid="price-scale-status" aria-live="polite">
         {mode === 'stations' ? <div data-testid="stations-status" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <strong data-testid="stations-priced-in">{st.position ? `現價${st.position}` : st.pricedIn.level !== 'unknown' ? st.pricedIn.label : '估值資料準備中'}・{st.main.key.toUpperCase()}{st.pricedIn.impliedPercentile != null ? ` 近一年第 ${Math.round(st.pricedIn.impliedPercentile * 100)}%` : ''}</strong>
