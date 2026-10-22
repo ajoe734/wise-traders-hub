@@ -3,7 +3,9 @@
 .hv-section h2 { font-size:16px; font-weight:700; margin:0; }
 .hv-sub,.hv-meta { font-size:11px; color:var(--hs-gray-1); line-height:1.7; overflow-wrap:anywhere; }
 .hv-meta { margin-top:8px; }
-.hv-spectrum { width:100%; display:block; max-height:280px; }
+.hv-spectrum { width:100%; display:block; overflow:visible; }
+.hv-spectrum-wrap { position:relative; min-width:0; padding-top:4px; }
+.hv-spectrum-wrap .hv-replay { display:flex; margin-left:auto; width:28px; height:28px; color:var(--hs-gray-1); }
 .hv-spectrum .hv-point { transition:opacity 350ms cubic-bezier(.165,.84,.44,1),transform 350ms cubic-bezier(.165,.84,.44,1); transform-box:fill-box; transform-origin:center; }
 .hv-spectrum[data-on="0"] .hv-point { opacity:0; transform:scale(.3); transition:none; }
 .hv-values { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; font-size:12px; }
