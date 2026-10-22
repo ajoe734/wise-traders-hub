@@ -71,4 +71,4 @@ Use `finmindUsage` with paginated job logs, completed-symbol deduplication and t
 
 ### Traffic metrics
 
-Use `trafficQuality` for metrics and `trafficRecovery` for evidence-only recovery; run `check:traffic` (offline math + actual SQL) after traffic changes. Count named pages, never infer event-time login from visitor links; why: prevents invented history and report drift.
+Use `trafficQuality` for metrics, `trafficRecovery` for recovery, and `ga4Reconcile` for the separate GA4 comparison view; run `check:traffic` after changes. Count named pages, never infer event-time login; why: prevents invented history and mixed-source totals.
