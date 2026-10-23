@@ -21,6 +21,7 @@ export function normalizeProduct(name: string): string {
     .replace(/[\s\u3000]+/g, '')
     .replace(/^(?:\(?\d{1,2}[)）.、]|[（(][一二三四五六七八九十\d]+[)）]|[‧・•．\-])/, '')
     .replace(/[：:]+$/, '')
+    .replace(/(占|佔|約|為)+$/, '')
     .trim();
 }
 
@@ -58,7 +59,7 @@ function parseRows(lines: string[]): ProductShare[] {
     if (pct === null) continue;
     if (nums.length === 1 && !last.endsWith('%') && !last.includes('.') && Number(last) > 100) continue;
     const product = normalizeProduct(name.join(''));
-    if (!product || product.length > 24 || SKIP_NAME.test(product) || /合計|總計|小計|淨額/.test(product) || /^\d/.test(product)) continue;
+    if (!product || product.length > 24 || SKIP_NAME.test(product) || /合計|總計|小計|淨額|比重|比率|單位|年度/.test(product) || /^\d/.test(product)) continue;
     out.delete(product);
     out.set(product, pct);
   }
@@ -91,21 +92,30 @@ function parseColumns(lines: string[]): ProductShare[] {
   return [];
 }
 
-/** 從年報全文取「營業比重」段落的產品占比 */
+/** 從年報全文取「營業比重」段落的產品占比：先試所有段落的表格，再退回段落內文 */
 export function parseProductShares(text: string): ParsedMix {
   const lines = text.split(/\r?\n/);
-  let firstBad: ParsedMix | null = null;
+  const blocks: string[][] = [];
   for (let i = 0; i < lines.length; i++) {
     if (!ANCHOR.test(lines[i])) continue;
     const block: string[] = [];
-    // 標題同列若已含資料（例：「營業比重：玻纖紗 47%」）也納入
     const tail = lines[i].split(ANCHOR).pop() ?? '';
     if (tail.trim()) block.push(tail);
     for (let j = i + 1; j < Math.min(lines.length, i + 260); j++) {
       if (STOP.test(lines[j]) || STOP2.test(lines[j])) break;
       block.push(lines[j]);
     }
-    for (const cand of [parseColumns(block), parseRows(block.flatMap((l) => l.split(/[，、；;]/).length > 2 && /[:：]/.test(l) ? l.split(/[，、；;]/) : [l]).map((l) => l.replace(/[:：]/g, '  '))), parseInline(block.join('\n'))]) {
+    blocks.push(block);
+  }
+  let firstBad: ParsedMix | null = null;
+  const parsers: Array<(b: string[]) => ProductShare[]> = [
+    parseColumns,
+    (b) => parseRows(b.map((l) => l.replace(/[:：]/g, '  '))),
+    (b) => parseInline(b.join('\n')),
+  ];
+  for (const parse of parsers) {
+    for (const block of blocks) {
+      const cand = parse(block);
       if (cand.length === 0) continue;
       const r = finalize(cand);
       if (!r.reason) return r;
