@@ -83,7 +83,7 @@ Classify stocks from the official MOPS main-business text (`_shared/mopsBusiness
 
 Refresh adopted classifications from the database on holdings entry and tab focus, retaining device cache only for failed reads; generate peer groups from adopted database classifications and exclude unsupported legacy includes through `reviewedPeerOverride`; why: approved supply-chain corrections must not remain hidden behind daily cache or old static categories.
 
-Use `buildLivePeerGroups` to project adopted runtime classifications into drawer peer groups, retaining curated order and exclusions; notify classification consumers after an admin save across same-origin tabs; why: confirmed corrections must reach drawer peers without a frontend redeploy or admitting pending classifications.
+Use `buildLivePeerGroups` for drawer peers and `filterSupplyChainPeers` for snapshot/portfolio peers; both require adopted primary industry codes, never secondary, broad or custom-group fallback. `rankPeerCandidates` enforces the same primary-business gate in fundamentals; notify consumers after admin saves across tabs; why: all valuation paths must isolate supply-chain products without admitting stale or pending classifications.
 
 ### Traffic metrics
 

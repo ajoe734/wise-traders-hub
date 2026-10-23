@@ -19,7 +19,7 @@ const map = {
   foil: { industries: ['銅箔'] },
   pcb: { industries: ['PCB板廠'] },
 };
-const rows = Object.keys(map).map((symbol, i) => ({ symbol, pe: 10 + i * 10, pb: 1 + i, ps: 2 + i }));
+const rows = Object.keys(map).map((symbol) => ({ symbol, pe: symbol === '5340' ? 20 : symbol === 'glass2' ? 30 : symbol === 'glass3' ? 40 : 1000, pb: symbol === '5340' ? 2 : symbol === 'glass2' ? 3 : symbol === 'glass3' ? 4 : 100, ps: symbol === '5340' ? 3 : symbol === 'glass2' ? 4 : symbol === 'glass3' ? 5 : 200 }));
 const code = industryCodeOf('玻纖紗/玻纖布');
 const dirty = [{ key: 'glass', code, label: '玻纖紗/玻纖布', pickedAt: '', include: Object.keys(map), symbols: Object.keys(map), exclude: [] }];
 
