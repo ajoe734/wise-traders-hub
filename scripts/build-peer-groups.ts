@@ -2,7 +2,7 @@
  * 產生產業代碼表與依代碼自動組的同業名單。
  *
  * 用法：bunx tsx scripts/build-peer-groups.ts <stocks.json> [report.md]
- *   stocks.json：[{ s: 代號, n: 名稱, i: 主細分產業, cap: 市值 }]
+ *   stocks.json：[{ s: 代號, n: 名稱, i: 主細分產業, industries: 全部分類, adopted: 採用狀態, cap: 官方股數×最近收盤 }]
  *   （由 stock_industry_map + official_share_registry × 最新收盤 匯出，唯讀）
  * 權威來源：已採用的 stock_industry_map；舊 overlay 不得覆蓋審核後產業鏈。
  */
@@ -25,6 +25,9 @@ const existing: IndustryCode[] = fs.existsSync(codesPath) ? JSON.parse(fs.readFi
 const codes = assignCodes(taxonomy, SECTORS, existing);
 
 const dump = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')) as Array<{ s: string; n: string | null; i: string | null; industries: string[]; adopted: boolean; cap: number | null }>;
+if (!Array.isArray(dump) || dump.some((d) => typeof d.adopted !== 'boolean' || !Array.isArray(d.industries))) {
+  throw new Error('同業匯出必須包含 adopted 與 industries，不接受未經採用閘門的舊格式');
+}
 const names = new Map(dump.map((d) => [d.s, d.n]));
 const stocks = dump.map((d) => {
   const ind = d.adopted === true ? d.i : null;
@@ -62,7 +65,7 @@ for (const c of codes.filter((c) => !c.retired)) {
 
 fs.writeFileSync(codesPath, JSON.stringify({ _note: '細分產業固定代碼表。代碼永不改號、不重用；改名舊名進 aliases；字典移除者標 retired。由 scripts/build-peer-groups.ts 產生。', sectors: SECTORS, codes }, null, 1) + '\n');
 fs.writeFileSync(path.join(DATA, 'valuationPeerGroups.json'), JSON.stringify({
-  _note: '估值站牌同業名單，依產業代碼自動組成：同主產業代碼、市值前 12；include＝人工加入（2026-10-14 站長確認的 106 組成員全部保留）、exclude＝人工排除（優先於自動）。custom＝跨產業人工自訂組。由 scripts/build-peer-groups.ts 產生，勿手改 symbols。',
+  _note: '估值站牌同業名單，只採用通過審核閘門的分類：同主產業代碼、市值前 12；include 保留原人工意圖，未採用或不符產業的成員加入 exclude；custom 為人工跨產業組。由 scripts/build-peer-groups.ts 產生，勿手改 symbols。',
   generatedAt: TODAY, groups,
 }, null, 1) + '\n');
 
