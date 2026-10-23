@@ -13,7 +13,7 @@ export interface ParsedMix { products: ProductShare[]; total: number; reason: st
 const ANCHOR = /營業比重|營業比例|營收比重/;
 const STOP = /^\s*(?:[（(]?[一二三四五六七八九十]+[）)、]|\d+\s*[.、．]|[（(]\d+[）)])\s*(?!\d)(?:公司目前|目前|計[畫劃]開發|產業概況|現有|主要產品之|新商品|新產品)/;
 const NUM = /^-?[\d,]+(?:\.\d+)?%?$/;
-const SKIP_NAME = /^(合計|總計|小計|總額|Total|其他合計|產品名稱|產品|項目|營業內容|主要產品|年度|單位|金額|比重|產品別|營業項目|品名|類別)$/i;
+const SKIP_NAME = /^(合計|合併|個體|總合計|營業收入合計|營收淨額|營業收入淨額|總計|小計|總額|Total|其他合計|產品名稱|產品|項目|營業內容|主要產品|年度|單位|金額|比重|產品別|營業項目|品名|類別)$/i;
 
 export function normalizeProduct(name: string): string {
   return name
@@ -36,33 +36,32 @@ function finalize(products: ProductShare[]): ParsedMix {
   return { products, total, reason: null };
 }
 
+const UNIT = /^(公噸|噸|千碼|碼|台|組|片|個|件|KG|kg|千個|千片|平方米|M2|m2|千元|仟元|元|%|％)$/;
+const isNumTok = (t: string) => t === '-' || NUM.test(t);
+
 function parseRows(lines: string[]): ProductShare[] {
-  const out: ProductShare[] = [];
+  // 同名產品保留最後一次（多年度或個體／合併並列時取後者）
+  const out = new Map<string, number>();
   for (const line of lines) {
-    const toks = line.trim().split(/\s{2,}|\t/).map((t) => t.trim()).filter(Boolean);
-    if (toks.length < 2) continue;
-    // 名稱取第一個非數字欄（內部單空白視為同名，例：「其 他」）
+    const toks = line.trim().replace(/％/g, '%').split(/\s+/).filter(Boolean);
     let k = 0;
-    const nameParts: string[] = [];
-    while (k < toks.length && !NUM.test(toks[k].replace(/\s/g, ''))) {
-      // 「公噸」「千碼」等單位欄不屬名稱
-      if (nameParts.length && /^(公噸|噸|千碼|碼|台|組|片|個|件|KG|kg|千個|千片|平方米|M2|m2|-)$/.test(toks[k])) { k++; continue; }
-      nameParts.push(toks[k]); k++;
-      if (nameParts.length > 1) break;
-    }
-    const nums = toks.slice(k).map((t) => t.replace(/\s/g, ''));
-    if (!nameParts.length || nums.length === 0) continue;
+    const name: string[] = [];
+    while (k < toks.length && !isNumTok(toks[k])) name.push(toks[k++]);
+    while (name.length && UNIT.test(name[name.length - 1])) name.pop();
+    const nums: string[] = [];
+    while (k < toks.length && isNumTok(toks[k])) nums.push(toks[k++]);
+    if (!name.length || !nums.length) continue;
     const last = nums[nums.length - 1];
-    const hasPctSign = nums.some((n) => n.endsWith('%'));
+    if (last === '-') continue;
     const pct = pctOf(last);
     if (pct === null) continue;
-    // 純金額列（無小數也無 % 且其前為大額）不當作比重
-    if (!hasPctSign && !/\./.test(last) && nums.length === 1 && Number(last) > 100) continue;
-    const product = normalizeProduct(nameParts[0]);
+    if (nums.length === 1 && !last.endsWith('%') && !last.includes('.') && Number(last) > 100) continue;
+    const product = normalizeProduct(name.join(''));
     if (!product || product.length > 24 || SKIP_NAME.test(product) || /^\d/.test(product)) continue;
-    out.push({ product, pct });
+    out.delete(product);
+    out.set(product, pct);
   }
-  return out;
+  return [...out.entries()].map(([product, pct]) => ({ product, pct }));
 }
 
 function parseColumns(lines: string[]): ProductShare[] {
