@@ -23,7 +23,7 @@ const MAX_PEERS = 6;
 /** 目標財報取 7 年：前 4 季需再往前 4 季才能算近四季營收年增。 */
 const TARGET_FIN_YEARS = 7;
 const PEER_CONCURRENCY = 3;
-export const VERSION = 'valuation-fundamentals@2026-10-19.1-db-only';
+export const VERSION = 'valuation-fundamentals@2026-10-23.1-primary-chain';
 
 type Meter = { dbReads: number; missing: string[] };
 type OfficialIndex = (symbol: string) => OfficialShares | null;
@@ -119,8 +119,13 @@ Deno.serve(async (req) => {
     const core = industries[0];
     let audit: ReturnType<typeof auditPeers> = [];
     if (core && withPeers) {
-      const { data: uni, error: uErr } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups,reviewed,confidence,evidence').contains('industries', [core]).limit(300);
-      if (uErr) throw new Error(`peer_universe: ${uErr.message}`);
+      const uni: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error: uErr } = await supa.from('stock_industry_map').select('symbol,name,industries,market_groups,reviewed,confidence,evidence').contains('industries', [core]).order('symbol').range(from, from + 999);
+        if (uErr) throw new Error(`peer_universe: ${uErr.message}`);
+        uni.push(...(data ?? []));
+        if (!data || data.length < 1000) break;
+      }
       const ranked = rankPeerCandidates({ symbol, industries, market_groups: meta?.market_groups ?? [] }, ((uni ?? []) as any[]).filter((r) => isAdoptedClassification(r)) as any, (s) => official(s)?.paidInCapital ?? null);
       audit = auditPeers(ranked, (s) => !idx || official(s) != null, MAX_PEERS);
     }
@@ -145,7 +150,7 @@ Deno.serve(async (req) => {
     timings.peersMs = withPeers ? Date.now() - tp : 0;
     const missingPeers = meter.missing.map((m) => m.split(':')[0]).filter((s) => s !== symbol);
     if (missingPeers.length) await requestSymbols(supa, missingPeers);
-    const peerRule = !withPeers ? '同業延後載入中（本次只算目標公司）' : `核心業務「${core ?? '無'}」同業（主業相同優先，題材不列條件；先排序再取前 ${MAX_PEERS} 家）`
+    const peerRule = !withPeers ? '同業延後載入中（本次只算目標公司）' : `核心業務「${core ?? '無'}」同業（僅主細分產業相同，不跨上下游；先排序再取前 ${MAX_PEERS} 家）`
       + `；候選 ${audit.length} 家：` + audit.map((a) => `${a.name}${a.symbol}（${a.detail}）`).join('；');
     const history = monthlyHistory(symbol, target.fs, target.bs, target.prices, asOf, target.official);
     const rows = buildScenarioRows(targetBasis, peers, peerRule, history);

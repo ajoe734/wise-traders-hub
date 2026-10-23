@@ -303,7 +303,7 @@ export function valuationHeadlineText(band: Pick<ValuationScenario, 'basisCount'
     const ok = band.rows.filter((r) => r.basisOk).map((r) => RULER_NAME[r.key]).join('／');
     return `已核實 ${band.basisCount} 把尺（${ok}），尚不能判定合理價`;
   }
-  if (hasPeerEvidence || station?.peer.status === 'ready') return '尚不能判定合理價';
+  if (station ? station.peer.status === 'ready' : hasPeerEvidence) return '尚不能判定合理價';
   return '僅歷史情境參考';
 }
 
@@ -312,7 +312,7 @@ export function multipleConfidenceText(band: Pick<ValuationScenario, 'rows'>, st
   const rows = band.rows.filter((r) => r.basisOk);
   if (!rows.length) return '—';
   const c = rows.map((r) => (r as any).confidence);
-  if (c.every((x) => x === 'peer') || station?.peer.status === 'ready') return '有同業證據';
+  if (station ? station.peer.status === 'ready' : c.every((x) => x === 'peer')) return '有同業證據';
   if (c.some((x) => x === 'insufficient')) return `依據不足（${c.filter((x) => x === 'insufficient').length} 尺）`;
   if (c.some((x) => x === 'low')) return '低（僅歷史情境參考）';
   return '歷史情境參考';
