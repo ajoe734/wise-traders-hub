@@ -38,7 +38,8 @@ describe('assembleIndustryOverview', () => {
   it('ODM／伺服器是唯一的跨產業自訂組', () => {
     expect(customGroups.length).toBe(1);
     expect(customGroups[0].label).toBe('ODM／伺服器');
-    expect(customGroups[0].members.length).toBe(8);
+    expect(customGroups[0].members.map((m) => m.symbol)).not.toContain('3706'); // 僅投資登記、未採用分類
+    expect(customGroups[0].members.length).toBe(7);
   });
 
   it('人工加入的成員標記為 manual，自動補齊標記為 auto', () => {
@@ -59,7 +60,7 @@ describe('assembleIndustryOverview', () => {
   it('每個有代碼的名單都掛到對應產業列上', () => {
     const rows = sections.flatMap((s) => s.rows);
     const withGroup = rows.filter((r) => r.peerGroup !== null);
-    expect(withGroup.length).toBe(127); // 新增 PCB 鏈上游 4 組
+    expect(withGroup.map((r) => r.code).sort()).toEqual(groups.filter((g) => !g.custom && g.code).map((g) => g.code).sort());
   });
 });
 
