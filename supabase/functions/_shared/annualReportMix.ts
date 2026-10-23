@@ -10,7 +10,7 @@
 export interface ProductShare { product: string; pct: number }
 export interface ParsedMix { products: ProductShare[]; total: number; reason: string | null }
 
-const ANCHOR = /營業比重|營業比例|營收比重/;
+const ANCHOR = /營\s*業\s*比\s*[重例率]|營\s*收\s*比\s*[重例率]|收\s*入\s*比\s*重|銷\s*售\s*比\s*重|產\s*品\s*比\s*重|比\s*重\s*[(（]\s*[%％]/;
 const STOP = /^\s*(?:[（(]?[一二三四五六七八九十]+[）)、]|\d+\s*[.、．]|[（(]\d+[）)])\s*(?!\d)(?:公司目前|目前|計[畫劃]開發|產業概況|現有|主要產品之|新商品|新產品)/;
 const STOP2 = /^\s*(?:\d+(?:\.\d+)+\s+|[（(]二[）)]\s*)?(公司目前|目前之商品|目前之產品|目前主要|計[畫劃]開發|產業概況)/;
 const NUM = /^-?[\d,]+(?:\.\d+)?%?$/;
