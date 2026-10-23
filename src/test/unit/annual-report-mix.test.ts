@@ -81,3 +81,15 @@ describe('年報產品對照字典', () => {
     expect(r.industry).toBe('玻纖紗/玻纖布');
   });
 });
+
+describe('年報主業依據', () => {
+  it('占比與領先點數取到小數兩位，依據同時寫產業鏈與年報占比', () => {
+    const members = [
+      { chain: '印刷電路板', tier: '上游', subCode: 'L100', subItem: '玻璃纖維/玻纖布' },
+      { chain: '印刷電路板', tier: '中游', subCode: 'L630', subItem: '銅箔基板' },
+    ];
+    const mix = [{ industry: '玻纖紗/玻纖布', pct: 47.1 }, { industry: '玻纖紗/玻纖布', pct: 47.1 }, { industry: 'CCL銅箔基板', pct: 5.8 }];
+    const r = resolveChainClassification({ members, current: ['玻璃陶瓷'], revenueMix: mix, revenueMixSource: 'annual_report', map: (taxonomy as any).chainSourceMap, isValidIndustry });
+    expect(r.evidence).toBe('產業價值鏈：印刷電路板 上游 玻璃纖維/玻纖布；年報營收占比94.2%，領先88.4點');
+  });
+});
