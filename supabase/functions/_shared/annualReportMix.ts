@@ -12,7 +12,7 @@ export interface ParsedMix { products: ProductShare[]; total: number; reason: st
 
 const ANCHOR = /營業比重|營業比例|營收比重/;
 const STOP = /^\s*(?:[（(]?[一二三四五六七八九十]+[）)、]|\d+\s*[.、．]|[（(]\d+[）)])\s*(?!\d)(?:公司目前|目前|計[畫劃]開發|產業概況|現有|主要產品之|新商品|新產品)/;
-const STOP2 = /^\s*(公司目前|目前之商品|目前之產品|計[畫劃]開發|[（(]二[）)]\s*產業概況)/;
+const STOP2 = /^\s*(?:\d+(?:\.\d+)+\s+|[（(]二[）)]\s*)?(公司目前|目前之商品|目前之產品|目前主要|主要商品|計[畫劃]開發|產業概況)/;
 const NUM = /^-?[\d,]+(?:\.\d+)?%?$/;
 const SKIP_NAME = /^(合計|合併|個體|總合計|營業收入合計|營收淨額|營業收入淨額|總計|小計|總額|Total|其他合計|產品名稱|產品|項目|營業內容|主要產品|年度|單位|金額|比重|產品別|營業項目|品名|類別)$/i;
 
@@ -47,6 +47,12 @@ const UNIT = /^(公噸|噸|千碼|碼|台|組|片|個|件|KG|kg|千個|千片|�
 const isNumTok = (t: string) => t === '-' || NUM.test(t);
 
 function parseRows(lines: string[]): ProductShare[] {
+  // 表頭年度由新到舊（例：114 年度 … 113 年度）時取每列第一個百分比，否則取最後一個
+  let newestFirst = false;
+  for (const l of lines) {
+    const ys = [...l.matchAll(/(\d{3})\s*年/g)].map((m) => Number(m[1]));
+    if (ys.length >= 2) { newestFirst = ys[0] > ys[ys.length - 1]; break; }
+  }
   // 同名產品保留最後一次（多年度或個體／合併並列時取後者）
   const out = new Map<string, number>();
   for (const line of lines) {
@@ -58,13 +64,14 @@ function parseRows(lines: string[]): ProductShare[] {
     const nums: string[] = [];
     while (k < toks.length && isNumTok(toks[k])) nums.push(toks[k++]);
     if (!name.length || !nums.length) continue;
-    const last = nums[nums.length - 1];
+    const pcts = nums.filter((n) => n.endsWith('%') || /^\d{1,3}\.\d+$/.test(n));
+    const last = newestFirst && pcts.length >= 2 ? pcts[0] : nums[nums.length - 1];
     if (last === '-') continue;
     const pct = pctOf(last);
     if (pct === null) continue;
     if (nums.length === 1 && !last.endsWith('%') && !last.includes('.') && Number(last) > 100) continue;
     const product = normalizeProduct(name.join(''));
-    if (!product || product.length > 24 || SKIP_NAME.test(product) || /合計|總計|小計|淨額|比重|比率|單位|年度/.test(product) || /^\d/.test(product)) continue;
+    if (!product || product.length > 24 || SKIP_NAME.test(product) || /合計|總計|小計|淨額|比重|比率|單位|年度/.test(product) || /^\d+$/.test(product)) continue;
     out.delete(product);
     out.set(product, pct);
   }
