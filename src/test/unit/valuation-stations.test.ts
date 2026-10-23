@@ -35,8 +35,9 @@ describe('站牌', () => {
 
 describe('同業參考', () => {
   const peers = [{ symbol: '2382', pe: 15 }, { symbol: '2356', pe: 14 }, { symbol: '2317', pe: 16 }, { symbol: '9999', pe: 99 }];
+  const group = { key: 'same', label: '同主產業', pickedAt: '', symbols: ['3231', '2382', '2356', '2317'] };
   it('人工名單當日倍數平均 × 基本面，排除名單外', () => {
-    const r = buildPeerReference('3231', 'pe', 10, peers, findPeerGroup('3231'));
+    const r = buildPeerReference('3231', 'pe', 10, peers, group);
     expect(r.status === 'ready' && r.avgMultiple).toBe(15);
     expect(r.status === 'ready' && r.price).toBe(150);
   });
@@ -98,7 +99,7 @@ it('現價 183 在上車站 185 附近', () => {
 });
 
 describe('同業名單查找', () => {
-  it('名單內直接對應：3231 對應 ODM／伺服器', () => expect(findPeerGroup('3231')?.label).toBe('ODM／伺服器'));
-  it('不在名單內時，依主分類名稱對應', () => expect(findPeerGroup('9997', '晶圓代工')?.label).toBe('晶圓代工'));
+  it('未核實主分類不以跨產業名單匹配', () => expect(findPeerGroup('3231')).toBeNull());
+  it('不在已採用名單內時，不借用同產業名單', () => expect(findPeerGroup('9997', '晶圓代工')).toBeNull());
   it('主分類無對應名單時回傳 null', () => expect(findPeerGroup('9997', '不存在產業')).toBeNull());
 });

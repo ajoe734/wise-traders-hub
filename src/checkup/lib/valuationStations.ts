@@ -80,14 +80,12 @@ export type PeerGroup = { key: string; code?: string | null; label: string; pick
 export const PEER_GROUPS: PeerGroup[] = (peerGroupsJson as { groups: PeerGroup[] }).groups;
 /**
  * 依產業代碼對應名單（名稱只經代碼表轉碼，不做字串比對）：
- * 含本檔的跨產業人工自訂組 → 本檔主產業代碼的名單 → 任何含本檔的名單 → null。
+ * 僅使用本檔主產業代碼的名單；不回退跨產業人工組或大類。
  */
 export function findPeerGroup(symbol: string, industry?: string | null, groups: PeerGroup[] = PEER_GROUPS): PeerGroup | null {
   const code = industryCodeOf(industry);
-  return groups.find((g) => g.custom && g.symbols.includes(symbol))
-    ?? (code ? groups.find((g) => !g.custom && g.code === code) : null)
-    ?? groups.find((g) => g.symbols.includes(symbol))
-    ?? null;
+  if (!code || industryByCode(code)?.retired) return null;
+  return groups.find((g) => !g.custom && g.code === code && g.symbols.includes(symbol)) ?? null;
 }
 
 export type PeerReference =

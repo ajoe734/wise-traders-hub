@@ -84,7 +84,7 @@ export function assignCodes(
 export type PeerOverride = { code: string | null; key: string; label: string; pickedAt: string; include: string[]; exclude: string[]; custom?: boolean };
 export type StockRow = { symbol: string; industry: string | null; cap: number | null };
 
-/** 審核後名單只保留已採用且有同產業證據者；跨產業自訂組只檢查採用狀態。 */
+/** 審核後名單只保留已採用且主產業相同者；人工組也不得跨產品／產業鏈。 */
 export function reviewedPeerOverride(
   override: PeerOverride,
   stocks: Array<{ symbol: string; adopted: boolean; codes: string[] }>,
@@ -92,7 +92,7 @@ export function reviewedPeerOverride(
   const bySymbol = new Map(stocks.map((s) => [s.symbol, s]));
   const rejected = override.include.filter((symbol) => {
     const stock = bySymbol.get(symbol);
-    return !stock?.adopted || (!override.custom && (!override.code || !stock.codes.includes(override.code)));
+    return !stock?.adopted || !override.code || stock.codes[0] !== override.code;
   });
   return { ...override, exclude: Array.from(new Set([...override.exclude, ...rejected])) };
 }
@@ -109,7 +109,8 @@ export function composePeerSymbols(
     .filter((s) => s.code === code && !ex.has(s.symbol))
     .sort((a, b) => (b.cap ?? -1) - (a.cap ?? -1) || a.symbol.localeCompare(b.symbol))
     .map((s) => s.symbol);
-  const inc = (override?.include ?? []).filter((s) => !ex.has(s));
+  const eligible = new Set(auto);
+  const inc = (override?.include ?? []).filter((s) => !ex.has(s) && eligible.has(s));
   const out: string[] = [...inc];
   for (const s of auto) {
     if (out.length >= Math.max(n, inc.length)) break;

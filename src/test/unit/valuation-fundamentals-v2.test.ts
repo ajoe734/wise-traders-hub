@@ -228,9 +228,10 @@ describe('3443 同業：核心業務、先排序再限流、逐家原因', () =>
     expect(audit.find((a) => a.symbol === '8227')?.reasons.join()).toMatch(/主業同為/);
   });
   it('興櫃（擷發科、益芯科、乾瞻）先排除、不佔名額；超過 6 家者標「超過請求上限」', () => {
-    for (const s of ['7796', '7707', '7898']) expect(audit.find((a) => a.symbol === s)?.status).toBe('excluded');
+    for (const s of ['7796', '7707']) expect(audit.find((a) => a.symbol === s)?.status).toBe('excluded');
+    for (const s of ['7898', '6462']) expect(audit.map((a) => a.symbol)).not.toContain(s);
     expect(audit.filter((a) => a.status === 'selected')).toHaveLength(6);
-    expect(audit.filter((a) => a.status === 'over_limit').map((a) => a.symbol).sort()).toEqual(['2388', '6462']);
+    expect(audit.filter((a) => a.status === 'over_limit').map((a) => a.symbol).sort()).toEqual(['2388']);
   });
   it('入選 6 家皆因虧損或營收年增與本檔差距過大而排除，倍數不採同業', () => {
     const b = live('3443');

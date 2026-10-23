@@ -797,11 +797,11 @@ export function rankPeerCandidates(
   const tSecondary = (target.industries || []).slice(1);
   const tGroups = (target.market_groups || []).filter((g) => !isThemeGroup(g));
   return universe
-    .filter((u) => u.symbol !== target.symbol && (u.industries || []).includes(core))
+    .filter((u) => u.symbol !== target.symbol && u.industries?.[0] === core)
     .map((u) => {
       const reasons: string[] = [];
       let score = 0;
-      if (u.industries[0] === core) { score += 3; reasons.push(`主業同為「${core}」`); } else { score += 1; reasons.push(`「${core}」為其次要業務（主業 ${u.industries[0]}）`); }
+      score += 3; reasons.push(`主業同為「${core}」`);
       const sec = tSecondary.filter((t) => u.industries.includes(t));
       if (sec.length) { score += sec.length; reasons.push(`共同次要業務 ${sec.join('、')}`); }
       const grp = tGroups.filter((g) => (u.market_groups || []).includes(g));

@@ -31,7 +31,7 @@ if (!Array.isArray(dump) || dump.some((d) => typeof d.adopted !== 'boolean' || !
 const names = new Map(dump.map((d) => [d.s, d.n]));
 const stocks = dump.map((d) => {
   const ind = d.adopted === true ? d.i : null;
-  return { symbol: d.s, industry: ind, adopted: d.adopted === true, codes: (d.industries ?? []).map((i) => industryCodeOf(i, codes)).filter((c): c is string => !!c), cap: d.cap, code: industryCodeOf(ind, codes) };
+  return { symbol: d.s, industry: ind, adopted: d.adopted === true, codes: (d.industries ?? []).slice(0, 1).map((i) => industryCodeOf(i, codes)).filter((c): c is string => !!c), cap: d.cap, code: industryCodeOf(ind, codes) };
 });
 const unmapped = stocks.filter((s) => !s.code);
 const codeOfSym = new Map(stocks.map((s) => [s.symbol, s.code]));

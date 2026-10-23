@@ -17,6 +17,9 @@ import { buildValuationScenario, type ScenarioRowInput, type ValuationScenario }
 import { DEMO_FUNDAMENTALS_SYMBOLS } from '../../../supabase/functions/_shared/demoFundamentalsSymbols';
 import { expiredEstimate, financialCacheValid, FILING_CHECK_MS } from '../../../supabase/functions/_shared/filingRefreshCore';
 import { useFilingRefresh } from './useFilingRefresh';
+import { useStockIndustryMap } from './useStockIndustryMap';
+import { getAutoIndustryMap } from '@/checkup/lib/stockMetaMulti.js';
+import { filterSupplyChainPeers, type AdoptedIndustryMap } from '@/checkup/lib/supplyChainPeers';
 
 /** 唯讀財報情境 Edge Function；token 只在後端。 */
 export const FUNDAMENTALS_FN = 'valuation-fundamentals';
@@ -123,10 +126,12 @@ export function computeStale(asOf: string | null, nowMs: number): boolean {
 
 export function useValuationSnapshot(
   symbol?: string | null,
-  opts: { injectedGateway?: CheckupGateway; now?: () => number } = {},
+  opts: { injectedGateway?: CheckupGateway; injectedIndustryMap?: AdoptedIndustryMap; now?: () => number } = {},
 ): UseValuationSnapshotResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
   const [view, setView] = useState<ValuationView | null>(null);
+  const [rawRatio, setRawRatio] = useState<any>(null);
+  const classification = useStockIndustryMap(!opts.injectedGateway);
   const [band, setBand] = useState<ValuationScenario | null>(null);
   const [bandStatus, setBandStatus] = useState<ValuationStatus>('idle');
   const [peersPending, setPeersPending] = useState(false);
@@ -141,6 +146,7 @@ export function useValuationSnapshot(
     if (!eligible) {
       setStatus('idle');
       setView(null);
+      setRawRatio(null);
       setBand(null);
       setBandStatus('idle');
       setError(null);
@@ -152,6 +158,7 @@ export function useValuationSnapshot(
     setBandStatus('loading');
     setPeersPending(false);
     setView(null);
+    setRawRatio(null);
     setError(null);
     const gateway = opts.injectedGateway || getCheckupGateway();
     const force = tick > 0;
@@ -162,8 +169,7 @@ export function useValuationSnapshot(
         if (cancelled) return;
         const payload = Array.isArray(raw) ? raw[0] : raw;
         if (payload) {
-          setView(
-            buildValuationView({
+          setRawRatio({
               symbol: payload.symbol || code,
               asOf: payload.asOf ?? null,
               source: payload.source ?? null,
@@ -180,8 +186,7 @@ export function useValuationSnapshot(
               peerIndustry: payload.peerIndustry ?? null,
               peers: payload.peers || [],
               trend: Array.isArray(payload?.trend) ? payload.trend : [],
-            }),
-          );
+          });
         }
         setStatus('ready');
       })
@@ -226,6 +231,17 @@ export function useValuationSnapshot(
   }, [code, eligible, tick, filingRevision, opts.injectedGateway]);
 
   const refetch = useCallback(() => setTick((n) => n + 1), []);
+  useEffect(() => {
+    if (!rawRatio) { setView(null); return; }
+    const map = opts.injectedIndustryMap ?? (classification.ready ? getAutoIndustryMap() : {});
+    setView(buildValuationView({
+      ...rawRatio,
+      industry: map[code]?.industries?.[0] ?? null,
+      peerIndustry: map[code]?.industries?.[0] ?? null,
+      peerScope: 'fine',
+      peers: filterSupplyChainPeers(code, rawRatio.peers ?? [], map),
+    }));
+  }, [rawRatio, code, classification.ready, classification.version, opts.injectedIndustryMap]);
   const nowMs = (opts.now || Date.now)();
 
   return {

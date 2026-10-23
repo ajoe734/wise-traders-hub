@@ -36,15 +36,15 @@ describe('依代碼自動組名單', () => {
       { symbol: '9999', adopted: false, codes: ['ECMP-25'] },
     ]);
     expect(override.exclude).toEqual(['6274', '9999']);
-    expect(composePeerSymbols('ECMP-25', [], override)).toEqual(['5340']);
+    expect(composePeerSymbols('ECMP-25', [{ symbol: '5340', industry: '玻纖紗/玻纖布', cap: null, code: 'ECMP-25' }], override)).toEqual(['5340']);
   });
   const stocks = [
     { symbol: 'A', industry: 'x', cap: 100, code: 'C1' }, { symbol: 'B', industry: 'x', cap: 300, code: 'C1' },
     { symbol: 'C', industry: 'x', cap: null, code: 'C1' }, { symbol: 'D', industry: 'y', cap: 999, code: 'C2' },
   ];
   it('同代碼、市值降冪、無市值排後', () => expect(composePeerSymbols('C1', stocks, null, 12)).toEqual(['B', 'A', 'C']));
-  it('人工排除優先於自動與人工加入', () => expect(composePeerSymbols('C1', stocks, { include: ['A', 'D'], exclude: ['A', 'B'] }, 12)).toEqual(['D', 'C']));
-  it('上限 n 但人工加入全保留', () => expect(composePeerSymbols('C1', stocks, { include: ['D'], exclude: [] }, 2)).toEqual(['D', 'B']));
+  it('人工排除優先且跨主業加入無效', () => expect(composePeerSymbols('C1', stocks, { include: ['A', 'D'], exclude: ['A', 'B'] }, 12)).toEqual(['C']));
+  it('上限 n 且只保留同主業人工加入', () => expect(composePeerSymbols('C1', stocks, { include: ['C', 'D'], exclude: [] }, 2)).toEqual(['C', 'B']));
 });
 
 describe('名單檔與查找', () => {
@@ -57,7 +57,7 @@ describe('名單檔與查找', () => {
     expect(PEER_GROUPS.filter((g) => g.curation === 'manual').length).toBeGreaterThanOrEqual(106);
     for (const g of PEER_GROUPS) for (const s of g.include ?? []) if (!(g.exclude ?? []).includes(s)) expect(g.symbols).toContain(s);
   });
-  it('3231 仍對應 ODM／伺服器自訂組', () => expect(findPeerGroup('3231', '晶圓代工')?.label).toBe('ODM／伺服器'));
-  it('全形寫法經代碼對到同組', () => expect(findPeerGroup('9997', 'PCB／CCL')?.code).toBe(industryCodeOf('PCB/CCL')));
+  it('3231 不得繞過主產業進 ODM／伺服器自訂組', () => expect(findPeerGroup('3231', '晶圓代工')).toBeNull());
+  it('全形寫法經代碼對到同組', () => expect(findPeerGroup('x', 'PCB／CCL', [{ key: 'ccl', code: industryCodeOf('PCB/CCL'), label: 'CCL', pickedAt: '', symbols: ['x'] }])?.code).toBe(industryCodeOf('PCB/CCL')));
   it('無對應顯示資料不足', () => expect(buildPeerReference('9998', 'pe', 10, [], findPeerGroup('9998', '不存在產業')).status).toBe('insufficient'));
 });

@@ -24,8 +24,9 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
     const code = symbol ? String(symbol).trim() : '';
     if (!/^\d{4,6}$/.test(code)) { setState({ group: null, peerRows: [], forward: null, forwardBlocked: null, loading: false }); return; }
     let cancelled = false;
-    const groups = classification.ready ? buildLivePeerGroups(getAutoIndustryMap(), PEER_GROUPS) : [];
-    const group = findPeerGroup(code, industry, groups);
+    const map = getAutoIndustryMap();
+    const groups = classification.ready ? buildLivePeerGroups(map, PEER_GROUPS) : [];
+    const group = findPeerGroup(code, map[code]?.industries?.[0], groups);
     setState((s) => ({ ...s, group, peerRows: [], loading: true, peersLoading: !!group }));
     const gw = getCheckupGateway();
     const peerP = group
