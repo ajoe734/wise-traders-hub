@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Check, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { ADOPT_MIN_CONFIDENCE } from '@/checkup/lib/industryTaxonomy';
+import { isAdoptedClassification } from '@/checkup/lib/industryTaxonomy';
 
 type Row = {
   symbol: string;
@@ -51,18 +51,19 @@ export default function StockIndustryReview() {
     queryKey: ['company', 'stock-industry-map', mode],
     staleTime: 30_000,
     queryFn: async () => {
-      let q = supabase
-        .from('stock_industry_map')
-        .select('symbol, name, market, official_industry, industries, themes, market_groups, confidence, rationale, evidence, business_desc, chain_tier, reviewed, source, updated_at')
-        .order('confidence', { ascending: true })
-        .limit(500);
-      // 未上線＝未人工確認，且（信心 < 0.9 或沒有依據）；與 isAdoptedClassification 同一門檻
-      if (mode === 'pending') q = q.eq('reviewed', false).or(`confidence.lt.${ADOPT_MIN_CONFIDENCE},confidence.is.null,evidence.is.null`);
-      if (mode === 'low') q = q.lt('confidence', 0.7);
-      if (mode === 'unreviewed') q = q.eq('reviewed', false);
-      const { data, error } = await q;
-      if (error) { toast.error(error.message); throw error; }
-      return (data as Row[]) || [];
+      const all: Row[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('stock_industry_map')
+          .select('symbol, name, market, official_industry, industries, themes, market_groups, confidence, rationale, evidence, business_desc, chain_tier, reviewed, source, updated_at')
+          .order('symbol').range(from, from + 999);
+        if (error) { toast.error(error.message); throw error; }
+        all.push(...((data as Row[]) || []));
+        if (!data || data.length < 1000) break;
+      }
+      return all.filter((r) => mode === 'all' ||
+        (mode === 'pending' && !isAdoptedClassification(r)) ||
+        (mode === 'low' && r.confidence != null && r.confidence < 0.7) ||
+        (mode === 'unreviewed' && r.reviewed !== true));
     },
   });
 
@@ -73,8 +74,14 @@ export default function StockIndustryReview() {
       const total = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true });
       const low = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true }).lt('confidence', 0.7);
       const reviewed = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true }).eq('reviewed', true);
-      const pending = await supabase.from('stock_industry_map').select('symbol', { count: 'exact', head: true }).eq('reviewed', false).or(`confidence.lt.${ADOPT_MIN_CONFIDENCE},confidence.is.null,evidence.is.null`);
-      return { total: total.count ?? 0, low: low.count ?? 0, reviewed: reviewed.count ?? 0, pending: pending.count ?? 0 };
+      const pendingRows: Array<{ reviewed: boolean | null; confidence: number | null; evidence: string | null }> = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('stock_industry_map').select('reviewed, confidence, evidence').order('symbol').range(from, from + 999);
+        if (error) throw error;
+        pendingRows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return { total: total.count ?? 0, low: low.count ?? 0, reviewed: reviewed.count ?? 0, pending: pendingRows.filter((r) => !isAdoptedClassification(r)).length };
     },
   });
 
