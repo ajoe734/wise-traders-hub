@@ -17,7 +17,7 @@ describe('審核分類立即讀回', () => {
     await waitFor(() => expect(hook.result.current.count).toBe(1));
     expect(getAutoIndustryMap()['1815'].industries).toEqual(['玻纖紗/玻纖布']);
     state.rows = [{ symbol: '6274', industries: ['CCL銅箔基板'], reviewed: true }];
-    act(() => window.dispatchEvent(new Event('focus')));
+    act(() => window.dispatchEvent(new Event('stock-classification-updated')));
     await waitFor(() => expect(getAutoIndustryMap()['6274']?.industries).toEqual(['CCL銅箔基板']));
     expect(getAutoIndustryMap()['1815']).toBeUndefined();
     state.rows = [];
