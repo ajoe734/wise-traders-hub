@@ -165,9 +165,14 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
     void refresh();
     const onFocus = () => { void refresh(); };
     window.addEventListener('focus', onFocus);
+    window.addEventListener('stock-classification-updated', onFocus);
+    const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('stock-classification') : null;
+    if (channel) channel.onmessage = onFocus;
     return () => {
       alive = false;
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('stock-classification-updated', onFocus);
+      channel?.close();
     };
   }, []);
 

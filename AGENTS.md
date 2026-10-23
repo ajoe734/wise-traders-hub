@@ -83,6 +83,8 @@ Classify stocks from the official MOPS main-business text (`_shared/mopsBusiness
 
 Refresh adopted classifications from the database on holdings entry and tab focus, retaining device cache only for failed reads; generate peer groups from adopted database classifications and exclude unsupported legacy includes through `reviewedPeerOverride`; why: approved supply-chain corrections must not remain hidden behind daily cache or old static categories.
 
+Use `buildLivePeerGroups` to project adopted runtime classifications into drawer peer groups, retaining curated order and exclusions; notify classification consumers after an admin save across same-origin tabs; why: confirmed corrections must reach drawer peers without a frontend redeploy or admitting pending classifications.
+
 ### Traffic metrics
 
 Use `trafficQuality` for metrics, `trafficRecovery` for recovery, and `ga4Reconcile` for the separate GA4 comparison view; run `check:traffic` after changes. Count named pages, never infer event-time login; why: prevents invented history and mixed-source totals.

@@ -4,7 +4,10 @@
  */
 import { useEffect, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
-import { findPeerGroup, type ForwardInput, type PeerGroup } from '@/checkup/lib/valuationStations';
+import { findPeerGroup, PEER_GROUPS, type ForwardInput, type PeerGroup } from '@/checkup/lib/valuationStations';
+import { buildLivePeerGroups } from '@/checkup/lib/livePeerGroups';
+import { getAutoIndustryMap } from '@/checkup/lib/stockMetaMulti.js';
+import { useStockIndustryMap } from './useStockIndustryMap';
 import { isJwtExpired } from '@/checkup/hooks/useValuationSnapshot';
 import { useFilingRefresh } from './useFilingRefresh';
 
@@ -15,13 +18,15 @@ const attempted = new Map<string, string | null>();
 
 export function useStationExtras(symbol?: string | null, industry?: string | null): StationExtras {
   const filingRevision = useFilingRefresh();
+  const classification = useStockIndustryMap();
   const [state, setState] = useState<StationExtras>({ group: null, peerRows: [], forward: null, forwardBlocked: null, loading: false });
   useEffect(() => {
     const code = symbol ? String(symbol).trim() : '';
     if (!/^\d{4,6}$/.test(code)) { setState({ group: null, peerRows: [], forward: null, forwardBlocked: null, loading: false }); return; }
     let cancelled = false;
-    const group = findPeerGroup(code, industry);
-    setState((s) => ({ ...s, group, loading: true, peersLoading: !!group }));
+    const groups = classification.ready ? buildLivePeerGroups(getAutoIndustryMap(), PEER_GROUPS) : [];
+    const group = findPeerGroup(code, industry, groups);
+    setState((s) => ({ ...s, group, peerRows: [], loading: true, peersLoading: !!group }));
     const gw = getCheckupGateway();
     const peerP = group
       ? Promise.resolve(gw.rpc<PeerMultipleRow[]>('valuation_peer_multiples', { _symbols: group.symbols.filter((s) => s !== code) })).catch(() => [])
@@ -63,6 +68,6 @@ export function useStationExtras(symbol?: string | null, industry?: string | nul
       });
     });
     return () => { cancelled = true; };
-  }, [symbol, industry, filingRevision]);
+  }, [symbol, industry, filingRevision, classification.version, classification.ready]);
   return state;
 }
