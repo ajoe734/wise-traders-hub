@@ -1,58 +1,114 @@
 /**
- * annualReportMix — 股東會年報「所營業務之營業比重」→ 產品營收占比 → 細分產業（純函式，前後端共用）
+ * annualReportMix — 股東會年報「營業比重」→ 產品營收占比 → 細分產業（純函式，前後端共用）
  *
  * 規則：
- *  - 只讀年報「營業比重」段落；每列取「產品名稱 + 最後一個百分比」。
- *  - 占比總和需落在 95–100.5，否則整份不採用（避免抓到錯表或漏列）。
- *  - 產品名稱需「完全等於」productSourceMap 的鍵才對到產業；對不上的產品照列，不猜。
- *  - 對不上的產品占比 ≥ 對上的第一名時，不能判定主業，交由 dominantIndustry 的領先門檻自然擋下。
+ *  - 只讀年報「營業比重」段落，支援直式（每列：產品…百分比，可跨頁）與橫式（產品列＋百分比列）。
+ *  - 多欄年度時取每列最後一個百分比（年報慣例最新年度在右）。
+ *  - 占比總和需落在 95–100.5，否則整份不採用。
+ *  - 產品名稱需「完全等於」productSourceMap 的鍵才對到產業；對不上的產品照列，各自佔一名參與排名，不猜。
  */
 export interface ProductShare { product: string; pct: number }
 export interface ParsedMix { products: ProductShare[]; total: number; reason: string | null }
 
-const ANCHOR = /營業比重/;
-const STOP = /^\s*(\d+[、.]|[（(]?[一二三四五六七八九十]+[）)、])\s*(公司目前|目前之|計畫開發|產業概況|商品|產品項目|主要產品)/;
-const PCT = /(-?\d{1,3}(?:\.\d+)?)\s*%?\s*$/;
+const ANCHOR = /營業比重|營業比例|營收比重/;
+const STOP = /^\s*(?:[（(]?[一二三四五六七八九十]+[）)、]|\d+\s*[.、．]|[（(]\d+[）)])\s*(?!\d)(?:公司目前|目前|計[畫劃]開發|產業概況|現有|主要產品之|新商品|新產品)/;
+const NUM = /^-?[\d,]+(?:\.\d+)?%?$/;
+const SKIP_NAME = /^(合計|總計|小計|總額|Total|其他合計|產品名稱|產品|項目|營業內容|主要產品|年度|單位|金額|比重|產品別|營業項目|品名|類別)$/i;
 
 export function normalizeProduct(name: string): string {
   return name
     .replace(/[\s\u3000]+/g, '')
-    .replace(/^[\-‧．・•．.、\d()（）A-Za-z]{0,3}[.、)）]/, '')
+    .replace(/^(?:\(?\d{1,2}[)）.、]|[（(][一二三四五六七八九十\d]+[)）]|[‧・•．\-])/, '')
     .replace(/[：:]+$/, '')
-    .replace(/^[：:]+/, '')
     .trim();
+}
+
+const pctOf = (tok: string): number | null => {
+  const t = tok.replace(/%$/, '');
+  if (!/^\d{1,3}(?:\.\d+)?$/.test(t)) return null;
+  const n = Number(t);
+  return n >= 0 && n <= 100 ? n : null;
+};
+
+function finalize(products: ProductShare[]): ParsedMix {
+  const total = Math.round(products.reduce((s, p) => s + p.pct, 0) * 100) / 100;
+  if (total < 95 || total > 100.5) return { products, total, reason: `營業比重總和${total}%無法核對` };
+  return { products, total, reason: null };
+}
+
+function parseRows(lines: string[]): ProductShare[] {
+  const out: ProductShare[] = [];
+  for (const line of lines) {
+    const toks = line.trim().split(/\s{2,}|\t/).map((t) => t.trim()).filter(Boolean);
+    if (toks.length < 2) continue;
+    // 名稱取第一個非數字欄（內部單空白視為同名，例：「其 他」）
+    let k = 0;
+    const nameParts: string[] = [];
+    while (k < toks.length && !NUM.test(toks[k].replace(/\s/g, ''))) {
+      // 「公噸」「千碼」等單位欄不屬名稱
+      if (nameParts.length && /^(公噸|噸|千碼|碼|台|組|片|個|件|KG|kg|千個|千片|平方米|M2|m2|-)$/.test(toks[k])) { k++; continue; }
+      nameParts.push(toks[k]); k++;
+      if (nameParts.length > 1) break;
+    }
+    const nums = toks.slice(k).map((t) => t.replace(/\s/g, ''));
+    if (!nameParts.length || nums.length === 0) continue;
+    const last = nums[nums.length - 1];
+    const hasPctSign = nums.some((n) => n.endsWith('%'));
+    const pct = pctOf(last);
+    if (pct === null) continue;
+    // 純金額列（無小數也無 % 且其前為大額）不當作比重
+    if (!hasPctSign && !/\./.test(last) && nums.length === 1 && Number(last) > 100) continue;
+    const product = normalizeProduct(nameParts[0]);
+    if (!product || product.length > 24 || SKIP_NAME.test(product) || /^\d/.test(product)) continue;
+    out.push({ product, pct });
+  }
+  return out;
+}
+
+function parseColumns(lines: string[]): ProductShare[] {
+  for (let i = 0; i + 1 < lines.length; i++) {
+    const names = lines[i].trim().split(/\s{2,}/).filter(Boolean);
+    if (names.length < 2 || names.some((n) => /\d/.test(n))) continue;
+    for (let j = i + 1; j < Math.min(lines.length, i + 4); j++) {
+      const vals = lines[j].trim().split(/\s+/).filter(Boolean);
+      if (vals.length !== names.length) continue;
+      const pcts = vals.map(pctOf);
+      if (pcts.some((p) => p === null) || !vals.some((v) => v.endsWith('%') || v.includes('.'))) continue;
+      return names.map((n, k) => ({ product: normalizeProduct(n), pct: pcts[k] as number }));
+    }
+  }
+  return [];
 }
 
 /** 從年報全文取「營業比重」段落的產品占比 */
 export function parseProductShares(text: string): ParsedMix {
   const lines = text.split(/\r?\n/);
+  let firstBad: ParsedMix | null = null;
   for (let i = 0; i < lines.length; i++) {
     if (!ANCHOR.test(lines[i])) continue;
-    const products: ProductShare[] = [];
-    for (let j = i + 1; j < Math.min(lines.length, i + 40); j++) {
-      const line = lines[j];
-      if (STOP.test(line)) break;
-      if (/合計|總計|小計|Total/i.test(line)) continue;
-      const m = line.match(PCT);
-      if (!m || !line.includes('%') && !/比重|%/.test(lines.slice(i, j).join(''))) continue;
-      const pct = Number(m[1]);
-      const head = line.slice(0, m.index).replace(/[\d,\s]+$/, '').replace(/[\d,]+(?:\s+[\d,]+)*\s*$/, '');
-      const product = normalizeProduct(head.replace(/\s{2,}.*$/, (s) => s).replace(/[\d,.]+/g, ' ').split(/\s{2,}/)[0] ?? '');
-      if (!product || product.length > 20 || !Number.isFinite(pct) || pct < 0 || pct > 100) continue;
-      if (/年度|單位|仟元|千元|金額|比重|產品別|項目/.test(product)) continue;
-      products.push({ product, pct });
+    const block: string[] = [];
+    // 標題同列若已含資料（例：「營業比重：玻纖紗 47%」）也納入
+    const tail = lines[i].split(ANCHOR).pop() ?? '';
+    if (tail.trim()) block.push(tail);
+    for (let j = i + 1; j < Math.min(lines.length, i + 260); j++) {
+      if (STOP.test(lines[j])) break;
+      block.push(lines[j]);
     }
-    if (products.length === 0) continue;
-    const total = Math.round(products.reduce((s, p) => s + p.pct, 0) * 100) / 100;
-    if (total < 95 || total > 100.5) return { products, total, reason: `營業比重總和${total}%無法核對` };
-    return { products, total, reason: null };
+    for (const cand of [parseColumns(block), parseRows(block.flatMap((l) => l.split(/[，、；;]/).length > 2 && /[:：]/.test(l) ? l.split(/[，、；;]/) : [l]).map((l) => l.replace(/[:：]/g, '  ')))]) {
+      if (cand.length === 0) continue;
+      const r = finalize(cand);
+      if (!r.reason) return r;
+      firstBad ??= r;
+    }
   }
-  return { products: [], total: 0, reason: '年報找不到營業比重段落' };
+  return firstBad ?? { products: [], total: 0, reason: '年報找不到營業比重段落' };
 }
 
 export type ProductSourceMap = Record<string, string>;
 
-/** 產品占比 → 細分產業占比；只採完全一致的產品名稱 */
+export const UNMAPPED_PREFIX = '未對照:';
+
+/** 產品占比 → 細分產業占比；只採完全一致的產品名稱，對不上的各自佔位參與排名 */
 export function mapProductShares(products: ProductShare[], map: ProductSourceMap, isValidIndustry: (n: string) => boolean): {
   mix: Array<{ industry: string; pct: number }>;
   unmapped: ProductShare[];
@@ -62,9 +118,7 @@ export function mapProductShares(products: ProductShare[], map: ProductSourceMap
   for (const p of products) {
     const ind = map[normalizeProduct(p.product)];
     if (ind && isValidIndustry(ind)) mix.push({ industry: ind, pct: p.pct });
-    else unmapped.push(p);
+    else { unmapped.push(p); mix.push({ industry: UNMAPPED_PREFIX + p.product, pct: p.pct }); }
   }
-  // 未對照產品以「未對照」佔位，讓它參與第二名比較，不會讓已對上的產品假性領先
-  for (const u of unmapped) mix.push({ industry: `未對照:${u.product}`, pct: u.pct });
   return { mix, unmapped };
 }
