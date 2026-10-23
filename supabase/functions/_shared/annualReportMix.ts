@@ -12,6 +12,7 @@ export interface ParsedMix { products: ProductShare[]; total: number; reason: st
 
 const ANCHOR = /營業比重|營業比例|營收比重/;
 const STOP = /^\s*(?:[（(]?[一二三四五六七八九十]+[）)、]|\d+\s*[.、．]|[（(]\d+[）)])\s*(?!\d)(?:公司目前|目前|計[畫劃]開發|產業概況|現有|主要產品之|新商品|新產品)/;
+const STOP2 = /^\s*(公司目前|目前之商品|目前之產品|計[畫劃]開發|[（(]二[）)]\s*產業概況)/;
 const NUM = /^-?[\d,]+(?:\.\d+)?%?$/;
 const SKIP_NAME = /^(合計|合併|個體|總合計|營業收入合計|營收淨額|營業收入淨額|總計|小計|總額|Total|其他合計|產品名稱|產品|項目|營業內容|主要產品|年度|單位|金額|比重|產品別|營業項目|品名|類別)$/i;
 
@@ -57,9 +58,20 @@ function parseRows(lines: string[]): ProductShare[] {
     if (pct === null) continue;
     if (nums.length === 1 && !last.endsWith('%') && !last.includes('.') && Number(last) > 100) continue;
     const product = normalizeProduct(name.join(''));
-    if (!product || product.length > 24 || SKIP_NAME.test(product) || /^\d/.test(product)) continue;
+    if (!product || product.length > 24 || SKIP_NAME.test(product) || /合計|總計|小計|淨額/.test(product) || /^\d/.test(product)) continue;
     out.delete(product);
     out.set(product, pct);
+  }
+  return [...out.entries()].map(([product, pct]) => ({ product, pct }));
+}
+
+function parseInline(text: string): ProductShare[] {
+  const out = new Map<string, number>();
+  const flat = text.replace(/\s+/g, '').replace(/％/g, '%');
+  for (const m of flat.matchAll(/([\u4e00-\u9fffA-Za-z/&()（）]{2,24})[：:]?(\d{1,3}(?:\.\d+)?)%/g)) {
+    const product = normalizeProduct(m[1].replace(/^(為|分別為|如下|比重|營業比重)+/, ''));
+    if (!product || /合計|總計|小計/.test(product)) continue;
+    out.delete(product); out.set(product, Number(m[2]));
   }
   return [...out.entries()].map(([product, pct]) => ({ product, pct }));
 }
@@ -90,10 +102,10 @@ export function parseProductShares(text: string): ParsedMix {
     const tail = lines[i].split(ANCHOR).pop() ?? '';
     if (tail.trim()) block.push(tail);
     for (let j = i + 1; j < Math.min(lines.length, i + 260); j++) {
-      if (STOP.test(lines[j])) break;
+      if (STOP.test(lines[j]) || STOP2.test(lines[j])) break;
       block.push(lines[j]);
     }
-    for (const cand of [parseColumns(block), parseRows(block.flatMap((l) => l.split(/[，、；;]/).length > 2 && /[:：]/.test(l) ? l.split(/[，、；;]/) : [l]).map((l) => l.replace(/[:：]/g, '  ')))]) {
+    for (const cand of [parseColumns(block), parseInline(block.join('\n')), parseRows(block.flatMap((l) => l.split(/[，、；;]/).length > 2 && /[:：]/.test(l) ? l.split(/[，、；;]/) : [l]).map((l) => l.replace(/[:：]/g, '  ')))]) {
       if (cand.length === 0) continue;
       const r = finalize(cand);
       if (!r.reason) return r;
