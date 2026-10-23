@@ -17,7 +17,7 @@ Blocked by: None
 ## 頁面／路由清單
 |路由|修改|准入條件|說明|
 |---|---|---|---|
-|/company/stock-industry-review|修改|company_admin|全量逐檔審核／CSV|
+|/company/stock-industry|修改|company_admin|全量逐檔審核／CSV|
 |/holding-checkup|修改|既有會員條件|D版標記與即時同業|
 |/portfolio/holdings|修改|既有會員條件|共用抽屜|
 |/holding-checkup-demo|共用呈現|公開|不得代替真實資料驗收|

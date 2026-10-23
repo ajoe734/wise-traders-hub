@@ -7,6 +7,7 @@ import { setCheckupGateway, resetCheckupGateway } from '@/checkup/lib/gateway';
 import { usePricedInList } from '@/checkup/components/freecheckup/usePricedInList';
 import { useStationExtras } from '@/checkup/hooks/useStationExtras';
 import peerGroups from '@/checkup/data/valuationPeerGroups.json';
+import { industryByCode } from '@/checkup/lib/industryCodes';
 
 async function settle() {
   await act(async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); });
@@ -88,7 +89,8 @@ describe('財報更新公開快取邊界', () => {
       forward_estimate_for: [{ eps: 5, period: '2027', eps_source: '公開財報', as_of: '2026-11-14' }],
     };
     const responses = { [FUNDAMENTALS_FN]: { ok: false, reason: '更新前尚未取得完整財報' } };
-    const gw = createFakeGateway({ rpcs: rpcResponses, functions: responses, accessToken: `x.${btoa(JSON.stringify({ exp: 4102444800 }))}.y` });
+    const industry = industryByCode(peerGroups.groups[0].code ?? '')?.name ?? '玻纖紗/玻纖布';
+    const gw = createFakeGateway({ tables: { stock_industry_map: [symbol, '9876'].map((s) => ({ symbol: s, industries: [industry], reviewed: true })) }, rpcs: rpcResponses, functions: responses, accessToken: `x.${btoa(JSON.stringify({ exp: 4102444800 }))}.y` });
     setCheckupGateway(gw);
     const holdings = [{ code: symbol, name: '測試持股', price: 100, value: 1000 }];
     const consumer = renderHook(() => ({ drawer: useValuationSnapshot(symbol), list: usePricedInList(holdings), extras: useStationExtras(symbol) }));
