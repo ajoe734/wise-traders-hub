@@ -9,7 +9,7 @@ const options = { members, map: taxonomy.chainSourceMap, isValidIndustry, isAdop
 
 describe('每月產業鏈重審', () => {
   it('全部600檔待審都產生結果，不受頁面或批次上限截斷', () => {
-    const rows = Array.from({ length: 600 }, (_, i) => ({ symbol: String(1000 + i), industries: ['玻纖紗/玻纖布'], reviewed: false, confidence: 0.5 }));
+    const rows = Array.from({ length: 600 }, (_, i) => ({ symbol: String(1500 + i), industries: ['玻纖紗/玻纖布'], reviewed: false, confidence: 0.5 }));
     const r = buildChainReview({ ...options, rows });
     expect(r.results).toHaveLength(600);
     expect(new Set(r.results.map(x => x.symbol)).size).toBe(600);
