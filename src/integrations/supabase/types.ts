@@ -3485,6 +3485,42 @@ export type Database = {
           },
         ]
       }
+      industry_chain_membership: {
+        Row: {
+          chain: string
+          chain_code: string
+          fetched_at: string
+          name: string | null
+          source_url: string
+          sub_code: string
+          sub_item: string
+          symbol: string
+          tier: string | null
+        }
+        Insert: {
+          chain: string
+          chain_code: string
+          fetched_at?: string
+          name?: string | null
+          source_url: string
+          sub_code: string
+          sub_item: string
+          symbol: string
+          tier?: string | null
+        }
+        Update: {
+          chain?: string
+          chain_code?: string
+          fetched_at?: string
+          name?: string | null
+          source_url?: string
+          sub_code?: string
+          sub_item?: string
+          symbol?: string
+          tier?: string | null
+        }
+        Relationships: []
+      }
       institutional_new_stock_queue: {
         Row: {
           attempts: number

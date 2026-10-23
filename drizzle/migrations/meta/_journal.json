@@ -435,6 +435,13 @@
       "when": 1792696676069,
       "tag": "0061_stock_industry_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1792730527084,
+      "tag": "0062_industry_chain_membership",
+      "breakpoints": true
     }
   ]
 }
