@@ -442,6 +442,13 @@
       "when": 1792730527084,
       "tag": "0062_industry_chain_membership",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1792754433496,
+      "tag": "0063_stock_annual_revenue_mix",
+      "breakpoints": true
     }
   ]
 }
