@@ -39,7 +39,8 @@ describe('assembleIndustryOverview', () => {
     expect(customGroups.length).toBe(1);
     expect(customGroups[0].label).toBe('ODM／伺服器');
     expect(customGroups[0].members.map((m) => m.symbol)).not.toContain('3706'); // 僅投資登記、未採用分類
-    expect(customGroups[0].members.length).toBe(7);
+    expect(customGroups[0].members.map((m) => m.symbol)).toEqual(['3231', '2382', '2356', '2376', '6669']);
+    expect(customGroups[0].members.map((m) => m.symbol)).not.toContain('2317'); // 已從跨產業組排除，不因旧測試補回
   });
 
   it('人工加入的成員標記為 manual，自動補齊標記為 auto', () => {
@@ -53,8 +54,8 @@ describe('assembleIndustryOverview', () => {
 
   it('公司名稱從 names 對應，缺名稱時為空字串', () => {
     const odm = customGroups[0];
-    expect(odm.members.find((m) => m.symbol === '3231')!.name).toBe('緯創');
-    expect(odm.members.find((m) => m.symbol === '2317')!.name).toBe('');
+    expect(odm.members.find((m) => m.symbol === '3231')?.name).toBe('緯創');
+    expect(odm.members.find((m) => m.symbol === '2356')?.name).toBe('');
   });
 
   it('每個有代碼的名單都掛到對應產業列上', () => {
