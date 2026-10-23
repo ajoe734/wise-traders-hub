@@ -12,6 +12,7 @@ import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { listChainCodes, parseChainPage, type ParsedChainRow } from '../_shared/tpexChainParser.ts';
 import { type ChainSourceMap } from '../_shared/chainClassification.ts';
 import { buildChainReview, type ChainReviewRow } from '../_shared/chainRefreshCore.ts';
+import { mapProductShares, type ProductShare, type ProductSourceMap } from '../_shared/annualReportMix.ts';
 import { isValidIndustry, isAdoptedClassification } from '../_shared/industryTaxonomy.ts';
 import taxonomy from '../_shared/industryTaxonomy.json' with { type: 'json' };
 
@@ -67,6 +68,17 @@ Deno.serve(async (req) => {
       if (error) throw new Error(error.message);
       stocks.push(...(data ?? []));
       if (!data || data.length < 1000) break;
+    }
+    // 年報營業比重：只採解析核對通過者，每次依最新產品對照表重算，不沿用 AI 推估
+    const productMap = (taxonomy as unknown as { productSourceMap?: ProductSourceMap }).productSourceMap ?? {};
+    const { data: annual, error: eA } = await db.from('stock_annual_revenue_mix').select('symbol, products').eq('status', 'ok');
+    if (eA) throw new Error(eA.message);
+    const annualBy = new Map((annual ?? []).map((a: any) => [a.symbol, a.products as ProductShare[]]));
+    for (const row of stocks) {
+      const products = annualBy.get(row.symbol);
+      if (!products) { row.revenue_mix_source = null; continue; }
+      row.revenue_mix = mapProductShares(products, productMap, isValidIndustry).mix;
+      row.revenue_mix_source = 'annual_report';
     }
     const report = buildChainReview({ rows: stocks, members: rows, map, isValidIndustry, isAdoptedClassification });
     const bySymbol = new Map(stocks.map(row => [row.symbol, row]));

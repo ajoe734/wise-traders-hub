@@ -5113,6 +5113,45 @@ export type Database = {
           },
         ]
       }
+      stock_annual_revenue_mix: {
+        Row: {
+          fetched_at: string
+          products: Json
+          reason: string | null
+          report_file: string | null
+          revenue_mix: Json
+          source_url: string | null
+          status: string
+          symbol: string
+          total_pct: number | null
+          unmapped: Json
+        }
+        Insert: {
+          fetched_at?: string
+          products?: Json
+          reason?: string | null
+          report_file?: string | null
+          revenue_mix?: Json
+          source_url?: string | null
+          status: string
+          symbol: string
+          total_pct?: number | null
+          unmapped?: Json
+        }
+        Update: {
+          fetched_at?: string
+          products?: Json
+          reason?: string | null
+          report_file?: string | null
+          revenue_mix?: Json
+          source_url?: string | null
+          status?: string
+          symbol?: string
+          total_pct?: number | null
+          unmapped?: Json
+        }
+        Relationships: []
+      }
       stock_fundamentals: {
         Row: {
           data: Json

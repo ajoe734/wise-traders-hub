@@ -29,6 +29,8 @@ export interface ChainResolution {
   reason: string
 }
 
+/** 年報產品對不上字典時的佔位前綴：參與排名但不能成為主業 */
+export const UNMAPPED = '未對照:'
 export const MIN_PRIMARY_SHARE = 40
 export const MIN_PRIMARY_LEAD = 10
 
@@ -45,13 +47,14 @@ export function dominantIndustry(input: {
   let total = 0
   for (const x of raw) {
     total += x.pct
-    if (x.pct > 0 && isFinite(x.pct) && input.isValidIndustry(x.industry)) sums.set(x.industry, (sums.get(x.industry) ?? 0) + x.pct)
+    if (x.pct > 0 && isFinite(x.pct) && (String(x.industry).startsWith(UNMAPPED) || input.isValidIndustry(x.industry))) sums.set(x.industry, (sums.get(x.industry) ?? 0) + x.pct)
   }
   if (total <= 0 || total > 100.5) return { industry: null, share: null, lead: null, reason: '營收占比總和無效' }
   const ranked = Array.from(sums.entries()).sort((a, b) => b[1] - a[1])
   if (ranked.length === 0) return { industry: null, share: null, lead: null, reason: '營收占比無字典內產業' }
   const [top, share] = ranked[0]
   const lead = share - (ranked[1]?.[1] ?? 0)
+  if (top.startsWith(UNMAPPED)) return { industry: null, share, lead, reason: `年報最大產品「${top.slice(UNMAPPED.length)}」${share}%未對照字典` }
   if (share < MIN_PRIMARY_SHARE) return { industry: null, share, lead, reason: `最高占比${share}%未達${MIN_PRIMARY_SHARE}%` }
   if (lead < MIN_PRIMARY_LEAD) return { industry: null, share, lead, reason: `領先第二名${lead}點未達${MIN_PRIMARY_LEAD}點` }
   return { industry: top, share, lead, reason: `年報營收占比${share}%，領先${lead}點` }
