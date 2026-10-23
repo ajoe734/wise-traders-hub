@@ -4,6 +4,7 @@ export interface ChainReviewRow {
   symbol: string;
   industries?: string[] | null;
   revenue_mix?: Array<{ industry: string; pct: number }> | null;
+  revenue_mix_source?: string | null;
   reviewed?: boolean | null;
   confidence?: number | null;
   evidence?: string | null;
@@ -44,7 +45,7 @@ export function buildChainReview(input: {
   let skipped = 0;
   for (const row of input.rows) {
     if (input.isAdoptedClassification(row)) { skipped++; continue; }
-    const r = resolveChainClassification({ members: bySymbol.get(row.symbol) ?? [], current: row.industries, revenueMix: row.revenue_mix, map, isValidIndustry: input.isValidIndustry });
+    const r = resolveChainClassification({ members: bySymbol.get(row.symbol) ?? [], current: row.industries, revenueMix: row.revenue_mix, revenueMixSource: row.revenue_mix_source, map, isValidIndustry: input.isValidIndustry });
     counts[r.status]++;
     results.push({ symbol: row.symbol, ...r });
   }

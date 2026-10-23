@@ -5,7 +5,8 @@
  *  - 只輸出 chainSourceMap 對照得到、且在字典內的細分產業；對不上的子項丟棄。
  *  - 對照後只有一個產業 X，且 X 等於主要經營業務判讀的主產業 → 自動上線。
  *  - X 只出現在次要業務、或完全不一致 → 衝突，留待審。
- *  - 對照到多個產業（多角化）→ 營收比重第一名落在其中才上線，否則留待審。
+ *  - 對照到多個產業（多角化）→ 依 dominantIndustry 主業權重公式：只採年報營收占比，
+ *    同產業加總後第一名 ≥ 40% 且領先第二名 ≥ 10 個百分點，且落在平台產業內才上線。
  *  - 平台沒有這檔 → 來源沒有。
  */
 export type ChainSourceMap = Record<string, { subItem: string; industry: string }>
@@ -28,10 +29,39 @@ export interface ChainResolution {
   reason: string
 }
 
+export const MIN_PRIMARY_SHARE = 40
+export const MIN_PRIMARY_LEAD = 10
+
+/** 主業權重公式：只採年報營收占比；同產業加總；總和需 0–100.5；第一名 ≥40% 且領先第二名 ≥10 點。 */
+export function dominantIndustry(input: {
+  revenueMix?: Array<{ industry: string; pct: number }> | null
+  source?: string | null
+  isValidIndustry: (n: string) => boolean
+}): { industry: string | null; share: number | null; lead: number | null; reason: string } {
+  if (input.source !== 'annual_report') return { industry: null, share: null, lead: null, reason: '缺年報營收占比' }
+  const raw = input.revenueMix ?? []
+  if (raw.some(x => !Number.isFinite(x?.pct) || x.pct < 0)) return { industry: null, share: null, lead: null, reason: '營收占比無效' }
+  const sums = new Map<string, number>()
+  let total = 0
+  for (const x of raw) {
+    total += x.pct
+    if (x.pct > 0 && isFinite(x.pct) && input.isValidIndustry(x.industry)) sums.set(x.industry, (sums.get(x.industry) ?? 0) + x.pct)
+  }
+  if (total <= 0 || total > 100.5) return { industry: null, share: null, lead: null, reason: '營收占比總和無效' }
+  const ranked = Array.from(sums.entries()).sort((a, b) => b[1] - a[1])
+  if (ranked.length === 0) return { industry: null, share: null, lead: null, reason: '營收占比無字典內產業' }
+  const [top, share] = ranked[0]
+  const lead = share - (ranked[1]?.[1] ?? 0)
+  if (share < MIN_PRIMARY_SHARE) return { industry: null, share, lead, reason: `最高占比${share}%未達${MIN_PRIMARY_SHARE}%` }
+  if (lead < MIN_PRIMARY_LEAD) return { industry: null, share, lead, reason: `領先第二名${lead}點未達${MIN_PRIMARY_LEAD}點` }
+  return { industry: top, share, lead, reason: `年報營收占比${share}%，領先${lead}點` }
+}
+
 export function resolveChainClassification(input: {
   members: ChainMember[]
   current: string[] | null | undefined
   revenueMix?: Array<{ industry: string; pct: number }> | null
+  revenueMixSource?: string | null
   map: ChainSourceMap
   isValidIndustry: (n: string) => boolean
 }): ChainResolution {
@@ -62,14 +92,10 @@ export function resolveChainClassification(input: {
       reason: current.includes(x) ? `平台為${x}，主要經營業務判讀為次要業務` : `平台為${x}，主要經營業務判讀為${current[0] ?? '無'}`,
     }
   }
-  const mix = (input.revenueMix ?? [])
-    .filter(x => isValidIndustry(x.industry) && Number.isFinite(x.pct) && x.pct > 0)
-    .sort((a, b) => b.pct - a.pct)
-  const highest = mix[0]?.pct
-  const leaders = new Set(mix.filter(x => x.pct === highest).map(x => x.industry))
-  const top = leaders.size === 1 ? mix[0]?.industry : undefined
-  if (top && set.includes(top)) {
-    return { status: 'adopted', industry: top, chainIndustries: set, ...evidenceFor(top), reason: '多角化，依營收比重第一名' }
+  const d = dominantIndustry({ revenueMix: input.revenueMix, source: input.revenueMixSource, isValidIndustry })
+  if (d.industry && set.includes(d.industry)) {
+    return { status: 'adopted', industry: d.industry, chainIndustries: set, ...evidenceFor(d.industry), reason: `多角化，${d.reason}` }
   }
-  return { status: 'diversified', industry: null, chainIndustries: set, tier: null, evidence: null, reason: `平台跨${set.length}類（${set.join('、')}），缺營收比重` }
+  const why = d.industry ? `年報主業${d.industry}不在平台產業內` : d.reason
+  return { status: 'diversified', industry: null, chainIndustries: set, tier: null, evidence: null, reason: `平台跨${set.length}類（${set.join('、')}），${why}` }
 }

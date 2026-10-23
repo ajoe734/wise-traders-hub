@@ -7,7 +7,7 @@ import { isValidIndustry } from '@/checkup/lib/industryTaxonomy';
 const map = (taxonomy as any).chainSourceMap as ChainSourceMap;
 const pcb = (subCode: string, subItem: string, tier = '上游') => ({ chain: '印刷電路板', tier, subCode, subItem });
 const run = (members: any[], current: string[], revenueMix?: any) =>
-  resolveChainClassification({ members, current, revenueMix, map, isValidIndustry });
+  resolveChainClassification({ members, current, revenueMix, revenueMixSource: 'annual_report', map, isValidIndustry });
 
 describe('產業價值鏈自動分類', () => {
   it('前後端字典對照表一致', () => expect((denoTaxonomy as any).chainSourceMap).toEqual(map));
