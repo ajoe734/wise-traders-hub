@@ -85,7 +85,7 @@ Refresh adopted classifications from the database on holdings entry and tab focu
 
 Use `buildLivePeerGroups` for drawer peers and `filterSupplyChainPeers` for snapshot/portfolio peers; both require adopted primary industry codes, never secondary, broad or custom-group fallback. `rankPeerCandidates` enforces the same primary-business gate in fundamentals; notify consumers after admin saves across tabs; why: all valuation paths must isolate supply-chain products without admitting stale or pending classifications.
 
-Industry-chain evidence comes only from monthly `refresh-industry-chain` (TPEx value-chain platform, authorized) via `_shared/tpexChainParser.ts` + `resolveChainClassification`; it auto-adopts only when the mapped sub-item equals the current primary industry, never overriding reviewed rows; why: platform membership alone cannot decide a diversified company's primary business.
+Industry-chain evidence comes only from monthly `refresh-industry-chain` (authorized TPEx platform) via `tpexChainParser`, `buildChainReview` and `resolveChainClassification`; scan every pending row, map new codes only by unambiguous exact approved sub-item names, adopt only with matching primary business or valid highest revenue evidence, guard writes by reviewed state and observed timestamp, and log every outcome; why: monthly evidence must reduce manual review without guessing products or overwriting concurrent decisions.
 
 ### Traffic metrics
 

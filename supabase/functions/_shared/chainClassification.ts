@@ -48,7 +48,8 @@ export function resolveChainClassification(input: {
     return { status: 'unmapped', industry: null, chainIndustries: [], tier: null, evidence: null, reason: '所屬子項無對應細分產業' }
   }
   const evidenceFor = (ind: string) => {
-    const hit = mapped.find((x) => x.industry === ind)!.m
+    const hit = mapped.find((x) => x.industry === ind)?.m
+    if (!hit) return { tier: null, evidence: null }
     return { tier: hit.tier, evidence: `產業價值鏈：${hit.chain}${hit.tier ? ' ' + hit.tier : ''} ${hit.subItem}` }
   }
   if (set.length === 1) {
@@ -61,7 +62,12 @@ export function resolveChainClassification(input: {
       reason: current.includes(x) ? `平台為${x}，主要經營業務判讀為次要業務` : `平台為${x}，主要經營業務判讀為${current[0] ?? '無'}`,
     }
   }
-  const top = input.revenueMix?.[0]?.industry
+  const mix = (input.revenueMix ?? [])
+    .filter(x => isValidIndustry(x.industry) && Number.isFinite(x.pct) && x.pct > 0)
+    .sort((a, b) => b.pct - a.pct)
+  const highest = mix[0]?.pct
+  const leaders = new Set(mix.filter(x => x.pct === highest).map(x => x.industry))
+  const top = leaders.size === 1 ? mix[0]?.industry : undefined
   if (top && set.includes(top)) {
     return { status: 'adopted', industry: top, chainIndustries: set, ...evidenceFor(top), reason: '多角化，依營收比重第一名' }
   }

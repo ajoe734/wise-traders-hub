@@ -5,11 +5,13 @@
  * AUTH: cron-key
  */
 import { serviceClient } from '../_shared/supabaseClients.ts';
-import { corsHeaders } from '../_shared/cors.ts';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { z } from 'npm:zod@4';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { listChainCodes, parseChainPage, type ParsedChainRow } from '../_shared/tpexChainParser.ts';
-import { resolveChainClassification, type ChainSourceMap } from '../_shared/chainClassification.ts';
+import { type ChainSourceMap } from '../_shared/chainClassification.ts';
+import { buildChainReview, type ChainReviewRow } from '../_shared/chainRefreshCore.ts';
 import { isValidIndustry, isAdoptedClassification } from '../_shared/industryTaxonomy.ts';
 import taxonomy from '../_shared/industryTaxonomy.json' with { type: 'json' };
 
@@ -31,15 +33,22 @@ Deno.serve(async (req) => {
     if (err instanceof AuthError) return json({ error: err.message }, err.status);
     throw err;
   }
+  const started = Date.now();
+  const db = serviceClient();
   try {
-    const db = serviceClient();
+    const body = await req.text();
+    let raw: unknown;
+    try { raw = body.trim() ? JSON.parse(body) : {}; } catch { return json({ error: 'invalid JSON' }, 400); }
+    const parsed = z.object({ dryRun: z.boolean().optional() }).strict().safeParse(raw);
+    if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
+    const dryRun = parsed.data.dryRun === true;
     const codes = listChainCodes(await getText(BASE + 'index.php'));
     const rows: ParsedChainRow[] = [];
     for (const code of codes) rows.push(...parseChainPage(await getText(`${BASE}introduce.php?ic=${code}`), code));
     if (rows.length < 3000) return json({ error: 'parsed too few rows, aborting', rows: rows.length }, 502);
 
     const fetchedAt = new Date().toISOString();
-    for (let i = 0; i < rows.length; i += 500) {
+    for (let i = 0; !dryRun && i < rows.length; i += 500) {
       const { error } = await db.from('industry_chain_membership').upsert(
         rows.slice(i, i + 500).map((r) => ({
           symbol: r.symbol, name: r.name, chain: r.chain, chain_code: r.chainCode, sub_code: r.subCode,
@@ -50,33 +59,41 @@ Deno.serve(async (req) => {
       if (error) throw new Error(error.message);
     }
 
-    const bySym = new Map<string, ParsedChainRow[]>();
-    for (const r of rows) bySym.set(r.symbol, [...(bySym.get(r.symbol) ?? []), r]);
     const map = (taxonomy as unknown as { chainSourceMap: ChainSourceMap }).chainSourceMap;
-    const counts: Record<string, number> = {};
+    const stocks: ChainReviewRow[] = [];
     for (let from = 0; ; from += 1000) {
       const { data, error } = await db.from('stock_industry_map')
-        .select('symbol, industries, revenue_mix, reviewed, confidence, evidence').order('symbol').range(from, from + 999);
+        .select('symbol, industries, revenue_mix, reviewed, confidence, evidence, updated_at').order('symbol').range(from, from + 999);
       if (error) throw new Error(error.message);
-      for (const row of data ?? []) {
-        if (isAdoptedClassification(row)) continue;
-        const r = resolveChainClassification({
-          members: (bySym.get(row.symbol) ?? []).map((m) => ({ chain: m.chain, tier: m.tier, subCode: m.subCode, subItem: m.subItem })),
-          current: row.industries, revenueMix: row.revenue_mix, map, isValidIndustry,
-        });
-        counts[r.status] = (counts[r.status] ?? 0) + 1;
-        if (r.status !== 'adopted') continue;
-        const industries = [r.industry!, ...(row.industries ?? []).filter((x: string) => x !== r.industry)];
-        const { error: e2 } = await db.from('stock_industry_map').update({
-          industries, confidence: 0.95, evidence: r.evidence, chain_tier: r.tier, source: 'tpex_chain', updated_at: fetchedAt,
-        }).eq('symbol', row.symbol).neq('reviewed', true);
-        if (e2) throw new Error(e2.message);
-      }
+      stocks.push(...(data ?? []));
       if (!data || data.length < 1000) break;
     }
-    return json({ ok: true, chains: codes.length, rows: rows.length, pending: counts });
+    const report = buildChainReview({ rows: stocks, members: rows, map, isValidIndustry, isAdoptedClassification });
+    const bySymbol = new Map(stocks.map(row => [row.symbol, row]));
+    const applied: string[] = [];
+    const concurrent: string[] = [];
+    for (const r of report.results) {
+        if (dryRun || r.status !== 'adopted' || !r.industry) continue;
+        const row = bySymbol.get(r.symbol);
+        if (!row) continue;
+        const industries = [r.industry, ...(row.industries ?? []).filter((x: string) => x !== r.industry)].slice(0, 3);
+        let update = db.from('stock_industry_map').update({
+          industries, confidence: 0.95, evidence: r.evidence, chain_tier: r.tier, source: 'tpex_chain', updated_at: fetchedAt,
+        }).eq('symbol', row.symbol).or('reviewed.eq.false,reviewed.is.null');
+        update = row.updated_at ? update.eq('updated_at', row.updated_at) : update.is('updated_at', null);
+        const { data: written, error: e2 } = await update.select('symbol');
+        if (e2) throw new Error(e2.message);
+        if (written?.length) applied.push(row.symbol); else concurrent.push(row.symbol);
+    }
+    const detail = { dryRun, chains: codes.length, rows: rows.length, reviewed: report.results.length, pending: report.counts, applied, concurrent, unmapped: report.unmapped, results: report.results };
+    if (!dryRun) {
+      const { error } = await db.from('system_jobs_log').insert({ job_name: 'refresh_industry_chain', status: 'success', duration_ms: Date.now() - started, detail });
+      if (error) throw new Error(error.message);
+    }
+    return json({ ok: true, ...detail });
   } catch (e) {
     console.error('refresh-industry-chain failed', e);
+    await db.from('system_jobs_log').insert({ job_name: 'refresh_industry_chain', status: 'error', duration_ms: Date.now() - started, detail: { error: String((e as Error)?.message ?? e) } });
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
 });
