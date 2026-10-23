@@ -87,6 +87,10 @@ Use `buildLivePeerGroups` for drawer peers and `filterSupplyChainPeers` for snap
 
 Industry-chain evidence comes only from monthly `refresh-industry-chain` (authorized TPEx platform) via `tpexChainParser`, `buildChainReview` and `resolveChainClassification`; scan every pending row, map new codes only by unambiguous exact approved sub-item names, adopt only with matching primary business or valid highest revenue evidence, guard writes by reviewed state and observed timestamp, and log every outcome; why: monthly evidence must reduce manual review without guessing products or overwriting concurrent decisions.
 
+### Annual-report revenue mix
+
+Diversified-company primary weights come only from `stock_annual_revenue_mix` (official shareholder annual reports parsed by `_shared/annualReportMix.ts`, totals 95–100.5%); `refresh-industry-chain` remaps stored products through `productSourceMap` by exact name on every run and unmapped products rank but can never win; why: AI estimates and fuzzy product matching must not auto-adopt classifications.
+
 ### Traffic metrics
 
 Use `trafficQuality` for metrics, `trafficRecovery` for recovery, and `ga4Reconcile` for the separate GA4 comparison view; run `check:traffic` after changes. Count named pages, never infer event-time login; why: prevents invented history and mixed-source totals.
