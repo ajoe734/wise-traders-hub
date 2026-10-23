@@ -106,7 +106,8 @@ export function parseProductShares(text: string): ParsedMix {
 
 export type ProductSourceMap = Record<string, string>;
 
-export const UNMAPPED_PREFIX = '未對照:';
+import { UNMAPPED as UNMAPPED_PREFIX } from './chainClassification.ts';
+export { UNMAPPED_PREFIX };
 
 /** 產品占比 → 細分產業占比；只採完全一致的產品名稱，對不上的各自佔位參與排名 */
 export function mapProductShares(products: ProductShare[], map: ProductSourceMap, isValidIndustry: (n: string) => boolean): {
