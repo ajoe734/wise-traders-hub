@@ -85,6 +85,8 @@ Refresh adopted classifications from the database on holdings entry and tab focu
 
 Use `buildLivePeerGroups` for drawer peers and `filterSupplyChainPeers` for snapshot/portfolio peers; both require adopted primary industry codes, never secondary, broad or custom-group fallback. `rankPeerCandidates` enforces the same primary-business gate in fundamentals; notify consumers after admin saves across tabs; why: all valuation paths must isolate supply-chain products without admitting stale or pending classifications.
 
+Industry-chain evidence comes only from monthly `refresh-industry-chain` (TPEx value-chain platform, authorized) via `_shared/tpexChainParser.ts` + `resolveChainClassification`; it auto-adopts only when the mapped sub-item equals the current primary industry, never overriding reviewed rows; why: platform membership alone cannot decide a diversified company's primary business.
+
 ### Traffic metrics
 
 Use `trafficQuality` for metrics, `trafficRecovery` for recovery, and `ga4Reconcile` for the separate GA4 comparison view; run `check:traffic` after changes. Count named pages, never infer event-time login; why: prevents invented history and mixed-source totals.
