@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Check, RefreshCw } from 'lucide-react';
+import { Loader2, Check, RefreshCw, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { isAdoptedClassification } from '@/checkup/lib/industryTaxonomy';
+import { isAdoptedClassification, INDUSTRIES, chainTierOf } from '@/checkup/lib/industryTaxonomy';
+import { validateReview, reviewCsv } from '@/lib/stockIndustryReview';
 
 type Row = {
   symbol: string;
@@ -101,6 +102,8 @@ export default function StockIndustryReview() {
     row: Row,
     opts: { industries?: string[] | null; marketGroups?: string[] | null } = {},
   ) => {
+    const invalid = validateReview(opts.industries ?? row.industries ?? [], opts.marketGroups ?? row.market_groups ?? []);
+    if (invalid) { toast.error(invalid); return; }
     setBusy(row.symbol);
     const { error } = await (supabase as any).rpc('admin_update_stock_industry', {
       _symbol: row.symbol,
@@ -111,7 +114,13 @@ export default function StockIndustryReview() {
     });
     setBusy(null);
     if (error) { toast.error(error.message); return; }
-    toast.success(`${row.symbol} 已確認`);
+    toast.success(`${row.symbol} 已確認生效`);
+    window.dispatchEvent(new Event('stock-classification-updated'));
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('stock-classification');
+      channel.postMessage({ symbol: row.symbol });
+      channel.close();
+    }
     setDraft((d) => { const n = { ...d }; delete n[row.symbol]; return n; });
     setGroupDraft((d) => { const n = { ...d }; delete n[row.symbol]; return n; });
     invalidate();
@@ -138,6 +147,10 @@ export default function StockIndustryReview() {
               已分類 {counts?.total ?? '—'} 檔 · 待審未上線 {counts?.pending ?? '—'} 檔 · 低信心 {counts?.low ?? '—'} 檔 · 已人工確認 {counts?.reviewed ?? '—'} 檔
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" disabled={isLoading} onClick={() => {
+                const url = URL.createObjectURL(new Blob([reviewCsv(rows)], { type: 'text/csv;charset=utf-8;' }));
+                const a = document.createElement('a'); a.href = url; a.download = `分類覆核-${mode}-${rows.length}檔.csv`; a.click(); URL.revokeObjectURL(url);
+              }}><Download className="h-4 w-4 mr-1" />匯出全部 {rows.length} 檔</Button>
               {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
                 <Button key={m} size="sm" variant={mode === m ? 'default' : 'outline'} onClick={() => setMode(m)}>
                   {MODE_LABEL[m]}
@@ -150,6 +163,8 @@ export default function StockIndustryReview() {
                 onChange={(e) => setFilter(e.target.value)}
               />
             </div>
+            <div className="text-sm">目前列出 {visible.length}／{rows.length} 檔</div>
+            <datalist id="review-industries">{INDUSTRIES.map((i) => <option key={i} value={i} />)}</datalist>
 
             {isLoading ? (
               <div className="py-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>
@@ -181,16 +196,18 @@ export default function StockIndustryReview() {
                       const anyDirty = dirty || groupDirty;
                       return (
                         <TableRow key={r.symbol}>
-                          <TableCell className="font-mono">{r.symbol}</TableCell>
-                          <TableCell>{r.name || '—'}</TableCell>
+                          <TableCell className="font-mono font-bold">{r.symbol}</TableCell>
+                          <TableCell className="font-bold">{r.name || '—'}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">{r.official_industry || '—'}</TableCell>
                           <TableCell className="min-w-[240px] max-w-[320px] text-xs">
                             <div>{r.business_desc || '—'}</div>
                             {r.evidence && <div className="text-muted-foreground mt-1">{r.evidence}</div>}
                           </TableCell>
                           <TableCell className="min-w-[220px]">
-                            {r.chain_tier && <div className="text-xs text-muted-foreground mb-1">{r.chain_tier}</div>}
+                            <div className="text-xs text-muted-foreground mb-1">{value.split(/[、,，]/).map((i) => chainTierOf(i.trim())).filter(Boolean).join('／') || '—'}</div>
                             <Input
+                              aria-label={`${r.symbol} 細分產業`}
+                              list="review-industries"
                               value={value}
                               onChange={(e) => setDraft((d) => ({ ...d, [r.symbol]: e.target.value }))}
                               placeholder="以、分隔"
@@ -198,6 +215,7 @@ export default function StockIndustryReview() {
                           </TableCell>
                           <TableCell className="min-w-[180px]">
                             <Input
+                              aria-label={`${r.symbol} 市場族群`}
                               value={groupValue}
                               onChange={(e) => setGroupDraft((d) => ({ ...d, [r.symbol]: e.target.value }))}
                               placeholder="以、分隔，如 散熱三雄"
@@ -214,7 +232,7 @@ export default function StockIndustryReview() {
                             <Button
                               size="sm"
                               variant={anyDirty ? 'default' : 'outline'}
-                              disabled={busy === r.symbol}
+                              disabled={busy !== null}
                               onClick={() =>
                                 save(r, {
                                   industries: dirty
