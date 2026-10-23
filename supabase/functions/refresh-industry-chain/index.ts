@@ -5,7 +5,7 @@
  * AUTH: cron-key
  */
 import { serviceClient } from '../_shared/supabaseClients.ts';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { corsHeaders } from '../_shared/cors.ts';
 import { z } from 'npm:zod@4';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';

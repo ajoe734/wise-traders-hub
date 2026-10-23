@@ -52,8 +52,10 @@ export function dominantIndustry(input: {
   if (total <= 0 || total > 100.5) return { industry: null, share: null, lead: null, reason: '營收占比總和無效' }
   const ranked = Array.from(sums.entries()).sort((a, b) => b[1] - a[1])
   if (ranked.length === 0) return { industry: null, share: null, lead: null, reason: '營收占比無字典內產業' }
-  const [top, share] = ranked[0]
-  const lead = share - (ranked[1]?.[1] ?? 0)
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  const [top, rawShare] = ranked[0]
+  const share = r2(rawShare)
+  const lead = r2(rawShare - (ranked[1]?.[1] ?? 0))
   if (top.startsWith(UNMAPPED)) return { industry: null, share, lead, reason: `年報最大產品「${top.slice(UNMAPPED.length)}」${share}%未對照字典` }
   if (share < MIN_PRIMARY_SHARE) return { industry: null, share, lead, reason: `最高占比${share}%未達${MIN_PRIMARY_SHARE}%` }
   if (lead < MIN_PRIMARY_LEAD) return { industry: null, share, lead, reason: `領先第二名${lead}點未達${MIN_PRIMARY_LEAD}點` }
@@ -97,7 +99,8 @@ export function resolveChainClassification(input: {
   }
   const d = dominantIndustry({ revenueMix: input.revenueMix, source: input.revenueMixSource, isValidIndustry })
   if (d.industry && set.includes(d.industry)) {
-    return { status: 'adopted', industry: d.industry, chainIndustries: set, ...evidenceFor(d.industry), reason: `多角化，${d.reason}` }
+    const ev = evidenceFor(d.industry)
+    return { status: 'adopted', industry: d.industry, chainIndustries: set, tier: ev.tier, evidence: `${ev.evidence}；${d.reason}`, reason: `多角化，${d.reason}` }
   }
   const why = d.industry ? `年報主業${d.industry}不在平台產業內` : d.reason
   return { status: 'diversified', industry: null, chainIndustries: set, tier: null, evidence: null, reason: `平台跨${set.length}類（${set.join('、')}），${why}` }
