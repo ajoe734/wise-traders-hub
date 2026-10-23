@@ -12,10 +12,11 @@ describe('人工分類即時同業', () => {
     expect(findPeerGroup('3044', 'PCB板廠', live)?.symbols).toEqual(['3044']);
     expect(live.flatMap((g) => g.symbols)).not.toContain('pending');
   });
-  it('人工排除優先，跨產業自訂組仍排除未採用者', () => {
+  it('跨產業自訂組不再參與同業估值', () => {
     const map = { '1815': { industries: ['玻纖紗/玻纖布'] }, '5340': { industries: ['玻纖紗/玻纖布'] } };
     const live = buildLivePeerGroups(map, [{ key: 'custom', custom: true, label: '自訂', pickedAt: '', symbols: ['1815', '5340', '9999'], exclude: ['5340'] }]);
-    expect(live.find((g) => g.custom)?.symbols).toEqual(['1815']);
+    expect(live.some((g) => g.custom)).toBe(false);
+    expect(findPeerGroup('1815', '玻纖紗/玻纖布', live)?.symbols).toEqual(['1815', '5340']);
   });
   it('未有已採用分類不能回退舊名單', () => expect(buildLivePeerGroups({}, [{ key: 'old', code: industryCodeOf('PCB板廠'), label: 'PCB板廠', pickedAt: '', symbols: ['1815'] }])).toEqual([]));
   it('拒絕旧混合類別PCB/CCL，接受玻纖紗/玻纖布', () => {
