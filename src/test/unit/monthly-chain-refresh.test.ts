@@ -37,15 +37,15 @@ describe('每月產業鏈重審', () => {
     expect(r.unmapped).toEqual([{ subCode: 'NEW', subItem: '未知產品' }]);
   });
   it('多角化用實際最大營收項，不依輸入陣列順序', () => {
-    const r = resolveChainClassification({ members: [members[0], { ...members[0], subCode: 'L630', subItem: '銅箔基板' }], current: ['玻纖紗/玻纖布'], revenueMix: [{ industry: '玻纖紗/玻纖布', pct: 20 }, { industry: 'CCL銅箔基板', pct: 80 }], map: taxonomy.chainSourceMap, isValidIndustry });
+    const r = resolveChainClassification({ members: [members[0], { ...members[0], subCode: 'L630', subItem: '銅箔基板' }], current: ['玻纖紗/玻纖布'], revenueMix: [{ industry: '玻纖紗/玻纖布', pct: 20 }, { industry: 'CCL銅箔基板', pct: 80 }], revenueMixSource: 'annual_report', map: taxonomy.chainSourceMap, isValidIndustry });
     expect(r.industry).toBe('CCL銅箔基板');
   });
   it.each([NaN, -1, 0, Infinity])('無效營收比重 %s 不得自動採用', pct => {
-    const r = resolveChainClassification({ members: [members[0], { ...members[0], subCode: 'L630', subItem: '銅箔基板' }], current: ['玻纖紗/玻纖布'], revenueMix: [{ industry: 'CCL銅箔基板', pct }], map: taxonomy.chainSourceMap, isValidIndustry });
+    const r = resolveChainClassification({ members: [members[0], { ...members[0], subCode: 'L630', subItem: '銅箔基板' }], current: ['玻纖紗/玻纖布'], revenueMix: [{ industry: 'CCL銅箔基板', pct }], revenueMixSource: 'annual_report', map: taxonomy.chainSourceMap, isValidIndustry });
     expect(r.status).toBe('diversified');
   });
   it('最大營收並列不同主業時保持待審', () => {
-    const r = resolveChainClassification({ members: [members[0], { ...members[0], subCode: 'L630', subItem: '銅箔基板' }], current: ['玻纖紗/玻纖布'], revenueMix: [{ industry: '玻纖紗/玻纖布', pct: 50 }, { industry: 'CCL銅箔基板', pct: 50 }], map: taxonomy.chainSourceMap, isValidIndustry });
+    const r = resolveChainClassification({ members: [members[0], { ...members[0], subCode: 'L630', subItem: '銅箔基板' }], current: ['玻纖紗/玻纖布'], revenueMix: [{ industry: '玻纖紗/玻纖布', pct: 50 }, { industry: 'CCL銅箔基板', pct: 50 }], revenueMixSource: 'annual_report', map: taxonomy.chainSourceMap, isValidIndustry });
     expect(r.status).toBe('diversified');
   });
 });
