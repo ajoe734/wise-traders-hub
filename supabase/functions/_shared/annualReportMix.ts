@@ -97,7 +97,7 @@ function parseColumns(lines: string[]): ProductShare[] {
 /** 從年報全文取「營業比重」段落的產品占比：先試所有段落的表格，再退回段落內文 */
 export function parseProductShares(text: string): ParsedMix {
   // PDF 常用康熙部首等相容字（⽬、⼦），先正規化，段落終止詞才比得到
-  const lines = text.normalize('NFKC').split(/\r?\n/);
+  const lines = text.normalize('NFKC').replace(/[\uE000-\uF8FF]/g, ' ').split(/\r?\n/);
   const blocks: string[][] = [];
   for (let i = 0; i < lines.length; i++) {
     if (!ANCHOR.test(lines[i])) continue;
