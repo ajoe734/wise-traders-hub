@@ -18,7 +18,9 @@ const SKIP_NAME = /^(合計|合併|個體|總合計|營業收入合計|營收淨
 
 export function normalizeProduct(name: string): string {
   return name
+    .normalize('NFKC')
     .replace(/[\s\u3000]+/g, '')
+    .replace(/[$＄][\d,]*/g, '')
     .replace(/^(?:\(?\d{1,2}[)）.、]|[（(][一二三四五六七八九十\d]+[)）]|[‧・•．\-])/, '')
     .replace(/[：:]+$/, '')
     .replace(/(占|佔|約|為)+$/, '')
