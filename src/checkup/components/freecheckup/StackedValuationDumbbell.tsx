@@ -44,7 +44,7 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
   const [sel, setSel] = useState<string | null>(null);
   useEffect(() => {
     if (!ref.current || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(([e]) => setW(Math.max(260, Math.round(e.contentRect.width))));
+    const ro = new ResizeObserver(([e]) => setW(Math.max(180, Math.round(e.contentRect.width))));
     ro.observe(ref.current);
     return () => ro.disconnect();
   }, []);
@@ -64,22 +64,29 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
   const vals = [...coreVals, ...extra.map((v) => Math.min(Math.max(v, reach.lo), reach.hi))];
   const lo0 = Math.min(...vals), hi0 = Math.max(...vals), span = Math.max(hi0 - lo0, hi0 * 0.05);
   const dom = { lo: lo0 - span * 0.06, hi: hi0 + span * 0.06 };
-  const lw = 76, pad = 18, rowH = 36, top = 18;
-  const h = top + rows.length * rowH + 30;
+  const lw = 62, pad = 28, rowH = 36, top = 10;
+  const h = top + rows.length * rowH + 12;
   const x = (v: number) => lw + ((Math.min(Math.max(v, dom.lo), dom.hi) - dom.lo) / (dom.hi - dom.lo)) * (w - lw - pad);
   const outside = (v: number) => v < dom.lo || v > dom.hi;
   const ease = 'cubic-bezier(.165,.84,.44,1)';
   const fade = (i: number) => ({ transition: `opacity 520ms ${ease} ${i * 90}ms`, opacity: on ? 1 : 0 });
   const selRow = rows.find((r) => r.key === sel);
   const showCost = ok(cost), showTarget = ok(target);
-  // 成本與目標標籤太近時，各自往外側對齊
-  const near = showCost && showTarget && Math.abs(x(cost!) - x(target!)) < 76;
-  const costLeft = near && cost! <= target!;
-  const lbl = (v: number, left: boolean) => (near ? { x: x(v) + (left ? -4 : 4), anchor: left ? 'end' : 'start' } : { x: x(v), anchor: 'middle' });
+  const markers = [
+    ...(ok(price) ? [{ key: 'price', symbol: '│', name: '現', value: price }] : []),
+    ...(typeof cost === 'number' && showCost ? [{ key: 'cost', symbol: '○', name: '成本', value: cost }] : []),
+    ...(typeof target === 'number' && showTarget ? [{ key: 'target', symbol: '▽', name: '目標', value: target }] : []),
+  ];
 
   return (
     <div data-testid="valuation-dumbbell" ref={ref} style={{ minWidth: 0, margin: '4px 0 6px' }}>
-      <svg key={k} width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label="估值疊列啞鈴" onClick={() => setK((v) => v + 1)} style={{ display: 'block', cursor: 'pointer' }}>
+      <div className="grid grid-cols-3 gap-2 text-xs mb-1" style={{ color: WB.ink, fontVariantNumeric: 'tabular-nums' }}>
+        {markers.map((m) => <div key={m.key} data-testid={`dumbbell-legend-${m.key}`} className="min-w-0" style={{ color: m.key === 'price' ? WB.accent : WB.ink }}>
+          <span title={m.key === 'price' ? '現價' : m.key === 'target' ? '目標價' : '成本'}>{m.symbol} {m.name}</span>
+          <strong className="block font-bold break-all">{n0(m.value)}</strong>
+        </div>)}
+      </div>
+      <svg key={k} width="100%" height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label="估值疊列啞鈴" onClick={() => setK((v) => v + 1)} style={{ display: 'block', cursor: 'pointer' }}>
         {rows.map((r, i) => {
           const cy = top + i * rowH + rowH / 2 + 4;
           const ink = r.main ? WB.ink : WB.inkSub, active = sel === r.key;
@@ -87,8 +94,8 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
           return <g key={r.key} data-testid={`dumbbell-row-${r.key}`} data-status={ready(r) ? 'ready' : 'missing'}
             onClick={(e) => { e.stopPropagation(); setSel(active ? null : r.key); }}>
             <rect x={0} y={cy - rowH / 2} width={w} height={rowH} fill="transparent" />
-            <text x={0} y={cy + 4} fontSize={12} fontWeight={r.main ? 800 : 600} fill={active ? WB.accent : ink}>{r.name}</text>
-            {r.main && <text x={0} y={cy - 10} fontSize={10} fontWeight={700} fill={WB.accent}>主尺</text>}
+            <text x={0} y={cy + 4} fontSize={12} fontWeight={r.main ? 800 : 600} fill={ink}>{['pe', 'pb', 'ps'].includes(r.key) ? r.key.toUpperCase() : r.key === 'forward' ? '前瞻' : '同業'}</text>
+            {r.main && <path d={`M35,${cy - 4} L40,${cy} L35,${cy + 4} Z`} fill={WB.ink}><title>主尺</title></path>}
             <line x1={lw} x2={w - pad} y1={cy} y2={cy} stroke={WB.hair} strokeWidth={0.6} />
             {!ready(r) ? <text x={lw + 4} y={cy + 4} fontSize={11} fill={WB.inkMute}>資料不足</text> : <>
               {!r.single && <line x1={x(r.lo)} x2={on ? x(r.hi) : x(r.lo)} y1={cy} y2={cy} stroke={r.main ? WB.ink : WB.inkLight} strokeWidth={r.main ? 4 : 3} strokeLinecap="round" style={{ transition: `x2 600ms ${ease} ${i * 110}ms` }} />}
@@ -96,33 +103,32 @@ export function StackedValuationDumbbell({ WB, rows, price, cost, target, custom
               {(r.single ? [r.mid] : [r.lo, r.mid, r.hi]).map((v, j) => {
                 const big = r.single || j === 1;
                 return <g key={j} style={fade(i * 2 + j)}>
-                  <circle cx={x(v)} cy={cy} r={big ? 5 : 3.5} fill={big ? ink : WB.surface || '#F5F3EF'} stroke={ink} strokeWidth={1.2} />
+                  <circle cx={x(v)} cy={cy} r={big ? 5 : 3.5} fill={big ? ink : 'var(--background)'} stroke={ink} strokeWidth={1.2} />
                   {(() => {
                     // 端點離中點太近就移到線下、向外對齊，避免數字互壓
-                    const tight = !r.single && j !== 1 && Math.abs(x(v) - x(r.mid)) < 40;
-                    const anchor = tight ? (j === 0 ? 'end' : 'start') : outside(v) ? (v > dom.hi ? 'end' : 'start') : 'middle';
-                    const tx = tight ? x(v) + (j === 0 ? -2 : 2) : x(v);
-                    return <text x={tx} y={tight ? cy + 15 : cy - 8} textAnchor={anchor} fontSize={10.5} fontWeight={700} fill={ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{outside(v) ? (v > dom.hi ? `${n0(v)} ›` : `‹ ${n0(v)}`) : n0(v)}</text>;
+                    // 每列只標中點；兩端完整價格保留在點選明細，避免窄螢幕疊字。
+                    if (!big) return null;
+                    return <text x={Math.min(Math.max(x(v), lw + 24), w - pad)} y={cy - 9} textAnchor={x(v) > w - pad - 24 ? 'end' : 'middle'} fontSize={10.5} fontWeight={700} fill={ink} style={{ fontVariantNumeric: 'tabular-nums' }}>{outside(v) ? (v > dom.hi ? `${n0(v)} ›` : `‹ ${n0(v)}`) : n0(v)}</text>;
                   })()}
                 </g>;
               })}
             </>}
           </g>;
         })}
-        {showTarget && <g data-testid="dumbbell-target" style={fade(10)}>
-          <path d={`M${x(target!) - 5},${h - 24} L${x(target!) + 5},${h - 24} L${x(target!)},${h - 17} Z`} fill={WB.inkSub} />
-          <text x={lbl(target!, !costLeft).x} y={h - 4} textAnchor={lbl(target!, !costLeft).anchor as any} fontSize={10.5} fill={WB.inkSub}>目標 {n0(target!)}{outside(target!) ? (target! > dom.hi ? ' ›' : '') : ''}</text>
+        {typeof target === 'number' && showTarget && <g data-testid="dumbbell-target" style={fade(10)}>
+          <title>目標價 {n0(target)}</title>
+          <path d={`M${x(target) - 4},3 L${x(target) + 4},3 L${x(target)},9 Z`} fill={WB.inkSub} />
         </g>}
-        {showCost && <g style={fade(11)}>
-          <circle cx={x(cost!)} cy={h - 20} r={4} fill={WB.surface || '#F5F3EF'} stroke={WB.ink} strokeWidth={1.2} />
-          <text x={lbl(cost!, costLeft).x} y={h - 4} textAnchor={lbl(cost!, costLeft).anchor as any} fontSize={10.5} fill={WB.ink}>{outside(cost!) && cost! < dom.lo ? '‹ ' : ''}成本 {n0(cost!)}</text>
+        {typeof cost === 'number' && showCost && <g data-testid="dumbbell-cost" style={fade(11)}>
+          <title>成本 {n0(cost)}</title>
+          <circle cx={x(cost)} cy={h - 4} r={3.5} fill="var(--background)" stroke={WB.ink} strokeWidth={1.2} />
         </g>}
         {ok(price) && <g data-testid="dumbbell-price" style={fade(12)}>
+          <title>現價 {n0(price)}</title>
           <line x1={x(price)} x2={x(price)} y1={12} y2={h - 16} stroke={WB.accent} strokeWidth={1.4} />
-          <text x={Math.min(Math.max(x(price), lw + 24), w - 30)} y={10} textAnchor="middle" fontSize={11} fontWeight={800} fill={WB.accent}>現價 {n0(price)}</text>
         </g>}
       </svg>
-      {selRow && <div data-testid="dumbbell-selected" style={{ fontSize: 12, color: WB.ink, fontVariantNumeric: 'tabular-nums' }}>
+      {selRow && <div data-testid="dumbbell-selected" className="break-words" style={{ fontSize: 12, color: WB.ink, fontVariantNumeric: 'tabular-nums' }}>
         <strong>{selRow.name}</strong>{' '}
         {ready(selRow) ? (selRow.single ? `NT$${n0(selRow.mid)}` : `便宜 NT$${n0(selRow.lo)}／中間 NT$${n0(selRow.mid)}／偏熱 NT$${n0(selRow.hi)}`) : '資料不足'}
       </div>}
