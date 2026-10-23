@@ -105,7 +105,7 @@ export function parseProductShares(text: string): ParsedMix {
       if (STOP.test(lines[j]) || STOP2.test(lines[j])) break;
       block.push(lines[j]);
     }
-    for (const cand of [parseColumns(block), parseInline(block.join('\n')), parseRows(block.flatMap((l) => l.split(/[，、；;]/).length > 2 && /[:：]/.test(l) ? l.split(/[，、；;]/) : [l]).map((l) => l.replace(/[:：]/g, '  ')))]) {
+    for (const cand of [parseColumns(block), parseRows(block.flatMap((l) => l.split(/[，、；;]/).length > 2 && /[:：]/.test(l) ? l.split(/[，、；;]/) : [l]).map((l) => l.replace(/[:：]/g, '  '))), parseInline(block.join('\n'))]) {
       if (cand.length === 0) continue;
       const r = finalize(cand);
       if (!r.reason) return r;
