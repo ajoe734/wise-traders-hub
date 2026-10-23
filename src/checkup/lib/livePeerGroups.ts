@@ -3,7 +3,7 @@ import type { PeerGroup } from './valuationStations';
 
 /** Keep curated priority; fill only from adopted classifications, never pending rows. */
 export function buildLivePeerGroups(map: Record<string, { industries?: string[] }>, groups: PeerGroup[]): PeerGroup[] {
-  const stocks = Object.entries(map).map(([symbol, row]) => ({ symbol, adopted: true, codes: (row.industries ?? []).map(industryCodeOf).filter((c): c is string => c !== null) }));
+  const stocks = Object.entries(map).map(([symbol, row]) => ({ symbol, adopted: true, codes: (row.industries ?? []).map((i) => industryCodeOf(i)).filter((c): c is string => c !== null) }));
   const out = groups.filter((g) => g.custom).map((g) => {
     const o = reviewedPeerOverride({ ...g, code: g.code ?? null, include: g.include ?? g.symbols, exclude: g.exclude ?? [] }, stocks);
     return { ...g, symbols: o.include.filter((s) => !o.exclude.includes(s)) };
