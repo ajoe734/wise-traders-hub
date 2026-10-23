@@ -17,7 +17,7 @@ export function listChainCodes(indexHtml: string): string[] {
 }
 
 export function parseChainPage(html: string, chainCode: string): ParsedChainRow[] {
-  const t = html.match(/<title>\s*產業價值鏈資訊平台\s*&gt;\s*(.*?)產業鏈簡介/)
+  const t = html.match(/<title>\s*產業價值鏈資訊平台\s*(?:&gt;|>)\s*(.*?)產業鏈簡介/)
   const chain = t ? unescape(t[1]) : chainCode
   const tiers: Record<string, string | null> = {}
   let tier: string | null = null
