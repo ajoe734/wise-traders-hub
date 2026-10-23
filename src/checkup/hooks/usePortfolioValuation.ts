@@ -22,7 +22,7 @@ import { computeStale, type ValuationStatus } from '@/checkup/hooks/useValuation
 import { fetchPeerMedians } from '@/checkup/lib/peerMediansCache';
 import { useStockIndustryMap } from './useStockIndustryMap';
 import { getAutoIndustryMap } from '@/checkup/lib/stockMetaMulti.js';
-import { filterSupplyChainPeers } from '@/checkup/lib/supplyChainPeers';
+import { filterSupplyChainPeers, type AdoptedIndustryMap } from '@/checkup/lib/supplyChainPeers';
 
 export interface PortfolioHoldingLike {
   code?: string | number | null;
@@ -66,6 +66,7 @@ export function usePortfolioValuation(
   holdings: PortfolioHoldingLike[] | null | undefined,
   opts: {
     injectedGateway?: CheckupGateway;
+    injectedIndustryMap?: AdoptedIndustryMap;
     now?: () => number;
     refreshMs?: number;
     /** 個股 → 產業／族群桶（由呼叫端以 getMultiMeta 提供，與索引區同口徑）。 */
@@ -164,10 +165,10 @@ export function usePortfolioValuation(
         pe: snap?.pe ?? null,
         pb: snap?.pb ?? null,
         dividendYield: snap?.dividendYield ?? null,
-        peers: filterSupplyChainPeers(c.code, (Array.isArray(snap?.peers) ? snap.peers : []) as PeerRow[], classification.ready ? getAutoIndustryMap() : {}),
+        peers: filterSupplyChainPeers(c.code, (Array.isArray(snap?.peers) ? snap.peers : []) as PeerRow[], opts.injectedIndustryMap ?? (classification.ready ? getAutoIndustryMap() : {})),
       };
     });
-  }, [snapshots, candidates, classification.ready, classification.version]);
+  }, [snapshots, candidates, classification.ready, classification.version, opts.injectedIndustryMap]);
 
   // 自動更新排程：固定間隔 + 分頁重新可見時補抓（隱藏時不打 RPC）。
   useEffect(() => {
