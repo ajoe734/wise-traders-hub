@@ -77,6 +77,7 @@ describe('年報產品對照字典', () => {
       { chain: '印刷電路板', tier: '中游', subCode: 'L630', subItem: '銅箔基板' },
     ];
     const r = resolveChainClassification({ members, current: ['玻璃陶瓷'], revenueMix: mix, revenueMixSource: 'annual_report', map: (taxonomy as any).chainSourceMap, isValidIndustry });
-    expect(r.status).toBe('diversified'); // 60 vs 40 領先 20 點但 40 是未對照 → 第一名 60 ≥ 40 且領先 20 → 採用
+    expect(r.status).toBe('adopted');
+    expect(r.industry).toBe('玻纖紗/玻纖布');
   });
 });
