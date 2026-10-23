@@ -336,5 +336,735 @@
     "電子代工組裝": "下游",
     "網通設備": "下游",
     "整車製造": "下游"
+  },
+  "chainSourceMap": {
+    "1100": {
+      "subItem": "石灰石",
+      "industry": "水泥"
+    },
+    "1500": {
+      "subItem": "水泥生料",
+      "industry": "水泥"
+    },
+    "1600": {
+      "subItem": "水泥熟料",
+      "industry": "水泥"
+    },
+    "1800": {
+      "subItem": "水泥成品",
+      "industry": "水泥"
+    },
+    "1C00": {
+      "subItem": "預拌混凝土",
+      "industry": "建材"
+    },
+    "2100": {
+      "subItem": "紙漿、紙類原料",
+      "industry": "造紙"
+    },
+    "2210": {
+      "subItem": "文化用紙",
+      "industry": "造紙"
+    },
+    "2220": {
+      "subItem": "工業用紙",
+      "industry": "造紙"
+    },
+    "2230": {
+      "subItem": "家庭用紙",
+      "industry": "造紙"
+    },
+    "3110": {
+      "subItem": "車燈",
+      "industry": "汽車零組件"
+    },
+    "3120": {
+      "subItem": "輪胎",
+      "industry": "橡膠"
+    },
+    "3130": {
+      "subItem": "鈑金",
+      "industry": "汽車零組件"
+    },
+    "3140": {
+      "subItem": "鋁合金鋼圈",
+      "industry": "汽車零組件"
+    },
+    "3150": {
+      "subItem": "引擎蓋",
+      "industry": "汽車零組件"
+    },
+    "3160": {
+      "subItem": "保險桿",
+      "industry": "汽車零組件"
+    },
+    "3200": {
+      "subItem": "整車組裝、修理及技術服務",
+      "industry": "整車製造"
+    },
+    "4170": {
+      "subItem": "通訊",
+      "industry": "衛星通訊"
+    },
+    "4190": {
+      "subItem": "導航定位",
+      "industry": "衛星通訊"
+    },
+    "5220": {
+      "subItem": "支付",
+      "industry": "金融科技"
+    },
+    "5230": {
+      "subItem": "數位銀行",
+      "industry": "金融科技"
+    },
+    "5410": {
+      "subItem": "電腦設備",
+      "industry": "伺服器"
+    },
+    "5430": {
+      "subItem": "冷卻設備",
+      "industry": "散熱模組"
+    },
+    "5490": {
+      "subItem": "雲端應用服務",
+      "industry": "雲端服務"
+    },
+    "5850": {
+      "subItem": "健身器材",
+      "industry": "運動休閒"
+    },
+    "5860": {
+      "subItem": "運動用品",
+      "industry": "運動休閒"
+    },
+    "6110": {
+      "subItem": "感測器",
+      "industry": "工業自動化"
+    },
+    "6120": {
+      "subItem": "控制器",
+      "industry": "工業自動化"
+    },
+    "6130": {
+      "subItem": "HMI",
+      "industry": "工業自動化"
+    },
+    "6310": {
+      "subItem": "工業型機器人",
+      "industry": "機器人"
+    },
+    "6320": {
+      "subItem": "AGV及AMR",
+      "industry": "機器人"
+    },
+    "6330": {
+      "subItem": "服務型及人型機器人",
+      "industry": "機器人"
+    },
+    "6400": {
+      "subItem": "自動化機台",
+      "industry": "工業自動化"
+    },
+    "A120": {
+      "subItem": "矽晶圓/矽晶片",
+      "industry": "綠能及再生能源"
+    },
+    "A130": {
+      "subItem": "太陽能電池",
+      "industry": "綠能及再生能源"
+    },
+    "A140": {
+      "subItem": "太陽能電池模組",
+      "industry": "綠能及再生能源"
+    },
+    "A150": {
+      "subItem": "太陽能發電設備/系統及系統工程",
+      "industry": "綠能及再生能源"
+    },
+    "A160": {
+      "subItem": "太陽能電廠",
+      "industry": "綠能及再生能源"
+    },
+    "A210": {
+      "subItem": "藍寶石晶圓/晶片",
+      "industry": "LED"
+    },
+    "A230": {
+      "subItem": "光源/磊晶",
+      "industry": "LED"
+    },
+    "A240": {
+      "subItem": "封裝/模組",
+      "industry": "LED"
+    },
+    "A250": {
+      "subItem": "燈具/應用",
+      "industry": "LED"
+    },
+    "A310": {
+      "subItem": "鋰電池材料",
+      "industry": "電池及儲能元件"
+    },
+    "A320": {
+      "subItem": "大功率鋰電池芯/模組、電池管理系統、動力馬達等零組件",
+      "industry": "電池及儲能元件"
+    },
+    "A330": {
+      "subItem": "電動汽車、電動機車、電動自行車",
+      "industry": "整車製造"
+    },
+    "AB13": {
+      "subItem": "變壓器",
+      "industry": "重電設備"
+    },
+    "AB14": {
+      "subItem": "電纜",
+      "industry": "電線電纜"
+    },
+    "AB1A": {
+      "subItem": "發電營運",
+      "industry": "綠能及再生能源"
+    },
+    "AB24": {
+      "subItem": "葉片",
+      "industry": "綠能及再生能源"
+    },
+    "AB26": {
+      "subItem": "塔架",
+      "industry": "綠能及再生能源"
+    },
+    "AB27": {
+      "subItem": "電纜",
+      "industry": "電線電纜"
+    },
+    "AB2G": {
+      "subItem": "風場開發",
+      "industry": "綠能及再生能源"
+    },
+    "AB2H": {
+      "subItem": "發電營運",
+      "industry": "綠能及再生能源"
+    },
+    "AD11": {
+      "subItem": "高/低壓輸電設施",
+      "industry": "重電設備"
+    },
+    "AD12": {
+      "subItem": "配電管理設施",
+      "industry": "重電設備"
+    },
+    "B100": {
+      "subItem": "高爾夫球具業",
+      "industry": "運動休閒"
+    },
+    "B200": {
+      "subItem": "旅遊服務業",
+      "industry": "觀光旅館"
+    },
+    "B300": {
+      "subItem": "線上遊戲業",
+      "industry": "遊戲"
+    },
+    "B500": {
+      "subItem": "旅館服務業",
+      "industry": "觀光旅館"
+    },
+    "B600": {
+      "subItem": "休閒車業",
+      "industry": "自行車及零件"
+    },
+    "C120": {
+      "subItem": "中藥材、西藥原料藥",
+      "industry": "學名藥及原料藥"
+    },
+    "C130": {
+      "subItem": "中、西藥製劑",
+      "industry": "學名藥及原料藥"
+    },
+    "C140": {
+      "subItem": "藥品代理銷售及通路",
+      "industry": "醫療通路及服務"
+    },
+    "C150": {
+      "subItem": "醫療院所",
+      "industry": "醫療通路及服務"
+    },
+    "C220": {
+      "subItem": "醫療器材研發、設計、製造",
+      "industry": "醫療器材"
+    },
+    "C230": {
+      "subItem": "醫療器材代理銷售及通路",
+      "industry": "醫療通路及服務"
+    },
+    "C330": {
+      "subItem": "保健食品代理銷售及通路",
+      "industry": "保健食品"
+    },
+    "D100": {
+      "subItem": "IC設計",
+      "industry": "IC設計"
+    },
+    "D200": {
+      "subItem": "光罩",
+      "industry": "光罩"
+    },
+    "D300": {
+      "subItem": "IC/晶圓製造",
+      "industry": "晶圓代工"
+    },
+    "D400": {
+      "subItem": "生產製程及檢測設備",
+      "industry": "半導體設備"
+    },
+    "D500": {
+      "subItem": "化學品",
+      "industry": "半導體材料"
+    },
+    "D600": {
+      "subItem": "生產製程及檢測設備",
+      "industry": "半導體設備"
+    },
+    "D700": {
+      "subItem": "基板",
+      "industry": "載板ABF/BT"
+    },
+    "D800": {
+      "subItem": "導線架",
+      "industry": "半導體材料"
+    },
+    "D900": {
+      "subItem": "IC封裝測試",
+      "industry": "封裝測試"
+    },
+    "DB00": {
+      "subItem": "IC通路",
+      "industry": "電子通路"
+    },
+    "DC00": {
+      "subItem": "IP設計/IC設計代工服務",
+      "industry": "ASIC設計服務"
+    },
+    "E200": {
+      "subItem": "電池芯",
+      "industry": "電池及儲能元件"
+    },
+    "E300": {
+      "subItem": "電池模組",
+      "industry": "電池及儲能元件"
+    },
+    "F300": {
+      "subItem": "面板",
+      "industry": "面板廠"
+    },
+    "F500": {
+      "subItem": "記憶體",
+      "industry": "記憶體"
+    },
+    "F700": {
+      "subItem": "機殼",
+      "industry": "機殼結構件"
+    },
+    "F800": {
+      "subItem": "電源供應器",
+      "industry": "電源供應"
+    },
+    "FA00": {
+      "subItem": "電池",
+      "industry": "電池及儲能元件"
+    },
+    "FB00": {
+      "subItem": "散熱片、風扇馬達、散熱模組",
+      "industry": "散熱模組"
+    },
+    "FE00": {
+      "subItem": "硬碟機",
+      "industry": "儲存裝置"
+    },
+    "FG00": {
+      "subItem": "磁碟儲存系統",
+      "industry": "儲存裝置"
+    },
+    "FI00": {
+      "subItem": "筆記型電腦",
+      "industry": "筆電及桌機"
+    },
+    "FJ00": {
+      "subItem": "桌上型電腦",
+      "industry": "筆電及桌機"
+    },
+    "FK00": {
+      "subItem": "工業電腦",
+      "industry": "工業電腦"
+    },
+    "FM00": {
+      "subItem": "伺服器",
+      "industry": "伺服器"
+    },
+    "FO00": {
+      "subItem": "隨身碟、記憶卡讀卡機",
+      "industry": "儲存裝置"
+    },
+    "FQ00": {
+      "subItem": "光學鏡片、鏡頭",
+      "industry": "光學鏡頭"
+    },
+    "FS00": {
+      "subItem": "連接線",
+      "industry": "連接器"
+    },
+    "FV00": {
+      "subItem": "印表機、傳真機、掃瞄器、多功能事務機、投影機",
+      "industry": "列印設備"
+    },
+    "FW00": {
+      "subItem": "安全監控系統",
+      "industry": "影像裝置"
+    },
+    "G400": {
+      "subItem": "背光源(發光二極體、冷陰極管)",
+      "industry": "LED"
+    },
+    "G600": {
+      "subItem": "稜鏡片",
+      "industry": "背光模組"
+    },
+    "G700": {
+      "subItem": "擴散膜、增亮膜、導光板",
+      "industry": "背光模組"
+    },
+    "G800": {
+      "subItem": "背光模組",
+      "industry": "背光模組"
+    },
+    "G900": {
+      "subItem": "驅動IC",
+      "industry": "驅動IC"
+    },
+    "GB00": {
+      "subItem": "面板",
+      "industry": "面板廠"
+    },
+    "GC00": {
+      "subItem": "顯示器模組",
+      "industry": "面板及零組件"
+    },
+    "H900": {
+      "subItem": "控制IC",
+      "industry": "觸控IC"
+    },
+    "HA00": {
+      "subItem": "觸控面板",
+      "industry": "觸控模組"
+    },
+    "I100": {
+      "subItem": "網路IC",
+      "industry": "網通IC"
+    },
+    "I400": {
+      "subItem": "主/被動元件",
+      "industry": "被動元件"
+    },
+    "I500": {
+      "subItem": "印刷電路板",
+      "industry": "PCB板廠"
+    },
+    "I900": {
+      "subItem": "網路設備(如數據機、網路卡、閘道器、路由器、網路電話)",
+      "industry": "網通設備"
+    },
+    "IA00": {
+      "subItem": "光通訊設備(如光纖電纜、光傳輸設備)",
+      "industry": "光通訊模組"
+    },
+    "IC00": {
+      "subItem": "有線通訊設備(如電話機、傳真機)",
+      "industry": "網通設備"
+    },
+    "ID00": {
+      "subItem": "電信服務業",
+      "industry": "電信服務"
+    },
+    "J500": {
+      "subItem": "電阻器",
+      "industry": "被動元件"
+    },
+    "J600": {
+      "subItem": "電容器",
+      "industry": "被動元件"
+    },
+    "J700": {
+      "subItem": "電感器",
+      "industry": "被動元件"
+    },
+    "J800": {
+      "subItem": "濾波器、振盪器",
+      "industry": "石英元件"
+    },
+    "K500": {
+      "subItem": "連接器設計、組裝及製造",
+      "industry": "連接器"
+    },
+    "L100": {
+      "subItem": "玻璃纖維/玻纖布",
+      "industry": "玻纖紗/玻纖布"
+    },
+    "L200": {
+      "subItem": "環氧樹脂",
+      "industry": "PCB化學品及耗材"
+    },
+    "L300": {
+      "subItem": "酚醛樹脂",
+      "industry": "PCB化學品及耗材"
+    },
+    "L400": {
+      "subItem": "銅箔",
+      "industry": "銅箔"
+    },
+    "L500": {
+      "subItem": "聚亞醯胺樹脂",
+      "industry": "PCB化學品及耗材"
+    },
+    "L610": {
+      "subItem": "硬板、軟板、IC載板製造",
+      "industry": "PCB板廠"
+    },
+    "L630": {
+      "subItem": "銅箔基板",
+      "industry": "CCL銅箔基板"
+    },
+    "M200": {
+      "subItem": "加工食品",
+      "industry": "食品飲料"
+    },
+    "M300": {
+      "subItem": "冷凍、罐頭、脫水、醃漬食品",
+      "industry": "食品飲料"
+    },
+    "M400": {
+      "subItem": "乳製品",
+      "industry": "食品飲料"
+    },
+    "M500": {
+      "subItem": "營養食品",
+      "industry": "保健食品"
+    },
+    "M600": {
+      "subItem": "餐飲連鎖",
+      "industry": "餐飲"
+    },
+    "N200": {
+      "subItem": "石化中間原料(例如乙烯、丙烯、丁二烯、苯、酚等)",
+      "industry": "塑化"
+    },
+    "N300": {
+      "subItem": "塑膠製品",
+      "industry": "塑化"
+    },
+    "N400": {
+      "subItem": "橡膠製品",
+      "industry": "橡膠"
+    },
+    "N600": {
+      "subItem": "人造纖維",
+      "industry": "紡織纖維"
+    },
+    "N700": {
+      "subItem": "顏染料",
+      "industry": "化學工業"
+    },
+    "N800": {
+      "subItem": "接著劑(合成樹脂)",
+      "industry": "化學工業"
+    },
+    "N900": {
+      "subItem": "塑化劑(可塑劑)",
+      "industry": "化學工業"
+    },
+    "NA00": {
+      "subItem": "農藥",
+      "industry": "化學工業"
+    },
+    "O200": {
+      "subItem": "人造纖維產品(例如尼龍纖維、聚酯纖維、嫘縈纖維等)",
+      "industry": "紡織纖維"
+    },
+    "O300": {
+      "subItem": "天然纖維產品(例如純棉、純羊毛等)",
+      "industry": "紡織纖維"
+    },
+    "O500": {
+      "subItem": "紡紗",
+      "industry": "紡織纖維"
+    },
+    "O600": {
+      "subItem": "織布",
+      "industry": "紡織纖維"
+    },
+    "O700": {
+      "subItem": "染整",
+      "industry": "紡織纖維"
+    },
+    "O800": {
+      "subItem": "成衣及其它家居紡織類品",
+      "industry": "紡織纖維"
+    },
+    "P700": {
+      "subItem": "金屬加工用機械",
+      "industry": "工具機"
+    },
+    "P800": {
+      "subItem": "專用機械(如紡織成衣生產用機械、食品飲料生產用機械、農林用機械等)",
+      "industry": "產業機械"
+    },
+    "PA00": {
+      "subItem": "輸送機械及零配件",
+      "industry": "產業機械"
+    },
+    "PB00": {
+      "subItem": "車用機械傳動設備及零配件",
+      "industry": "汽車零組件"
+    },
+    "Q200": {
+      "subItem": "鋼胚",
+      "industry": "鋼鐵"
+    },
+    "Q400": {
+      "subItem": "不鏽鋼胚",
+      "industry": "鋼鐵"
+    },
+    "Q500": {
+      "subItem": "冷熱軋鋼板捲",
+      "industry": "鋼鐵"
+    },
+    "Q600": {
+      "subItem": "鋼筋",
+      "industry": "鋼鐵"
+    },
+    "Q700": {
+      "subItem": "線材盤元",
+      "industry": "鋼鐵"
+    },
+    "Q800": {
+      "subItem": "棒鋼盤元(捲狀條鋼)",
+      "industry": "鋼鐵"
+    },
+    "Q900": {
+      "subItem": "冷熱軋不鏽鋼板捲",
+      "industry": "鋼鐵"
+    },
+    "QA00": {
+      "subItem": "不鏽鋼棒線",
+      "industry": "鋼鐵"
+    },
+    "QB00": {
+      "subItem": "不鏽鋼型鋼",
+      "industry": "鋼鐵"
+    },
+    "QC00": {
+      "subItem": "裁剪加工",
+      "industry": "鋼鐵"
+    },
+    "QD00": {
+      "subItem": "製管",
+      "industry": "鋼鐵"
+    },
+    "QI00": {
+      "subItem": "螺絲螺帽",
+      "industry": "鋼鐵"
+    },
+    "QJ00": {
+      "subItem": "鋼線鋼纜",
+      "industry": "鋼鐵"
+    },
+    "R100": {
+      "subItem": "應用/系統軟體設計開發",
+      "industry": "企業軟體"
+    },
+    "R200": {
+      "subItem": "系統整合服務",
+      "industry": "系統整合"
+    },
+    "R390": {
+      "subItem": "自有產品(服務)銷售",
+      "industry": "電子商務"
+    },
+    "R3A0": {
+      "subItem": "一般零售",
+      "industry": "電子商務"
+    },
+    "S100": {
+      "subItem": "建材原料",
+      "industry": "建材"
+    },
+    "S600": {
+      "subItem": "營造業",
+      "industry": "營造工程"
+    },
+    "S700": {
+      "subItem": "建設業",
+      "industry": "建設開發"
+    },
+    "S800": {
+      "subItem": "工程承攬",
+      "industry": "營造工程"
+    },
+    "T100": {
+      "subItem": "貨櫃航運",
+      "industry": "航運-貨櫃"
+    },
+    "T200": {
+      "subItem": "散裝航運",
+      "industry": "航運-散裝"
+    },
+    "T300": {
+      "subItem": "海陸空貨運承攬",
+      "industry": "陸運物流"
+    },
+    "T400": {
+      "subItem": "貨櫃運輸集散及倉儲",
+      "industry": "陸運物流"
+    },
+    "U200": {
+      "subItem": "證券業",
+      "industry": "證券期貨"
+    },
+    "U300": {
+      "subItem": "期貨業",
+      "industry": "證券期貨"
+    },
+    "U400": {
+      "subItem": "租賃業",
+      "industry": "租賃及融資"
+    },
+    "V300": {
+      "subItem": "零售通路",
+      "industry": "百貨零售"
+    },
+    "W100": {
+      "subItem": "天然瓦斯供應",
+      "industry": "油電燃氣"
+    },
+    "W200": {
+      "subItem": "加油站",
+      "industry": "油電燃氣"
+    },
+    "X200": {
+      "subItem": "環保潔能服務產業",
+      "industry": "環保工程"
+    },
+    "Y200": {
+      "subItem": "廣播電視/電影產業",
+      "industry": "文化創意"
+    },
+    "Y300": {
+      "subItem": "出版產業",
+      "industry": "文化創意"
+    },
+    "Y400": {
+      "subItem": "數位內容產業",
+      "industry": "文化創意"
+    }
   }
 }
