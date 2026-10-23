@@ -5,7 +5,7 @@
  *   - 對外握手一律走 `getCheckupGateway()`（不得直接 import supabase client / fetch）。
  *   - 只讀 `public.stock_industry_map`，不做任何寫入。
  *   - 載入完成後注入 `setAutoIndustryMap()`，讓 `getMultiMeta()` 維持純同步。
- *   - 本地快取 24 小時（`createDocumentCache`），離線或失敗時沿用舊快取。
+ *   - 進頁／返回分頁時讀回最新分類；本地快取只在離線或失敗時備援。
  */
 import { useEffect, useState } from 'react';
 import { getCheckupGateway } from '@/checkup/lib/gateway';
@@ -32,8 +32,8 @@ interface CachedDoc {
 }
 
 const cache = createDocumentCache<CachedDoc>({
-  // v3：只收通過採用門檻（人工確認或高信心有依據）的分類，舊快取作廢
-  storageKey: 'lf.checkup.stockIndustryMap.v3',
+  // v4：代審後進頁強制讀回，不沿用審核前分類
+  storageKey: 'lf.checkup.stockIndustryMap.v4',
   empty: () => ({ at: 0, map: {} }),
 });
 
@@ -110,12 +110,9 @@ export async function loadStockIndustryMap(force = false): Promise<AutoIndustryM
   if (!inflight) {
     inflight = fetchAll()
       .then((map) => {
-        if (Object.keys(map).length) {
-          cache.write({ at: Date.now(), map });
-
-          setAutoIndustryMap(map);
-          applied = true;
-        }
+        cache.write({ at: Date.now(), map });
+        setAutoIndustryMap(map);
+        applied = true;
         return map;
       })
       .finally(() => {
@@ -143,7 +140,7 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
 
   useEffect(() => {
     let alive = true;
-    loadStockIndustryMap()
+    const refresh = () => loadStockIndustryMap(true)
       .then((map) => {
         if (!alive) return;
         setState({
@@ -165,8 +162,12 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
           version: getAutoIndustryMapVersion(),
         });
       });
+    void refresh();
+    const onFocus = () => { void refresh(); };
+    window.addEventListener('focus', onFocus);
     return () => {
       alive = false;
+      window.removeEventListener('focus', onFocus);
     };
   }, []);
 

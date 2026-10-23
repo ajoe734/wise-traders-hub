@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { INDUSTRY_CODES, assignCodes, industryCodeOf, composePeerSymbols, type IndustryCode } from '@/checkup/lib/industryCodes';
+import { INDUSTRY_CODES, assignCodes, industryCodeOf, composePeerSymbols, reviewedPeerOverride, type IndustryCode } from '@/checkup/lib/industryCodes';
 import { INDUSTRIES } from '@/checkup/lib/industryTaxonomy';
 import { PEER_GROUPS, findPeerGroup, buildPeerReference } from '@/checkup/lib/valuationStations';
 
@@ -29,6 +29,15 @@ describe('產業代碼表', () => {
 });
 
 describe('依代碼自動組名單', () => {
+  it('玻纖同業保留建榮，排除 CCL 台燿與未通過審核的分類', () => {
+    const override = reviewedPeerOverride({ code: 'ECMP-25', key: 'glass', label: '玻纖紗/玻纖布', pickedAt: '2026-10-23', include: ['5340', '6274', '9999'], exclude: [] }, [
+      { symbol: '5340', adopted: true, codes: ['ECMP-25'] },
+      { symbol: '6274', adopted: true, codes: ['ECMP-24'] },
+      { symbol: '9999', adopted: false, codes: ['ECMP-25'] },
+    ]);
+    expect(override.exclude).toEqual(['6274', '9999']);
+    expect(composePeerSymbols('ECMP-25', [], override)).toEqual(['5340']);
+  });
   const stocks = [
     { symbol: 'A', industry: 'x', cap: 100, code: 'C1' }, { symbol: 'B', industry: 'x', cap: 300, code: 'C1' },
     { symbol: 'C', industry: 'x', cap: null, code: 'C1' }, { symbol: 'D', industry: 'y', cap: 999, code: 'C2' },

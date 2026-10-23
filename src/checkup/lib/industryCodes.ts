@@ -84,6 +84,19 @@ export function assignCodes(
 export type PeerOverride = { code: string | null; key: string; label: string; pickedAt: string; include: string[]; exclude: string[]; custom?: boolean };
 export type StockRow = { symbol: string; industry: string | null; cap: number | null };
 
+/** 審核後名單只保留已採用且有同產業證據者；跨產業自訂組只檢查採用狀態。 */
+export function reviewedPeerOverride(
+  override: PeerOverride,
+  stocks: Array<{ symbol: string; adopted: boolean; codes: string[] }>,
+): PeerOverride {
+  const bySymbol = new Map(stocks.map((s) => [s.symbol, s]));
+  const rejected = override.include.filter((symbol) => {
+    const stock = bySymbol.get(symbol);
+    return !stock?.adopted || (!override.custom && (!override.code || !stock.codes.includes(override.code)));
+  });
+  return { ...override, exclude: Array.from(new Set([...override.exclude, ...rejected])) };
+}
+
 /** 依代碼自動組名單：同主產業代碼、市值降冪（無市值排後、依代號），取前 n；人工排除優先、人工加入保留 */
 export function composePeerSymbols(
   code: string,

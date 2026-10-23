@@ -4,11 +4,11 @@
  * 用法：bunx tsx scripts/build-peer-groups.ts <stocks.json> [report.md]
  *   stocks.json：[{ s: 代號, n: 名稱, i: 主細分產業, cap: 市值 }]
  *   （由 stock_industry_map + official_share_registry × 最新收盤 匯出，唯讀）
- * 權威順序：stockIndustry.json 覆蓋層 > stock_industry_map.industries[1]。
+ * 權威來源：已採用的 stock_industry_map；舊 overlay 不得覆蓋審核後產業鏈。
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { assignCodes, composePeerSymbols, industryCodeOf, type IndustryCode, type PeerOverride } from '../src/checkup/lib/industryCodes';
+import { assignCodes, composePeerSymbols, industryCodeOf, reviewedPeerOverride, type IndustryCode, type PeerOverride } from '../src/checkup/lib/industryCodes';
 
 const DATA = path.resolve('src/checkup/data');
 const read = (f: string) => JSON.parse(fs.readFileSync(path.join(DATA, f), 'utf8'));
@@ -16,7 +16,7 @@ const SECTORS: Record<string, string> = {
   半導體: 'SEMI', 電子零組件: 'ECMP', 電腦及週邊: 'COMP', 通信網路: 'COMM', 軟體及服務: 'SOFT', 電機機械: 'MECH',
   汽車及運輸: 'AUTO', 金融: 'FINA', 生技醫療: 'BIOM', 原物料: 'MATL', 消費及服務: 'CONS', 營建能源: 'ENGY', 其他: 'OTHR',
 };
-const TODAY = '2026-10-14';
+const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const N = 12;
 
 const taxonomy = read('industryTaxonomy.json').groups as Record<string, string[]>;
@@ -24,12 +24,11 @@ const codesPath = path.join(DATA, 'industryCodes.json');
 const existing: IndustryCode[] = fs.existsSync(codesPath) ? JSON.parse(fs.readFileSync(codesPath, 'utf8')).codes : [];
 const codes = assignCodes(taxonomy, SECTORS, existing);
 
-const overlay = read('stockIndustry.json') as Record<string, { industries?: string[] }>;
-const dump = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')) as Array<{ s: string; n: string | null; i: string | null; cap: number | null }>;
+const dump = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')) as Array<{ s: string; n: string | null; i: string | null; industries: string[]; adopted: boolean; cap: number | null }>;
 const names = new Map(dump.map((d) => [d.s, d.n]));
 const stocks = dump.map((d) => {
-  const ind = overlay[d.s]?.industries?.find((x) => industryCodeOf(x, codes)) ?? d.i;
-  return { symbol: d.s, industry: ind, cap: d.cap, code: industryCodeOf(ind, codes) };
+  const ind = d.adopted === true ? d.i : null;
+  return { symbol: d.s, industry: ind, adopted: d.adopted === true, codes: (d.industries ?? []).map((i) => industryCodeOf(i, codes)).filter((c): c is string => !!c), cap: d.cap, code: industryCodeOf(ind, codes) };
 });
 const unmapped = stocks.filter((s) => !s.code);
 const codeOfSym = new Map(stocks.map((s) => [s.symbol, s.code]));
@@ -47,7 +46,7 @@ for (const g of old) {
     code = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     if (!code) oldUnmatched.push(g.label);
   }
-  overrides.push({ code, key: g.key, label: g.label, pickedAt: g.pickedAt, include: g.include ?? g.symbols, exclude: g.exclude ?? [], custom });
+  overrides.push(reviewedPeerOverride({ code, key: g.key, label: g.label, pickedAt: g.pickedAt, include: g.include ?? g.symbols, exclude: g.exclude ?? [], custom }, stocks));
 }
 
 const groups: any[] = [];
