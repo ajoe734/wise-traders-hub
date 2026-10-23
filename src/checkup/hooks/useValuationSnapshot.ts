@@ -19,7 +19,7 @@ import { expiredEstimate, financialCacheValid, FILING_CHECK_MS } from '../../../
 import { useFilingRefresh } from './useFilingRefresh';
 import { useStockIndustryMap } from './useStockIndustryMap';
 import { getAutoIndustryMap } from '@/checkup/lib/stockMetaMulti.js';
-import { filterSupplyChainPeers } from '@/checkup/lib/supplyChainPeers';
+import { filterSupplyChainPeers, type AdoptedIndustryMap } from '@/checkup/lib/supplyChainPeers';
 
 /** 唯讀財報情境 Edge Function；token 只在後端。 */
 export const FUNDAMENTALS_FN = 'valuation-fundamentals';
@@ -126,12 +126,12 @@ export function computeStale(asOf: string | null, nowMs: number): boolean {
 
 export function useValuationSnapshot(
   symbol?: string | null,
-  opts: { injectedGateway?: CheckupGateway; now?: () => number } = {},
+  opts: { injectedGateway?: CheckupGateway; injectedIndustryMap?: AdoptedIndustryMap; now?: () => number } = {},
 ): UseValuationSnapshotResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
   const [view, setView] = useState<ValuationView | null>(null);
   const [rawRatio, setRawRatio] = useState<any>(null);
-  const classification = useStockIndustryMap();
+  const classification = useStockIndustryMap(!opts.injectedGateway);
   const [band, setBand] = useState<ValuationScenario | null>(null);
   const [bandStatus, setBandStatus] = useState<ValuationStatus>('idle');
   const [peersPending, setPeersPending] = useState(false);
@@ -233,7 +233,7 @@ export function useValuationSnapshot(
   const refetch = useCallback(() => setTick((n) => n + 1), []);
   useEffect(() => {
     if (!rawRatio) { setView(null); return; }
-    const map = classification.ready ? getAutoIndustryMap() : {};
+    const map = opts.injectedIndustryMap ?? (classification.ready ? getAutoIndustryMap() : {});
     setView(buildValuationView({
       ...rawRatio,
       industry: map[code]?.industries?.[0] ?? null,
@@ -241,7 +241,7 @@ export function useValuationSnapshot(
       peerScope: 'fine',
       peers: filterSupplyChainPeers(code, rawRatio.peers ?? [], map),
     }));
-  }, [rawRatio, code, classification.ready, classification.version]);
+  }, [rawRatio, code, classification.ready, classification.version, opts.injectedIndustryMap]);
   const nowMs = (opts.now || Date.now)();
 
   return {

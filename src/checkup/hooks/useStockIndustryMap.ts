@@ -130,7 +130,7 @@ export interface UseStockIndustryMapResult {
   version: number;
 }
 
-export function useStockIndustryMap(): UseStockIndustryMapResult {
+export function useStockIndustryMap(enabled = true): UseStockIndustryMapResult {
   const [state, setState] = useState<UseStockIndustryMapResult>({
     ready: applied,
     count: 0,
@@ -139,6 +139,7 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
   });
 
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     const refresh = () => loadStockIndustryMap(true)
       .then((map) => {
@@ -174,7 +175,7 @@ export function useStockIndustryMap(): UseStockIndustryMapResult {
       window.removeEventListener('stock-classification-updated', onFocus);
       channel?.close();
     };
-  }, []);
+  }, [enabled]);
 
   return state;
 }

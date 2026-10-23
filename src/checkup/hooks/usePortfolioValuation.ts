@@ -73,7 +73,7 @@ export function usePortfolioValuation(
   } = {},
 ): UsePortfolioValuationResult {
   const [status, setStatus] = useState<ValuationStatus>('idle');
-  const classification = useStockIndustryMap();
+  const classification = useStockIndustryMap(!opts.injectedGateway);
   const [asOf, setAsOf] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);

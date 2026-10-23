@@ -229,9 +229,15 @@ const WIDTHS: Array<[string, number]> = [['desktop-1440', 1440], ['laptop-1024',
 
 function LivePanel({ width, label, fixture }: { width: number; label: string; fixture: FixtureKey | 'error' }) {
   const { gateway } = useMemo(() => createFakeValuationGateway(fixture), [fixture]);
+  const injectedIndustryMap = useMemo(() => {
+    if (fixture === 'error') return {};
+    const stock = FIXTURES[fixture];
+    const industry = fixture === '2882' ? '金控' : fixture === '1101' ? '水泥' : fixture === '3443' ? 'IC設計' : '其他';
+    return Object.fromEntries([stock.symbol, ...stock.peers.map((p) => p.symbol)].map((symbol) => [symbol, { industries: [industry] }]));
+  }, [fixture]);
   const { status, view, error, stale, refetch } = useValuationSnapshot(
     fixture === 'error' ? '3443' : fixture,
-    { injectedGateway: gateway },
+    { injectedGateway: gateway, injectedIndustryMap },
   );
   // 抽屜實際可用寬度約為 viewport 的 90%（≥640px 時上限 448px）
   const inner = Math.min(width >= 640 ? 448 : width, width) - 28;
