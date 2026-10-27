@@ -34,3 +34,7 @@ GA4 numbers reach the admin UI only via company_admin `ga4-report` (pure `_share
 ### ECPay refunds
 
 Credit-card refunds go only through company_admin `ecpay-refund` (pure `_shared/ecpayRefundCore.ts`): Action=N pre-capture, Action=R post-capture, both with TotalAmount; idempotent via `REFUND-<MerchantTradeNo>` ledger key, single attempt (no auto-retry on financial mutations), every outcome audited with payment_intents uuid as target; why: refunds must be ledgered once, never double-sent, and unknown network states must be checked manually before retry.
+
+### Holding quote freshness
+
+`stock-price-sync` queries MIS only through `_shared/misBatch.ts` (small batches, split-and-retry on non-OK `rtmessage`) and raises `expert_price_missing` when any open expert TW holding is unpriced; expert capital/performance RPCs read prices only via `latest_quote()` (newer of official close history and live quote, with `price_date`), and the UI labels stale dates via `src/lib/priceStaleness.ts`; why: an oversized MIS batch once silently dropped ~70% of symbols and froze journal prices for weeks.

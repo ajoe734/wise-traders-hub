@@ -7,6 +7,7 @@ import { pnlColor, fmtPnl, fmtPct, fmtPrice, assetBadge, type PerfRow } from '@/
 import { formatBaseQuantity } from '@/lib/positionQuantity';
 import { UNAVAILABLE_LABEL, isMaskedRow } from '@/contracts/publicProjection';
 import { FxHint } from '@/components/FxHint';
+import { stalePriceLabel } from '@/lib/priceStaleness';
 
 interface Props {
   rows: PerfRow[];
@@ -120,6 +121,9 @@ export default function UnrealizedTab({ rows, loading, totalPnlPercent, avgPnlPe
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300')}>
                         {masked ? UNAVAILABLE_LABEL : fmtPrice(row.current_price, row.currency, row.asset_class)}
+                        {!masked && stalePriceLabel(row.price_date) && (
+                          <span className="block text-[10px] text-muted-foreground">{stalePriceLabel(row.price_date)} 價</span>
+                        )}
                       </td>
                       <td className={cn('text-right p-3 text-sm tabular-nums transition-colors duration-300', pnlColor(row.pnl))}>
                         {masked ? UNAVAILABLE_LABEL : row.pnl != null ? fmtPnl(row.pnl, row.currency) : '-'}

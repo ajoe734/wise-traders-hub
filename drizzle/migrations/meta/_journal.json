@@ -449,6 +449,13 @@
       "when": 1792754433496,
       "tag": "0063_stock_annual_revenue_mix",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1793116322836,
+      "tag": "0064_expert_latest_quote",
+      "breakpoints": true
     }
   ]
 }

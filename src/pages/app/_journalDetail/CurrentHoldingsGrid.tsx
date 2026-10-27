@@ -16,6 +16,7 @@ import { UNAVAILABLE_LABEL, type ProjectionStatus } from '@/contracts/publicProj
 import type { PerfRow } from '@/pages/_adminPerformance/types';
 import { cn } from '@/lib/utils';
 import { PositionTimeline } from './PositionTimeline';
+import { stalePriceLabel } from '@/lib/priceStaleness';
 
 const PREVIEW_COUNT = 3;
 
@@ -88,6 +89,9 @@ function PositionCard({ position }: { position: PerfRow }) {
             {masked || quoteMissing
               ? unavailable
               : `${CURRENCY_SYMBOL[currency]}${formatPriceByCurrency(position.current_price, currency, priceDigits)}`}
+            {!masked && !quoteMissing && stalePriceLabel(position.price_date) && (
+              <span className="block text-[10px] text-muted-foreground">{stalePriceLabel(position.price_date)} 價</span>
+            )}
           </dd>
         </div>
         <div className="col-span-2 flex min-w-0 items-end justify-between gap-3 border-t border-border/70 pt-3">

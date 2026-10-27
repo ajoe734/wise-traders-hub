@@ -8174,6 +8174,13 @@ export type Database = {
       is_tester: { Args: { _user_id: string }; Returns: boolean }
       is_tw_trading_day: { Args: { _d: string }; Returns: boolean }
       is_tw_trading_hours: { Args: never; Returns: boolean }
+      latest_quote: {
+        Args: { _symbol: string }
+        Returns: {
+          price: number
+          price_date: string
+        }[]
+      }
       list_position_event_reconstruction_issue_symbols: {
         Args: { _expert_id: string }
         Returns: {
