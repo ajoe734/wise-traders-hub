@@ -16,6 +16,7 @@ import { UNAVAILABLE_LABEL, type ProjectionStatus } from '@/contracts/publicProj
 import type { PerfRow } from '@/pages/_adminPerformance/types';
 import { cn } from '@/lib/utils';
 import { PositionTimeline } from './PositionTimeline';
+import { stalePriceLabel } from '@/lib/priceStaleness';
 
 const PREVIEW_COUNT = 3;
 
