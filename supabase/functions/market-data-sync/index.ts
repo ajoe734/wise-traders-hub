@@ -10,7 +10,7 @@ import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { fetchWithRetry } from '../_shared/retryFetch.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
-import { parseExchangeDaily, parseOfficialMonthRevenue, type PriceRowInsert, type RevenueInsert } from '../_shared/marketDataStore.ts';
+import { parseExchangeDaily, parseOfficialMonthRevenue, parseTwseMiIndex, type PriceRowInsert, type RevenueInsert } from '../_shared/marketDataStore.ts';
 import { runHistoryBackfill } from '../_shared/historyBackfillRunner.ts';
 import { z } from 'npm:zod@3';
 import { recordUpstreamQuota } from '../_shared/finmindUpstreamQuota.ts';
@@ -59,14 +59,33 @@ Deno.serve(async (req) => {
 
   try {
     if (mode === 'daily') {
-      const [tw, tp] = await Promise.all([
+      // 兩所各自取，一邊失敗不拖垮另一邊（2026-10-27 21:00 曾因單邊讀取中斷整次失敗）。
+      const [twR, tpR] = await Promise.allSettled([
         fetchWithRetry('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', UA, { source: 'twse-stock-day-all', policy: BIG }).then((r) => r.json()),
         fetchWithRetry('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes', UA, { source: 'tpex-daily-close', policy: BIG }).then((r) => r.json()),
       ]);
-      const rows: PriceRowInsert[] = parseExchangeDaily(tw, tp);
+      const rows: PriceRowInsert[] = parseExchangeDaily(twR.status === 'fulfilled' ? twR.value : [], tpR.status === 'fulfilled' ? tpR.value : []);
+      const maxDate = (src: string) => rows.filter((r) => r.source === src).reduce((m, r) => (r.trade_date > m ? r.trade_date : m), '');
+      const tpDate = maxDate('tpex_daily_close');
+      // STOCK_DAY_ALL 傍晚常仍停在前一交易日 → 以櫃買日期向 MI_INDEX 補上市當日收盤。
+      if (tpDate && maxDate('twse_stock_day_all') < tpDate) {
+        try {
+          const mi = await fetchWithRetry(`https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${tpDate.replace(/-/g, '')}&type=ALLBUT0999`, UA, { source: 'twse-mi-index', policy: BIG }).then((r) => r.json());
+          rows.push(...parseTwseMiIndex(mi, tpDate));
+        } catch { /* 下方 lag 檢查會警示 */ }
+      }
       await upsertChunks(db, 'tw_price_history', rows, 'symbol,trade_date');
-      await log(rows.length ? 'success' : 'empty', { rows: rows.length, dates: [...new Set(rows.map((r) => r.trade_date))] });
-      return json({ ok: true, mode, rows: rows.length });
+      const twDate = [maxDate('twse_stock_day_all'), maxDate('twse_mi_index')].sort().pop() ?? '';
+      const lagging = !tpDate || !twDate || twDate !== tpDate;
+      if (lagging) {
+        await db.from('system_alerts').insert({
+          kind: 'daily_close_lagging', level: 'warning',
+          title: '每日收盤：上市與上櫃日期不一致或缺漏',
+          message: `twse=${twDate || 'none'} tpex=${tpDate || 'none'} twse_err=${twR.status === 'rejected'} tpex_err=${tpR.status === 'rejected'}`,
+        });
+      }
+      await log(lagging ? 'partial' : rows.length ? 'success' : 'empty', { rows: rows.length, dates: [...new Set(rows.map((r) => r.trade_date))], twse_date: twDate, tpex_date: tpDate });
+      return json({ ok: true, mode, rows: rows.length, twse_date: twDate, tpex_date: tpDate });
     }
 
     if (mode === 'revenue') {
