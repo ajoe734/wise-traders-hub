@@ -82,6 +82,14 @@ Deno.serve(async (req) => {
           rows.push(...parsedMi);
         } catch { /* 下方 lag 檢查會警示 */ }
       }
+      // 上市權證（STOCK_DAY_ALL 不含）：同日 MI_INDEX type=0999，讓權證也有官方收盤可對帳。
+      const warrantDate = target || maxDate('twse_stock_day_all');
+      if (warrantDate) {
+        try {
+          const mw = await fetchWithRetry(`https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${warrantDate.replace(/-/g, '')}&type=0999`, UA, { source: 'twse-mi-warrant', policy: BIG }).then((r) => r.json());
+          rows.push(...parseTwseMiIndex(mw, warrantDate).map((r) => ({ ...r, source: 'twse_mi_warrant' })));
+        } catch { /* 權證缺漏不阻擋股票收盤 */ }
+      }
       await upsertChunks(db, 'tw_price_history', rows, 'symbol,trade_date');
       const twDate = [maxDate('twse_stock_day_all'), maxDate('twse_mi_index')].sort().pop() ?? '';
       // 目標日證交所回 0 筆且櫃買也無該日 → 休市，不警示。
