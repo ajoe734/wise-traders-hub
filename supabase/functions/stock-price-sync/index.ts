@@ -449,14 +449,32 @@ Deno.serve(withLogging('stock-price-sync', async (req) => {
       }
     }
 
+    // ── 專家未平倉台股必須全部拿到價；缺的記錄並警示，不得靜默 ──
+    const expertTw = [...recordSymbols].filter(s => detectMarket(s) === 'TW')
+    const expertMissing = runTw ? expertTw.filter(s => !twMap.has(s)) : []
+    const twMissing = runTw ? twSymbols.filter(s => !twMap.has(s)) : []
+    if (expertMissing.length > 0) {
+      await supabase.from('system_alerts').insert({
+        kind: 'expert_price_missing',
+        level: 'critical',
+        title: `專家持倉現價未更新 ${expertMissing.length} 檔`,
+        message: expertMissing.join(','),
+        metric_value: expertMissing.length,
+        threshold: 0,
+      })
+    }
+
     // ── System job log ──
     await supabase.from('system_jobs_log').insert({
       job_name: 'stock_price_sync',
-      status: 'success',
+      status: expertMissing.length > 0 ? 'partial' : 'success',
       detail: {
         market: marketGate,
         symbols_tw: twSymbols.length,
         symbols_us: usSymbols.length,
+        tw_fetched: twMap.size,
+        tw_missing: twMissing,
+        expert_missing: expertMissing,
         prices_fetched: priceMap.size,
         performances_updated: perfRows.length,
         users_updated: userIds.length,
