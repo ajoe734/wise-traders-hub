@@ -88,6 +88,9 @@ function PositionCard({ position }: { position: PerfRow }) {
             {masked || quoteMissing
               ? unavailable
               : `${CURRENCY_SYMBOL[currency]}${formatPriceByCurrency(position.current_price, currency, priceDigits)}`}
+            {!masked && !quoteMissing && stalePriceLabel(position.price_date) && (
+              <span className="block text-[10px] text-muted-foreground">{stalePriceLabel(position.price_date)} 價</span>
+            )}
           </dd>
         </div>
         <div className="col-span-2 flex min-w-0 items-end justify-between gap-3 border-t border-border/70 pt-3">

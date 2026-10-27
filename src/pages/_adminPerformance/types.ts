@@ -13,6 +13,8 @@ export interface PerfRow {
   name: string | null;
   entry_price: number | null;
   current_price: number | null;
+  /** 現價所屬交易日（YYYY-MM-DD，由資料庫 latest_quote 回傳）；舊資料可能沒有。 */
+  price_date?: string | null;
   pnl: number | null;
   pnl_percent: number | null;
   /** UI 顯示用的數量（已由 base_quantity 換算成 quantity_unit 對應的單位；例如 1000 股 → 顯示 1 張）。 */

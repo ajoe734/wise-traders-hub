@@ -68,6 +68,7 @@ export function mapOpenPositionToRow(p: any, currency: Currency = 'TWD', assetCl
     name,
     entry_price: entryPrice,
     current_price: curPrice,
+    price_date: p.price_date ?? null,
     pnl,
     pnl_percent: pnlPct,
     quantity: display.inputQuantity,
