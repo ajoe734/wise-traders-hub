@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     if (e instanceof AuthError) return json({ error: e.code, message: e.message }, e.status);
     throw e;
   }
-  const parsed = z.object({ mode: z.enum(['daily', 'revenue', 'backfill']), limit: z.number().int().min(1).max(100).optional() }).strict()
+  const parsed = z.object({ mode: z.enum(['daily', 'revenue', 'backfill']), limit: z.number().int().min(1).max(100).optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).strict()
     .safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
   const { mode } = parsed.data;
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       const tp = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short', hourCycle: 'h23' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
       const todayTpe = `${tp.year}-${tp.month}-${tp.day}`;
       const afterClose = !['Sat', 'Sun'].includes(tp.weekday) && Number(tp.hour) * 100 + Number(tp.minute) >= 1430;
-      const target = [tpDate, afterClose ? todayTpe : ''].sort().pop() ?? '';
+      const target = [tpDate, afterClose ? todayTpe : '', parsed.data.date ?? ''].sort().pop() ?? '';
       let miRows = -1;
       if (target && maxDate('twse_stock_day_all') < target) {
         try {
