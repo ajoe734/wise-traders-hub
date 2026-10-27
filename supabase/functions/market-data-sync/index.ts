@@ -68,15 +68,25 @@ Deno.serve(async (req) => {
       const maxDate = (src: string) => rows.filter((r) => r.source === src).reduce((m, r) => (r.trade_date > m ? r.trade_date : m), '');
       const tpDate = maxDate('tpex_daily_close');
       // STOCK_DAY_ALL 傍晚常仍停在前一交易日 → 以櫃買日期向 MI_INDEX 補上市當日收盤。
-      if (tpDate && maxDate('twse_stock_day_all') < tpDate) {
+      // 目標日：櫃買日期，或台北平日 14:30 後的今天（櫃買取不到時也要補）。
+      const tw = new Date(Date.now() + 8 * 3600_000);
+      const todayTpe = tw.toISOString().slice(0, 10);
+      const afterClose = tw.getUTCDay() >= 1 && tw.getUTCDay() <= 5 && tw.getUTCHours() * 100 + tw.getUTCMinutes() >= 1430;
+      const target = [tpDate, afterClose ? todayTpe : ''].sort().pop() ?? '';
+      let miRows = -1;
+      if (target && maxDate('twse_stock_day_all') < target) {
         try {
-          const mi = await fetchWithRetry(`https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${tpDate.replace(/-/g, '')}&type=ALLBUT0999`, UA, { source: 'twse-mi-index', policy: BIG }).then((r) => r.json());
-          rows.push(...parseTwseMiIndex(mi, tpDate));
+          const mi = await fetchWithRetry(`https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${target.replace(/-/g, '')}&type=ALLBUT0999`, UA, { source: 'twse-mi-index', policy: BIG }).then((r) => r.json());
+          const parsedMi = parseTwseMiIndex(mi, target);
+          miRows = parsedMi.length;
+          rows.push(...parsedMi);
         } catch { /* 下方 lag 檢查會警示 */ }
       }
       await upsertChunks(db, 'tw_price_history', rows, 'symbol,trade_date');
       const twDate = [maxDate('twse_stock_day_all'), maxDate('twse_mi_index')].sort().pop() ?? '';
-      const lagging = !tpDate || !twDate || twDate !== tpDate;
+      // 目標日證交所回 0 筆且櫃買也無該日 → 休市，不警示。
+      const holiday = miRows === 0 && tpDate !== target;
+      const lagging = !holiday && (twR.status === 'rejected' || tpR.status === 'rejected' || (target !== '' && (twDate < target || (tpDate !== '' && tpDate < target))));
       if (lagging) {
         await db.from('system_alerts').insert({
           kind: 'daily_close_lagging', level: 'warning',
