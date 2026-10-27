@@ -35,10 +35,16 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
     // US trade_date：紐約時區（含 DST），週末回推到週五
     const usTradeDate = nyTradeDate(now)
 
+    // 台股休市（週末或 tw_market_holidays）不寫台股快照：
+    // 2026-10-09、10-23 曾把舊即時價蓋上休市日日期，還產生假漲停命中。
+    const twDow = taipeiDate.getDay()
+    const { data: holidayRow } = await supabase.from('tw_market_holidays').select('trade_date').eq('trade_date', twTradeDate).maybeSingle()
+    const twOpen = twDow >= 1 && twDow <= 5 && !holidayRow
+
     // Step 1: Read all current_prices（含 market）
     const { data: prices, error: pricesErr } = await supabase
       .from('current_prices')
-      .select('symbol, price, yesterday_close, change_percent, limit_up, volume, market')
+      .select('symbol, price, yesterday_close, change_percent, limit_up, volume, market, updated_at')
 
     if (pricesErr) throw pricesErr
     if (!prices || prices.length === 0) {
@@ -47,9 +53,14 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
       })
     }
 
+    // 台股只收「今天（台北）有更新」的價，舊價不得蓋上今天日期
+    const updatedTodayTpe = (ts: string | null) =>
+      !!ts && new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }) === twTradeDate
+
     // Build snapshot rows；美股 is_limit_up 恆 false（無 10% 漲跌停），trade_date 用 NY 曆日
     const snapshotRows = prices
       .filter((p: any) => p.price && p.price > 0)
+      .filter((p: any) => p.market === 'US' || (twOpen && updatedTodayTpe(p.updated_at)))
       .map((p: any) => {
         const market = p.market === 'US' ? 'US' : 'TW'
         const isLimitUp =

@@ -51,8 +51,15 @@ export async function fetchMisResilient(
   const run = async (batch: string[]): Promise<void> => {
     let res: MisResponse | null = null
     try { res = await fetchFn(batch.flatMap(buildExChParts)) } catch { res = null }
-    if (isOk(res)) { items.push(...res.msgArray!); return }
-    if (batch.length === 1) { failed.push(batch[0]); return }
+    if (isOk(res)) {
+      items.push(...res.msgArray!)
+      // OK 但部分代號缺席：缺的再查一次（拆小），單檔仍缺即列 failed
+      const got = new Set(res.msgArray!.map((m) => m.c))
+      const missing = batch.filter((s) => !got.has(s))
+      if (missing.length === 0) return
+      if (batch.length === 1) { failed.push(batch[0]); return }
+      if (missing.length < batch.length) { for (const s of missing) await run([s]); return }
+    } else if (batch.length === 1) { failed.push(batch[0]); return }
     const mid = Math.ceil(batch.length / 2)
     await run(batch.slice(0, mid))
     await run(batch.slice(mid))

@@ -22,8 +22,21 @@ describe('MIS 批次查詢（週記現價漏抓根因）', () => {
   it('單一代號仍失敗時列入 failed，不靜默', async () => {
     const fetchFn = async (parts: string[]) => parts.some((p) => p.includes('2464'))
       ? null
-      : { rtmessage: 'OK', msgArray: [{ c: 'x' }] };
+      : { rtmessage: 'OK', msgArray: parts.filter((p) => p.startsWith('tse_')).map((p) => ({ c: p.slice(4, -3) })) };
     const { failed } = await fetchMisResilient(['2464', '2492', '6830'], fetchFn);
     expect(failed).toEqual(['2464']);
+  });
+
+  it('回 OK 但漏掉部分代號時，缺的逐檔補查', async () => {
+    let first = true;
+    const fetchFn = async (parts: string[]) => {
+      const codes = parts.filter((p) => p.startsWith('tse_')).map((p) => p.slice(4, -3));
+      const out = first ? codes.filter((c) => c !== '2492') : codes;
+      first = false;
+      return { rtmessage: 'OK', msgArray: out.map((c) => ({ c })) };
+    };
+    const { items, failed } = await fetchMisResilient(['2464', '2492', '6830'], fetchFn);
+    expect(failed).toEqual([]);
+    expect(items.map((i) => i.c).sort()).toEqual(['2464', '2492', '6830']);
   });
 });
