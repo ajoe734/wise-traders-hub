@@ -5,6 +5,7 @@ import { withLogging } from '../_shared/edgeLogger.ts';
 import { parsePrice, extractPrice, shouldWritePrice, type MsgItem } from '../_shared/stockPriceWaterfall.ts'
 import { detectMarket, isDerivativeMarket, type Market } from '../_shared/marketDetect.ts'
 import { fetchUsQuotes } from '../_shared/usStockPriceWaterfall.ts'
+import { fetchMisResilient } from '../_shared/misBatch.ts'
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -47,62 +48,24 @@ async function fetchTpexFallback(symbols: string[]): Promise<Map<string, { price
 
 async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: number; name: string; raw: MsgItem }>> {
   const results = new Map<string, { price: number; name: string; raw: MsgItem }>()
-  
-  // Build ex_ch: try tse, otc, and oa(權證/盤後零股) for each
-  const exChParts = symbols.flatMap(sym => {
-    const base = [`tse_${sym}.tw`, `otc_${sym}.tw`]
-    if (isWarrantLike(sym) || sym.length >= 6) base.push(`oa_${sym}.tw`)
-    return base
-  })
-  
-  // Split into chunks of ~200
-  const chunkSize = 200
-  const chunks: string[][] = []
-  for (let i = 0; i < exChParts.length; i += chunkSize) {
-    chunks.push(exChParts.slice(i, i + chunkSize))
-  }
-  
   const ua = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
-  
-  for (const chunk of chunks) {
-    const exCh = chunk.join('|')
-    const ts = Date.now()
-    const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh)}&json=1&delay=0&_=${ts}`
-    
-    try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': ua, 'Accept': 'application/json' },
-      })
-      const data = await res.json()
-      const msgArray: MsgItem[] = data?.msgArray || []
-      
-      // Deduplicate by code, prefer entry with volume
-      const bestByCode = new Map<string, MsgItem>()
-      for (const item of msgArray) {
-        if (!item.c) continue
-        const existing = bestByCode.get(item.c)
-        if (!existing) {
-          bestByCode.set(item.c, item)
-        } else {
-          const existV = parseInt(existing.v || '0', 10)
-          const newV = parseInt(item.v || '0', 10)
-          if (newV > existV) bestByCode.set(item.c, item)
-        }
-      }
-      
-      for (const [code, item] of bestByCode) {
-        const price = extractPrice(item)
-        if (shouldWritePrice(price) && price !== null) {
-          results.set(code, { price, name: item.n || '', raw: item })
-        }
-      }
-    } catch (e) {
-      console.error('TWSE fetch error for chunk:', e)
-    }
-    
-    if (chunks.length > 1) {
-      await new Promise(r => setTimeout(r, 500))
-    }
+  // 小批＋失敗拆批重試（見 _shared/misBatch.ts 根因說明）
+  const { items } = await fetchMisResilient(symbols, async (parts) => {
+    const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(parts.join('|'))}&json=1&delay=0&_=${Date.now()}`
+    await new Promise(r => setTimeout(r, 300))
+    const res = await fetch(url, { headers: { 'User-Agent': ua, 'Accept': 'application/json' } })
+    if (!res.ok) return null
+    return await res.json()
+  })
+  const bestByCode = new Map<string, MsgItem>()
+  for (const item of items as unknown as MsgItem[]) {
+    if (!item.c) continue
+    const existing = bestByCode.get(item.c)
+    if (!existing || parseInt(item.v || '0', 10) > parseInt(existing.v || '0', 10)) bestByCode.set(item.c, item)
+  }
+  for (const [code, item] of bestByCode) {
+    const price = extractPrice(item)
+    if (shouldWritePrice(price) && price !== null) results.set(code, { price, name: item.n || '', raw: item })
   }
   
   // TPEx fallback：MIS 抓不到的 symbol（多為上櫃冷門股 / 權證），補打 TPEx OpenAPI（每日收盤資料）
