@@ -98,3 +98,27 @@ export function selectBackfillQueue<T extends { symbol: string; state: string; l
     .sort((a, b) => (a.last_attempt_at ?? '').localeCompare(b.last_attempt_at ?? '') || a.symbol.localeCompare(b.symbol))
     .slice(0, Math.max(0, Math.min(40, limit))).map((r) => r.symbol);
 }
+
+/**
+ * 證交所 MI_INDEX（指定日期全部上市收盤）→ 日線列。STOCK_DAY_ALL 傍晚常仍停在前一交易日，
+ * 以此補當日；欄位依名稱定位，日期由呼叫端給（即查詢日）。
+ */
+export function parseTwseMiIndex(payload: unknown, isoDate: string): PriceRowInsert[] {
+  const out: PriceRowInsert[] = [];
+  const tables = (payload as { tables?: Array<{ fields?: string[]; data?: unknown[][] }> })?.tables ?? [];
+  for (const t of tables) {
+    const f = t?.fields ?? [];
+    const ix = (n: string) => f.indexOf(n);
+    const [ci, oi, hi, li, cl, vi] = ['證券代號', '開盤價', '最高價', '最低價', '收盤價', '成交股數'].map(ix);
+    if (ci < 0 || cl < 0) continue;
+    for (const r of t.data ?? []) {
+      const code = String(r[ci] ?? '').trim();
+      const close = num(String(r[cl] ?? '').replace(/,/g, ''));
+      if (close == null || close <= 0 || !/^\d{4,6}[A-Z]?$/.test(code)) continue;
+      const p = (i: number) => (i < 0 ? null : num(String(r[i] ?? '').replace(/,/g, '')));
+      const v = p(vi);
+      out.push({ symbol: code, trade_date: isoDate, open: p(oi), high: p(hi), low: p(li), close, volume: v && v > 0 ? v : null, source: 'twse_mi_index' });
+    }
+  }
+  return out;
+}
