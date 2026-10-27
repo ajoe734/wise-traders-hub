@@ -22,7 +22,7 @@ describe('MIS 批次查詢（週記現價漏抓根因）', () => {
   it('單一代號仍失敗時列入 failed，不靜默', async () => {
     const fetchFn = async (parts: string[]) => parts.some((p) => p.includes('2464'))
       ? null
-      : { rtmessage: 'OK', msgArray: [{ c: 'x' }] };
+      : { rtmessage: 'OK', msgArray: parts.filter((p) => p.startsWith('tse_')).map((p) => ({ c: p.slice(4, -3) })) };
     const { failed } = await fetchMisResilient(['2464', '2492', '6830'], fetchFn);
     expect(failed).toEqual(['2464']);
   });
