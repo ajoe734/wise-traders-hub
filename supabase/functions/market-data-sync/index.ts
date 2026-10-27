@@ -69,9 +69,9 @@ Deno.serve(async (req) => {
       const tpDate = maxDate('tpex_daily_close');
       // STOCK_DAY_ALL 傍晚常仍停在前一交易日 → 以櫃買日期向 MI_INDEX 補上市當日收盤。
       // 目標日：櫃買日期，或台北平日 14:30 後的今天（櫃買取不到時也要補）。
-      const tw = new Date(Date.now() + 8 * 3600_000);
-      const todayTpe = tw.toISOString().slice(0, 10);
-      const afterClose = tw.getUTCDay() >= 1 && tw.getUTCDay() <= 5 && tw.getUTCHours() * 100 + tw.getUTCMinutes() >= 1430;
+      const tp = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short', hourCycle: 'h23' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+      const todayTpe = `${tp.year}-${tp.month}-${tp.day}`;
+      const afterClose = !['Sat', 'Sun'].includes(tp.weekday) && Number(tp.hour) * 100 + Number(tp.minute) >= 1430;
       const target = [tpDate, afterClose ? todayTpe : ''].sort().pop() ?? '';
       let miRows = -1;
       if (target && maxDate('twse_stock_day_all') < target) {
