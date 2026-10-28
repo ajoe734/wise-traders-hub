@@ -464,6 +464,7 @@ async function checkBsrSealingParity(admin: any) {
   const { data: vols, error: vErr } = await admin
     .from('daily_price_snapshots')
     .select('symbol,trade_date,volume_shares')
+    .eq('is_usable', true)
     .in('trade_date', dates)
     .in('symbol', symbols)
     .limit(5000);

@@ -456,6 +456,20 @@
       "when": 1793116322836,
       "tag": "0064_expert_latest_quote",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1793153188745,
+      "tag": "0065_us_snapshot_verified_reconstruction",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1793153590832,
+      "tag": "0066_validate_us_rebuild_audit",
+      "breakpoints": true
     }
   ]
 }

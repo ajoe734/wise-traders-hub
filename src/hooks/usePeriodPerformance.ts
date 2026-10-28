@@ -344,6 +344,7 @@ export function usePeriodPerformance(
         const { data: snaps } = await supabase
           .from('daily_price_snapshots')
           .select('symbol, trade_date, close_price')
+          .eq('is_usable', true)
           .in('symbol', symbols)
           .gte('trade_date', fromIso)
           .lte('trade_date', toIso);
@@ -351,7 +352,7 @@ export function usePeriodPerformance(
           const sym = (row as any).symbol as string;
           const td = (row as any).trade_date as string; // 'YYYY-MM-DD'
           const close = Number((row as any).close_price);
-          if (!Number.isFinite(close)) continue;
+          if (row.close_price == null || !Number.isFinite(close) || close <= 0) continue;
           let inner = snapMap.get(sym);
           if (!inner) { inner = new Map(); snapMap.set(sym, inner); }
           inner.set(td, close);

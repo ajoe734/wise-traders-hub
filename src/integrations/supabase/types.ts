@@ -1326,13 +1326,17 @@ export type Database = {
           change_percent: number | null
           close_price: number | null
           created_at: string
+          exclusion_reason: string | null
           high_price: number | null
           id: string
           is_limit_up: boolean
+          is_usable: boolean
           limit_up_price: number | null
           low_price: number | null
           market: string
           open_price: number | null
+          source: string | null
+          source_evidence: Json | null
           symbol: string
           trade_date: string
           volume: number | null
@@ -1345,13 +1349,17 @@ export type Database = {
           change_percent?: number | null
           close_price?: number | null
           created_at?: string
+          exclusion_reason?: string | null
           high_price?: number | null
           id?: string
           is_limit_up?: boolean
+          is_usable?: boolean
           limit_up_price?: number | null
           low_price?: number | null
           market?: string
           open_price?: number | null
+          source?: string | null
+          source_evidence?: Json | null
           symbol: string
           trade_date: string
           volume?: number | null
@@ -1364,13 +1372,17 @@ export type Database = {
           change_percent?: number | null
           close_price?: number | null
           created_at?: string
+          exclusion_reason?: string | null
           high_price?: number | null
           id?: string
           is_limit_up?: boolean
+          is_usable?: boolean
           limit_up_price?: number | null
           low_price?: number | null
           market?: string
           open_price?: number | null
+          source?: string | null
+          source_evidence?: Json | null
           symbol?: string
           trade_date?: string
           volume?: number | null
@@ -8313,6 +8325,10 @@ export type Database = {
       }
       rebuild_bsr_rollup: {
         Args: { _as_of: string; _max_stocks?: number; _stock_ids?: string[] }
+        Returns: Json
+      }
+      rebuild_us_snapshots: {
+        Args: { p_evidence: Json; p_original: Json; p_rows: Json }
         Returns: Json
       }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }

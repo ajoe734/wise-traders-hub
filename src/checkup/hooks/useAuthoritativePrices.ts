@@ -147,6 +147,7 @@ async function fetchSnapshotPrices(
   const { data, error } = await getCheckupGateway().db
     .from('daily_price_snapshots')
     .select('symbol, close_price, trade_date')
+    .eq('is_usable', true)
     .in('symbol', symbols)
     .eq('trade_date', marketDate);
   if (error || !data) return out;

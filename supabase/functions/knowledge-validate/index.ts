@@ -46,6 +46,7 @@ async function getPriceAt(supabase: any, symbol: string, dateISO: string): Promi
   const { data } = await supabase
     .from('daily_price_snapshots')
     .select('close_price, trade_date')
+    .eq('is_usable', true)
     .eq('symbol', symbol)
     .lte('trade_date', dateISO)
     .order('trade_date', { ascending: false })

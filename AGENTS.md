@@ -40,6 +40,10 @@ Render the journal-detail current-holdings grid only from `useExpertHoldingsBund
 
 Treat `position_events` as the append-only source for member-visible holding changes while `useExpertHoldingsBundle` remains the only source for current positions; why: weekly content, mutable trade aggregates, and immutable transaction history have separate responsibilities.
 
+### US snapshot evidence
+
+US daily snapshots require Nasdaq dated historical OHLCV and provenance; all snapshot consumers filter `is_usable`, and repairs use the service-only atomic `rebuild_us_snapshots` with full originals in audit logs; why: captured live prices must never be relabelled as settled sessions or silently repair historical performance.
+
 
 ### Subdirectories
 
