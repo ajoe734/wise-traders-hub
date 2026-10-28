@@ -13,6 +13,7 @@ export interface OfficialUsBar {
 
 const number = (value: unknown): number | null => {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
+  if (!String(value).trim()) return null;
   const parsed = Number(String(value).replace(/[$,]/g, ''));
   return Number.isFinite(parsed) ? parsed : null;
 };
@@ -23,17 +24,19 @@ export function parseNasdaqHistory(payload: unknown, through: string): OfficialU
   if (data?.status?.rCode && data.status.rCode !== 200) return [];
   const input = data?.data?.tradesTable?.rows;
   if (!Array.isArray(input)) return [];
+  if (typeof data.data?.totalRecords === 'number' && data.data.totalRecords > input.length) throw new Error('Incomplete exchange history');
   const bars: OfficialUsBar[] = [];
   const seen = new Set<string>();
   for (const row of input) {
     const match = String(row.date).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (!match) throw new Error('Invalid exchange session date');
     const date = `${match[3]}-${match[1]}-${match[2]}`;
-    if (new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date || seen.has(date)) throw new Error('Invalid or duplicate exchange date');
+    const parsedDate = new Date(`${date}T12:00:00Z`);
+    if (!Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || seen.has(date) || [0, 6].includes(parsedDate.getUTCDay())) throw new Error('Invalid or duplicate exchange date');
     seen.add(date);
     if (date > through) continue;
     const open = number(row.open), high = number(row.high), low = number(row.low), close = number(row.close), volume = number(row.volume);
-    if (open === null || high === null || low === null || close === null || volume === null || Math.min(open, high, low, close) <= 0 || volume < 0 || !Number.isSafeInteger(volume) || high < Math.max(open, close) || low > Math.min(open, close)) throw new Error('Invalid exchange OHLCV');
+    if (open === null || high === null || low === null || close === null || volume === null || Math.min(open, high, low, close) <= 0 || volume < 0 || !Number.isSafeInteger(volume) || high < Math.max(open, close, low) || low > Math.min(open, close)) throw new Error('Invalid exchange OHLCV');
     bars.push({ trade_date: date, open_price: open, high_price: high, low_price: low, close_price: close, volume, yesterday_close: null, change_percent: null });
   }
   bars.sort((a, b) => a.trade_date.localeCompare(b.trade_date));

@@ -35,4 +35,13 @@ describe('US official daily reconstruction', () => {
     expect(completedSessionAt('2026-10-27T20:15:00Z', bars)?.trade_date).toBe('2026-10-27');
     expect(completedSessionAt('invalid', bars)).toBeNull();
   });
+  it('rejects a truncated response rather than silently dropping sessions', () => {
+    expect(() => parseNasdaqHistory({ ...payload, data: { ...payload.data, totalRecords: 500 } }, '2026-10-27')).toThrow('Incomplete');
+  });
+  it('rejects blank numeric values and weekend dates', () => {
+    const blank = structuredClone(payload); blank.data.tradesTable.rows[0].volume = '';
+    expect(() => parseNasdaqHistory(blank, '2026-10-27')).toThrow('OHLCV');
+    const weekend = structuredClone(payload); weekend.data.tradesTable.rows[0].date = '10/25/2026';
+    expect(() => parseNasdaqHistory(weekend, '2026-10-27')).toThrow('date');
+  });
 });

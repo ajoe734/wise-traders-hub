@@ -90,25 +90,27 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
       })
 
     // US is rebuilt from exchange-labelled daily OHLCV, never a current-price mirror.
+    // Commit TW before any upstream US request, so a slow provider cannot lose TW closes.
+    if (snapshotRows.length > 0) {
+      const { error } = await supabase.from('daily_price_snapshots').upsert(snapshotRows, { onConflict: 'symbol,trade_date' })
+      if (error) throw error
+    }
     const usFailures: string[] = []
+    const usSessionDates = new Set<string>()
     const through = now.toISOString().slice(0, 10)
     const from = new Date(now); from.setUTCDate(from.getUTCDate() - 14)
     const usSymbols = [...new Set(prices.filter((p: any) => p.market === 'US').map((p: any) => String(p.symbol)))]
-    for (const symbol of usSymbols) {
-      try {
-        const { bars, evidence } = await fetchNasdaqDaily(symbol, from.toISOString().slice(0, 10), through, supabase)
-        const bar = completedSessionAt(now.toISOString(), bars)
-        if (!bar) { usFailures.push(symbol); continue }
-        const { error } = await supabase.from('daily_price_snapshots').upsert({ ...bar, symbol, market: 'US', is_limit_up: false, limit_up_price: null, volume_unit: 'shares', volume_shares: bar.volume, is_usable: true, source: 'nasdaq', source_evidence: evidence, exclusion_reason: null }, { onConflict: 'symbol,trade_date' })
-        if (error) throw error
-      } catch (e) { console.error('US official daily failed', symbol, (e as Error).message); usFailures.push(symbol) }
-    }
-
-    if (snapshotRows.length > 0) {
-      const { error: snapErr } = await supabase
-        .from('daily_price_snapshots')
-        .upsert(snapshotRows, { onConflict: 'symbol,trade_date' })
-      if (snapErr) throw snapErr
+    for (let offset = 0; offset < usSymbols.length; offset += 5) {
+      await Promise.all(usSymbols.slice(offset, offset + 5).map(async symbol => {
+        try {
+          const { bars, evidence } = await fetchNasdaqDaily(symbol, from.toISOString().slice(0, 10), through, supabase)
+          const bar = completedSessionAt(now.toISOString(), bars)
+          if (!bar) { usFailures.push(symbol); return }
+          const { error } = await supabase.from('daily_price_snapshots').upsert({ ...bar, symbol, market: 'US', is_limit_up: false, limit_up_price: null, volume_unit: 'shares', volume_shares: bar.volume, volume_ma5: null, is_usable: true, source: 'nasdaq', source_evidence: evidence, exclusion_reason: null }, { onConflict: 'symbol,trade_date' })
+          if (error) throw error
+          usSessionDates.add(bar.trade_date)
+        } catch (e) { console.error('US official daily failed', symbol, (e as Error).message); usFailures.push(symbol) }
+      }))
     }
 
     // Step 2: 漲停命中僅計算台股（美股無漲停）
@@ -172,6 +174,7 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
       detail: {
         tw_trade_date: twTradeDate,
         us_trade_date: usTradeDate,
+        us_official_dates: [...usSessionDates].sort(),
         snapshots_tw: twCount,
         snapshots_us: usCount,
         us_missing: usFailures,
@@ -181,9 +184,11 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
     })
 
     return new Response(JSON.stringify({
-      success: true,
+      success: usFailures.length === 0,
       tw_trade_date: twTradeDate,
       us_trade_date: usTradeDate,
+      us_official_dates: [...usSessionDates].sort(),
+      us_missing: usFailures,
       snapshots_tw: twCount,
       snapshots_us: usCount,
       limit_up_count: limitUpSymbols.length,

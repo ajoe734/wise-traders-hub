@@ -13,6 +13,7 @@ beforeAll(async () => {
     CREATE TABLE public.audit_logs(action text,target_type text,detail jsonb);
     INSERT INTO daily_price_snapshots(id,symbol,trade_date,market,close_price) VALUES('00000000-0000-0000-0000-000000000001','AAOI','2026-10-27','US',71.94),('00000000-0000-0000-0000-000000000002','2330','2026-10-27','TW',1000);`);
   await db.exec(readFileSync('drizzle/migrations/0065_us_snapshot_verified_reconstruction.sql', 'utf8'));
+  await db.exec(readFileSync('drizzle/migrations/0066_validate_us_rebuild_audit.sql', 'utf8'));
 });
 afterAll(async () => { await db.close(); });
 describe('atomic audited US repair', () => {
@@ -38,5 +39,23 @@ describe('atomic audited US repair', () => {
     await db.exec(`INSERT INTO daily_price_snapshots(symbol,trade_date,market,close_price) VALUES('NVDA','2026-10-27','US',100)`);
     const r = await db.query('select is_usable,close_price,exclusion_reason from daily_price_snapshots where symbol=\'NVDA\'');
     expect(r.rows[0]).toMatchObject({is_usable:false,close_price:null,exclusion_reason:'unverified_us_daily_source'});
+  });
+  it.each([
+    [{...original[0],market:'TW'}],
+    [{...original[0],symbol:'NVDA'}, original[0]],
+    [original[0],original[0]],
+  ])('rejects invalid original scope before touching data: %j', async (...items) => {
+    const input = items.filter(x => x && typeof x === 'object');
+    await expect(db.query('select rebuild_us_snapshots($1::jsonb,$2::jsonb,$3::jsonb)',[JSON.stringify(input),JSON.stringify(replacement),JSON.stringify({...evidence,sha256:'new'})])).rejects.toThrow();
+  });
+  it.each([
+    {...replacement[0],symbol:null},
+    {...replacement[0],market:null},
+    {...replacement[0],low_price:99},
+    {...replacement[0],volume:-1},
+    {...replacement[0],trade_date:'2099-01-01'},
+  ])('audit validator rejects invalid replacement %j', async row => {
+    await expect(db.query('insert into audit_logs(action,target_type,detail) values($1,$2,$3::jsonb)', ['us_snapshot_official_rebuild','daily_price_snapshots',JSON.stringify({original,replacement:[row],evidence})])).rejects.toThrow();
+    expect((await db.query<{n:number}>('select count(*)::int n from audit_logs')).rows[0].n).toBe(1);
   });
 });
