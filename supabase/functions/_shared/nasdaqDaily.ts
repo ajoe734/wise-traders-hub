@@ -11,7 +11,7 @@ export async function fetchNasdaqDaily(symbol: string, from: string, through: st
       if (!response.ok) throw new Error(`Nasdaq HTTP ${response.status}`);
       raw = await response.text();
     } catch (error) {
-      if (error instanceof RetryExhaustedError) await recordRetryFailure(supa, 'nasdaq_daily', error);
+      if (error instanceof RetryExhaustedError) await recordRetryFailure(supa, error, { fn: 'nasdaq_daily', stage: 'historical_ohlcv' });
       throw error;
     }
   }

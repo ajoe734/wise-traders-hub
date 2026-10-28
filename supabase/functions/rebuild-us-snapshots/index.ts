@@ -16,7 +16,7 @@ Deno.serve(async req => {
   const results = [];
   for (const symbol of [...new Set<string>(body.symbols)]) {
     try {
-      const { data: existing, error } = await supa.from('daily_price_snapshots').select('*').eq('market', 'US').eq('symbol', symbol).is('source', null).order('trade_date');
+      const { data: existing, error } = await supa.from('daily_price_snapshots').select('*').eq('market', 'US').eq('symbol', symbol).eq('is_usable', true).is('source', null).order('trade_date');
       if (error) throw error;
       if (!existing?.length) { results.push({ symbol, already_processed: true }); continue; }
       const from = new Date(`${existing[0].trade_date}T12:00:00Z`); from.setUTCDate(from.getUTCDate() - 14);
