@@ -297,6 +297,7 @@ function evaluateHits(item: KnowledgeItem, hits: Hit[], bySym: Map<string, Price
 async function loadPriceData(sb: any, dateStart?: string, dateEnd?: string): Promise<PriceRow[]> {
   let q = sb.from('daily_price_snapshots')
     .select('symbol,trade_date,open_price,high_price,low_price,close_price,volume')
+    .eq('is_usable', true)
     .order('trade_date', { ascending: true })
     .limit(500_000)
   if (dateStart) q = q.gte('trade_date', dateStart)

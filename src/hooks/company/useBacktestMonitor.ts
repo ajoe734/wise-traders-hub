@@ -54,7 +54,7 @@ export function useBacktestMonitor() {
           .select('id', { count: 'exact', head: true })
           .eq('status', 'done').gte('completed_at', fiveMinAgo),
         (supabase as any).from('daily_price_snapshots')
-          .select('trade_date').order('trade_date', { ascending: false }).limit(1).maybeSingle(),
+          .select('trade_date').eq('is_usable', true).order('trade_date', { ascending: false }).limit(1).maybeSingle(),
         (supabase as any).from('knowledge_backfill_progress')
           .select('symbol, yyyymm, error_message, attempted_at')
           .eq('status', 'failed')

@@ -128,6 +128,7 @@ export async function fetchAuthoritativeQuotesDetailed(
             const { data } = await supabase
               .from('daily_price_snapshots')
               .select('symbol, close_price, yesterday_close, trade_date')
+              .eq('is_usable', true)
               .in('symbol', needSnapshot)
               .eq('trade_date', latestCompletedTradeDate(now, { market: 'TW' }));
             for (const row of (data as any[]) || []) {
@@ -155,6 +156,7 @@ export async function fetchAuthoritativeQuotesDetailed(
           const { data } = await supabase
             .from('daily_price_snapshots')
             .select('symbol, close_price, yesterday_close, trade_date')
+            .eq('is_usable', true)
             .in('symbol', list)
             .eq('trade_date', phase.marketDate);
           for (const row of (data as any[]) || []) {
