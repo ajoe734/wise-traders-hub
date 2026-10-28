@@ -5,6 +5,8 @@ import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 import { nyTradeDate, extractSymbol } from '../_shared/marketDetect.ts'
 import { lotsToShares, SHARES_PER_LOT } from '../_shared/lotSize.ts'
+import { fetchNasdaqDaily } from '../_shared/nasdaqDaily.ts'
+import { completedSessionAt } from '../_shared/usSnapshotRebuild.ts'
 
 Deno.serve(withLogging('daily-snapshot', async (req) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
@@ -61,7 +63,7 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
     // Build snapshot rows；美股 is_limit_up 恆 false（無 10% 漲跌停），trade_date 用 NY 曆日
     const snapshotRows = prices
       .filter((p: any) => p.price && p.price > 0)
-      .filter((p: any) => p.market === 'US' || (p.market === 'TW' && twOpen && updatedTodayTpe(p.updated_at)))
+      .filter((p: any) => p.market === 'TW' && twOpen && updatedTodayTpe(p.updated_at))
       .map((p: any) => {
         const market = p.market === 'US' ? 'US' : 'TW'
         const isLimitUp =
@@ -87,11 +89,26 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
         }
       })
 
+    // US is rebuilt from exchange-labelled daily OHLCV, never a current-price mirror.
+    const usFailures: string[] = []
+    const through = now.toISOString().slice(0, 10)
+    const from = new Date(now); from.setUTCDate(from.getUTCDate() - 14)
+    const usSymbols = [...new Set(prices.filter((p: any) => p.market === 'US').map((p: any) => String(p.symbol)))]
+    for (const symbol of usSymbols) {
+      try {
+        const { bars, evidence } = await fetchNasdaqDaily(symbol, from.toISOString().slice(0, 10), through, supabase)
+        const bar = completedSessionAt(now.toISOString(), bars)
+        if (!bar) { usFailures.push(symbol); continue }
+        const { error } = await supabase.from('daily_price_snapshots').upsert({ ...bar, symbol, market: 'US', is_limit_up: false, limit_up_price: null, volume_unit: 'shares', volume_shares: bar.volume, is_usable: true, source: 'nasdaq', source_evidence: evidence, exclusion_reason: null }, { onConflict: 'symbol,trade_date' })
+        if (error) throw error
+      } catch (e) { console.error('US official daily failed', symbol, (e as Error).message); usFailures.push(symbol) }
+    }
+
     if (snapshotRows.length > 0) {
       const { error: snapErr } = await supabase
         .from('daily_price_snapshots')
         .upsert(snapshotRows, { onConflict: 'symbol,trade_date' })
-      if (snapErr) console.error('snapshot upsert error:', snapErr)
+      if (snapErr) throw snapErr
     }
 
     // Step 2: 漲停命中僅計算台股（美股無漲停）
@@ -145,17 +162,19 @@ Deno.serve(withLogging('daily-snapshot', async (req) => {
     }
 
     const twCount = snapshotRows.filter((r) => r.market === 'TW').length
-    const usCount = snapshotRows.filter((r) => r.market === 'US').length
+    const usCount = usSymbols.length - usFailures.length
+    if (usFailures.length) await supabase.from('system_alerts').insert({ kind: 'us_official_snapshot_missing', level: 'warning', title: `美股官方日線缺漏 ${usFailures.length} 檔`, message: usFailures.join(',') })
 
     // System job log
     await supabase.from('system_jobs_log').insert({
       job_name: 'daily_snapshot',
-      status: 'success',
+      status: usFailures.length ? 'partial' : 'success',
       detail: {
         tw_trade_date: twTradeDate,
         us_trade_date: usTradeDate,
         snapshots_tw: twCount,
         snapshots_us: usCount,
+        us_missing: usFailures,
         limit_up_symbols: limitUpSymbols.length,
         hits_inserted: hitsInserted,
       },
