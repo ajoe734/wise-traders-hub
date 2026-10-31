@@ -191,6 +191,9 @@ export function trackEvent(name: string, props?: Record<string, unknown>) {
   const path = window.location.pathname;
   if (shouldSkip(path)) return;
   queue.push({ kind: 'ev', name, props, route: path });
+  if (name === 'pricing_view') {
+    try { sessionStorage.setItem('lf_pricing_viewed', '1'); } catch { /* noop */ }
+  }
   if (name === 'page_view' && !firstPageViewSent) {
     // 進站頁立即送出：IG/FB 內建瀏覽器常在 1 秒內關閉且不觸發 pagehide。
     firstPageViewSent = true;
