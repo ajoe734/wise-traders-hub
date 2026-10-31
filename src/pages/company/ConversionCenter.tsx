@@ -31,19 +31,6 @@ const FUNNEL_STEPS = [
   { key: 'checkout_success', label: '完成購買', events: ['checkout_success'] },
 ] as const;
 
-interface TrafficRow { event_name: string | null; visitor_id: string; user_id: string | null; occurred_at: string }
-interface ConversionRow {
-  id: string;
-  user_id: string | null;
-  visitor_id: string | null;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  utm_content: string | null;
-  channel: string | null;
-  gross_amount: number | null;
-  occurred_at: string;
-}
 interface SubRow { user_id: string; created_at: string; expires_at: string | null; canceled_at: string | null; status: string | null }
 
 export default function ConversionCenter() {
@@ -51,68 +38,46 @@ export default function ConversionCenter() {
   const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[1];
   const sinceIso = useMemo(() => new Date(Date.now() - preset.days * 86400_000).toISOString(), [preset]);
 
-  // ---- Unified Funnel ----
-  const allEvents = useMemo(() => Array.from(new Set(FUNNEL_STEPS.flatMap((s) => s.events))), []);
-  const { data: traffic = [], isFetching: loadingT, refetch: refetchT } = useQuery({
-    queryKey: ['cc-funnel', presetId],
-    queryFn: async (): Promise<TrafficRow[]> => {
-      const { data, error } = await supabase
-        .from('traffic_events')
-        .select('event_name,visitor_id,user_id,occurred_at')
-        .in('event_name', allEvents as string[])
-        .gte('occurred_at', sinceIso)
-        .order('occurred_at', { ascending: true })
-        .limit(20000);
+  // ---- 資料庫端彙總（避免 1,000 筆查詢上限截斷）----
+  const [attrGroup, setAttrGroup] = useState<'source' | 'medium'>('source');
+  const { data: cc, isFetching: loadingT, refetch: refetchT } = useQuery({
+    queryKey: ['cc-summary', presetId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_conversion_center', { _since: sinceIso });
       if (error) throw error;
-      return (data ?? []) as TrafficRow[];
+      return data as unknown as {
+        funnel: Array<{ key: string; visitors: number; events: number }>;
+        attribution: Array<{ source: string; medium: string; content: string; campaign: string; count: number; gross: number }>;
+        top_users: Array<[string, number]>;
+      };
     },
   });
+  const loadingC = false;
+  const refetchC = refetchT;
 
-  const funnelStats = useMemo(() => {
-    return FUNNEL_STEPS.map((step) => {
-      const matched = traffic.filter((r) => r.event_name && (step.events as readonly string[]).includes(r.event_name));
-      const visitors = new Set(matched.map((r) => r.visitor_id)).size;
-      const events = matched.length;
-      return { key: step.key, label: step.label, visitors, events };
-    });
-  }, [traffic]);
-
-  // ---- Attribution ----
-  const { data: conversions = [], isFetching: loadingC, refetch: refetchC } = useQuery({
-    queryKey: ['cc-conv', presetId],
-    queryFn: async (): Promise<ConversionRow[]> => {
-      const rows: ConversionRow[] = [];
-      for (let offset = 0; ; offset += 500) {
-      const { data, error } = await supabase
-        .from('conversions')
-        .select('id,user_id,visitor_id,utm_source,utm_medium,utm_campaign,utm_content,channel,gross_amount,occurred_at')
-        .gte('occurred_at', sinceIso)
-        .order('id')
-        .range(offset, offset + 499);
-      if (error) throw error;
-      rows.push(...(data ?? []) as ConversionRow[]);
-      if ((data?.length ?? 0) < 500) return rows;
-      }
-    },
-  });
+  const funnelStats = useMemo(() => FUNNEL_STEPS.map((step) => {
+    const r = cc?.funnel?.find((f) => f.key === step.key);
+    return { key: step.key, label: step.label, visitors: Number(r?.visitors ?? 0), events: Number(r?.events ?? 0) };
+  }), [cc]);
 
   const attribution = useMemo(() => {
     const buckets = new Map<string, { source: string; platform: string; count: number; gross: number; medium: Set<string>; campaigns: Set<string> }>();
-    for (const c of conversions) {
-      const source = c.utm_source || c.channel || '(direct)';
-      const platform = platformName(c.utm_content);
-      const key = JSON.stringify([source, platform, c.utm_campaign]);
-      const b = buckets.get(key) ?? { source, platform, count: 0, gross: 0, medium: new Set(), campaigns: new Set() };
-      b.count += 1;
-      b.gross += c.gross_amount ?? 0;
-      if (c.utm_medium) b.medium.add(c.utm_medium);
-      if (c.utm_campaign) b.campaigns.add(c.utm_campaign);
+    for (const c of cc?.attribution ?? []) {
+      const platform = platformName(c.content || null);
+      const source = attrGroup === 'medium' ? c.medium : c.source;
+      const key = attrGroup === 'medium' ? JSON.stringify([c.medium]) : JSON.stringify([c.source, platform, c.campaign]);
+      const b = buckets.get(key) ?? { source, platform: attrGroup === 'medium' ? '' : platform, count: 0, gross: 0, medium: new Set(), campaigns: new Set() };
+      b.count += Number(c.count);
+      b.gross += Number(c.gross);
+      if (c.medium) b.medium.add(c.medium);
+      if (c.campaign) b.campaigns.add(c.campaign);
+      if (attrGroup === 'medium') b.medium.add(c.source);
       buckets.set(key, b);
     }
     return Array.from(buckets.entries())
       .map(([key, v]) => ({ key, source: v.source, platform: v.platform, count: v.count, gross: v.gross, mediums: Array.from(v.medium), campaigns: Array.from(v.campaigns) }))
       .sort((a, b) => b.gross - a.gross);
-  }, [conversions]);
+  }, [cc, attrGroup]);
 
   // ---- Cohort retention (weekly) ----
   const cohortStartIso = useMemo(() => new Date(Date.now() - 84 * 86400_000).toISOString(), []); // 12 週
@@ -173,15 +138,7 @@ export default function ConversionCenter() {
       });
   }, [subs]);
 
-  // ---- Top users by funnel events (drill-down entry) ----
-  const topUsers = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const r of traffic) {
-      if (!r.user_id) continue;
-      map.set(r.user_id, (map.get(r.user_id) ?? 0) + 1);
-    }
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 15);
-  }, [traffic]);
+  const topUsers = useMemo(() => (cc?.top_users ?? []).map(([u, n]) => [u, Number(n)] as [string, number]), [cc]);
 
   const refetchAll = () => { refetchT(); refetchC(); refetchS(); };
   const loading = loadingT || loadingC || loadingS;
@@ -247,7 +204,7 @@ export default function ConversionCenter() {
                   })}
                 </div>
                 <p className="text-[11px] text-foreground/50 mt-3">
-                  以唯一 visitor 計算；轉換率為相對前一步。資料來源：traffic_events。
+                  以唯一 visitor 計算；轉換率為相對前一步。資料來源：traffic_events（資料庫端彙總，不受筆數上限影響）。
                 </p>
               </CardContent>
             </Card>
@@ -256,7 +213,14 @@ export default function ConversionCenter() {
           <TabsContent value="attribution" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><Filter className="w-4 h-4" /> 來源歸因 — {preset.label}</CardTitle>
+                <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
+                  <span className="flex items-center gap-2"><Filter className="w-4 h-4" /> 來源歸因 — {preset.label}</span>
+                  <span className="flex items-center gap-1 rounded-full bg-muted/40 p-1 text-xs font-normal">
+                    {([['source', '依來源'], ['medium', '依 utm_medium']] as const).map(([k, l]) => (
+                      <button key={k} onClick={() => setAttrGroup(k)} className={'px-3 py-1 rounded-full ' + (attrGroup === k ? 'bg-background font-medium' : 'text-foreground/60')}>{l}</button>
+                    ))}
+                  </span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {attribution.length === 0 ? (
@@ -266,12 +230,12 @@ export default function ConversionCenter() {
                     <table className="w-full text-sm">
                       <thead className="text-xs text-foreground/60 border-b">
                         <tr>
-                          <th className="text-left py-2 pr-4">Source</th>
-                          <th className="text-left py-2 pr-4">平台</th>
+                          <th className="text-left py-2 pr-4">{attrGroup === 'medium' ? 'utm_medium' : 'Source'}</th>
+                          <th className="text-left py-2 pr-4">{attrGroup === 'medium' ? '' : '平台'}</th>
                           <th className="text-right py-2 pr-4">轉換數</th>
                           <th className="text-right py-2 pr-4">總金額</th>
                           <th className="text-right py-2 pr-4">客單價</th>
-                          <th className="text-left py-2 pr-4">Medium</th>
+                          <th className="text-left py-2 pr-4">{attrGroup === 'medium' ? 'Sources' : 'Medium'}</th>
                           <th className="text-left py-2 pr-4">Campaign</th>
                         </tr>
                       </thead>
