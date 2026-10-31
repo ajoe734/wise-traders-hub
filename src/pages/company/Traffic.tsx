@@ -61,7 +61,7 @@ interface Overview {
 interface AdSpendRow { id: string; utm_campaign: string; yyyymm: string; spend_amount: number; utm_source: string | null; utm_medium: string | null; note: string | null }
 interface FunnelStep { step: string; visitors: number; drop_from_prev: number | null }
 interface EventRow { event_name: string; total_count: number; unique_visitors: number; unique_users: number; last_seen: string }
-interface HealthInfo { visits_total: number; events_total: number; named_events_total: number; last_visit_at: string | null; last_event_at: string | null }
+interface HealthInfo { is_estimate?: boolean; visits_total: number; events_total: number; named_events_total: number; last_visit_at: string | null; last_event_at: string | null }
 interface ProductRow { product: string; events: number; unique_visitors: number; logged_in_visitors: number }
 interface PageRow { path: string; page_views: number; unique_visitors: number; logged_in_visitors: number }
 interface InstrumentRow { instrument: string; events: number; unique_visitors: number }
@@ -137,7 +137,7 @@ export default function CompanyTraffic() {
     },
   });
 
-  const { data: health, refetch: refetchHealth } = useQuery({
+  const { data: health, error: healthError, refetch: refetchHealth } = useQuery({
     queryKey: ['traffic-health'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_traffic_health');
@@ -275,7 +275,8 @@ export default function CompanyTraffic() {
         <Card>
           <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3 text-sm">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-              <span className="text-muted-foreground">資料庫總筆數</span>
+              <span className="text-muted-foreground">資料庫總筆數{health?.is_estimate ? '（約）' : ''}</span>
+              {healthError && <span className="text-destructive">讀取失敗：{(healthError as Error).message}</span>}
               <span><span className="text-muted-foreground">訪客 </span><b>{fmtNum(health?.visits_total || 0)}</b></span>
               <span><span className="text-muted-foreground">頁面事件 </span><b>{fmtNum(health?.events_total || 0)}</b></span>
               <span><span className="text-muted-foreground">具名事件 </span><b>{fmtNum(health?.named_events_total || 0)}</b></span>
