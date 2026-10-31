@@ -69,7 +69,7 @@ export default function ConversionCenter() {
       const b = buckets.get(key) ?? { source, platform: attrGroup === 'medium' ? '' : platform, count: 0, gross: 0, medium: new Set(), campaigns: new Set() };
       b.count += Number(c.count);
       b.gross += Number(c.gross);
-      if (c.medium) b.medium.add(c.medium);
+      if (c.medium && attrGroup === 'source') b.medium.add(c.medium);
       if (c.campaign) b.campaigns.add(c.campaign);
       if (attrGroup === 'medium') b.medium.add(c.source);
       buckets.set(key, b);
