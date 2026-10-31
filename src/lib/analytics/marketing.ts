@@ -6,7 +6,6 @@
  * - GA4 事件經 GTM dataLayer 送出（sign_up / purchase / generate_lead），
  *   GTM 需有對應 GA4 事件代碼才會進 GA4。
  */
-import { readAttribution } from '@/hooks/useAttributionTracking';
 import { gtmPush } from '@/lib/analytics/gtm';
 import { trackRaw } from '@/lib/analytics/events';
 
@@ -40,7 +39,12 @@ export function normalizeFirstTouch(raw: {
 export function getFirstTouch(): FirstTouch {
   let visitor: string | null = null;
   try { visitor = localStorage.getItem('lf_visitor_id'); } catch { /* noop */ }
-  const a = readAttribution();
+  let a: (Parameters<typeof normalizeFirstTouch>[0] & { locked_until?: number }) | null = null;
+  try {
+    const raw = localStorage.getItem('lf_attr_v1');
+    a = raw ? JSON.parse(raw) : null;
+    if (a?.locked_until && a.locked_until < Date.now()) a = null;
+  } catch { a = null; }
   return normalizeFirstTouch(a ? { ...a, visitor_id: a.visitor_id ?? visitor } : { visitor_id: visitor });
 }
 
