@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, RefreshCw, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
-import { buildIdentityIndex, computeFunnel, FUNNEL_STEPS, type StageEvent, type StepKey } from '@/lib/analytics/funnel';
+import { FUNNEL_STEPS, type StepKey, type StepResult } from '@/lib/analytics/funnel';
 
 // 內部漏斗看板：GTM 廣告事件對應 traffic_events / paywall_events / 成交事實
 // ViewPricing → UpgradeClick → BeginCheckout → Purchase
@@ -37,17 +37,6 @@ const STEP_META: Record<StepKey, { gtm: string; label: string; sources: string[]
   begin_checkout: { gtm: 'BeginCheckout', label: '進入結帳',     sources: ['traffic_events.event_name IN (checkout_open, checkout_submit)'] },
   purchase:       { gtm: 'Purchase',      label: '完成購買',     sources: ['payment_intents.status=completed', 'member_subscriptions 生效', '（輔助）traffic_events.checkout_success'] },
 };
-
-interface TrafficRow { event_name: string | null; user_id: string | null; visitor_id: string; occurred_at: string }
-interface PaywallRow { event_kind: string; user_id: string | null; visitor_id: string | null; created_at: string }
-interface VisitRow { user_id: string | null; visitor_id: string }
-interface PurchaseRow { user_id: string | null; at: string; source: string }
-
-const PRICING_EVENTS = ['pricing_view', 'expert_profile_view', 'app_pricing_view'];
-const UPGRADE_EVENT = 'checkup_upgrade_click';
-const BEGIN_EVENTS = ['checkout_open', 'checkout_submit'];
-const PURCHASE_EVENT = 'checkout_success';
-const ALL_EVENTS = [...PRICING_EVENTS, UPGRADE_EVENT, ...BEGIN_EVENTS, PURCHASE_EVENT];
 
 export default function FunnelAnalytics() {
   const [presetId, setPresetId] = useState<string>('7');
