@@ -4,6 +4,7 @@ const raw = vi.fn();
 vi.mock('@/lib/analytics/events', () => ({ trackRaw: (...a: unknown[]) => raw(...a) }));
 
 import { getFirstTouch, normalizeFirstTouch, trackCheckoutEntry, ga4Purchase, ga4Lead, ga4SignUp } from '@/lib/analytics/marketing';
+import { ga4PageView, stripPii } from '@/lib/analytics/ga4';
 import { conversionRate, toCsv } from '@/lib/analytics/marketingReport';
 
 beforeEach(() => {
@@ -38,14 +39,31 @@ describe('進入結帳一定先有瀏覽方案', () => {
   });
 });
 
-describe('GA4 事件', () => {
-  it('purchase 帶商品名稱與金額', () => {
+describe('GA4 事件（gtag 直送 G-LGJNXMX3DM）', () => {
+  const calls: unknown[][] = [];
+  beforeEach(() => { calls.length = 0; (window as any).gtag = (...a: unknown[]) => calls.push(a); window.history.pushState({}, '', '/'); });
+  it('purchase 帶商品名稱、金額、幣別 TWD', () => {
     ga4Purchase({ item_name: '彥愷老師 週記', value: 799 });
-    expect((window as any).dataLayer[0]).toMatchObject({ event: 'purchase', value: 799, currency: 'TWD', ecommerce: { items: [{ item_name: '彥愷老師 週記', price: 799 }] } });
+    expect(calls[0]).toEqual(['event', 'purchase', expect.objectContaining({ value: 799, currency: 'TWD', send_to: 'G-LGJNXMX3DM', items: [expect.objectContaining({ item_name: '彥愷老師 週記', price: 799 })] })]);
   });
-  it('sign_up 與 generate_lead 使用 GA4 建議名稱', () => {
+  it('sign_up 與 generate_lead 用 gtag 送，不推進 GTM dataLayer', () => {
     ga4SignUp('email'); ga4Lead('taipei-meetup');
-    expect((window as any).dataLayer.map((d: any) => d.event)).toEqual(['sign_up', 'generate_lead']);
+    expect(calls.map((c) => c[1])).toEqual(['sign_up', 'generate_lead']);
+    expect((window as any).dataLayer.filter((d: any) => d && d.event)).toEqual([]);
+  });
+  it('後台頁不送任何 GA4 事件', () => {
+    for (const p of ['/company/traffic', '/admin', '/admin/x']) {
+      window.history.pushState({}, '', p);
+      ga4SignUp('email'); ga4PageView(p);
+    }
+    expect(calls).toEqual([]);
+  });
+  it('page_view 送路徑，網址中的 email 參數被移除', () => {
+    ga4PageView('/experts', '?utm_source=ig&email=a@b.com');
+    expect(calls[0][2]).toMatchObject({ page_path: '/experts?utm_source=ig' });
+  });
+  it('事件參數不含姓名、email、電話', () => {
+    expect(stripPii({ name: '王', email: 'a@b.com', phone: '0912', user_email: 'x', note: 'c@d.com', items: [{ item_name: '週記' }] })).toEqual({ items: [{ item_name: '週記' }] });
   });
 });
 

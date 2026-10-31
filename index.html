@@ -8,6 +8,21 @@
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-PBH8J4VD');</script>
     <!-- End Google Tag Manager -->
+    <!-- Google tag (gtag.js) — GA4 G-LGJNXMX3DM，直接送出；page_view 由前端路由送，後台頁停用 -->
+    <script>
+      (function(){
+        var ID='G-LGJNXMX3DM';
+        var p=location.pathname;
+        if(/^\/(company|admin|e2e)(\/|$)/.test(p) || navigator.webdriver){ window['ga-disable-'+ID]=true; }
+        var s=document.createElement('script'); s.async=true;
+        s.src='https://www.googletagmanager.com/gtag/js?id='+ID;
+        document.head.appendChild(s);
+        window.dataLayer=window.dataLayer||[];
+        window.gtag=function(){window.dataLayer.push(arguments);};
+        gtag('js',new Date());
+        gtag('config',ID,{send_page_view:false});
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
