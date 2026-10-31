@@ -3,10 +3,10 @@
  *
  * - 首次接觸存在 localStorage `lf_attr_v1`（useAttributionTracking 寫入，30 天有效）。
  * - 沒有 UTM 時一律記為 `direct`。
- * - GA4 事件經 GTM dataLayer 送出（sign_up / purchase / generate_lead），
- *   GTM 需有對應 GA4 事件代碼才會進 GA4。
+ * - GA4 事件以官方 gtag('event') 直接送到 G-LGJNXMX3DM（sign_up / purchase / generate_lead），
+ *   不再推進 GTM dataLayer 事件，避免 GTM-PBH8J4VD 重複送出。
  */
-import { gtmPush } from '@/lib/analytics/gtm';
+import { ga4Event } from '@/lib/analytics/ga4';
 import { trackRaw } from '@/lib/analytics/events';
 
 export interface FirstTouch {
@@ -49,21 +49,21 @@ export function getFirstTouch(): FirstTouch {
 }
 
 export function ga4SignUp(method: 'email' | 'line') {
-  gtmPush('sign_up', { method, ...utmParams() });
+  ga4Event('sign_up', { method, ...utmParams() });
 }
 
 export function ga4Purchase(p: { item_name: string; value: number; item_id?: string; transaction_id?: string }) {
-  gtmPush('purchase', {
+  ga4Event('purchase', {
     currency: 'TWD',
     value: p.value,
     transaction_id: p.transaction_id,
-    ecommerce: { currency: 'TWD', value: p.value, transaction_id: p.transaction_id, items: [{ item_id: p.item_id, item_name: p.item_name, price: p.value, quantity: 1 }] },
+    items: [{ item_id: p.item_id, item_name: p.item_name, price: p.value, quantity: 1 }],
     ...utmParams(),
   });
 }
 
 export function ga4Lead(eventSlug: string) {
-  gtmPush('generate_lead', { event_slug: eventSlug, ...utmParams() });
+  ga4Event('generate_lead', { event_slug: eventSlug, ...utmParams() });
 }
 
 function utmParams() {

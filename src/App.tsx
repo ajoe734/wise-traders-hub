@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import Ga4PageViewTracker from "@/components/Ga4PageViewTracker";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 
 // 短連結重導（/s/:slug → /expert/:slug），方便寫在 IG bio。
@@ -280,6 +281,7 @@ const AppShell = () => (
           <AttributionTracker />
           <ScrollToTop />
           <PerfMetricsTracker />
+          <Ga4PageViewTracker />
           <PendingRemittanceGuard />
           <Suspense fallback={<RouteFallback />}>
           <Routes>

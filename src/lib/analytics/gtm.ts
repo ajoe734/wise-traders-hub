@@ -22,11 +22,9 @@ export type GtmEvent =
   | 'LineBindSuccess'
   | 'CheckupAnalysisRun'
   | 'QuotaBlocked'
-  | 'UpgradeClick'
-  // GA4 建議事件（GA4 主要事件）
-  | 'sign_up'
-  | 'purchase'
-  | 'generate_lead';
+  | 'UpgradeClick';
+// GA4 建議事件 sign_up / purchase / generate_lead 改由 ga4.ts 直接以 gtag 送出，
+// 不可再推進 dataLayer（避免與 GTM 重複）。
 
 export function gtmPush(event: GtmEvent, params: Record<string, unknown> = {}): void {
   if (typeof window === 'undefined') return;
