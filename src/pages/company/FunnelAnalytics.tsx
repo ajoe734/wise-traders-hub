@@ -55,80 +55,18 @@ export default function FunnelAnalytics() {
   const sinceMs = Date.now() - preset.days * 86400_000;
   const sinceIso = useMemo(() => new Date(sinceMs).toISOString(), [sinceMs]);
 
-  const { data: traffic, isFetching: loadingT, refetch: refetchT } = useQuery({
-    queryKey: ['funnel-traffic', presetId],
-    queryFn: async (): Promise<TrafficRow[]> => {
-      const { data, error } = await supabase
-        .from('traffic_events')
-        .select('event_name, user_id, visitor_id, occurred_at')
-        .in('event_name', ALL_EVENTS)
-        .gte('occurred_at', sinceIso)
-        .limit(50000);
+  // 資料庫端彙總（get_sequential_funnel），不再把原始事件撈到前端（曾被 1,000 筆上限截斷）
+  const { data: summary, isFetching: loadingT, refetch: refetchT } = useQuery({
+    queryKey: ['funnel-summary', presetId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_sequential_funnel', { _since: sinceIso });
       if (error) throw error;
-      return (data ?? []) as TrafficRow[];
+      return data as unknown as { steps: StepResult[]; purchase_fact_actors: number; frontend_success_count: number };
     },
     staleTime: 60_000,
   });
-
-  const { data: paywall, isFetching: loadingP, refetch: refetchP } = useQuery({
-    queryKey: ['funnel-paywall', presetId],
-    queryFn: async (): Promise<PaywallRow[]> => {
-      const { data, error } = await supabase
-        .from('paywall_events')
-        .select('event_kind, user_id, visitor_id, created_at')
-        .eq('event_kind', 'click_upgrade')
-        .gte('created_at', sinceIso)
-        .limit(50000);
-      if (error) throw error;
-      return (data ?? []) as PaywallRow[];
-    },
-    staleTime: 60_000,
-  });
-
-  // 身分歸戶：traffic_visits 是 visitor → user 的權威對照
-  const { data: visits, isFetching: loadingV, refetch: refetchV } = useQuery({
-    queryKey: ['funnel-visits', presetId],
-    queryFn: async (): Promise<VisitRow[]> => {
-      const { data, error } = await supabase
-        .from('traffic_visits')
-        .select('user_id, visitor_id')
-        .not('user_id', 'is', null)
-        .gte('last_seen_at', sinceIso)
-        .limit(50000);
-      if (error) throw error;
-      return (data ?? []) as VisitRow[];
-    },
-    staleTime: 60_000,
-  });
-
-  // Purchase 以成交事實為準（匯款審核開通不會有前端事件）
-  const { data: purchases, isFetching: loadingB, refetch: refetchB } = useQuery({
-    queryKey: ['funnel-purchases', presetId],
-    queryFn: async (): Promise<PurchaseRow[]> => {
-      const [intents, subs] = await Promise.all([
-        supabase.from('payment_intents')
-          .select('user_id, completed_at, created_at')
-          .eq('status', 'completed')
-          .gte('created_at', sinceIso)
-          .limit(10000),
-        supabase.from('member_subscriptions')
-          .select('user_id, started_at')
-          .gte('started_at', sinceIso)
-          .limit(10000),
-      ]);
-      if (intents.error) throw intents.error;
-      if (subs.error) throw subs.error;
-      const rows: PurchaseRow[] = [];
-      for (const r of (intents.data ?? []) as any[]) {
-        rows.push({ user_id: r.user_id, at: r.completed_at ?? r.created_at, source: 'payment_intents' });
-      }
-      for (const r of (subs.data ?? []) as any[]) {
-        rows.push({ user_id: r.user_id, at: r.started_at, source: 'member_subscriptions' });
-      }
-      return rows;
-    },
-    staleTime: 60_000,
-  });
+  const loadingP = false, loadingV = false, loadingB = false;
+  const refetchP = refetchT, refetchV = refetchT, refetchB = refetchT;
 
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
@@ -145,45 +83,17 @@ export default function FunnelAnalytics() {
     return () => clearInterval(id);
   }, [autoRefresh, refetchT, refetchP, refetchV, refetchB]);
 
-  const identityIndex = useMemo(() => buildIdentityIndex([
-    ...((visits ?? []).map((v) => ({ userId: v.user_id, visitorId: v.visitor_id }))),
-    ...((traffic ?? []).map((r) => ({ userId: r.user_id, visitorId: r.visitor_id }))),
-    ...((paywall ?? []).map((r) => ({ userId: r.user_id, visitorId: r.visitor_id }))),
-  ]), [visits, traffic, paywall]);
-
-  const stageEvents = useMemo<StageEvent[]>(() => {
-    const out: StageEvent[] = [];
-    for (const r of traffic ?? []) {
-      if (!r.event_name) continue;
-      if (PRICING_EVENTS.includes(r.event_name)) {
-        out.push({ stage: 'view_pricing', userId: r.user_id, visitorId: r.visitor_id, at: r.occurred_at, source: r.event_name });
-      } else if (r.event_name === UPGRADE_EVENT) {
-        out.push({ stage: 'upgrade_click', userId: r.user_id, visitorId: r.visitor_id, at: r.occurred_at, source: 'traffic_events' });
-      } else if (BEGIN_EVENTS.includes(r.event_name)) {
-        out.push({ stage: 'begin_checkout', userId: r.user_id, visitorId: r.visitor_id, at: r.occurred_at, source: r.event_name });
-      }
-      // checkout_success 僅作輔助指標，不作為 Purchase 來源
-    }
-    for (const r of paywall ?? []) {
-      out.push({ stage: 'upgrade_click', userId: r.user_id, visitorId: r.visitor_id, at: r.created_at, source: 'paywall_events' });
-    }
-    for (const r of purchases ?? []) {
-      out.push({ stage: 'purchase', userId: r.user_id, at: r.at, source: r.source });
-    }
-    return out;
-  }, [traffic, paywall, purchases]);
-
-  const steps = useMemo(() => computeFunnel(stageEvents, identityIndex), [stageEvents, identityIndex]);
-
-  // 成交事實總數（不受依序子集限制）與前端回報數，用於誠實對照
-  const purchaseFactActors = useMemo(
-    () => new Set((purchases ?? []).map((p) => p.user_id).filter(Boolean) as string[]).size,
-    [purchases],
-  );
-  const frontendSuccessCount = useMemo(
-    () => (traffic ?? []).filter((r) => r.event_name === PURCHASE_EVENT).length,
-    [traffic],
-  );
+  const steps = useMemo<StepResult[]>(() => STEP_KEYS.map((key, i) => {
+    const r = summary?.steps?.find((x) => x.key === key);
+    return {
+      key, actors: Number(r?.actors ?? 0), events: Number(r?.events ?? 0),
+      prevActors: i === 0 ? null : Number(r?.prevActors ?? 0),
+      rate: r?.rate == null ? null : Number(r.rate),
+      unattributed: Number(r?.unattributed ?? 0), bySource: r?.bySource ?? {},
+    };
+  }), [summary]);
+  const purchaseFactActors = Number(summary?.purchase_fact_actors ?? 0);
+  const frontendSuccessCount = Number(summary?.frontend_success_count ?? 0);
 
   // 缺事件告警：前一階段有量但本階段為 0 → 埋點疑似失效
   const alerts = useMemo(() => {
