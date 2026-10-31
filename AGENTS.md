@@ -77,6 +77,8 @@ Factsheet requests must include an explicit export type and expert ID and use `r
 
 Persist anonymous first touch on login with original expiry; platform reports paginate and use `platformAttribution`; why: no lost sources, false signups or duplicated revenue.
 
+First-touch UTM (missing = `direct`) and GA4 events go only through `src/lib/analytics/marketing.ts`; every checkout entry uses `trackCheckoutEntry`; admin conversion/funnel/source reports aggregate in database RPCs, never raw event rows in the browser; why: PostgREST row caps silently truncated counts and direct checkout links inverted the funnel.
+
 ### Financial quota reporting
 
 Use `finmindUsage` with paginated job logs, completed-symbol deduplication and timestamped upstream observations; why: aggregate counts and internal pools cannot establish unique symbols or provider quota.

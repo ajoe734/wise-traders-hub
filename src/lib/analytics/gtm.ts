@@ -22,7 +22,11 @@ export type GtmEvent =
   | 'LineBindSuccess'
   | 'CheckupAnalysisRun'
   | 'QuotaBlocked'
-  | 'UpgradeClick';
+  | 'UpgradeClick'
+  // GA4 建議事件（GA4 主要事件）
+  | 'sign_up'
+  | 'purchase'
+  | 'generate_lead';
 
 export function gtmPush(event: GtmEvent, params: Record<string, unknown> = {}): void {
   if (typeof window === 'undefined') return;

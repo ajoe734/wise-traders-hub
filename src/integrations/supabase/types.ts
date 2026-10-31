@@ -1146,6 +1146,7 @@ export type Database = {
           channel: string
           created_at: string
           expert_amount: number
+          first_touch_at: string | null
           gross_amount: number
           id: string
           occurred_at: string
@@ -1164,6 +1165,7 @@ export type Database = {
           channel?: string
           created_at?: string
           expert_amount?: number
+          first_touch_at?: string | null
           gross_amount?: number
           id?: string
           occurred_at?: string
@@ -1182,6 +1184,7 @@ export type Database = {
           channel?: string
           created_at?: string
           expert_amount?: number
+          first_touch_at?: string | null
           gross_amount?: number
           id?: string
           occurred_at?: string
@@ -1543,6 +1546,54 @@ export type Database = {
           id?: number
           outcome?: number
           reason?: string | null
+        }
+        Relationships: []
+      }
+      event_registrations: {
+        Row: {
+          created_at: string
+          email: string
+          event_slug: string
+          first_touch_at: string | null
+          id: string
+          name: string
+          phone: string | null
+          user_id: string | null
+          utm_campaign: string
+          utm_content: string
+          utm_medium: string
+          utm_source: string
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          event_slug: string
+          first_touch_at?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          user_id?: string | null
+          utm_campaign?: string
+          utm_content?: string
+          utm_medium?: string
+          utm_source?: string
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          event_slug?: string
+          first_touch_at?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          user_id?: string | null
+          utm_campaign?: string
+          utm_content?: string
+          utm_medium?: string
+          utm_source?: string
+          visitor_id?: string | null
         }
         Relationships: []
       }
@@ -4881,6 +4932,7 @@ export type Database = {
       referral_attributions: {
         Row: {
           created_at: string
+          first_touch_at: string | null
           id: string
           landing_path: string | null
           locked_until: string
@@ -4894,6 +4946,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          first_touch_at?: string | null
           id?: string
           landing_path?: string | null
           locked_until?: string
@@ -4907,6 +4960,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          first_touch_at?: string | null
           id?: string
           landing_path?: string | null
           locked_until?: string
@@ -7943,6 +7997,7 @@ export type Database = {
         }[]
       }
       get_bsr_readiness_v2: { Args: { _stock_id: string }; Returns: Json }
+      get_conversion_center: { Args: { _since: string }; Returns: Json }
       get_coverage_stats: {
         Args: { _scope?: string; _window_days?: number }
         Returns: {
@@ -8024,6 +8079,19 @@ export type Database = {
         Returns: Json
       }
       get_knowledge_revision: { Args: never; Returns: string }
+      get_marketing_source_report: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          leads: number
+          purchases: number
+          revenue: number
+          signups: number
+          utm_campaign: string
+          utm_content: string
+          utm_medium: string
+          visitors: number
+        }[]
+      }
       get_owned_journal_bundle: { Args: { _signal_id: string }; Returns: Json }
       get_page_analytics: {
         Args: { _from: string; _include_internal?: boolean; _to: string }
@@ -8119,6 +8187,7 @@ export type Database = {
           utm_source: string
         }[]
       }
+      get_sequential_funnel: { Args: { _since: string }; Returns: Json }
       get_top_instruments: {
         Args: { _from: string; _limit?: number; _to: string }
         Returns: Json

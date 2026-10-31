@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ga4SignUp } from '@/lib/analytics/marketing';
 import { gtmPush } from '@/lib/analytics/gtm';
 
 const DBG = '[LINE-CB]';
@@ -147,7 +148,7 @@ export default function LineCallback() {
             ? new Date((sessionUser as any).last_sign_in_at).getTime()
             : createdAt;
           const isNewUser = createdAt && Math.abs(lastSignIn - createdAt) < 60_000;
-          if (isNewUser) gtmPush('SignUp', { method: 'line' });
+          if (isNewUser) { gtmPush('SignUp', { method: 'line' }); ga4SignUp('line'); }
         } catch (e) {
           console.warn(DBG, 'new-user detection failed', e);
         }

@@ -16,7 +16,7 @@ export interface ConversionInput {
   grossAmount: number;
   platformAmount?: number;
   expertAmount?: number;
-  attribution?: { visitor_id?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string; utm_content?: string; ref_code?: string } | null;
+  attribution?: { visitor_id?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string; utm_content?: string; ref_code?: string; first_touch_at?: string } | null;
 }
 
 export async function recordConversion(
@@ -33,11 +33,12 @@ export async function recordConversion(
     let ref_code: string | null = null;
     let channel = 'direct';
     let referrer_host: string | null = null;
+    let first_touch_at: string | null = null;
 
     const snapshot = input.attribution;
     const { data: tv } = snapshot ? { data: null } : await supabase
       .from('traffic_visits')
-      .select('visitor_id, utm_source, utm_medium, utm_campaign, utm_content, ref_code, channel, first_referrer_host')
+      .select('visitor_id, utm_source, utm_medium, utm_campaign, utm_content, ref_code, channel, first_referrer_host, first_seen_at')
       .eq('user_id', input.userId)
       .order('first_seen_at', { ascending: true })
       .limit(1)
@@ -50,6 +51,7 @@ export async function recordConversion(
       utm_campaign = snapshot.utm_campaign || null;
       utm_content = snapshot.utm_content || null;
       ref_code = snapshot.ref_code || null;
+      first_touch_at = snapshot.first_touch_at || null;
     } else if (tv) {
       visitor_id = tv.visitor_id;
       utm_source = tv.utm_source;
@@ -59,10 +61,11 @@ export async function recordConversion(
       ref_code = tv.ref_code;
       channel = tv.channel || 'direct';
       referrer_host = tv.first_referrer_host;
+      first_touch_at = tv.first_seen_at ?? null;
     } else {
       const { data: ra } = await supabase
         .from('referral_attributions')
-        .select('visitor_id, utm_source, utm_medium, utm_campaign, utm_content, ref_code')
+        .select('visitor_id, utm_source, utm_medium, utm_campaign, utm_content, ref_code, first_touch_at, created_at')
         .eq('user_id', input.userId)
         .order('created_at', { ascending: true })
         .limit(1)
@@ -74,6 +77,7 @@ export async function recordConversion(
         utm_campaign = ra.utm_campaign;
         utm_content = ra.utm_content;
         ref_code = ra.ref_code;
+        first_touch_at = ra.first_touch_at ?? ra.created_at ?? null;
       }
     }
 
@@ -88,6 +92,11 @@ export async function recordConversion(
       if (typeof ch === 'string') channel = ch;
     }
 
+    // 沒有任何 UTM 的購買一律記為 direct
+    if (!utm_source && !utm_medium && !utm_campaign && !utm_content) {
+      utm_source = utm_medium = utm_campaign = utm_content = 'direct';
+    }
+
     await supabase.from('conversions').insert({
       user_id: input.userId,
       visitor_id,
@@ -99,6 +108,7 @@ export async function recordConversion(
       utm_content,
       ref_code,
       channel,
+      first_touch_at,
       gross_amount: Math.round(input.grossAmount || 0),
       platform_amount: Math.round(input.platformAmount || 0),
       expert_amount: Math.round(input.expertAmount || 0),
