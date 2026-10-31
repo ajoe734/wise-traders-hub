@@ -78,6 +78,7 @@ const navGroups: NavGroup[] = [
       { path: '/company/bsr-backfill', icon: History, label: 'BSR Backfill 進度' },
       { path: '/company/bsr-config', icon: Settings, label: 'BSR Backfill 設定' },
       { path: '/company/conversions', icon: BarChart3, label: '轉換中心' },
+      { path: '/company/marketing-sources', icon: BarChart3, label: '行銷來源報表' },
       { path: '/company/paywall-analytics', icon: BarChart3, label: 'Paywall 轉換' },
       { path: '/company/funnel-analytics', icon: BarChart3, label: '漏斗分析' },
       { path: '/company/roas-ltv', icon: TrendingUp, label: 'ROAS / LTV' },

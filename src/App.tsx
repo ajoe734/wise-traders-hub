@@ -179,6 +179,8 @@ const CompanyOpsHealth = lazy(() => import("./pages/company/OpsHealth"));
 const CompanyPaywallAnalytics = lazy(() => import("./pages/company/PaywallAnalytics"));
 const CompanyFunnelAnalytics = lazy(() => import("./pages/company/FunnelAnalytics"));
 const CompanyConversionCenter = lazy(() => import("./pages/company/ConversionCenter"));
+const CompanyMarketingSources = lazy(() => import("./pages/company/MarketingSources"));
+const EventSignup = lazy(() => import("./pages/EventSignup"));
 const CompanyUserJourney = lazy(() => import("./pages/company/UserJourney"));
 const CompanyAlerts = lazy(() => import("./pages/company/Alerts"));
 const CompanyRoasLtv = lazy(() => import("./pages/company/RoasLtv"));
@@ -293,6 +295,7 @@ const AppShell = () => (
             <Route path="/:slug/checkout" element={<LegacyCheckoutRedirect />} />
             <Route path="/checkout/checkup/:planId" element={<CheckupCheckout />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/events/:slug" element={<EventSignup />} />
             <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
             {/* Dev/Preview-only demo entry — gated by hostname inside the component. */}
             <Route path="/holding-checkup-demo" element={<HoldingCheckupDemoEntry />} />
@@ -405,6 +408,7 @@ const AppShell = () => (
             <Route path="/company/paywall-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaywallAnalytics /></ProtectedRoute>} />
             <Route path="/company/funnel-analytics" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunnelAnalytics /></ProtectedRoute>} />
             <Route path="/company/conversions" element={<ProtectedRoute requiredRole="company_admin"><CompanyConversionCenter /></ProtectedRoute>} />
+            <Route path="/company/marketing-sources" element={<ProtectedRoute requiredRole="company_admin"><CompanyMarketingSources /></ProtectedRoute>} />
             <Route path="/company/user-journey/:userId" element={<ProtectedRoute requiredRole="company_admin"><CompanyUserJourney /></ProtectedRoute>} />
             <Route path="/company/alerts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAlerts /></ProtectedRoute>} />
             <Route path="/company/roas-ltv" element={<ProtectedRoute requiredRole="company_admin"><CompanyRoasLtv /></ProtectedRoute>} />
