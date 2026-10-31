@@ -22,6 +22,7 @@ import { CheckoutResultDialog, type CheckoutResult } from './_checkout/CheckoutR
 import { RemittanceAccountCard } from './_remittance/RemittanceAccountCard';
 import { trackEvent } from '@/lib/trafficTracker';
 import { gtmPush } from '@/lib/analytics/gtm';
+import { ga4Purchase, trackCheckoutEntry } from '@/lib/analytics/marketing';
 import {
   dispatchLinePay, dispatchEcpay, dispatchAcpay, dispatchRemittance,
   submitEcpayForm, validateAcpayCardholder, type DispatchCtx,
@@ -78,9 +79,11 @@ const Checkout = () => {
     }
   }, [defaultProviderId, selectedProvider, providers, searchParams]);
 
+  const purchaseInfoRef = useRef<{ name: string; value: number } | null>(null);
   // GTM Purchase event + 自動導回 /app（顯示成功 toast，取代彈窗確認）
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success) {
+      if (purchaseInfoRef.current) ga4Purchase({ item_id: planId, item_name: purchaseInfoRef.current.name, value: purchaseInfoRef.current.value });
       gtmPush('Purchase', {
         plan_id: planId,
         expert_slug: slug,
@@ -94,7 +97,7 @@ const Checkout = () => {
   }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle, navigate]);
 
 
-  useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
+  useEffect(() => { trackCheckoutEntry({ plan_id: planId, slug }); }, [planId, slug]);
 
   useEffect(() => {
     if (!selectedProvider) return;
@@ -218,6 +221,7 @@ const Checkout = () => {
     ? (crossReason ? `upgrade_proration+${crossReason}` : 'upgrade_proration')
     : crossReason;
   const price = Math.max(0, basePrice - totalDiscount);
+  purchaseInfoRef.current = { name: `${expert.name ?? ''} ${plan.name}`.trim(), value: price };
 
   const formatPrice = (p: number) => new Intl.NumberFormat('zh-TW').format(p);
 

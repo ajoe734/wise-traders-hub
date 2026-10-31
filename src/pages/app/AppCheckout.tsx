@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { avatarUrl } from "@/lib/imageTransform";
 import { gtmPush } from "@/lib/analytics/gtm";
+import { ga4Purchase, trackCheckoutEntry } from "@/lib/analytics/marketing";
 import { track } from "@/lib/analytics/events";
 import { toast } from "sonner";
 import { RemittanceAccountCard } from "@/pages/_remittance/RemittanceAccountCard";
@@ -103,7 +104,8 @@ const AppCheckout = () => {
   const expert = planData?.experts as any;
 
   // 進頁追蹤：對齊 /checkout 的內部漏斗
-  useEffect(() => { track('checkout_open', { plan_id: planId, expert_slug: slug }); }, [planId, slug]);
+  const purchaseInfoRef = useRef<{ name: string; value: number } | null>(null);
+  useEffect(() => { trackCheckoutEntry({ plan_id: planId, expert_slug: slug }); }, [planId, slug]);
 
   // ISSUE-006: Check for existing active subscription
   useEffect(() => {
@@ -154,6 +156,7 @@ const AppCheckout = () => {
   // GTM Purchase event + 自動導回 /app + 成功 toast
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success) {
+      if (purchaseInfoRef.current) ga4Purchase({ item_id: planId, item_name: purchaseInfoRef.current.name, value: purchaseInfoRef.current.value });
       gtmPush('Purchase', {
         plan_id: planId,
         expert_slug: slug,
@@ -212,6 +215,7 @@ const AppCheckout = () => {
   const yearlyPrice = planData.price_yearly || monthlyPrice * 12;
   const yearlyDiscount = Math.round((1 - yearlyPrice / (monthlyPrice * 12)) * 100);
   const currentPrice = billingCycle === "monthly" ? monthlyPrice : yearlyPrice;
+  purchaseInfoRef.current = { name: `${expert.name ?? ""} ${planData.name}`.trim(), value: currentPrice };
   const billingLabel = billingCycle === "monthly" ? "/月" : "/年";
 
   // ACpay return handler — removed, now handled by useSubscriptionConfirmation above

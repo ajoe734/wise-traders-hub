@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { RemittanceAccountCard } from "./_remittance/RemittanceAccountCard";
 import { gtmPush } from "@/lib/analytics/gtm";
+import { ga4Purchase, trackCheckoutEntry } from "@/lib/analytics/marketing";
 import { track } from "@/lib/analytics/events";
 import { toast } from "sonner";
 
@@ -53,9 +54,11 @@ export default function CheckupCheckout() {
     navigate('/auth/login', { replace: true });
   }, [authLoading, user, navigate]);
 
+  const purchaseInfoRef = useRef<{ name: string; value: number } | null>(null);
   // GTM Purchase event + 自動導回 /app + 成功 toast
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success && !resultDialog?.goRemittance) {
+      if (purchaseInfoRef.current) ga4Purchase({ item_id: planId, item_name: purchaseInfoRef.current.name, value: purchaseInfoRef.current.value });
       gtmPush('Purchase', {
         plan_id: planId,
         product: 'checkup',
@@ -71,7 +74,7 @@ export default function CheckupCheckout() {
   }, [resultDialog?.open, resultDialog?.success, resultDialog?.goRemittance, resultDialog?.message, planId, billingCycle, navigate]);
 
   // 進頁追蹤：對齊 /checkout 的內部漏斗
-  useEffect(() => { track('checkout_open', { plan_id: planId }); }, [planId]);
+  useEffect(() => { trackCheckoutEntry({ plan_id: planId, product: 'checkup' }); }, [planId]);
 
 
 
@@ -116,6 +119,7 @@ export default function CheckupCheckout() {
   const basePrice = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
   const yearlyDiscount = Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100);
   const price = Math.max(0, basePrice - crossDiscount);
+  purchaseInfoRef.current = { name: plan.name, value: price };
 
   const onSubmit = async () => {
     if (!user) {
