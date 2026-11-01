@@ -38,3 +38,7 @@ Credit-card refunds go only through company_admin `ecpay-refund` (pure `_shared/
 ### Holding quote freshness
 
 `stock-price-sync` queries MIS only through `_shared/misBatch.ts` (small batches, split-and-retry on non-OK `rtmessage`) and raises `expert_price_missing` when any open expert TW holding is unpriced; expert capital/performance RPCs read prices only via `latest_quote()` (newer of official close history and live quote, with `price_date`), and the UI labels stale dates via `src/lib/priceStaleness.ts`; `market-data-sync` daily fills TWSE via `MI_INDEX` when `STOCK_DAY_ALL` lags (plus `type=0999` warrants) and alerts `daily_close_lagging`; `daily-snapshot` writes TW rows only on open days and only for quotes updated that Taipei day, never CRYPTO; US snapshots use `_shared/nasdaqDaily.ts` and `usSnapshotRebuild.ts` for exchange-labelled completed NY sessions, not current-price mirrors, and alert missing sources; why: live-price capture timestamps cannot establish an official daily close.
+
+### External conversion report
+
+`ig-conversion-report` is GET-only, authenticated by `x-report-key` vs secret `REPORT_API_KEY`, reads only the service-role-only `get_ig_conversion_report` RPC and whitelists aggregate fields via `_shared/igReportCore.ts`; its rate limit is in-memory per instance; why: external schedulers get daily aggregates without writes, member identifiers, or a callable RPC for logged-in users.
