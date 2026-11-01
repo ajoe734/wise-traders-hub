@@ -14,6 +14,8 @@
  * Visit-row throttle is 30 minutes (was 24h) so live-debugging is responsive.
  */
 
+import { landingUtm } from './preserveUtm';
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 

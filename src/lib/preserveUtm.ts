@@ -46,8 +46,12 @@ export function utmQueryString(search?: string | null): string {
  * - 目標已有同名參數時，以目標為準（不覆寫）。
  * - 目標的 hash（`#plans`）保留在最後。
  */
-export function preserveUtm(to: string, search?: string | null): string {
-  const utm = extractUtm(search);
+export function preserveUtm(
+  to: string,
+  search?: string | null,
+  campaignFallback?: string | null,
+): string {
+  const utm = withShortLinkCampaign(extractUtm(search), campaignFallback ?? null);
   const keys = Object.keys(utm) as UtmKey[];
   if (keys.length === 0) return to;
 
@@ -70,4 +74,42 @@ export function preserveUtm(to: string, search?: string | null): string {
 /** 取 utm_campaign（analytics props 用）。 */
 export function utmCampaignOf(search?: string | null): string | undefined {
   return extractUtm(search).utm_campaign;
+}
+
+/** 短連結路徑 `/s/:slug` → 分析師代號；其他路徑回 null。 */
+const SHORT_LINK_RE = /^\/s\/([^/]+)\/?$/;
+
+export function shortLinkSlug(pathname?: string | null): string | null {
+  if (!pathname) return null;
+  const m = SHORT_LINK_RE.exec(pathname);
+  if (!m) return null;
+  let slug = m[1];
+  try {
+    slug = decodeURIComponent(slug);
+  } catch {
+    /* 百分比碼不合法時保留原字串 */
+  }
+  slug = slug.trim();
+  if (!slug || slug === '.' || slug === '..') return null;
+  return slug;
+}
+
+/**
+ * 短連結 campaign 補值（全站唯一實作）。
+ * - 完全沒有 utm 參數：原樣回傳（維持 direct）
+ * - 有 utm 但 utm_campaign 空或缺：補短連結代號
+ * - 已填 utm_campaign：維持原值；其他 utm 一律不新增、不改寫
+ */
+export function withShortLinkCampaign(
+  utm: Partial<Record<UtmKey, string>>,
+  slug: string | null,
+): Partial<Record<UtmKey, string>> {
+  if (!slug || utm.utm_campaign || Object.keys(utm).length === 0) return utm;
+  return { ...utm, utm_campaign: slug };
+}
+
+/** 進站 UTM（含短連結 campaign 補值）；href 須為絕對網址。 */
+export function landingUtm(href: string): Partial<Record<UtmKey, string>> {
+  const u = new URL(href);
+  return withShortLinkCampaign(extractUtm(u.search), shortLinkSlug(u.pathname));
 }
