@@ -8078,6 +8078,21 @@ export type Database = {
         Args: { _from: string; _steps: string[]; _to: string }
         Returns: Json
       }
+      get_ig_conversion_report: {
+        Args: { _since: string; _until: string }
+        Returns: {
+          date: string
+          event_signups: number
+          holdings_board_conversions: number
+          purchases: number
+          revenue: number
+          signups: number
+          utm_campaign: string
+          utm_medium: string
+          utm_source: string
+          visitors: number
+        }[]
+      }
       get_knowledge_revision: { Args: never; Returns: string }
       get_marketing_source_report: {
         Args: { _from: string; _to: string }
