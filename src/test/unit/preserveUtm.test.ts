@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { extractUtm, preserveUtm, utmQueryString, utmCampaignOf } from '@/lib/preserveUtm';
+import {
+  extractUtm,
+  preserveUtm,
+  utmQueryString,
+  utmCampaignOf,
+  shortLinkSlug,
+  withShortLinkCampaign,
+  landingUtm,
+} from '@/lib/preserveUtm';
 
 describe('preserveUtm', () => {
   it('只萃取白名單參數', () => {
