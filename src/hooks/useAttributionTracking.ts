@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { landingUtm } from '@/lib/preserveUtm';
 
 const STORAGE_KEY = 'lf_attr_v1';
 const LOCK_DAYS = 30;
@@ -99,11 +100,13 @@ export function useAttributionTracking() {
   useEffect(() => {
     const url = new URL(window.location.href);
     const sp = url.searchParams;
+    // 短連結 /s/:slug 落地：utm_campaign 空時補短連結代號（同一條純規則）。
+    const utm = landingUtm(url.href);
     const incoming = {
-      utm_source: sp.get('utm_source') || undefined,
-      utm_medium: sp.get('utm_medium') || undefined,
-      utm_campaign: sp.get('utm_campaign') || undefined,
-      utm_content: sp.get('utm_content') || undefined,
+      utm_source: utm.utm_source,
+      utm_medium: utm.utm_medium,
+      utm_campaign: utm.utm_campaign,
+      utm_content: utm.utm_content,
       ref_code: sp.get('ref') || sp.get('ref_code') || undefined,
     };
 

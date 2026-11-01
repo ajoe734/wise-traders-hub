@@ -14,6 +14,8 @@
  * Visit-row throttle is 30 minutes (was 24h) so live-debugging is responsive.
  */
 
+import { landingUtm } from './preserveUtm';
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
@@ -216,16 +218,18 @@ function logFirstVisit() {
 
   const url = new URL(window.location.href);
   const sp = url.searchParams;
+  // 短連結 /s/:slug 落地：utm_campaign 空時補短連結代號（同一條純規則）。
+  const utm = landingUtm(url.href);
   post({
     kind: 'visit',
     visitor_id,
     landing_path: url.pathname,
     referrer: document.referrer || null,
-    utm_source: sp.get('utm_source'),
-    utm_medium: sp.get('utm_medium'),
-    utm_campaign: sp.get('utm_campaign'),
-    utm_content: sp.get('utm_content'),
-    utm_term: sp.get('utm_term'),
+    utm_source: utm.utm_source ?? null,
+    utm_medium: utm.utm_medium ?? null,
+    utm_campaign: utm.utm_campaign ?? null,
+    utm_content: utm.utm_content ?? null,
+    utm_term: utm.utm_term ?? null,
     ref_code: sp.get('ref') || sp.get('ref_code'),
     device_kind: deviceKind(),
   });

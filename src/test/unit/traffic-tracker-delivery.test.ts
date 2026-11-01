@@ -25,4 +25,40 @@ describe('trafficTracker delivery', () => {
     expect(beacons.length).toBeGreaterThan(0);
     expect(beacons.every(b => b.access_token === 'tok123')).toBe(true);
   });
+
+  // 短連結 /s/:slug 落地的走訪列：utm_campaign 空時補短連結代號（同一條純規則）。
+  describe('短連結走訪列 utm_campaign 補值', () => {
+    async function visit(hrefPath: string) {
+      window.history.replaceState(null, '', hrefPath);
+      const mod = await import('@/lib/trafficTracker');
+      mod.initTrafficTracker();
+      return beacons.find((b) => b.kind === 'visit');
+    }
+
+    it('情況2 有 utm、campaign 空 → 補短連結代號', async () => {
+      expect(await visit('/s/sharkgu?utm_source=ig&utm_medium=social')).toMatchObject({
+        kind: 'visit', utm_source: 'ig', utm_medium: 'social', utm_campaign: 'sharkgu',
+      });
+    });
+
+    it('情況3 已填 campaign 維持原值', async () => {
+      expect(await visit('/s/master-brcto?utm_campaign=brcto_journal&utm_content=ig')).toMatchObject({
+        utm_campaign: 'brcto_journal', utm_content: 'ig',
+      });
+    });
+
+    it('情況1 完全沒有 utm 時不補（維持 direct）', async () => {
+      expect(await visit('/s/sharkgu')).toMatchObject({ utm_source: null, utm_campaign: null });
+    });
+
+    it('情況4 其他 utm 原樣保留，不新增不改寫', async () => {
+      expect(await visit('/s/sharkgu?utm_source=ig&utm_medium=mia_ig&utm_content=link_in_bio')).toMatchObject({
+        utm_source: 'ig', utm_medium: 'mia_ig', utm_content: 'link_in_bio', utm_campaign: 'sharkgu',
+      });
+    });
+
+    it('非短連結路徑不補', async () => {
+      expect(await visit('/expert/sharkgu?utm_source=ig')).toMatchObject({ utm_source: 'ig', utm_campaign: null });
+    });
+  });
 });

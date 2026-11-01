@@ -10,8 +10,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "
 const ShortExpertRedirect = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
-  // 保留白名單 utm_*，其餘 query 丟棄。
-  return <Navigate to={preserveUtm(`/expert/${slug || ''}`, location.search)} replace />;
+  // 保留白名單 utm_*，其餘 query 丟棄；campaign 空時補短連結代號。
+  return <Navigate to={preserveUtm(`/expert/${slug || ''}`, location.search, slug)} replace />;
 };
 import { ThemeProvider } from "next-themes";
 import { lazy, Suspense, useEffect } from "react";
