@@ -79,6 +79,8 @@ Persist anonymous first touch on login with original expiry; platform reports pa
 
 First-touch UTM (missing = `direct`) goes through `src/lib/analytics/marketing.ts`; GA4 events and SPA page_views go only through `src/lib/analytics/ga4.ts` (direct gtag, PII-stripped, disabled on /company /admin /e2e, never also pushed to GTM dataLayer); every checkout entry uses `trackCheckoutEntry`; admin conversion/funnel/source reports aggregate in database RPCs, never raw event rows in the browser; why: PostgREST row caps silently truncated counts and direct checkout links inverted the funnel.
 
+Short-link `/s/:slug` landings fill a missing `utm_campaign` with the slug through the single pure rule in `src/lib/preserveUtm.ts` (`shortLinkSlug` / `withShortLinkCampaign` / `landingUtm`), applied at every capture site (redirect target, first touch, visit row); no utm at all stays `direct`, an existing campaign is never rewritten, and other utm keys are neither added nor changed; why: the visit row and first touch are captured on the `/s/` URL before the redirect, so filling only the redirect target would leave IG bio traffic unattributable.
+
 ### Financial quota reporting
 
 Use `finmindUsage` with paginated job logs, completed-symbol deduplication and timestamped upstream observations; why: aggregate counts and internal pools cannot establish unique symbols or provider quota.
