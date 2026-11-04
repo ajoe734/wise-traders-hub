@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { createRateLimiter, projectRows, safeEqual, validateRange } from '../_shared/igReportCore.ts';
+import { createRateLimiter, groupExpertDaily, projectRows, safeEqual, taipeiBounds, validateRange } from '../_shared/igReportCore.ts';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -33,5 +33,34 @@ Deno.serve(async (req) => {
     console.error('[ig-conversion-report] rpc failed', error.code);
     return json({ error: 'report unavailable' }, 500);
   }
-  return json(projectRows((data ?? []) as Array<Record<string, unknown>>));
+
+  // Same source and filter as get_expert_revenue_breakdown (/company/expert-revenue).
+  const { from, to } = taipeiBounds(range.since, range.until);
+  const splits: Array<{ created_at: string; expert_slug: string | null; gross: unknown; net: unknown; expert_amount: unknown }> = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data: page, error: e2 } = await admin
+      .from('revenue_splits')
+      .select('id, created_at, gross, net, expert_amount, experts!inner(slug)')
+      .not('expert_id', 'is', null)
+      .gte('created_at', from)
+      .lt('created_at', to)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + PAGE - 1);
+    if (e2) {
+      console.error('[ig-conversion-report] splits failed', e2.code);
+      return json({ error: 'report unavailable' }, 500);
+    }
+    for (const r of (page ?? []) as Array<Record<string, any>>) {
+      const ex = Array.isArray(r.experts) ? r.experts[0] : r.experts;
+      splits.push({ created_at: r.created_at, expert_slug: ex?.slug ?? null, gross: r.gross, net: r.net, expert_amount: r.expert_amount });
+    }
+    if (!page || page.length < PAGE) break;
+  }
+
+  return json({
+    rows: projectRows((data ?? []) as Array<Record<string, unknown>>),
+    expert_daily: groupExpertDaily(splits, range.since, range.until),
+  });
 });
