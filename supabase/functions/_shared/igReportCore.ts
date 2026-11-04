@@ -68,3 +68,38 @@ export function projectRows(rows: Array<Record<string, unknown>>): ReportRow[] {
     event_signups: Math.round(Number(r.event_signups) || 0),
   }));
 }
+
+/** Taipei day [since 00:00, until+1 00:00) as UTC ISO bounds. */
+export function taipeiBounds(since: string, until: string): { from: string; to: string } {
+  const from = new Date(Date.parse(`${since}T00:00:00+08:00`)).toISOString();
+  const to = new Date(Date.parse(`${until}T00:00:00+08:00`) + 86_400_000).toISOString();
+  return { from, to };
+}
+
+export type ExpertDailyRow = {
+  date: string; expert: string; orders: number; gross: number; net: number; expert_share: number;
+};
+
+/** Group revenue_splits rows (same source as /company/expert-revenue) by Taipei order date + expert slug. */
+export function groupExpertDaily(
+  splits: Array<{ created_at: string; expert_slug: string | null; gross: unknown; net: unknown; expert_amount: unknown }>,
+  since: string,
+  until: string,
+): ExpertDailyRow[] {
+  const map = new Map<string, ExpertDailyRow>();
+  for (const s of splits) {
+    if (!s.expert_slug) continue;
+    const date = new Date(Date.parse(s.created_at) + 8 * 3_600_000).toISOString().slice(0, 10);
+    if (date < since || date > until) continue;
+    const key = `${date}|${s.expert_slug}`;
+    const r = map.get(key) ?? { date, expert: s.expert_slug, orders: 0, gross: 0, net: 0, expert_share: 0 };
+    r.orders += 1;
+    r.gross += Number(s.gross) || 0;
+    r.net += Number(s.net) || 0;
+    r.expert_share += Number(s.expert_amount) || 0;
+    map.set(key, r);
+  }
+  return [...map.values()]
+    .map((r) => ({ ...r, gross: Math.round(r.gross), net: Math.round(r.net), expert_share: Math.round(r.expert_share) }))
+    .sort((a, b) => (a.date === b.date ? a.expert.localeCompare(b.expert) : a.date.localeCompare(b.date)));
+}

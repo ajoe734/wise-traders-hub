@@ -41,4 +41,4 @@ Credit-card refunds go only through company_admin `ecpay-refund` (pure `_shared/
 
 ### External conversion report
 
-`ig-conversion-report` is GET-only, authenticated by `x-report-key` vs secret `REPORT_API_KEY`, reads only the service-role-only `get_ig_conversion_report` RPC and whitelists aggregate fields via `_shared/igReportCore.ts`; its rate limit is in-memory per instance; why: external schedulers get daily aggregates without writes, member identifiers, or a callable RPC for logged-in users.
+`ig-conversion-report` is GET-only, authenticated by `x-report-key` vs secret `REPORT_API_KEY`, reads only the service-role-only `get_ig_conversion_report` RPC (`rows`) plus `revenue_splits` grouped by Taipei date + expert slug via `groupExpertDaily` (`expert_daily`, same source as `get_expert_revenue_breakdown`) and whitelists aggregate fields via `_shared/igReportCore.ts`; its rate limit is in-memory per instance; why: external schedulers get daily aggregates without writes, member identifiers, or a callable RPC for logged-in users.
