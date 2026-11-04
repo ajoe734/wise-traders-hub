@@ -35,3 +35,26 @@ describe('ig-conversion-report projection', () => {
     expect(row.revenue).toBe(799);
   });
 });
+
+import { groupExpertDaily, taipeiBounds } from '../../../supabase/functions/_shared/igReportCore';
+
+describe('expert_daily', () => {
+  it('Taipei day bounds are inclusive of until', () => {
+    expect(taipeiBounds('2026-10-05', '2026-11-03')).toEqual({ from: '2026-10-04T16:00:00.000Z', to: '2026-11-03T16:00:00.000Z' });
+  });
+  it('groups by Taipei order date + expert slug', () => {
+    const rows = groupExpertDaily([
+      { created_at: '2026-10-20T15:59:00Z', expert_slug: 'sharkgu', gross: 1799, net: 1799, expert_amount: 810 },
+      { created_at: '2026-10-20T16:01:00Z', expert_slug: 'sharkgu', gross: 1799, net: 1799, expert_amount: 810 },
+      { created_at: '2026-10-21T01:00:00Z', expert_slug: 'sharkgu', gross: 1799, net: 1799, expert_amount: 810 },
+      { created_at: '2026-10-21T01:00:00Z', expert_slug: null, gross: 999, net: 999, expert_amount: 1 },
+    ], '2026-10-20', '2026-10-21');
+    expect(rows).toEqual([
+      { date: '2026-10-20', expert: 'sharkgu', orders: 1, gross: 1799, net: 1799, expert_share: 810 },
+      { date: '2026-10-21', expert: 'sharkgu', orders: 2, gross: 3598, net: 3598, expert_share: 1620 },
+    ]);
+  });
+  it('drops dates outside since..until', () => {
+    expect(groupExpertDaily([{ created_at: '2026-10-19T10:00:00Z', expert_slug: 'a', gross: 1, net: 1, expert_amount: 1 }], '2026-10-20', '2026-10-21')).toEqual([]);
+  });
+});
