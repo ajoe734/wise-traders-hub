@@ -65,6 +65,10 @@ Filing-refresh queue picks and state writes go only through `selectFilingQueue` 
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
 
+### Teacher payroll statement
+
+Teacher self-service statements fetch only their own raw rows via `expert-payroll-statement` (`requireExpertOwnerOrAdmin`) and compute with the same `preparePayrollData` + `computePayroll` + `buildPayrollExportRows` as the admin tab; why: teacher and admin figures must never diverge, and teachers must not read other teachers' data.
+
 ### First-orders promo
 
 The per-expert free-commission rule is applied only at payroll time by `computePayroll`'s `MonthlyPromo` (first N recognized items of each expert-month by paid time, excluding tester/checkup transactions, expert gets the item's full net); `revenue_splits` always keep the base ratio and DB `recompute_expert_promo` only reverts legacy `first20_free` rows; why: the promo counts per payroll month, so a per-order flag would mislabel cash-flow splits.
