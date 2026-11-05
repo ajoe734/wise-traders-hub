@@ -44,6 +44,7 @@ const AccountProfile = () => {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    if (isViewAs) { toast.error('視角檢視模式不可寫入'); return; }
 
     if (!file.type.startsWith('image/')) {
       toast.error('請選擇圖片檔案');
@@ -99,6 +100,7 @@ const AccountProfile = () => {
 
   const handleSave = async () => {
     if (!user) return;
+    if (isViewAs) { toast.error('視角檢視模式不可寫入'); return; }
     setIsSaving(true);
     const { error: errMsg } = await updateProfileFields(supabase, user.id, { display_name: displayName });
     setIsSaving(false);
@@ -179,7 +181,7 @@ const AccountProfile = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="name">姓名</Label>
-                <Input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                <Input id="name" value={isViewAs ? (shown.displayName ?? '') : displayName} readOnly={isViewAs} onChange={(e) => setDisplayName(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
