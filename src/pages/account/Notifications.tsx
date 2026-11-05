@@ -1,3 +1,4 @@
+import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
 import { SEO } from '@/components/SEO';
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -47,7 +48,8 @@ export default function AccountNotifications() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const userId = user?.id;
+  const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
+  const userId = effectiveUserId ?? undefined;
 
   const notifKey = ['account', 'notifications', userId ?? null] as const;
   const prefKey = ['account', 'notification-prefs', userId ?? null] as const;
@@ -75,6 +77,7 @@ export default function AccountNotifications() {
 
   const updatePref = useMutation({
     mutationFn: async ({ k, v }: { k: keyof typeof PREF_DEFAULTS; v: boolean }) => {
+      if (isViewAs) throw new Error('視角檢視模式不可寫入');
       if (!prefs || !userId) throw new Error('no user');
       const next = { ...prefs, [k]: v };
       const { error } = await supabase.from('notification_preferences').upsert({
@@ -105,7 +108,7 @@ export default function AccountNotifications() {
 
   const markAllRead = useMutation({
     mutationFn: async () => {
-      if (!userId) return;
+      if (!userId || isViewAs) return;
       await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId).eq('is_read', false);
     },
     onSuccess: () => {
@@ -122,6 +125,7 @@ export default function AccountNotifications() {
 
   const markOneRead = useMutation({
     mutationFn: async (id: string) => {
+      if (isViewAs) return;
       await supabase.from('notifications').update({ is_read: true }).eq('id', id);
     },
     onSuccess: (_d, id) => {
