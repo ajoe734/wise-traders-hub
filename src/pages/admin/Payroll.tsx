@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { payDate } from '@/lib/expertPayroll';
 import { Loader2 } from 'lucide-react';
+import { PayrollStatement } from './PayrollStatement';
 
 const fmt = (n: number) => `NT$ ${Math.round(Number(n) || 0).toLocaleString('zh-TW')}`;
 const fmtDay = (iso: string) => {
@@ -42,6 +43,8 @@ const AdminPayroll = () => {
         {isLoading && <div className="flex items-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-2" />載入中...</div>}
         {isError && <div className="text-sm text-destructive">載入失敗，請重新整理</div>}
         {!isLoading && !isError && !data?.length && <div className="text-sm text-muted-foreground">目前尚無已發放紀錄</div>}
+        <PayrollStatement expertSlug={expertSlug} />
+        <h2 className="text-lg font-bold pt-2">已發放紀錄</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {(data || []).map((r: any) => (
             <Card key={r.period_month}>
