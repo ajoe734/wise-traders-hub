@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveIdentity } from '@/hooks/useEffectiveIdentity';
 
 interface PendingIntent {
   id: string;
@@ -22,7 +22,7 @@ interface PendingIntent {
 }
 
 export function PendingCheckoutCard() {
-  const { user } = useAuth();
+  const user = useEffectiveIdentity();
   const [intents, setIntents] = useState<PendingIntent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,6 +44,7 @@ export function PendingCheckoutCard() {
   useEffect(() => { load(); }, [user?.id]);
 
   const handleResume = (intent: PendingIntent) => {
+    if (user.isViewAs) return;
     let url = '/app/account';
     const params = new URLSearchParams();
     if (intent.billing_cycle) params.set('cycle', intent.billing_cycle);

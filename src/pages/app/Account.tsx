@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveIdentity } from '@/hooks/useEffectiveIdentity';
 import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings, Loader2 } from 'lucide-react';
 import { useAccountData } from '@/hooks/app/useAccountData';
 import { SubscriptionCard } from '@/pages/_appAccount/SubscriptionCard';
@@ -17,7 +17,7 @@ import { SubscriptionConflictNotice } from '@/components/account/SubscriptionCon
 
 
 const Account = () => {
-  const { user } = useAuth();
+  const user = useEffectiveIdentity();
   const navigate = useNavigate();
 
   const {

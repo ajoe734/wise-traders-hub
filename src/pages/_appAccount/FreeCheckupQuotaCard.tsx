@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveIdentity } from '@/hooks/useEffectiveIdentity';
 import { formatTaipeiYMDHM } from '@/checkup/utils/formatTaipeiDate';
 
 interface QuotaSnapshot {
@@ -26,7 +26,7 @@ interface QuotaSnapshot {
  * - 解釋為何能或不能用、剩餘幾次、何時重置
  */
 export function FreeCheckupQuotaCard() {
-  const { user } = useAuth();
+  const user = useEffectiveIdentity();
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffectiveUserId } from '@/hooks/useEffectiveUserId';
+import { useEffectiveIdentity } from '@/hooks/useEffectiveIdentity';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
 const AccountProfile = () => {
   const { user, isAuthenticated, logout, refreshProfile } = useAuth();
   const { userId: effectiveUserId, isViewAs } = useEffectiveUserId();
+  const shown = useEffectiveIdentity();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -144,8 +146,8 @@ const AccountProfile = () => {
               <div className="flex items-center gap-4">
                 <div className="relative group">
                   <div className="h-20 w-20 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                    {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="頭貼" className="h-full w-full object-cover" />
+                    {shown.avatarUrl ? (
+                      <img src={shown.avatarUrl} alt="頭貼" className="h-full w-full object-cover" />
                     ) : (
                       <User className="h-8 w-8 text-muted-foreground" />
                     )}
@@ -181,7 +183,7 @@ const AccountProfile = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" defaultValue={user.email} disabled />
+                <Input id="email" key={shown.email ?? ''} defaultValue={shown.email ?? ''} disabled />
                 <p className="text-xs text-muted-foreground">Email 無法修改</p>
               </div>
               <Button onClick={handleSave} disabled={isSaving}>
