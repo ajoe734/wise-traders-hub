@@ -7,6 +7,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { Download } from 'lucide-react';
 import { exportCSV, fmtDate } from './utils';
 import { providerTypeLabels } from '@/hooks/useRevenueData';
+import { isActiveSub } from '@/lib/activeSubscribers';
 
 interface Props {
   subscriptions: any[];
@@ -36,6 +37,8 @@ export function SubscriptionsTab({
   const [subFilter, setSubFilter] = useState({ expert: 'all', role: 'all', status: 'all', autorenew: 'all' });
   // 只以付款日是否落在所選期間判斷，不提供跨月選項。
   const includeCrossMonth = false;
+  // 'paid'：只列付款日落在期間內；'active'：目前有效訂閱，不限付款日（年繳用戶隨時看得到）。
+  const [view, setView] = useState<'paid' | 'active'>('paid');
 
   // 匯款確認後會另寫一筆 payment_transactions（同 subscription_id），申請紀錄不可再計一次。
   const paidTxSubIds = useMemo(() => new Set(
@@ -74,8 +77,11 @@ export function SubscriptionsTab({
   const filteredSubs = useMemo(() => {
     const from = range?.from.getTime();
     const to = range?.to.getTime();
+    const nowMs = Date.now();
     return subscriptions.filter((s: any) => {
-      if (from != null && to != null) {
+      if (view === 'active') {
+        if (!isActiveSub(s, nowMs)) return false;
+      } else if (from != null && to != null) {
         if (includeCrossMonth) {
           // 訂閱期間與區間有重疊即列出
           const st = s.started_at ? new Date(s.started_at).getTime() : NaN;
@@ -101,7 +107,7 @@ export function SubscriptionsTab({
       if (subFilter.autorenew === 'off' && s.auto_renew) return false;
       return true;
     });
-  }, [subscriptions, subFilter, planMap, expertMap, range, includeCrossMonth, paymentsBySub]);
+  }, [subscriptions, subFilter, planMap, expertMap, range, includeCrossMonth, paymentsBySub, view]);
 
   // 展開成「一筆付款一列」；無付款紀錄的訂閱保留一列（付款欄位顯示 —）
   const rows = useMemo(() => {
@@ -110,7 +116,7 @@ export function SubscriptionsTab({
     const out: { sub: any; pay: PayRow | null }[] = [];
     filteredSubs.forEach((s: any) => {
       let pays = paymentsBySub[s.id] || [];
-      if (!includeCrossMonth && from != null && to != null) {
+      if (view === 'paid' && !includeCrossMonth && from != null && to != null) {
         pays = pays.filter(p => {
           if (!p.paidAt) return false;
           const t = new Date(p.paidAt).getTime();
@@ -121,7 +127,7 @@ export function SubscriptionsTab({
       else pays.forEach(p => out.push({ sub: s, pay: p }));
     });
     return out;
-  }, [filteredSubs, paymentsBySub, includeCrossMonth, range]);
+  }, [filteredSubs, paymentsBySub, includeCrossMonth, range, view]);
 
   const subtotal = useMemo(() => ({
     count: rows.filter(r => r.pay).length,
@@ -133,6 +139,13 @@ export function SubscriptionsTab({
   return (
     <TabsContent value="subscriptions" className="mt-4 space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
+        <Select value={view} onValueChange={(v) => setView(v as 'paid' | 'active')}>
+          <SelectTrigger className="w-[200px] h-9" aria-label="檢視方式"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="paid">所選期間有付款</SelectItem>
+            <SelectItem value="active">目前有效（不限付款日）</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={subFilter.expert} onValueChange={(v) => setSubFilter(s => ({ ...s, expert: v }))}>
           <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="全部專家" /></SelectTrigger>
           <SelectContent>
