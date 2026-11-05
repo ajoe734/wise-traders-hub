@@ -67,7 +67,7 @@ Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recogni
 
 ### First-orders promo
 
-Per-expert free-commission orders are decided only by DB `recompute_expert_promo` (triggered on `revenue_splits` insert and `payment_transactions` insert/status change; `rule_source='first20_free'`, original rule kept in `base_rule_source`, every change audited), mirrored by pure `src/lib/first20Promo.ts`; why: manual backfills, remittance confirms and refunds must all re-rank without a second split calculation.
+The per-expert free-commission rule is applied only at payroll time by `computePayroll`'s `MonthlyPromo` (first N recognized items of each expert-month by paid time, excluding tester/checkup transactions, expert gets the item's full net); `revenue_splits` always keep the base ratio and DB `recompute_expert_promo` only reverts legacy `first20_free` rows; why: the promo counts per payroll month, so a per-order flag would mislabel cash-flow splits.
 
 ### Admin subscriber counts
 
