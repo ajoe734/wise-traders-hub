@@ -187,7 +187,12 @@ export function PayrollTab() {
                   )}
                   {data && (() => {
                     const rc = payrollReconciliation(data.splits as any, data.txs as any, data.subCycle, r.expert_id, r.month, r.earnings);
-                    const line = (it: any) => `${fmtDate(it.paid_at)} 付款・第 ${it.k}/${it.n} 期 ${fmtDate(it.end_at)} 期滿・${fmtMoney(it.amount)}`;
+                    const group = (items: any[]) => Object.values(items.reduce((m: any, it: any) => {
+                      const g = (m[it.transaction_id] ||= { ...it, ks: [], sum: 0 }); g.ks.push(it.k); g.sum += it.amount; return m;
+                    }, {})) as any[];
+                    const line = (g: any) => g.n === 1
+                      ? `${fmtDate(g.paid_at)} 付款・月繳 ${fmtDate(g.end_at)} 期滿・${fmtMoney(g.sum)}`
+                      : `${fmtDate(g.paid_at)} 付款・年繳第 ${Math.min(...g.ks)}–${Math.max(...g.ks)}/12 期・${fmtMoney(Math.round(g.sum * 100) / 100)}`;
                     return (
                       <details className="text-xs border-t pt-2" data-testid="payroll-recon">
                         <summary className="cursor-pointer text-muted-foreground">與金流明細對帳</summary>
@@ -198,8 +203,8 @@ export function PayrollTab() {
                           {rc.refundDropped !== 0 && (<><dt className="text-muted-foreground">− 退款／已發放快照差異</dt><dd className="text-right">−{fmtMoney(rc.refundDropped)}</dd></>)}
                           <dt className="font-medium text-foreground">＝ 當月分潤</dt><dd className="text-right font-medium text-foreground">{fmtMoney(r.earnings)}</dd>
                         </dl>
-                        {rc.deferredItems.length > 0 && <div className="mt-2"><div className="text-muted-foreground">遞延明細</div><ul>{rc.deferredItems.map((it, i) => <li key={i}>{line(it)}</li>)}</ul></div>}
-                        {rc.carriedItems.length > 0 && <div className="mt-2"><div className="text-muted-foreground">轉入明細</div><ul>{rc.carriedItems.map((it, i) => <li key={i}>{line(it)}</li>)}</ul></div>}
+                        {rc.deferredItems.length > 0 && <div className="mt-2"><div className="text-muted-foreground">遞延明細</div><ul>{group(rc.deferredItems).map((it, i) => <li key={i}>{line(it)}</li>)}</ul></div>}
+                        {rc.carriedItems.length > 0 && <div className="mt-2"><div className="text-muted-foreground">轉入明細</div><ul>{group(rc.carriedItems).map((it, i) => <li key={i}>{line(it)}</li>)}</ul></div>}
                       </details>
                     );
                   })()}
