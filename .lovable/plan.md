@@ -1,43 +1,26 @@
-# 交流投顧金鑰清單（附取得連結）
+# 交流投顧金鑰清單（單一文件）
 
-點連結登入該服務，就能找到或重新產生金鑰。
+## 要做的事
+把交流投顧需要填的所有金鑰整理成**一份**文件 `交流投顧-金鑰清單.html`，存到 Files，手機和桌機都能點連結。
 
-## A. 按 Generate 自己產生（不用去哪拿）
-- CRON_SHARED_SECRET
-- DATA_UPSERT_API_KEY
-- REPORT_API_KEY
+金鑰的值是加密存放的，我讀不到，所以文件裡**不會有值**。每個金鑰會寫清楚怎麼拿到它。
 
-## B. 直接打字
-- E2E_ALLOW_SIMULATED_PURCHASE → `false`
-- E2E_TEST_EMAIL / E2E_TEST_PASSWORD → 新專案自己的測試帳號
-- SITE_URL → 新專案的預覽網址
-- GA4_PROPERTY_ID → https://analytics.google.com/analytics/web/ → 管理 → 資源設定
-- GOOGLE_ANALYTICS_MEASUREMENT_ID → 同上 → 管理 → 資料串流 →（G- 開頭）
+## 文件內容
+每個金鑰一列，四欄：
+1. 金鑰名稱（可一鍵複製）
+2. 填法：按 Generate／直接打字／到服務後台複製／不用填
+3. 取得連結（可直接點）
+4. 共用風險：沒差／共用額度／會出錯
 
-## C. 到服務後台複製
-| 名稱 | 連結 |
-|---|---|
-| FINMIND_TOKEN | https://finmindtrade.com/analysis/#/account/user |
-| FINNHUB_API_KEY | https://finnhub.io/dashboard |
-| ANTHROPIC_API_KEY | https://console.anthropic.com/settings/keys |
-| GOOGLE_GEMINI_API_KEY | https://aistudio.google.com/app/apikey |
-| GEMINI_ANALYSIS_API_KEY | https://aistudio.google.com/app/apikey |
-| OPENROUTER_API_KEY | https://openrouter.ai/settings/keys |
-| RESEND_API_KEY | https://resend.com/api-keys |
-| GA4_SERVICE_ACCOUNT_JSON | https://console.cloud.google.com/iam-admin/serviceaccounts → 服務帳戶 → 金鑰 → 新增金鑰（JSON） |
-| ECPAY_MERCHANT_ID / HASH_KEY / HASH_IV | 正式：https://vendor.ecpay.com.tw → 系統開發管理 → 系統介接設定；測試用公開測試商店值：https://developers.ecpay.com.tw/?p=2856 |
-| LINEPAY_CHANNEL_ID / SECRET | 正式：https://pay.line.me/portal/tw/main → 管理付款連結 → 管理連結金鑰；測試：https://pay.line.me/tw/developers/techsupport/sandbox/creation |
-| LINE_LOGIN_CHANNEL_ID / SECRET | https://developers.line.biz/console/ → Provider → LINE Login channel → Basic settings |
-| PLATFORM_LINE_CHANNEL_ID / SECRET | https://developers.line.biz/console/ → Messaging API channel → Basic settings |
-| PLATFORM_LINE_CHANNEL_TOKEN | 同上 → Messaging API 分頁 → Channel access token（long-lived） |
+分組：
+- **按 Generate**：CRON_SHARED_SECRET、DATA_UPSERT_API_KEY、REPORT_API_KEY 等
+- **直接打字**：SITE_URL（填新專案網址）、E2E_ALLOW_SIMULATED_PURCHASE、E2E_TEST_EMAIL／PASSWORD（新專案重新註冊）、GA4_PROPERTY_ID、GA4_MEASUREMENT_ID
+- **到後台複製**：FINMIND_TOKEN、FINNHUB_API_KEY、ANTHROPIC／GEMINI／OPENROUTER、RESEND_API_KEY、ECPAY_*（附測試值頁）、LINEPAY_*、LINE_LOGIN_*、PLATFORM_LINE_*、GA4_SERVICE_ACCOUNT_JSON
+- **不用填**：系統自動帶的項目
 
-## D. 不用填
-- LOVABLE_API_KEY：新專案自動產生
+最上方放風險提醒：綠界與 LINE Pay 用正式值會真扣款；LINE、GA4 共用會混到正式站資料；FinMind 共用每日額度。
 
-## 會出事的地方
-- 綠界／LINE Pay 填正式值 → 測試可能真扣款，請用測試值。
-- PLATFORM_LINE 三個填正式值 → 測試推播會發給真實會員。
-- LINE Login 共用 → 要把新專案網址加進該 channel 的 Callback URL，否則登入失敗。
-- FINMIND_TOKEN 共用 → 吃正式站每日額度。
-
-只想先跑起畫面：填 A、B，C 全按 Skip。
+## 技術細節
+- 先讀本專案完整的金鑰名稱清單，一個都不漏，再對照程式找出每個金鑰的用途。
+- 存為 `/mnt/documents/交流投顧-金鑰清單.html`，不動專案程式。
+- 完成後轉成圖片檢查手機與桌機版面。
