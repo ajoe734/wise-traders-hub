@@ -10,8 +10,19 @@ import { TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { computePayroll, payDate, prevMonth, taipeiMonth, type PayrollRow } from '@/lib/expertPayroll';
+import { computePayroll, payrollReconciliation, payDate, prevMonth, taipeiMonth, type PayrollRow } from '@/lib/expertPayroll';
 import { fmtDate, fmtMoney } from './utils';
+
+/** 分頁抓完，避免 1,000 筆上限截斷。 */
+async function fetchAll(build: () => any): Promise<{ data: any[]; error: any }> {
+  const size = 1000; const all: any[] = [];
+  for (let from = 0; ; from += size) {
+    const { data, error } = await build().range(from, from + size - 1);
+    if (error) return { data: all, error };
+    all.push(...(data || []));
+    if (!data || data.length < size) return { data: all, error: null };
+  }
+}
 
 const monthLabel = (m: string) => m.replace('-', '/');
 
@@ -29,12 +40,12 @@ export function PayrollTab() {
     staleTime: 30_000,
     queryFn: async () => {
       const [sp, tx, sub, exp, lk, au] = await Promise.all([
-        supabase.from('revenue_splits').select('transaction_id, expert_id, expert_amount, net, platform_amount'),
-        supabase.from('payment_transactions').select('id, status, paid_at, created_at, subscription_id, amount'),
-        supabase.from('member_subscriptions').select('id, user_id, billing_cycle'),
+        fetchAll(() => supabase.from('revenue_splits').select('id, transaction_id, expert_id, expert_amount, net, platform_amount').order('id')),
+        fetchAll(() => supabase.from('payment_transactions').select('id, status, paid_at, created_at, subscription_id, amount').order('id')),
+        fetchAll(() => supabase.from('member_subscriptions').select('id, user_id, billing_cycle').order('id')),
         supabase.from('experts').select('id, name, role'),
-        supabase.from('expert_payouts').select('*'),
-        supabase.from('audit_logs').select('target_id, created_at').eq('action', 'payment.refund'),
+        fetchAll(() => supabase.from('expert_payouts').select('*').order('id')),
+        fetchAll(() => supabase.from('audit_logs').select('id, target_id, created_at').eq('action', 'payment.refund').order('id')),
       ]);
       const err = sp.error || tx.error || sub.error || exp.error || lk.error || au.error;
       if (err) throw err;
@@ -174,6 +185,29 @@ export function PayrollTab() {
                       </ul>
                     </details>
                   )}
+                  {data && (() => {
+                    const rc = payrollReconciliation(data.splits as any, data.txs as any, data.subCycle, r.expert_id, r.month, r.earnings);
+                    const group = (items: any[]) => Object.values(items.reduce((m: any, it: any) => {
+                      const g = (m[it.transaction_id] ||= { ...it, ks: [], sum: 0 }); g.ks.push(it.k); g.sum += it.amount; return m;
+                    }, {})) as any[];
+                    const line = (g: any) => g.n === 1
+                      ? `${fmtDate(g.paid_at)} 付款・月繳 ${fmtDate(g.end_at)} 期滿・${fmtMoney(g.sum)}`
+                      : `${fmtDate(g.paid_at)} 付款・年繳第 ${Math.min(...g.ks)}–${Math.max(...g.ks)}/12 期・${fmtMoney(Math.round(g.sum * 100) / 100)}`;
+                    return (
+                      <details className="text-xs border-t pt-2" data-testid="payroll-recon">
+                        <summary className="cursor-pointer text-muted-foreground">與金流明細對帳</summary>
+                        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2">
+                          <dt className="text-muted-foreground">本月收款（分潤額）</dt><dd className="text-right">{fmtMoney(rc.cashIn)}</dd>
+                          <dt className="text-muted-foreground">− 尚未期滿（遞延）</dt><dd className="text-right">−{fmtMoney(rc.deferred)}</dd>
+                          <dt className="text-muted-foreground">＋ 前期收款本月期滿</dt><dd className="text-right">{fmtMoney(rc.carriedIn)}</dd>
+                          {rc.refundDropped !== 0 && (<><dt className="text-muted-foreground">− 退款／已發放快照差異</dt><dd className="text-right">−{fmtMoney(rc.refundDropped)}</dd></>)}
+                          <dt className="font-medium text-foreground">＝ 當月分潤</dt><dd className="text-right font-medium text-foreground">{fmtMoney(r.earnings)}</dd>
+                        </dl>
+                        {rc.deferredItems.length > 0 && <div className="mt-2"><div className="text-muted-foreground">遞延明細</div><ul>{group(rc.deferredItems).map((it, i) => <li key={i}>{line(it)}</li>)}</ul></div>}
+                        {rc.carriedItems.length > 0 && <div className="mt-2"><div className="text-muted-foreground">轉入明細</div><ul>{group(rc.carriedItems).map((it, i) => <li key={i}>{line(it)}</li>)}</ul></div>}
+                      </details>
+                    );
+                  })()}
                   {r.locked ? (
                     <Button size="sm" variant="ghost" className="w-full" disabled={busy} onClick={() => setUnmarking(r)}>取消標記</Button>
                   ) : (

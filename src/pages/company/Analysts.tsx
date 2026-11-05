@@ -1,4 +1,5 @@
 import { SEO } from '@/components/SEO';
+import { summarizeActiveSubscribers } from '@/lib/activeSubscribers';
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
@@ -38,7 +39,7 @@ const CompanyAnalysts = () => {
       const nowIso = new Date().toISOString();
       const { data } = await supabase
         .from('member_subscriptions')
-        .select('id, user_id, plan_id, expert_plans!inner(expert_id, experts!inner(user_id))')
+        .select('id, user_id, plan_id, status, billing_cycle, expires_at, expert_plans!inner(expert_id, experts!inner(user_id))')
         .eq('status', 'active')
         .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
       const rows = (data || []) as any[];
@@ -54,21 +55,17 @@ const CompanyAnalysts = () => {
       ]);
       const paidSubs = new Set((txs || []).map((t: any) => t.subscription_id));
       const testers = new Set((profs || []).filter((p: any) => p.is_tester).map((p: any) => p.user_id));
-      const paidSets: Record<string, Set<string>> = {};
-      const unpaidSets: Record<string, Set<string>> = {};
-      rows.forEach(r => {
-        const eid = r.expert_plans?.expert_id;
-        if (!eid) return;
-        if (r.user_id === r.expert_plans?.experts?.user_id || testers.has(r.user_id)) return;
-        const target = paidSubs.has(r.id) ? paidSets : unpaidSets;
-        (target[eid] ||= new Set()).add(r.user_id);
-      });
+      const owner: Record<string, string> = {};
+      rows.forEach(r => { if (r.expert_plans?.expert_id) owner[r.expert_plans.expert_id] = r.expert_plans?.experts?.user_id; });
+      const summary = summarizeActiveSubscribers(
+        rows.map(r => ({ id: r.id, user_id: r.user_id, expert_id: r.expert_plans?.expert_id ?? null, status: r.status, billing_cycle: r.billing_cycle, expires_at: r.expires_at })),
+        paidSubs, testers, owner, Date.now(),
+      );
       const paid: Record<string, number> = {};
       const unpaid: Record<string, number> = {};
-      Object.entries(paidSets).forEach(([k, s]) => { paid[k] = s.size; });
-      Object.entries(unpaidSets).forEach(([k, s]) => {
-        const n = [...s].filter(u => !paidSets[k]?.has(u)).length;
-        if (n) unpaid[k] = n;
+      Object.entries(summary).forEach(([k, v]) => {
+        if (v.paidUsers.length) paid[k] = v.paidUsers.length;
+        if (v.unpaidUsers.length) unpaid[k] = v.unpaidUsers.length;
       });
       return { paid, unpaid };
     },

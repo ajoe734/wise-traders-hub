@@ -65,6 +65,10 @@ Filing-refresh queue picks and state writes go only through `selectFilingQueue` 
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
 
+### Admin subscriber counts
+
+Admin "active students" counts go only through `src/lib/activeSubscribers.ts` (active + unexpired, per-person dedupe, exclude expert owner/testers, unpaid split out); payroll-vs-cash explanations come only from `payrollReconciliation` in `expertPayroll.ts`; why: each admin page had its own definition and yearly deferral looked like missing money.
+
 ### Teacher articles
 
 Blog-style teaching articles live in `expert_articles`, separate from `expert_signals`; block parsing, layout recommendation and trial excerpts come only from pure `src/lib/articleLayout.ts`, and visibility (subscription, publish time, trial) is enforced by RLS/RPC, never by the client; publish notices only via `article-push` + `_shared/articlePushCore.ts`, deduped by `claim_article_push`; why: articles must never touch holdings/signal ledgers, and layouts may restyle but never reorder content.

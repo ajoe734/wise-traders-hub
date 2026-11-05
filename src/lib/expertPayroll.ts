@@ -114,6 +114,52 @@ export function recognitionSchedule(
   return out;
 }
 
+export interface PayrollReconciliation {
+  /** 本月收款（老師分潤額，依付款日台北月）。 */
+  cashIn: number;
+  /** 本月收款中，期滿在之後月份的部分。 */
+  deferred: number;
+  /** 之前月份收款、本月期滿轉入。 */
+  carriedIn: number;
+  /** 退款使本月少認列的部分。 */
+  refundDropped: number;
+  deferredItems: RecognitionItem[];
+  carriedItems: RecognitionItem[];
+}
+
+/**
+ * 薪資 ↔ 金流對帳：本月收款 − 遞延 + 前期轉入 − 退款 = 本月認列（row.earnings）。
+ * 只用 recognitionSchedule 推導，不另立計價規則。
+ */
+export function payrollReconciliation(
+  splits: PayrollSplit[], txs: PayrollTx[], subCycle: Record<string, string>,
+  expertId: string, month: string, earnings: number,
+): PayrollReconciliation {
+  const txMap = new Map(txs.map((t) => [t.id, t]));
+  let cashIn = 0, deferred = 0, carriedIn = 0;
+  const deferredItems: RecognitionItem[] = [], carriedItems: RecognitionItem[] = [];
+  for (const s of splits) {
+    if (s.expert_id !== expertId) continue;
+    const t = txMap.get(s.transaction_id);
+    if (!t) continue;
+    const st = String(t.status);
+    if (st !== 'paid' && st !== 'refunded') continue;
+    const paidIso = t.paid_at || t.created_at;
+    const exp = Number(s.expert_amount) || 0;
+    const paidMonth = taipeiMonth(paidIso);
+    const cycle = t.subscription_id ? subCycle[t.subscription_id] : undefined;
+    const full = recognitionSchedule(t.id, t.subscription_id, paidIso, exp, cycle);
+    if (paidMonth === month) {
+      cashIn += exp;
+      for (const it of full) if (taipeiMonth(it.end_at) > month) { deferred += it.amount; deferredItems.push(it); }
+    } else if (paidMonth < month) {
+      for (const it of full) if (taipeiMonth(it.end_at) === month) { carriedIn += it.amount; carriedItems.push(it); }
+    }
+  }
+  cashIn = r2(cashIn); deferred = r2(deferred); carriedIn = r2(carriedIn);
+  return { cashIn, deferred, carriedIn, refundDropped: r2(cashIn - deferred + carriedIn - earnings), deferredItems, carriedItems };
+}
+
 export function computePayroll(
   splits: PayrollSplit[],
   txs: PayrollTx[],
