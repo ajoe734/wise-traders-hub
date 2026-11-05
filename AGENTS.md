@@ -65,6 +65,10 @@ Filing-refresh queue picks and state writes go only through `selectFilingQueue` 
 
 Payouts come only from pure `src/lib/expertPayroll.ts`: expert_amount is recognized in the Taipei month its period ends (paid_at + cycle; yearly = 12 installments); refunds drop unmatured installments only. Paid months snapshot into `expert_payouts`; split precedence plan > `expert_split_settings` > global in `calcSplit`; why: pay only for completed service.
 
+### First-orders promo
+
+Per-expert free-commission orders are decided only by DB `recompute_expert_promo` (triggered on `revenue_splits` insert and `payment_transactions` insert/status change; `rule_source='first20_free'`, original rule kept in `base_rule_source`, every change audited), mirrored by pure `src/lib/first20Promo.ts`; why: manual backfills, remittance confirms and refunds must all re-rank without a second split calculation.
+
 ### Admin subscriber counts
 
 Admin "active students" counts go only through `src/lib/activeSubscribers.ts` (active + unexpired, per-person dedupe, exclude expert owner/testers, unpaid split out); payroll-vs-cash explanations come only from `payrollReconciliation` in `expertPayroll.ts`; why: each admin page had its own definition and yearly deferral looked like missing money.
