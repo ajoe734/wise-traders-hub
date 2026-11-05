@@ -1,3 +1,4 @@
+/** DEPRECATED：已改為每月薪資前 20 筆（見 expertPayroll.ts MonthlyPromo），此檔不再被前台使用。 */
 /**
  * 「每位老師開站以來前 20 筆訂單不抽成」名次判定（純函式）。
  * 權威實作在資料庫 recompute_expert_promo；此檔為同規則鏡像，供測試與前端標示。

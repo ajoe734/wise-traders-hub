@@ -10,7 +10,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { computePayroll, payrollReconciliation, payDate, prevMonth, taipeiMonth, type PayrollRow } from '@/lib/expertPayroll';
+import { MONTHLY_FREE_LIMIT, computePayroll, payrollReconciliation, payDate, prevMonth, taipeiMonth, type PayrollRow } from '@/lib/expertPayroll';
 import { exportCSV, fmtDate, fmtMoney } from './utils';
 import { buildPayrollExportRows } from '@/lib/payrollExport';
 import { Download } from 'lucide-react';
@@ -48,7 +48,7 @@ export function PayrollTab() {
         supabase.from('experts').select('id, name, role'),
         fetchAll(() => supabase.from('expert_payouts').select('*').order('id')),
         fetchAll(() => supabase.from('audit_logs').select('id, target_id, created_at').eq('action', 'payment.refund').order('id')),
-        fetchAll(() => supabase.from('profiles').select('user_id, display_name').order('user_id')),
+        fetchAll(() => supabase.from('profiles').select('user_id, display_name, is_tester').order('user_id')),
         fetchAll(() => supabase.from('expert_plans').select('id, name').order('id')),
       ]);
       const err = sp.error || tx.error || sub.error || exp.error || lk.error || au.error || pf.error || pl.error;
@@ -61,13 +61,17 @@ export function PayrollTab() {
       for (const s of sub.data || []) { subUser[s.id] = s.user_id; subCycle[s.id] = (s as any).billing_cycle; subPlan[s.id] = (s as any).plan_id; }
       const names: Record<string, string> = Object.fromEntries((pf.data || []).map((p: any) => [p.user_id, p.display_name || '']));
       const planNames: Record<string, string> = Object.fromEntries((pl.data || []).map((p: any) => [p.id, p.name]));
-      const promoTx = new Set<string>((sp.data || []).filter((s: any) => s.rule_source === 'first20_free').map((s: any) => s.transaction_id));
-      return { subPlan, names, planNames, promoTx, subCycle, splits: sp.data || [], txs: tx.data || [], refundAt, subUser, experts: exp.data || [], locks: lk.data || [] };
+      const testers = new Set<string>((pf.data || []).filter((p: any) => p.is_tester).map((p: any) => p.user_id));
+      // 不佔「每月前 20 筆」名額：健檢分潤、測試帳號。
+      const excludedTx = new Set<string>();
+      for (const s of sp.data || []) if ((s as any).rule_source === 'checkup_default') excludedTx.add((s as any).transaction_id);
+      for (const t of tx.data || []) if (t.subscription_id && testers.has(subUser[t.subscription_id])) excludedTx.add(t.id);
+      return { subPlan, names, planNames, excludedTx, subCycle, splits: sp.data || [], txs: tx.data || [], refundAt, subUser, experts: exp.data || [], locks: lk.data || [] };
     },
   });
 
   const payroll = useMemo(() => data
-    ? computePayroll(data.splits as any, data.txs as any, data.refundAt, data.subUser, data.locks as any, current, data.subCycle)
+    ? computePayroll(data.splits as any, data.txs as any, data.refundAt, data.subUser, data.locks as any, current, data.subCycle, { limit: MONTHLY_FREE_LIMIT, excludedTx: data.excludedTx })
     : {}, [data, current]);
 
   const months = useMemo(() => {
@@ -93,7 +97,6 @@ export function PayrollTab() {
       memberName: (s) => (s ? d.names[d.subUser[s]] || '' : ''),
       planName: (s) => (s ? d.planNames[d.subPlan[s]] || '' : ''),
       cycle: (s) => (s ? d.subCycle[s] || '' : ''),
-      promoTx: d.promoTx,
       fmtDate,
     }));
   };
@@ -149,7 +152,7 @@ export function PayrollTab() {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        每位老師開站以來前 20 筆已付款訂單不抽成（退款與測試帳號不佔名額）。依服務期滿月計價：付款日加一個週期的期滿日落在哪個月（台北），就算在哪個月；年繳拆 12 期，每滿一個月算 1/12。期滿前退款，未滿期的部分不計。負數會延續到下月。
+        每位老師每月薪資的前 20 筆（依付款時間排序，測試帳號與健檢不佔名額）不抽成，該筆老師拿淨收全額。依服務期滿月計價：付款日加一個週期的期滿日落在哪個月（台北），就算在哪個月；年繳拆 12 期，每滿一個月算 1/12。期滿前退款，未滿期的部分不計。負數會延續到下月。
         {isOpenMonth && ' 本月尚未結束，數字仍會變動。'}
       </p>
 
@@ -204,14 +207,15 @@ export function PayrollTab() {
                               付款 {fmtDate(it.paid_at)} → 期滿 {fmtDate(it.end_at)}{it.n > 1 ? `（第 ${it.k}/${it.n} 期）` : ''}
                               {it.cycleUnknown && <span className="text-destructive">（週期不明，暫視為月繳）</span>}
                             </span>
-                            <span>{data?.promoTx.has(it.transaction_id) && <Badge variant="outline" className="mr-1 text-[10px]">不抽成</Badge>}{fmtMoney(it.amount)}</span>
+                            <span>{it.free && <Badge variant="outline" className="mr-1 text-[10px]">不抽成</Badge>}{fmtMoney(it.amount)}</span>
                           </li>
                         ))}
                       </ul>
                     </details>
                   )}
                   {data && (() => {
-                    const rc = payrollReconciliation(data.splits as any, data.txs as any, data.subCycle, r.expert_id, r.month, r.earnings);
+                    const rc = payrollReconciliation(data.splits as any, data.txs as any, data.subCycle, r.expert_id, r.month, r.earnings,
+                      r.items.reduce((t, it) => t + (it.free ? it.amount - (it.base_amount ?? it.amount) : 0), 0));
                     const group = (items: any[]) => Object.values(items.reduce((m: any, it: any) => {
                       const g = (m[it.transaction_id] ||= { ...it, ks: [], sum: 0 }); g.ks.push(it.k); g.sum += it.amount; return m;
                     }, {})) as any[];
@@ -225,6 +229,7 @@ export function PayrollTab() {
                           <dt className="text-muted-foreground">本月收款（分潤額）</dt><dd className="text-right">{fmtMoney(rc.cashIn)}</dd>
                           <dt className="text-muted-foreground">− 尚未期滿（遞延）</dt><dd className="text-right">−{fmtMoney(rc.deferred)}</dd>
                           <dt className="text-muted-foreground">＋ 前期收款本月期滿</dt><dd className="text-right">{fmtMoney(rc.carriedIn)}</dd>
+                          {rc.promoBonus !== 0 && (<><dt className="text-muted-foreground">＋ 本月前 20 筆不抽成</dt><dd className="text-right">{fmtMoney(rc.promoBonus)}</dd></>)}
                           {rc.refundDropped !== 0 && (<><dt className="text-muted-foreground">− 退款／已發放快照差異</dt><dd className="text-right">−{fmtMoney(rc.refundDropped)}</dd></>)}
                           <dt className="font-medium text-foreground">＝ 當月分潤</dt><dd className="text-right font-medium text-foreground">{fmtMoney(r.earnings)}</dd>
                         </dl>
