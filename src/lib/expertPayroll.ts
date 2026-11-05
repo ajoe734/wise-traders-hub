@@ -59,7 +59,14 @@ export interface PayrollRow {
   paid_at: string | null;
   items: RecognitionItem[];
 }
-export interface RecognitionItem { transaction_id: string; subscription_id: string | null; paid_at: string; end_at: string; k: number; n: number; amount: number; cycleUnknown: boolean }
+export interface RecognitionItem {
+  transaction_id: string; subscription_id: string | null; paid_at: string; end_at: string; k: number; n: number; amount: number; cycleUnknown: boolean;
+  /** 本月前 N 筆不抽成：amount 已改為該期淨收全額，base_amount 為原比例分潤。 */
+  free?: boolean; base_amount?: number;
+}
+/** 每月薪資前 N 筆不抽成。excludedTx：不佔名額的交易（測試帳號、健檢）。 */
+export interface MonthlyPromo { limit: number; excludedTx: Set<string> }
+export const MONTHLY_FREE_LIMIT = 20;
 
 const TPE_OFFSET = 8 * 3600 * 1000;
 export function taipeiMonth(iso: string): string {
@@ -123,6 +130,8 @@ export interface PayrollReconciliation {
   carriedIn: number;
   /** 退款使本月少認列的部分。 */
   refundDropped: number;
+  /** 本月前 N 筆不抽成多給老師的部分。 */
+  promoBonus: number;
   deferredItems: RecognitionItem[];
   carriedItems: RecognitionItem[];
 }
@@ -133,7 +142,7 @@ export interface PayrollReconciliation {
  */
 export function payrollReconciliation(
   splits: PayrollSplit[], txs: PayrollTx[], subCycle: Record<string, string>,
-  expertId: string, month: string, earnings: number,
+  expertId: string, month: string, earnings: number, promoBonus = 0,
 ): PayrollReconciliation {
   const txMap = new Map(txs.map((t) => [t.id, t]));
   let cashIn = 0, deferred = 0, carriedIn = 0;
@@ -157,7 +166,7 @@ export function payrollReconciliation(
     }
   }
   cashIn = r2(cashIn); deferred = r2(deferred); carriedIn = r2(carriedIn);
-  return { cashIn, deferred, carriedIn, refundDropped: r2(cashIn - deferred + carriedIn - earnings), deferredItems, carriedItems };
+  return { cashIn, deferred, carriedIn, promoBonus: r2(promoBonus), refundDropped: r2(cashIn - deferred + carriedIn + promoBonus - earnings), deferredItems, carriedItems };
 }
 
 export function computePayroll(
@@ -168,6 +177,7 @@ export function computePayroll(
   locks: PayoutLock[],
   upToMonth: string,
   subCycle: Record<string, string> = {},
+  promo: MonthlyPromo | null = null,
 ): Record<string, Record<string, PayrollRow>> {
   const lockMap = new Map<string, PayoutLock>();
   for (const l of locks) if (l.status === 'paid') lockMap.set(`${l.expert_id}|${l.period_month}`, l);
@@ -195,6 +205,7 @@ export function computePayroll(
     providerRefund.set(orig.id, { at: prev && prev.at < rAt ? prev.at : rAt, amount: (prev?.amount ?? 0) + Math.abs(Number(t.amount)) });
   }
   const txMap = new Map(txs.map((t) => [t.id, t]));
+  const itemNet = new Map<RecognitionItem, number>();
 
   for (const s of splits) {
     if (!s.expert_id) continue;
@@ -232,6 +243,22 @@ export function computePayroll(
       const u = t.subscription_id ? subUser[t.subscription_id] : undefined;
       a.users.add(u || t.id);
       a.items.push(it);
+      if (promo) itemNet.set(it, (Number(s.net) || 0) * it.amount * ratio);
+    }
+  }
+
+  // 每月薪資前 N 筆不抽成：依付款時間排序，該期老師拿淨收全額。
+  if (promo) {
+    for (const months of acc.values()) for (const a of months.values()) {
+      const elig = a.items.filter((it) => !promo.excludedTx.has(it.transaction_id))
+        .sort((x, y) => x.paid_at.localeCompare(y.paid_at) || x.transaction_id.localeCompare(y.transaction_id) || x.k - y.k)
+        .slice(0, promo.limit);
+      for (const it of elig) {
+        const full = r2(itemNet.get(it) ?? it.amount);
+        const delta = full - it.amount;
+        it.base_amount = it.amount; it.amount = full; it.free = true;
+        a.earnings += delta; a.platform -= delta;
+      }
     }
   }
 
