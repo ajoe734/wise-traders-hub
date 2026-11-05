@@ -7,6 +7,8 @@ import type { PayrollRow } from './expertPayroll';
 export interface PayrollExportCtx {
   expertName: (id: string) => string;
   memberName: (subscriptionId: string | null) => string;
+  /** 會員去重鍵（user_id）。 */
+  memberKey: (subscriptionId: string | null) => string | undefined;
   planName: (subscriptionId: string | null) => string;
   cycle: (subscriptionId: string | null) => string;
   promoTx: Set<string>;
@@ -22,7 +24,7 @@ export function buildPayrollExportRows(rows: PayrollRow[], ctx: PayrollExportCtx
   for (const r of rows) {
     for (const it of r.items) {
       const name = ctx.memberName(it.subscription_id) || '未命名';
-      members.add(`${r.expert_id}|${it.subscription_id ? name + '|' + it.subscription_id.slice(0, 0) : it.transaction_id}`);
+      members.add(`${r.expert_id}|${ctx.memberKey(it.subscription_id) || it.transaction_id}`);
       out.push([
         ctx.expertName(r.expert_id), name, ctx.planName(it.subscription_id) || '-',
         /year|annual/i.test(ctx.cycle(it.subscription_id)) ? '年繳' : '月繳',
