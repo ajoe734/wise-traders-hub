@@ -1,5 +1,5 @@
 /**
- * 月結薪資匯出列（純函式）。每列一筆本月認列項目，附會員名字與是否「前 20 筆不抽成」。
+ * 月結薪資匯出列（純函式）。每列一筆本月認列項目，附會員名字與是否「本月前 20 筆不抽成」。
  * 不匯出 Email／電話。金額直接取 computePayroll 的認列項目，不重算。
  */
 import type { PayrollRow } from './expertPayroll';
@@ -11,11 +11,10 @@ export interface PayrollExportCtx {
   memberKey: (subscriptionId: string | null) => string | undefined;
   planName: (subscriptionId: string | null) => string;
   cycle: (subscriptionId: string | null) => string;
-  promoTx: Set<string>;
   fmtDate: (iso: string) => string;
 }
 
-export const PAYROLL_EXPORT_HEADER = ['老師', '會員名字', '方案', '週期', '付款日', '服務期間', '本月認列期數', '本月認列金額', '前20筆不抽成'];
+export const PAYROLL_EXPORT_HEADER = ['老師', '會員名字', '方案', '週期', '付款日', '服務期間', '本月認列期數', '本月認列金額', '本月前20筆不抽成'];
 
 export function buildPayrollExportRows(rows: PayrollRow[], ctx: PayrollExportCtx): (string | number)[][] {
   const out: (string | number)[][] = [PAYROLL_EXPORT_HEADER];
@@ -29,7 +28,7 @@ export function buildPayrollExportRows(rows: PayrollRow[], ctx: PayrollExportCtx
         ctx.expertName(r.expert_id), name, ctx.planName(it.subscription_id) || '-',
         /year|annual/i.test(ctx.cycle(it.subscription_id)) ? '年繳' : '月繳',
         ctx.fmtDate(it.paid_at), `${ctx.fmtDate(it.paid_at)}~${ctx.fmtDate(it.end_at)}`,
-        `${it.k}/${it.n}`, it.amount, ctx.promoTx.has(it.transaction_id) ? '是' : '否',
+        `${it.k}/${it.n}`, it.amount, it.free ? '是' : '否',
       ]);
       count++; total += it.amount;
     }
