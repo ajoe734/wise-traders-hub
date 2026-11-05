@@ -8,6 +8,7 @@ import { Download } from 'lucide-react';
 import { exportCSV, fmtDate } from './utils';
 import { providerTypeLabels } from '@/hooks/useRevenueData';
 import { isActiveSub } from '@/lib/activeSubscribers';
+import { classifySubscriptions, subKindLabel } from '@/lib/subscriptionKind';
 
 interface Props {
   subscriptions: any[];
@@ -134,6 +135,21 @@ export function SubscriptionsTab({
     amount: rows.reduce((a, r) => a + (r.pay?.amount || 0), 0),
   }), [rows]);
 
+  // 新訂／續訂／回流：以全部訂閱歷史判定（不受期間篩選影響）
+  const kindMap = useMemo(() => classifySubscriptions(subscriptions.map((s: any) => ({
+    id: s.id, user_id: s.user_id, expertId: planMap[s.plan_id]?.expert_id ?? null,
+    started_at: s.started_at, expires_at: s.expires_at,
+  }))), [subscriptions, planMap]);
+  const kindCounts = useMemo(() => {
+    const c = { new: 0, renew: 0, return: 0 };
+    const seen = new Set<string>();
+    rows.forEach(({ sub }) => {
+      if (seen.has(sub.id)) return; seen.add(sub.id);
+      const k = kindMap[sub.id]; if (k) c[k.kind]++;
+    });
+    return c;
+  }, [rows, kindMap]);
+
   const fmtMoney = (n: number | null) => n == null ? '—' : `NT$${n.toLocaleString()}`;
 
   return (
@@ -180,7 +196,7 @@ export function SubscriptionsTab({
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={() => {
             exportCSV(`subscriptions-${new Date().toISOString().slice(0, 10)}.csv`, [
-              ['訂閱者', '方案', '專家', '角色', '週期', '狀態', '續訂模式', '起始日', '到期日', '付款日', '付款方式', '實付金額'],
+              ['訂閱者', '方案', '專家', '角色', '週期', '類型', '狀態', '續訂模式', '起始日', '到期日', '付款日', '付款方式', '實付金額'],
               ...rows.map(({ sub: s, pay }) => {
                 const plan = planMap[s.plan_id];
                 const exp = plan ? expertMap[plan.expert_id] : null;
@@ -191,6 +207,7 @@ export function SubscriptionsTab({
                   exp?.name || '-',
                   exp?.role === 'mentor' ? '導師' : '分析師',
                   s.billing_cycle === 'yearly' ? '年' : '月',
+                  subKindLabel(kindMap[s.id]),
                   s.status,
                   s.auto_renew ? '自動' : '手動',
                   fmtDate(s.started_at),
@@ -207,6 +224,9 @@ export function SubscriptionsTab({
         </div>
       </div>
 
+      <p className="text-sm text-muted-foreground" data-testid="subs-kind-counts">
+        新訂 {kindCounts.new}・續訂 {kindCounts.renew}・回流 {kindCounts.return}
+      </p>
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
@@ -216,6 +236,7 @@ export function SubscriptionsTab({
                 <th className="p-3">方案</th>
                 <th className="p-3">專家</th>
                 <th className="p-3">週期</th>
+                <th className="p-3">類型</th>
                 <th className="p-3">狀態</th>
                 <th className="p-3">起始日</th>
                 <th className="p-3">到期日</th>
@@ -226,7 +247,7 @@ export function SubscriptionsTab({
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">無資料</td></tr>
+                <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">無資料</td></tr>
               ) : rows.map(({ sub: s, pay }, i) => {
                 const plan = planMap[s.plan_id];
                 const exp = plan ? expertMap[plan.expert_id] : null;
@@ -245,6 +266,11 @@ export function SubscriptionsTab({
                     </td>
                     <td className="p-3">{s.billing_cycle === 'yearly' ? '年' : '月'}</td>
                     <td className="p-3">
+                      <Badge variant={kindMap[s.id]?.kind === 'new' ? 'default' : 'outline'} className="text-xs whitespace-nowrap">
+                        {subKindLabel(kindMap[s.id])}
+                      </Badge>
+                    </td>
+                    <td className="p-3">
                       <Badge variant={s.status === 'active' ? 'default' : 'outline'} className="text-xs">{s.status}</Badge>
                     </td>
                     <td className="p-3">{fmtDate(s.started_at)}</td>
@@ -260,7 +286,7 @@ export function SubscriptionsTab({
             </tbody>
             <tfoot>
               <tr className="border-t bg-muted/40 text-sm font-medium">
-                <td className="p-3" colSpan={9}>小計（{subtotal.count} 筆付款）</td>
+                <td className="p-3" colSpan={10}>小計（{subtotal.count} 筆付款）</td>
                 <td className="p-3 text-right" data-testid="subs-subtotal">{fmtMoney(subtotal.amount)}</td>
               </tr>
             </tfoot>
