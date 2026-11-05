@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles, Loader2, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveIdentity } from '@/hooks/useEffectiveIdentity';
 import { formatTaipeiYMDHM } from '@/checkup/utils/formatTaipeiDate';
 import {
   evaluatePredictGate,
@@ -23,7 +23,7 @@ interface QuotaSnapshot { tier: string }
  * - 規則與 supabase/functions/checkup-predict-events 一致（共用 predictEventsGate）
  */
 export function PredictEventsCard() {
-  const { user } = useAuth();
+  const user = useEffectiveIdentity();
   const [tier, setTier] = useState<string>('');
   const [todayRows, setTodayRows] = useState<UsageRow[]>([]);
   const [historyRows, setHistoryRows] = useState<UsageRow[]>([]);

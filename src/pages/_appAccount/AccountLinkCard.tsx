@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link2, Copy, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffectiveIdentity } from '@/hooks/useEffectiveIdentity';
 import { toast } from 'sonner';
 
 type GeneratedCode = { code: string; expires_at: string };
 
 export function AccountLinkCard() {
-  const { user } = useAuth();
+  const user = useEffectiveIdentity();
   const [tab, setTab] = useState<'generate' | 'consume'>('generate');
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState<GeneratedCode | null>(null);
@@ -43,6 +43,7 @@ export function AccountLinkCard() {
   }, [user?.id]);
 
   const handleGenerate = async () => {
+    if (user.isViewAs) { toast.error('視角檢視模式不可寫入'); return; }
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('account-link-generate');
@@ -64,6 +65,7 @@ export function AccountLinkCard() {
   };
 
   const handleConsume = async () => {
+    if (user.isViewAs) { toast.error('視角檢視模式不可寫入'); return; }
     const code = inputCode.trim().replace(/\D/g, '');
     if (code.length !== 6) { toast.error('請輸入 6 位數綁定碼'); return; }
     if (!confirm('綁定後，目前這個帳號的訂閱、持倉、通知等資料會全部搬到主帳號，此帳號會被停用。確定要繼續？')) return;
