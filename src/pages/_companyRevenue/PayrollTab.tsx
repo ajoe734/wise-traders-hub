@@ -14,6 +14,7 @@ import { MONTHLY_FREE_LIMIT, computePayroll, payrollReconciliation, payDate, pre
 import { exportCSV, fmtDate, fmtMoney } from './utils';
 import { buildPayrollExportRows } from '@/lib/payrollExport';
 import { Download } from 'lucide-react';
+import { preparePayrollData } from '@/lib/payrollStatement';
 
 /** 分頁抓完，避免 1,000 筆上限截斷。 */
 async function fetchAll(build: () => any): Promise<{ data: any[]; error: any }> {
@@ -53,20 +54,10 @@ export function PayrollTab() {
       ]);
       const err = sp.error || tx.error || sub.error || exp.error || lk.error || au.error || pf.error || pl.error;
       if (err) throw err;
-      const refundAt: Record<string, string> = {};
-      for (const a of au.data || []) if (a.target_id && (!refundAt[a.target_id] || a.created_at < refundAt[a.target_id])) refundAt[a.target_id] = a.created_at;
-      const subUser: Record<string, string> = {};
-      const subCycle: Record<string, string> = {};
-      const subPlan: Record<string, string> = {};
-      for (const s of sub.data || []) { subUser[s.id] = s.user_id; subCycle[s.id] = (s as any).billing_cycle; subPlan[s.id] = (s as any).plan_id; }
-      const names: Record<string, string> = Object.fromEntries((pf.data || []).map((p: any) => [p.user_id, p.display_name || '']));
-      const planNames: Record<string, string> = Object.fromEntries((pl.data || []).map((p: any) => [p.id, p.name]));
-      const testers = new Set<string>((pf.data || []).filter((p: any) => p.is_tester).map((p: any) => p.user_id));
-      // 不佔「每月前 20 筆」名額：健檢分潤、測試帳號。
-      const excludedTx = new Set<string>();
-      for (const s of sp.data || []) if ((s as any).rule_source === 'checkup_default') excludedTx.add((s as any).transaction_id);
-      for (const t of tx.data || []) if (t.subscription_id && testers.has(subUser[t.subscription_id])) excludedTx.add(t.id);
-      return { subPlan, names, planNames, excludedTx, subCycle, splits: sp.data || [], txs: tx.data || [], refundAt, subUser, experts: exp.data || [], locks: lk.data || [] };
+      return preparePayrollData({
+        splits: sp.data || [], txs: tx.data || [], subs: sub.data || [], experts: exp.data || [],
+        locks: lk.data || [], refundLogs: au.data || [], profiles: pf.data || [], plans: pl.data || [],
+      });
     },
   });
 
