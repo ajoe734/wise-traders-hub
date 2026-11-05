@@ -5092,6 +5092,7 @@ export type Database = {
       }
       revenue_splits: {
         Row: {
+          base_rule_source: string | null
           channel_reserve: number
           created_at: string
           discount: number
@@ -5109,6 +5110,7 @@ export type Database = {
           utm_snapshot: Json | null
         }
         Insert: {
+          base_rule_source?: string | null
           channel_reserve?: number
           created_at?: string
           discount?: number
@@ -5126,6 +5128,7 @@ export type Database = {
           utm_snapshot?: Json | null
         }
         Update: {
+          base_rule_source?: string | null
           channel_reserve?: number
           created_at?: string
           discount?: number
@@ -8415,6 +8418,7 @@ export type Database = {
         Args: { p_evidence: Json; p_original: Json; p_rows: Json }
         Returns: Json
       }
+      recompute_expert_promo: { Args: { _expert_id: string }; Returns: number }
       reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       reconcile_snapshot: {
         Args: { _trade_date: string }
