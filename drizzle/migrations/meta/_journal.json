@@ -484,6 +484,13 @@
       "when": 1793525089613,
       "tag": "0068_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1793845724302,
+      "tag": "0069_first20_free_promo",
+      "breakpoints": true
     }
   ]
 }

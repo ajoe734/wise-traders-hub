@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { computePayroll, payrollReconciliation, payDate, prevMonth, taipeiMonth, type PayrollRow } from '@/lib/expertPayroll';
-import { fmtDate, fmtMoney } from './utils';
+import { exportCSV, fmtDate, fmtMoney } from './utils';
+import { buildPayrollExportRows } from '@/lib/payrollExport';
+import { Download } from 'lucide-react';
 
 /** 分頁抓完，避免 1,000 筆上限截斷。 */
 async function fetchAll(build: () => any): Promise<{ data: any[]; error: any }> {
@@ -39,22 +41,28 @@ export function PayrollTab() {
     queryKey: ['company', 'payroll'],
     staleTime: 30_000,
     queryFn: async () => {
-      const [sp, tx, sub, exp, lk, au] = await Promise.all([
-        fetchAll(() => supabase.from('revenue_splits').select('id, transaction_id, expert_id, expert_amount, net, platform_amount').order('id')),
+      const [sp, tx, sub, exp, lk, au, pf, pl] = await Promise.all([
+        fetchAll(() => supabase.from('revenue_splits').select('id, transaction_id, expert_id, expert_amount, net, platform_amount, rule_source').order('id')),
         fetchAll(() => supabase.from('payment_transactions').select('id, status, paid_at, created_at, subscription_id, amount').order('id')),
-        fetchAll(() => supabase.from('member_subscriptions').select('id, user_id, billing_cycle').order('id')),
+        fetchAll(() => supabase.from('member_subscriptions').select('id, user_id, billing_cycle, plan_id').order('id')),
         supabase.from('experts').select('id, name, role'),
         fetchAll(() => supabase.from('expert_payouts').select('*').order('id')),
         fetchAll(() => supabase.from('audit_logs').select('id, target_id, created_at').eq('action', 'payment.refund').order('id')),
+        fetchAll(() => supabase.from('profiles').select('user_id, display_name').order('user_id')),
+        fetchAll(() => supabase.from('expert_plans').select('id, name').order('id')),
       ]);
-      const err = sp.error || tx.error || sub.error || exp.error || lk.error || au.error;
+      const err = sp.error || tx.error || sub.error || exp.error || lk.error || au.error || pf.error || pl.error;
       if (err) throw err;
       const refundAt: Record<string, string> = {};
       for (const a of au.data || []) if (a.target_id && (!refundAt[a.target_id] || a.created_at < refundAt[a.target_id])) refundAt[a.target_id] = a.created_at;
       const subUser: Record<string, string> = {};
       const subCycle: Record<string, string> = {};
-      for (const s of sub.data || []) { subUser[s.id] = s.user_id; subCycle[s.id] = (s as any).billing_cycle; }
-      return { subCycle, splits: sp.data || [], txs: tx.data || [], refundAt, subUser, experts: exp.data || [], locks: lk.data || [] };
+      const subPlan: Record<string, string> = {};
+      for (const s of sub.data || []) { subUser[s.id] = s.user_id; subCycle[s.id] = (s as any).billing_cycle; subPlan[s.id] = (s as any).plan_id; }
+      const names: Record<string, string> = Object.fromEntries((pf.data || []).map((p: any) => [p.user_id, p.display_name || '']));
+      const planNames: Record<string, string> = Object.fromEntries((pl.data || []).map((p: any) => [p.id, p.name]));
+      const promoTx = new Set<string>((sp.data || []).filter((s: any) => s.rule_source === 'first20_free').map((s: any) => s.transaction_id));
+      return { subPlan, names, planNames, promoTx, subCycle, splits: sp.data || [], txs: tx.data || [], refundAt, subUser, experts: exp.data || [], locks: lk.data || [] };
     },
   });
 
@@ -75,6 +83,20 @@ export function PayrollTab() {
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const unpaidTotal = rows.filter((r) => !r.locked).reduce((s, r) => s + r.amount, 0);
   const isOpenMonth = month >= current;
+
+  const doExport = (list: PayrollRow[], suffix: string) => {
+    if (!data) return;
+    const d = data;
+    exportCSV(`payroll-${month}${suffix}.csv`, buildPayrollExportRows(list, {
+      expertName: (id) => (expertMap.get(id) as any)?.name || id.slice(0, 8),
+      memberKey: (s) => (s ? d.subUser[s] : undefined),
+      memberName: (s) => (s ? d.names[d.subUser[s]] || '' : ''),
+      planName: (s) => (s ? d.planNames[d.subPlan[s]] || '' : ''),
+      cycle: (s) => (s ? d.subCycle[s] || '' : ''),
+      promoTx: d.promoTx,
+      fmtDate,
+    }));
+  };
 
   const markPaid = async (r: PayrollRow) => {
     setBusy(true);
@@ -122,9 +144,12 @@ export function PayrollTab() {
         <span className="text-sm text-muted-foreground">發放日 {payDate(month)}</span>
         <span className="text-sm">總應發 <b className="text-foreground">{fmtMoney(total)}</b></span>
         {unpaidTotal !== total && <span className="text-sm text-muted-foreground">尚未發放 {fmtMoney(unpaidTotal)}</span>}
+        <Button size="sm" variant="outline" className="ml-auto" disabled={!rows.length} onClick={() => doExport(rows, '')}>
+          <Download className="h-4 w-4 mr-2" />全部匯出
+        </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        依服務期滿月計價：付款日加一個週期的期滿日落在哪個月（台北），就算在哪個月；年繳拆 12 期，每滿一個月算 1/12。期滿前退款，未滿期的部分不計。負數會延續到下月。
+        每位老師開站以來前 20 筆已付款訂單不抽成（退款與測試帳號不佔名額）。依服務期滿月計價：付款日加一個週期的期滿日落在哪個月（台北），就算在哪個月；年繳拆 12 期，每滿一個月算 1/12。期滿前退款，未滿期的部分不計。負數會延續到下月。
         {isOpenMonth && ' 本月尚未結束，數字仍會變動。'}
       </p>
 
@@ -179,7 +204,7 @@ export function PayrollTab() {
                               付款 {fmtDate(it.paid_at)} → 期滿 {fmtDate(it.end_at)}{it.n > 1 ? `（第 ${it.k}/${it.n} 期）` : ''}
                               {it.cycleUnknown && <span className="text-destructive">（週期不明，暫視為月繳）</span>}
                             </span>
-                            <span>{fmtMoney(it.amount)}</span>
+                            <span>{data?.promoTx.has(it.transaction_id) && <Badge variant="outline" className="mr-1 text-[10px]">不抽成</Badge>}{fmtMoney(it.amount)}</span>
                           </li>
                         ))}
                       </ul>
@@ -208,6 +233,9 @@ export function PayrollTab() {
                       </details>
                     );
                   })()}
+                  <Button size="sm" variant="outline" className="w-full" disabled={!r.items.length} onClick={() => doExport([r], `-${e?.name || r.expert_id.slice(0, 8)}`)}>
+                    <Download className="h-4 w-4 mr-2" />匯出明細（{r.items.length} 筆）
+                  </Button>
                   {r.locked ? (
                     <Button size="sm" variant="ghost" className="w-full" disabled={busy} onClick={() => setUnmarking(r)}>取消標記</Button>
                   ) : (
