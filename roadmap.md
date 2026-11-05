@@ -80,3 +80,4 @@
 
 - [x] 行銷來源追蹤：首次接觸 UTM（30 天、無 UTM 記 direct）寫入註冊／購買／活動報名；GA4 sign_up／purchase／generate_lead 推入 dataLayer；後台行銷來源報表（管理員、日期區間、CSV、無個資）；轉換中心歸因可依 utm_medium；轉換中心／漏斗改資料庫彙總；所有結帳入口先送瀏覽方案；流量監控總筆數修復。
 - [ ] GA4 端：GTM 建立 sign_up／purchase／generate_lead 的 GA4 事件代碼並發布，GA4 管理介面把三者標為主要事件（無 GTM／GA4 編輯權限，需使用者操作）。
+- [x] 每月重算薪資算法（每位老師每月前 20 筆不抽成、每月重新計算）發布正式站：正式站登入實測 2026/10 應發 11,186（14 人／14 筆）、2026/11 應發 14,914.66（19 人／19 筆），匯出檔逐筆標「本月前20筆不抽成＝是」且小計與頁面一致；DB 已無 first20_free 遺留（standard_default 57／checkup_default 3）。
