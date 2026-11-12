@@ -1,7 +1,7 @@
-import { PortalLayout } from "@/components/layouts/PortalLayout";
-import { SEOLite as SEO } from "@/components/SEOLite";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, AlertTriangle, Clock, Lock } from "lucide-react";
+import { PortalLayout } from '@/components/layouts/PortalLayout';
+import { SEOLite as SEO } from '@/components/SEOLite';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Shield, AlertTriangle, Clock, Lock } from 'lucide-react';
 
 const Legal = () => {
   return (
@@ -32,7 +32,9 @@ const Legal = () => {
               </div>
             </CardHeader>
             <CardContent className="prose prose-sm max-w-none text-muted-foreground">
-              <p>本平台的「投顧分析師」服務係指由持有證券投資顧問事業營業執照之專業分析師所提供的投資顧問服務。</p>
+              <p>
+                本平台的「投顧分析師」服務係指由持有證券投資顧問事業營業執照之專業分析師所提供的投資顧問服務。
+              </p>
               <h4 className="text-foreground">服務內容包含：</h4>
               <ul>
                 <li>即時投資策略訊號（包含具體買賣建議）</li>
@@ -59,7 +61,10 @@ const Legal = () => {
               </div>
             </CardHeader>
             <CardContent className="prose prose-sm max-w-none text-muted-foreground">
-              <p>本平台的「實戰導師」服務為純教學性質，所有內容由導師於每週六發布， 僅作為歷史案例教學之用途。</p>
+              <p>
+                本平台的「實戰導師」服務為純教學性質，所有內容由導師於每週六發布，
+                僅作為歷史案例教學之用途。
+              </p>
               <h4 className="text-foreground">服務特性：</h4>
               <ul>
                 <li>每週六由導師發布操作回顧週記</li>
@@ -86,7 +91,9 @@ const Legal = () => {
               </div>
             </CardHeader>
             <CardContent className="prose prose-sm max-w-none text-muted-foreground">
-              <p className="font-medium text-foreground">投資一定有風險，過去的績效不代表未來的表現。</p>
+              <p className="font-medium text-foreground">
+                投資一定有風險，過去的績效不代表未來的表現。
+              </p>
               <h4 className="text-foreground">投資人應注意：</h4>
               <ul>
                 <li>證券投資具有價格波動風險，可能導致本金損失</li>
@@ -114,32 +121,15 @@ const Legal = () => {
               </div>
             </CardHeader>
             <CardContent className="prose prose-sm max-w-none text-muted-foreground">
-              <p>我們重視您的隱私權與個人資料保護。</p>
+              <p>
+                我們重視您的隱私權與個人資料保護。
+              </p>
               <h4 className="text-foreground">資料收集與使用：</h4>
               <ul>
                 <li>我們僅收集提供服務所必要的個人資料</li>
                 <li>您的資料將依據個人資料保護法相關規定妥善保管</li>
                 <li>未經您的同意，我們不會將您的資料提供給第三方</li>
               </ul>
-              <h4 id="plaid-financial-data" className="text-foreground">
-                第三方金融資料服務（Plaid）
-              </h4>
-              <p>
-                此功能上線後，分析師可自願透過 Plaid Inc. 連結其 Firstrade 券商帳戶。legendflow
-                僅以唯讀方式同步持倉資料，供分析師核對週記草稿。分析師確認後，持倉摘要僅在 Plaid
-                允許的範圍內向有權限的訂閱者顯示。
-              </p>
-              <p>
-                券商登入與驗證在 Plaid 或券商提供的介面完成。legendflow
-                不取得或儲存券商帳號密碼，也不具下單或移轉資金的權限。Plaid 如何處理資料，請參閱
-                <a href="https://plaid.com/legal/#end-user-privacy-policy" target="_blank" rel="noopener noreferrer">
-                  Plaid 終端使用者隱私權政策
-                </a>
-                。
-              </p>
-              <p>
-                此功能上線後，分析師可在後台解除連結。解除後，legendflow 會停止同步、撤銷連線並刪除平台保存的存取權杖。
-              </p>
               <h4 className="text-foreground">資料安全：</h4>
               <ul>
                 <li>採用業界標準的加密技術保護您的資料</li>
@@ -153,7 +143,9 @@ const Legal = () => {
           <Card className="bg-muted/30 dark:bg-white/[0.03] dark:border-white/10">
             <CardContent className="p-6">
               <h3 className="font-semibold mb-2">聯絡我們</h3>
-              <p className="text-sm text-muted-foreground mb-4">如有任何問題或建議，歡迎透過以下方式聯繫：</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                如有任何問題或建議，歡迎透過以下方式聯繫：
+              </p>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>公司名稱：海洋福星生物科技股份有限公司（資訊服務提供）</li>
                 <li>統一編號：83479669</li>
