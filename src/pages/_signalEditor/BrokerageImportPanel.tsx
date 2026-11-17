@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import type { AssetClass } from '@/lib/asset';
 import { buildImportCandidates, isImportable, mergeImport, type ConfirmedSnapshotRow, type ImportCandidate } from '@/lib/plaid/journalImport';
-import type { OpenPosition, TradeDraft } from './types';
+import type { TradeDraft } from './types';
 
 const STATUS_TEXT: Record<ImportCandidate['status'], string> = {
   new: '帳本尚無此持倉', diff: '數量與帳本不同', match: '與帳本一致', ledger_only: '帳本有、券商沒有（請自行判斷是否已出場）',
@@ -18,7 +18,7 @@ interface Props {
   expertId?: string;
   expertSlug?: string;
   assetClass: AssetClass;
-  openPositions: OpenPosition[];
+  openPositions: { symbol: string; quantity: number }[];
   trades: TradeDraft[];
   setTrades: (next: TradeDraft[]) => void;
 }

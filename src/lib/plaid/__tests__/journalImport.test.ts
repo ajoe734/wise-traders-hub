@@ -6,7 +6,7 @@ const C = 'conn-1';
 const row = (symbol: string | null, quantity: number, extra: Partial<any> = {}) => ({
   connection_id: C, symbol, name: `${symbol} Inc`, security_type: 'equity', quantity, as_of: '2026-11-17', review_status: 'confirmed', ...extra,
 });
-const ledger = [{ symbol: 'SBSI', instrument: 'SBSI', quantity_shares: 200 }, { symbol: 'AAPL', instrument: 'AAPL', quantity_shares: 5 }];
+const ledger = [{ symbol: 'SBSI', quantity: 200 }, { symbol: 'AAPL', quantity: 5 }];
 
 describe('Plaid snapshot → journal import', () => {
   it('unconfirmed drafts are never offered', () => {

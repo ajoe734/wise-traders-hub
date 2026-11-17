@@ -118,3 +118,5 @@ Use `trafficQuality` for metrics, `trafficRecovery` for recovery, and `ga4Reconc
 ### Plaid brokerage holdings
 
 Firstrade holdings via Plaid go only through `plaid-link` (pure rules incl. revoke attempts in `_shared/plaidCore.ts`); only the institution Plaid `/item/get` reports as Firstrade is kept, others are removed at once; access tokens live only in the service-role-only `plaid_access_tokens`, drafts are written only by the locked `plaid_replace_drafts` RPC that re-checks connection state, and disconnect blocks sync first, keeps the token only until `/item/remove` succeeds, and never extends the first 24h deadline; why: delayed syncs must not revive holdings and revocation must stay retryable.
+
+Confirmed Plaid snapshots reach journals only by pre-filling existing editor rows through pure `src/lib/plaid/journalImport.ts` (gap vs `useExpertHoldingsBundle` ledger, symbol/name/quantity only, deduped by source key); why: a holdings snapshot is not a trade and must never invent actions, prices or exits.
