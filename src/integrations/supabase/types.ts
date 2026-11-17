@@ -4580,6 +4580,232 @@ export type Database = {
         }
         Relationships: []
       }
+      plaid_access_tokens: {
+        Row: {
+          access_token: string
+          connection_id: string
+          created_at: string
+        }
+        Insert: {
+          access_token: string
+          connection_id: string
+          created_at?: string
+        }
+        Update: {
+          access_token?: string
+          connection_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plaid_access_tokens_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: true
+            referencedRelation: "plaid_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plaid_connections: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          disconnect_requested_at: string | null
+          environment: string
+          expert_id: string
+          id: string
+          institution_id: string | null
+          institution_name: string | null
+          item_id: string | null
+          last_error: string | null
+          last_sync_at: string | null
+          last_sync_status: string | null
+          purged_at: string | null
+          revoke_attempts: number
+          revoke_deadline_at: string | null
+          revoked_at: string | null
+          status: string
+          sync_blocked: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          disconnect_requested_at?: string | null
+          environment?: string
+          expert_id: string
+          id?: string
+          institution_id?: string | null
+          institution_name?: string | null
+          item_id?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          purged_at?: string | null
+          revoke_attempts?: number
+          revoke_deadline_at?: string | null
+          revoked_at?: string | null
+          status?: string
+          sync_blocked?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          disconnect_requested_at?: string | null
+          environment?: string
+          expert_id?: string
+          id?: string
+          institution_id?: string | null
+          institution_name?: string | null
+          item_id?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          purged_at?: string | null
+          revoke_attempts?: number
+          revoke_deadline_at?: string | null
+          revoked_at?: string | null
+          status?: string
+          sync_blocked?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plaid_connections_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaid_connections_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaid_connections_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "public_expert_state_active"
+            referencedColumns: ["expert_id"]
+          },
+        ]
+      }
+      plaid_holding_drafts: {
+        Row: {
+          as_of: string | null
+          close_price: number | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          connection_id: string
+          cost_basis: number | null
+          created_at: string
+          currency: string | null
+          expert_id: string
+          id: string
+          name: string | null
+          quantity: number | null
+          review_status: string
+          security_id: string | null
+          security_type: string | null
+          symbol: string | null
+          sync_run_id: string | null
+        }
+        Insert: {
+          as_of?: string | null
+          close_price?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          connection_id: string
+          cost_basis?: number | null
+          created_at?: string
+          currency?: string | null
+          expert_id: string
+          id?: string
+          name?: string | null
+          quantity?: number | null
+          review_status?: string
+          security_id?: string | null
+          security_type?: string | null
+          symbol?: string | null
+          sync_run_id?: string | null
+        }
+        Update: {
+          as_of?: string | null
+          close_price?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          connection_id?: string
+          cost_basis?: number | null
+          created_at?: string
+          currency?: string | null
+          expert_id?: string
+          id?: string
+          name?: string | null
+          quantity?: number | null
+          review_status?: string
+          security_id?: string | null
+          security_type?: string | null
+          symbol?: string | null
+          sync_run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plaid_holding_drafts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "plaid_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plaid_sync_runs: {
+        Row: {
+          connection_id: string
+          error_code: string | null
+          expert_id: string
+          finished_at: string | null
+          holdings_count: number | null
+          id: string
+          started_at: string
+          status: string
+          trigger: string
+        }
+        Insert: {
+          connection_id: string
+          error_code?: string | null
+          expert_id: string
+          finished_at?: string | null
+          holdings_count?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger?: string
+        }
+        Update: {
+          connection_id?: string
+          error_code?: string | null
+          expert_id?: string
+          finished_at?: string | null
+          holdings_count?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plaid_sync_runs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "plaid_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_split_overrides: {
         Row: {
           created_at: string
@@ -8368,6 +8594,10 @@ export type Database = {
           is_default: boolean
           provider_type: Database["public"]["Enums"]["provider_type"]
         }[]
+      }
+      plaid_replace_drafts: {
+        Args: { _connection_id: string; _rows: Json; _run_id: string }
+        Returns: number
       }
       preview_expert_public_sample: {
         Args: { _expert_id: string; _selections: Json; _week_start: string }
