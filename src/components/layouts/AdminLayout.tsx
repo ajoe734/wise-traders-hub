@@ -79,6 +79,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: `${basePath}/plans`, icon: Wallet, label: '訂閱方案' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/payroll`, icon: Wallet, label: '我的薪資' },
+    ...(isAdvisor ? [] : [{ path: `${basePath}/brokerage`, icon: BarChart3, label: '券商持倉' }]),
     { path: `${basePath}/signal-templates`, icon: FileText, label: '訊號模板' },
     { path: `${basePath}/performance`, icon: BarChart3, label: '績效總覽' },
     { path: `${basePath}/announcements`, icon: Megaphone, label: '系統公告' },

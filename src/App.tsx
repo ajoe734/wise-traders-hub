@@ -119,6 +119,8 @@ const AdminSignals = lazy(() => import("./pages/admin/Signals"));
 const AdminSignalEditor = lazy(() => import("./pages/admin/SignalEditor"));
 const AdminSubscribers = lazy(() => import("./pages/admin/Subscribers"));
 const AdminPayroll = lazy(() => import("./pages/admin/Payroll"));
+const AdminBrokerage = lazy(() => import("./pages/admin/Brokerage"));
+const PlaidCallback = lazy(() => import("./pages/PlaidCallback"));
 const AdminArticles = lazy(() => import("./pages/admin/Articles"));
 const AdminArticleEditor = lazy(() => import("./pages/admin/ArticleEditor"));
 const AppArticleDetail = lazy(() => import("./pages/app/ArticleDetail"));
@@ -289,6 +291,7 @@ const AppShell = () => (
             {/* Portal (public) */}
             <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
             <Route path="/experts" element={<Experts />} />
+            <Route path="/expert/plaid-callback" element={<ProtectedRoute><PlaidCallback /></ProtectedRoute>} />
             <Route path="/expert/:slug" element={<ExpertProfile />} />
             {/* 短連結（IG bio 友善）：/s/:slug → /expert/:slug */}
             <Route path="/s/:slug" element={<ShortExpertRedirect />} />
@@ -426,6 +429,7 @@ const AppShell = () => (
             <Route path="/admin/:expertSlug/signals/edit/:batchId" element={<ProtectedRoute><AdminSignalEditor /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/plans" element={<ProtectedRoute><AdminPlans /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/payroll" element={<ProtectedRoute><AdminPayroll /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/brokerage" element={<ProtectedRoute><AdminBrokerage /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/articles" element={<ProtectedRoute><AdminArticles /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/articles/new" element={<ProtectedRoute><AdminArticleEditor /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/articles/edit/:id" element={<ProtectedRoute><AdminArticleEditor /></ProtectedRoute>} />
