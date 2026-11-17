@@ -6,7 +6,7 @@ import { requireCronKey } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { buildNotificationRow } from '../_shared/routes.ts';
-import { plaidEnv, plaidBaseUrl, revokeDeadline, revokeUrgency, isAlreadyRevoked, mapHoldings } from '../_shared/plaidCore.ts';
+import { plaidEnv, plaidBaseUrl, revokeDeadline, revokeUrgency, mapHoldings, attemptRevokeWith, isAllowedInstitution, FIRSTRADE_INSTITUTION_ID } from '../_shared/plaidCore.ts';
 
 const ENV = plaidEnv(Deno.env.get('PLAID_ENV'));
 const BASE = plaidBaseUrl(ENV);
@@ -48,6 +48,14 @@ async function notifyExpert(expertId: string, title: string, body: string) {
 async function exchange(expertId: string, userId: string | null, publicToken: string, institution: { id?: string; name?: string }) {
   if (await activeConnection(expertId)) return { error: 'already_connected' };
   const ex = await plaid('/item/public_token/exchange', { public_token: publicToken });
+  // Never trust the client-reported institution: ask Plaid which institution the item belongs to.
+  const item = await plaid('/item/get', { access_token: ex.access_token }).catch(() => null);
+  const instId = item?.item?.institution_id ?? null;
+  if (!isAllowedInstitution(instId)) {
+    await plaid('/item/remove', { access_token: ex.access_token }).catch(() => {});
+    return { error: 'institution_not_allowed', institution_id: instId };
+  }
+  institution = { id: instId, name: institution.name || 'Firstrade' };
   const { data: conn, error } = await db().from('plaid_connections').insert({
     expert_id: expertId, environment: ENV, item_id: ex.item_id,
     institution_id: institution.id ?? null, institution_name: institution.name ?? null, created_by: userId,
@@ -90,38 +98,30 @@ async function syncConnection(conn: any, trigger: string) {
   }
 }
 
-async function attemptRevoke(conn: any) {
-  const now = new Date();
-  const { data: tok } = await db().from('plaid_access_tokens').select('access_token').eq('connection_id', conn.id).maybeSingle();
-  let revoked = !tok; // no token left → nothing to revoke at Plaid
-  let errCode: string | null = null;
-  if (tok) {
-    try { await plaid('/item/remove', { access_token: tok.access_token }); revoked = true; }
-    catch (e) { errCode = e instanceof PlaidError ? e.code : 'INTERNAL'; revoked = isAlreadyRevoked(errCode); }
-  }
-  if (revoked) {
-    await db().from('plaid_access_tokens').delete().eq('connection_id', conn.id);
-    await db().from('plaid_holding_drafts').delete().eq('connection_id', conn.id);
-    const { count } = await db().from('plaid_access_tokens').select('connection_id', { count: 'exact', head: true }).eq('connection_id', conn.id);
-    if ((count ?? 0) === 0) {
-      await db().from('plaid_connections').update({
-        status: 'purged', revoked_at: conn.revoked_at ?? now.toISOString(), purged_at: now.toISOString(), last_error: null, updated_at: now.toISOString(),
-      }).eq('id', conn.id);
-      const late = new Date(conn.revoke_deadline_at).getTime() < now.getTime();
-      return { status: 'purged', late };
-    }
-  }
-  await db().from('plaid_connections').update({ revoke_attempts: (conn.revoke_attempts || 0) + 1, last_error: errCode, updated_at: now.toISOString() }).eq('id', conn.id);
-  const urgency = revokeUrgency(conn.revoke_deadline_at, now);
-  if (urgency !== 'ok') {
-    await db().from('system_alerts').insert({
-      kind: 'plaid_revoke_' + urgency, level: urgency === 'overdue' ? 'critical' : 'warning',
-      title: urgency === 'overdue' ? 'Plaid 解除連結已逾 24 小時期限' : 'Plaid 解除連結接近 24 小時期限',
-      message: `connection ${conn.id} 撤銷失敗（${errCode}），第 ${(conn.revoke_attempts || 0) + 1} 次`,
-      detail: { connection_id: conn.id, deadline: conn.revoke_deadline_at, error_code: errCode },
-    });
-  }
-  return { status: 'retry_pending', error_code: errCode, urgency };
+function attemptRevoke(conn: any) {
+  return attemptRevokeWith({
+    getToken: async (id) => (await db().from('plaid_access_tokens').select('access_token').eq('connection_id', id).maybeSingle()).data?.access_token ?? null,
+    removeItem: async (t) => { await plaid('/item/remove', { access_token: t }); },
+    deleteTokenAndDrafts: async (id) => {
+      await db().from('plaid_access_tokens').delete().eq('connection_id', id);
+      await db().from('plaid_holding_drafts').delete().eq('connection_id', id);
+    },
+    countTokens: async (id) => (await db().from('plaid_access_tokens').select('connection_id', { count: 'exact', head: true }).eq('connection_id', id)).count ?? 0,
+    markPurged: async (id, revokedAt, now) => {
+      await db().from('plaid_connections').update({ status: 'purged', revoked_at: revokedAt, purged_at: now, last_error: null, updated_at: now }).eq('id', id);
+    },
+    markRetry: async (id, attempts, errCode) => {
+      await db().from('plaid_connections').update({ revoke_attempts: attempts, last_error: errCode, updated_at: new Date().toISOString() }).eq('id', id);
+    },
+    alert: async (urgency, id, deadline, errCode, attempts) => {
+      await db().from('system_alerts').insert({
+        kind: 'plaid_revoke_' + urgency, level: urgency === 'overdue' ? 'critical' : 'warning',
+        title: urgency === 'overdue' ? 'Plaid 解除連結已逾 24 小時期限' : 'Plaid 解除連結接近 24 小時期限',
+        message: `connection ${id} 撤銷失敗（${errCode}），第 ${attempts} 次`,
+        detail: { connection_id: id, deadline, error_code: errCode },
+      });
+    },
+  }, conn, new Date());
 }
 
 async function disconnect(expertId: string) {
@@ -195,17 +195,17 @@ Deno.serve(async (req) => {
         const pt = String(body?.public_token || '');
         if (!pt.startsWith('public-')) return json({ error: 'invalid_public_token' }, 400);
         const out = await exchange(expertId, who.userId, pt, { id: body?.institution?.institution_id, name: body?.institution?.name });
-        if ('error' in out) return json(out, 409);
+        if ('error' in out) return json(out, out.error === 'institution_not_allowed' ? 422 : 409);
         const conn = await activeConnection(expertId);
         const sync = await syncConnection(conn, 'initial');
         return json({ ...out, sync });
       }
       case 'sandbox_connect': {
         if (ENV !== 'sandbox') return json({ error: 'sandbox_only' }, 403);
-        const inst = String(body?.institution_id || 'ins_109508');
+        const inst = String(body?.institution_id || FIRSTRADE_INSTITUTION_ID);
         const pt = await plaid('/sandbox/public_token/create', { institution_id: inst, initial_products: ['investments'] });
-        const out = await exchange(expertId, who.userId, pt.public_token, { id: inst, name: 'Sandbox test institution' });
-        if ('error' in out) return json(out, 409);
+        const out = await exchange(expertId, who.userId, pt.public_token, { id: inst, name: 'Firstrade' });
+        if ('error' in out) return json(out, out.error === 'institution_not_allowed' ? 422 : 409);
         const conn = await activeConnection(expertId);
         return json({ ...out, sync: await syncConnection(conn, 'initial') });
       }

@@ -60,3 +60,50 @@ export function mapHoldings(resp: { holdings?: any[]; securities?: any[] }): Dra
   }
   return out;
 }
+
+/** Only Firstrade (Plaid institution ins_120188) may be linked; verified server-side via /item/get. */
+export const FIRSTRADE_INSTITUTION_ID = 'ins_120188';
+export function isAllowedInstitution(id: string | null | undefined): boolean {
+  return id === FIRSTRADE_INSTITUTION_ID;
+}
+
+export interface RevokeConn { id: string; revoke_deadline_at: string; revoke_attempts?: number | null; revoked_at?: string | null }
+export interface RevokeDeps {
+  getToken(connId: string): Promise<string | null>;
+  /** Calls Plaid /item/remove; resolves on success, rejects with { code } on failure. */
+  removeItem(token: string): Promise<void>;
+  deleteTokenAndDrafts(connId: string): Promise<void>;
+  countTokens(connId: string): Promise<number>;
+  markPurged(connId: string, revokedAt: string, now: string): Promise<void>;
+  markRetry(connId: string, attempts: number, errCode: string | null): Promise<void>;
+  alert(urgency: 'near_deadline' | 'overdue', connId: string, deadline: string, errCode: string | null, attempts: number): Promise<void>;
+}
+export type RevokeResult =
+  | { status: 'purged'; late: boolean }
+  | { status: 'retry_pending'; error_code: string | null; urgency: RevokeUrgency; attempts: number };
+
+/**
+ * One revoke attempt. The token is deleted only after Plaid confirms removal (or reports the item gone);
+ * on failure it is kept for the next retry and the attempt is counted; alerts fire near/after the fixed deadline.
+ */
+export async function attemptRevokeWith(deps: RevokeDeps, conn: RevokeConn, now: Date): Promise<RevokeResult> {
+  const tok = await deps.getToken(conn.id);
+  let revoked = !tok;
+  let errCode: string | null = null;
+  if (tok) {
+    try { await deps.removeItem(tok); revoked = true; }
+    catch (e: any) { errCode = e?.code ?? 'INTERNAL'; revoked = isAlreadyRevoked(errCode ?? undefined); }
+  }
+  if (revoked) {
+    await deps.deleteTokenAndDrafts(conn.id);
+    if ((await deps.countTokens(conn.id)) === 0) {
+      await deps.markPurged(conn.id, conn.revoked_at ?? now.toISOString(), now.toISOString());
+      return { status: 'purged', late: new Date(conn.revoke_deadline_at).getTime() < now.getTime() };
+    }
+  }
+  const attempts = (conn.revoke_attempts || 0) + 1;
+  await deps.markRetry(conn.id, attempts, errCode);
+  const urgency = revokeUrgency(conn.revoke_deadline_at, now);
+  if (urgency !== 'ok') await deps.alert(urgency, conn.id, conn.revoke_deadline_at, errCode, attempts);
+  return { status: 'retry_pending', error_code: errCode, urgency, attempts };
+}
