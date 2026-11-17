@@ -2,7 +2,7 @@
 // A snapshot is NOT a trade: it never sets an action, price or date; it only pre-fills symbol / name /
 // the quantity gap against the existing ledger (useExpertHoldingsBundle open positions).
 import { isValidAssetSymbol, type AssetClass } from '@/lib/asset';
-import { emptyTrade, type OpenPosition, type TradeDraft } from '@/pages/_signalEditor/types';
+import { emptyTrade, type TradeDraft } from '@/pages/_signalEditor/types';
 
 export interface ConfirmedSnapshotRow {
   connection_id: string;
@@ -44,13 +44,14 @@ export function sourceKey(connectionId: string, symbol: string, asOf: string | n
 
 export function buildImportCandidates(
   snapshot: ConfirmedSnapshotRow[],
-  ledger: Pick<OpenPosition, 'symbol' | 'instrument' | 'quantity_shares'>[],
+  /** Existing ledger open positions from useExpertHoldingsBundle (base quantity). */
+  ledger: { symbol: string; quantity: number }[],
   editorTrades: Pick<TradeDraft, 'stockCode' | 'brokerageSourceKey'>[],
   assetClass: AssetClass,
 ): ImportCandidate[] {
   const confirmed = snapshot.filter((r) => r.review_status === 'confirmed');
   const ledgerQty = new Map<string, number>();
-  for (const p of ledger) ledgerQty.set(norm(p.symbol), (ledgerQty.get(norm(p.symbol)) || 0) + Number(p.quantity_shares || 0));
+  for (const p of ledger) ledgerQty.set(norm(p.symbol), (ledgerQty.get(norm(p.symbol)) || 0) + Number(p.quantity || 0));
   const inEditorKeys = new Set(editorTrades.map((t) => t.brokerageSourceKey).filter(Boolean) as string[]);
   const inEditorSymbols = new Set(editorTrades.map((t) => norm(t.stockCode)).filter(Boolean));
 
