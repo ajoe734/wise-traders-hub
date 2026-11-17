@@ -114,3 +114,7 @@ Diversified-company primary weights come only from `stock_annual_revenue_mix` (o
 ### Traffic metrics
 
 Use `trafficQuality` for metrics, `trafficRecovery` for recovery, and `ga4Reconcile` for the separate GA4 comparison view; run `check:traffic` after changes. Count named pages, never infer event-time login; why: prevents invented history and mixed-source totals.
+
+### Plaid brokerage holdings
+
+Firstrade holdings via Plaid go only through `plaid-link` (pure rules in `_shared/plaidCore.ts`); access tokens live only in the service-role-only `plaid_access_tokens`, drafts are written only by the locked `plaid_replace_drafts` RPC that re-checks connection state, and disconnect blocks sync first, keeps the token only until `/item/remove` succeeds, and never extends the first 24h deadline; why: delayed syncs must not revive holdings and revocation must stay retryable.
