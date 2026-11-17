@@ -88,3 +88,48 @@ Deno.test('late success is purged but flagged late (not reported compliant)', as
   const r = await attemptRevokeWith(deps, { id: 'c1', revoke_deadline_at: '2026-11-18T00:00:00.000Z' }, new Date('2026-11-18T01:00:00Z'));
   assertEquals(r, { status: 'purged', late: true });
 });
+
+import { runSyncWith, type SyncDeps } from './plaidCore.ts';
+
+function fakeSync(opts: { blockAtWrite?: boolean; fetchFails?: string }) {
+  const st = { fetched: 0, written: 0, finished: [] as string[], failed: 0, notified: 0 };
+  const deps: SyncDeps = {
+    getToken: async () => 'access-sandbox-x',
+    fetchHoldings: async () => {
+      st.fetched++;
+      if (opts.fetchFails) throw { code: opts.fetchFails };
+      return { securities: [{ security_id: 'a', ticker_symbol: 'EWZ', type: 'etf' }], holdings: [{ security_id: 'a', quantity: 5 }] };
+    },
+    replaceDrafts: async (_id, rows) => {
+      if (opts.blockAtWrite) throw new Error('ERROR: plaid_sync_blocked');
+      st.written += rows.length; return rows.length;
+    },
+    finish: async (s) => { st.finished.push(s); },
+    markFailed: async () => { st.failed++; },
+    notifyFailure: async () => { st.notified++; },
+  };
+  return { st, deps };
+}
+
+Deno.test('sync on an already-disconnected connection never fetches or writes', async () => {
+  const { st, deps } = fakeSync({});
+  const r = await runSyncWith(deps, { id: 'c', status: 'disconnect_requested', sync_blocked: true });
+  assertEquals(r, { status: 'blocked' });
+  assertEquals([st.fetched, st.written, st.notified], [0, 0, 0]);
+});
+
+Deno.test('disconnect between fetch and write: locked write refuses, run is blocked, no failure notice', async () => {
+  const { st, deps } = fakeSync({ blockAtWrite: true });
+  const r = await runSyncWith(deps, { id: 'c', status: 'active', sync_blocked: false });
+  assertEquals(r, { status: 'blocked' });
+  assertEquals([st.fetched, st.written, st.failed, st.notified], [1, 0, 0, 0]);
+  assertEquals(st.finished, ['blocked']);
+});
+
+Deno.test('upstream failure is recorded and notified; success writes drafts', async () => {
+  const f = fakeSync({ fetchFails: 'ITEM_LOGIN_REQUIRED' });
+  assertEquals(await runSyncWith(f.deps, { id: 'c', status: 'active', sync_blocked: false }), { status: 'failed', error_code: 'ITEM_LOGIN_REQUIRED' });
+  assertEquals([f.st.failed, f.st.notified], [1, 1]);
+  const ok = fakeSync({});
+  assertEquals(await runSyncWith(ok.deps, { id: 'c', status: 'active', sync_blocked: false }), { status: 'ok', holdings_count: 1 });
+});

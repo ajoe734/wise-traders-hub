@@ -6,7 +6,7 @@ import { requireCronKey } from '../_shared/authGuard.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { buildNotificationRow } from '../_shared/routes.ts';
-import { plaidEnv, plaidBaseUrl, revokeDeadline, revokeUrgency, mapHoldings, attemptRevokeWith, isAllowedInstitution, FIRSTRADE_INSTITUTION_ID } from '../_shared/plaidCore.ts';
+import { plaidEnv, plaidBaseUrl, revokeDeadline, revokeUrgency, attemptRevokeWith, runSyncWith, isAllowedInstitution, FIRSTRADE_INSTITUTION_ID } from '../_shared/plaidCore.ts';
 
 const ENV = plaidEnv(Deno.env.get('PLAID_ENV'));
 const BASE = plaidBaseUrl(ENV);
@@ -71,31 +71,25 @@ async function exchange(expertId: string, userId: string | null, publicToken: st
 
 async function syncConnection(conn: any, trigger: string) {
   const { data: run } = await db().from('plaid_sync_runs').insert({ connection_id: conn.id, expert_id: conn.expert_id, trigger }).select('id').single();
-  const finish = (status: string, extra: Record<string, unknown> = {}) =>
-    db().from('plaid_sync_runs').update({ status, finished_at: new Date().toISOString(), ...extra }).eq('id', run!.id);
-  try {
-    if (conn.sync_blocked || conn.status !== 'active') { await finish('blocked'); return { status: 'blocked' }; }
-    const { data: tok } = await db().from('plaid_access_tokens').select('access_token').eq('connection_id', conn.id).maybeSingle();
-    if (!tok) throw new PlaidError('TOKEN_MISSING', 'LOCAL');
-    const resp = await plaid('/investments/holdings/get', { access_token: tok.access_token });
-    const rows = mapHoldings(resp);
+  return runSyncWith({
+    getToken: async (id) => (await db().from('plaid_access_tokens').select('access_token').eq('connection_id', id).maybeSingle()).data?.access_token ?? null,
+    fetchHoldings: (t) => plaid('/investments/holdings/get', { access_token: t }),
     // Re-check state at write time inside a row lock (handles disconnect during the fetch).
-    const { data: n, error } = await db().rpc('plaid_replace_drafts', { _connection_id: conn.id, _run_id: run!.id, _rows: rows });
-    if (error) {
-      if (String(error.message).includes('plaid_sync_blocked')) { await finish('blocked'); return { status: 'blocked' }; }
-      throw error;
-    }
-    await finish('ok', { holdings_count: n });
-    return { status: 'ok', holdings_count: n };
-  } catch (e) {
-    const code = e instanceof PlaidError ? e.code : 'INTERNAL';
-    await finish('failed', { error_code: code });
-    await db().from('plaid_connections').update({ last_sync_status: 'failed', last_error: code, updated_at: new Date().toISOString() })
-      .eq('id', conn.id).eq('status', 'active');
-    await notifyExpert(conn.expert_id, 'Firstrade 持倉同步失敗',
-      code === 'ITEM_LOGIN_REQUIRED' ? '券商要求重新驗證，請到「券商持倉」重新連結。' : `同步未完成（${code}），系統會在下次排程重試。`);
-    return { status: 'failed', error_code: code };
-  }
+    replaceDrafts: async (id, rows) => {
+      const { data: n, error } = await db().rpc('plaid_replace_drafts', { _connection_id: id, _run_id: run!.id, _rows: rows });
+      if (error) throw new Error(String(error.message));
+      return n as number;
+    },
+    finish: async (status, extra = {}) => {
+      await db().from('plaid_sync_runs').update({ status, finished_at: new Date().toISOString(), ...extra }).eq('id', run!.id);
+    },
+    markFailed: async (code) => {
+      await db().from('plaid_connections').update({ last_sync_status: 'failed', last_error: code, updated_at: new Date().toISOString() })
+        .eq('id', conn.id).eq('status', 'active');
+    },
+    notifyFailure: (code) => notifyExpert(conn.expert_id, 'Firstrade 持倉同步失敗',
+      code === 'ITEM_LOGIN_REQUIRED' ? '券商要求重新驗證，請到「券商持倉」重新連結。' : `同步未完成（${code}），系統會在下次排程重試。`),
+  }, conn);
 }
 
 function attemptRevoke(conn: any) {
