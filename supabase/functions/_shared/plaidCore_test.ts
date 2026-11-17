@@ -35,3 +35,56 @@ Deno.test('mapHoldings drops cash and zero quantity', () => {
   assertEquals(rows[0].symbol, 'AAPL');
   assertEquals(rows[0].quantity, 10);
 });
+
+import { attemptRevokeWith, isAllowedInstitution, type RevokeDeps } from './plaidCore.ts';
+
+function fakeStore(failCodes: (string | null)[]) {
+  const st = { token: 'access-sandbox-x' as string | null, drafts: 3, attempts: 0, purged: false, alerts: [] as string[], removeCalls: 0 };
+  const deps: RevokeDeps = {
+    getToken: async () => st.token,
+    removeItem: async () => { const c = failCodes[st.removeCalls++]; if (c) throw { code: c }; },
+    deleteTokenAndDrafts: async () => { st.token = null; st.drafts = 0; },
+    countTokens: async () => (st.token ? 1 : 0),
+    markPurged: async () => { st.purged = true; },
+    markRetry: async (_id, a) => { st.attempts = a; },
+    alert: async (u) => { st.alerts.push(u); },
+  };
+  return { st, deps };
+}
+
+Deno.test('only Firstrade ins_120188 is allowed', () => {
+  assertEquals(isAllowedInstitution('ins_120188'), true);
+  assertEquals(isAllowedInstitution('ins_109508'), false);
+  assertEquals(isAllowedInstitution(null), false);
+});
+
+Deno.test('revoke failure keeps token, counts attempt, retry then purges', async () => {
+  const { st, deps } = fakeStore(['INTERNAL_SERVER_ERROR', null]);
+  const conn = { id: 'c1', revoke_deadline_at: '2026-11-18T00:00:00.000Z', revoke_attempts: 0 };
+  const r1 = await attemptRevokeWith(deps, conn, new Date('2026-11-17T01:00:00Z'));
+  assertEquals(r1.status, 'retry_pending');
+  assertEquals(st.token !== null, true);
+  assertEquals(st.attempts, 1);
+  assertEquals(st.alerts.length, 0);
+  const r2 = await attemptRevokeWith(deps, { ...conn, revoke_attempts: 1 }, new Date('2026-11-17T02:00:00Z'));
+  assertEquals(r2.status, 'purged');
+  assertEquals(st.token, null);
+  assertEquals(st.drafts, 0);
+  assertEquals(st.purged, true);
+});
+
+Deno.test('revoke failing near and past deadline raises alerts, token still kept', async () => {
+  const { st, deps } = fakeStore(['PLANNED_MAINTENANCE', 'PLANNED_MAINTENANCE']);
+  const conn = { id: 'c1', revoke_deadline_at: '2026-11-18T00:00:00.000Z', revoke_attempts: 0 };
+  await attemptRevokeWith(deps, conn, new Date('2026-11-17T23:00:00Z'));
+  await attemptRevokeWith(deps, { ...conn, revoke_attempts: 1 }, new Date('2026-11-18T00:30:00Z'));
+  assertEquals(st.alerts, ['near_deadline', 'overdue']);
+  assertEquals(st.token !== null, true);
+  assertEquals(st.purged, false);
+});
+
+Deno.test('late success is purged but flagged late (not reported compliant)', async () => {
+  const { deps } = fakeStore([null]);
+  const r = await attemptRevokeWith(deps, { id: 'c1', revoke_deadline_at: '2026-11-18T00:00:00.000Z' }, new Date('2026-11-18T01:00:00Z'));
+  assertEquals(r, { status: 'purged', late: true });
+});
