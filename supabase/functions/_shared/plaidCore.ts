@@ -107,3 +107,39 @@ export async function attemptRevokeWith(deps: RevokeDeps, conn: RevokeConn, now:
   if (urgency !== 'ok') await deps.alert(urgency, conn.id, conn.revoke_deadline_at, errCode, attempts);
   return { status: 'retry_pending', error_code: errCode, urgency, attempts };
 }
+
+export interface SyncConn { id: string; status: string; sync_blocked: boolean }
+export interface SyncDeps {
+  getToken(connId: string): Promise<string | null>;
+  fetchHoldings(token: string): Promise<{ holdings?: any[]; securities?: any[] }>;
+  /** Locked DB write; must throw an error whose message contains 'plaid_sync_blocked' if disconnected meanwhile. */
+  replaceDrafts(connId: string, rows: DraftRow[]): Promise<number>;
+  finish(status: 'ok' | 'blocked' | 'failed', extra?: Record<string, unknown>): Promise<void>;
+  markFailed(code: string): Promise<void>;
+  notifyFailure(code: string): Promise<void>;
+}
+export type SyncResult = { status: 'ok'; holdings_count: number } | { status: 'blocked' } | { status: 'failed'; error_code: string };
+
+/** One sync run. A disconnect observed before the fetch or at write time is "blocked": no write, no failure notice. */
+export async function runSyncWith(deps: SyncDeps, conn: SyncConn): Promise<SyncResult> {
+  try {
+    if (conn.sync_blocked || conn.status !== 'active') { await deps.finish('blocked'); return { status: 'blocked' }; }
+    const tok = await deps.getToken(conn.id);
+    if (!tok) throw Object.assign(new Error('TOKEN_MISSING'), { code: 'TOKEN_MISSING' });
+    const rows = mapHoldings(await deps.fetchHoldings(tok));
+    let n: number;
+    try { n = await deps.replaceDrafts(conn.id, rows); }
+    catch (e: any) {
+      if (String(e?.message || '').includes('plaid_sync_blocked')) { await deps.finish('blocked'); return { status: 'blocked' }; }
+      throw e;
+    }
+    await deps.finish('ok', { holdings_count: n });
+    return { status: 'ok', holdings_count: n };
+  } catch (e: any) {
+    const code = typeof e?.code === 'string' && /^[A-Z_]+$/.test(e.code) ? e.code : 'INTERNAL';
+    await deps.finish('failed', { error_code: code });
+    await deps.markFailed(code);
+    await deps.notifyFailure(code);
+    return { status: 'failed', error_code: code };
+  }
+}
