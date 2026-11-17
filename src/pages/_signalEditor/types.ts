@@ -75,6 +75,8 @@ export interface TradeDraft {
   isCombo?: boolean;
   comboStrategy?: ComboStrategy;
   legs?: ComboLeg[];
+  /** Set when the row was pre-filled from a teacher-confirmed Firstrade snapshot (dedupe key only, never stored). */
+  brokerageSourceKey?: string;
 }
 
 export const newUid = () => Math.random().toString(36).slice(2, 10);
