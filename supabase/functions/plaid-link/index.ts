@@ -204,6 +204,15 @@ Deno.serve(async (req) => {
         const conn = await activeConnection(expertId);
         return json({ ...out, sync: await syncConnection(conn, 'initial') });
       }
+      case 'sandbox_reset_login': {
+        // Sandbox-only: force ITEM_LOGIN_REQUIRED to exercise the failure + notification path.
+        if (ENV !== 'sandbox') return json({ error: 'sandbox_only' }, 403);
+        const conn = await activeConnection(expertId);
+        if (!conn) return json({ error: 'not_connected' }, 404);
+        const { data: tok } = await db().from('plaid_access_tokens').select('access_token').eq('connection_id', conn.id).maybeSingle();
+        await plaid('/sandbox/item/reset_login', { access_token: tok!.access_token });
+        return json({ reset: true });
+      }
       case 'sync': {
         const conn = await activeConnection(expertId);
         if (!conn) return json({ error: 'not_connected' }, 404);
