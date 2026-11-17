@@ -11,6 +11,10 @@ import { plaidEnv, plaidBaseUrl, revokeDeadline, revokeUrgency, isAlreadyRevoked
 const ENV = plaidEnv(Deno.env.get('PLAID_ENV'));
 const BASE = plaidBaseUrl(ENV);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ALLOWED_REDIRECTS = new Set([
+  'https://legendflow.tw/expert/plaid-callback',
+  'https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app/expert/plaid-callback',
+]);
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
@@ -183,6 +187,7 @@ Deno.serve(async (req) => {
         const r = await plaid('/link/token/create', {
           client_name: 'legendflow', language: 'en', country_codes: ['US'], products: ['investments'],
           user: { client_user_id: who.userId },
+          ...(ALLOWED_REDIRECTS.has(String(body?.redirect_uri || '')) ? { redirect_uri: body.redirect_uri } : {}),
         });
         return json({ link_token: r.link_token, expiration: r.expiration, env: ENV });
       }
