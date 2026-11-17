@@ -22,6 +22,7 @@ import {
   type TradeDraft, type AIAssistFn,
 } from '@/pages/_signalEditor/types';
 import { CapitalPanel } from '@/pages/_signalEditor/CapitalPanel';
+import { BrokerageImportPanel } from '@/pages/_signalEditor/BrokerageImportPanel';
 import { TradeCard } from '@/pages/_signalEditor/TradeCard';
 import {
   buildPublishRows, buildTeachingOnlyRow, buildSimulatedPositions, computeCashSim, validateSignalBatch,
@@ -504,6 +505,17 @@ const SignalEditor = () => {
             updateTrade={updateTrade}
             currency={currency}
             assetClass={assetClass}
+          />
+        )}
+
+        {!isTeachingOnly && (
+          <BrokerageImportPanel
+            expertId={expert?.id}
+            expertSlug={expertSlug}
+            assetClass={assetClass}
+            openPositions={openPositions}
+            trades={trades}
+            setTrades={setTrades}
           />
         )}
 
