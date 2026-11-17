@@ -498,6 +498,13 @@
       "when": 1793848036120,
       "tag": "0070_promo_monthly_payroll",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1794908485530,
+      "tag": "0071_plaid_brokerage_sandbox",
+      "breakpoints": true
     }
   ]
 }
