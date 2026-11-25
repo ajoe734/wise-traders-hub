@@ -5974,6 +5974,39 @@ export type Database = {
         }
         Relationships: []
       }
+      traffic_debug_event_daily: {
+        Row: {
+          archived_at: string
+          day: string
+          event_name: string
+          events: number
+          first_at: string
+          last_at: string
+          route: string
+          visitors: number
+        }
+        Insert: {
+          archived_at?: string
+          day: string
+          event_name: string
+          events: number
+          first_at: string
+          last_at: string
+          route: string
+          visitors: number
+        }
+        Update: {
+          archived_at?: string
+          day?: string
+          event_name?: string
+          events?: number
+          first_at?: string
+          last_at?: string
+          route?: string
+          visitors?: number
+        }
+        Relationships: []
+      }
       traffic_events: {
         Row: {
           event_name: string | null
