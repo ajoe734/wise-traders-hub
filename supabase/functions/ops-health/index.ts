@@ -86,7 +86,9 @@ Deno.serve(async (req) => {
       { table: 'system_jobs_log', tsCol: 'ran_at' },
       { table: 'audit_logs', tsCol: 'created_at' },
       { table: 'perf_metrics', tsCol: 'created_at' },
-      { table: 'traffic_events', tsCol: 'created_at' },
+      // traffic_events 的時間欄是 occurred_at（無 created_at）；寫錯會被下面的 catch 吞掉，
+      // 導致這列在後台健康頁完全不出現。
+      { table: 'traffic_events', tsCol: 'occurred_at' },
       { table: 'edge_boot_events', tsCol: 'boot_at' },
     ];
     const logTables: TableRow[] = [];

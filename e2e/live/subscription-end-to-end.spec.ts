@@ -91,7 +91,8 @@ test.describe('live smoke — auth + protected route + pricing reachable', () =>
     const token = await readAccessToken(page);
     expect(token, 'access_token 應存在').toBeTruthy();
     const sinceIso = new Date(before - 5_000).toISOString();
-    const url = `${SUPABASE_URL}/rest/v1/traffic_events?event_name=eq.checkout_success&created_at=gte.${encodeURIComponent(sinceIso)}&select=id,event_props,created_at&order=created_at.desc&limit=5`;
+    // traffic_events 沒有 created_at 欄；用錯欄位 PostgREST 會直接回 400，這條斷言永遠不可能通過。
+    const url = `${SUPABASE_URL}/rest/v1/traffic_events?event_name=eq.checkout_success&occurred_at=gte.${encodeURIComponent(sinceIso)}&select=id,event_props,occurred_at&order=occurred_at.desc&limit=5`;
     const res = await page.request.get(url, {
       headers: {
         apikey: PUB_KEY,
