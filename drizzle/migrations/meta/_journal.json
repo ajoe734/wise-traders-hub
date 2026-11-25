@@ -533,6 +533,13 @@
       "when": 1795599698700,
       "tag": "0075_fix_get_publish_batch_status_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1795601534668,
+      "tag": "0076_drop_redundant_unused_indexes",
+      "breakpoints": true
     }
   ]
 }
