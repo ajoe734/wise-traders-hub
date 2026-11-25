@@ -941,7 +941,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < parsedRows.length; i += BATCH) {
       const chunk = parsedRows.slice(i, i + BATCH).map((r) => ({
         ...r,
-        raw: { fields, source: "twse_t86" },
+        source: "twse_t86",
       }));
 
 

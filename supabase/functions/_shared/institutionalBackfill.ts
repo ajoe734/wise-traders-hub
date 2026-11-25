@@ -44,7 +44,7 @@ export type InstitutionalRow = {
   trust_net: number;
   dealer_net: number;
   total_net: number;
-  raw: Record<string, unknown>;
+  source: string;
 };
 
 /** FinMind 每天每個投資者類型一列 → 依 date 聚合成單日淨額。 */
@@ -78,7 +78,7 @@ export function aggregateInstitutionalRows(raw: any[], stockId: string): Institu
       trust_net,
       dealer_net,
       total_net: foreign_net + trust_net + dealer_net,
-      raw: { source: "finmind_backfill" },
+      source: "finmind_backfill",
     };
   });
 }

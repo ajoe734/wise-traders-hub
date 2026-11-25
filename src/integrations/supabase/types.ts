@@ -8017,6 +8017,10 @@ export type Database = {
       cleanup_old_expert_ai_access_logs: { Args: never; Returns: undefined }
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       cleanup_old_traffic: { Args: never; Returns: undefined }
+      cleanup_ops_boot_and_run_logs: {
+        Args: { _max_rows?: number }
+        Returns: Json
+      }
       cleanup_processed_webhook_events: { Args: never; Returns: number }
       commit_valuation_filing: {
         Args: {

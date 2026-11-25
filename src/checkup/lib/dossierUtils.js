@@ -33,7 +33,7 @@ export function buildDailyHoldingDossierContext(dossier, change, { blind = false
       : '匹配規則: 無'
   const supplyChainInfo = buildSupplyChainContext(dossier.code)
   const themeInfo = dossier.stockMeta ? buildThemeContext(dossier.code, dossier.stockMeta) : ''
-  const knowledgeInfo = buildKnowledgeContext(dossier.stockMeta ?? {})
+  const knowledgeInfo = buildKnowledgeContext(dossier.stockMeta ?? {}, dossier.code)
 
   return `
 股票代碼: ${dossier.code}

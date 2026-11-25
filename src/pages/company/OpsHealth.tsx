@@ -51,7 +51,7 @@ export default function OpsHealth() {
   const failedJobs7d = (data?.jobs ?? []).reduce((s, j) => s + j.fail, 0);
 
   const runCleanup = async () => {
-    if (!confirm('立即執行 log 清理？\n• function_run_logs > 30d\n• system_jobs_log > 90d\n• audit_logs > 365d\n• perf_metrics > 14d\n• traffic_events > 30d')) return;
+    if (!confirm('立即執行 log 清理？\n• function_run_logs > 30d\n• system_jobs_log > 90d\n• audit_logs > 365d\n• perf_metrics > 14d\n• edge_boot_events > 7d')) return;
     setCleaning(true);
     try {
       const { data: res, error: err } = await supabase.functions.invoke('cleanup-ops-logs', { method: 'POST' });

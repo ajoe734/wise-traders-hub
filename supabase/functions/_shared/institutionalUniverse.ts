@@ -95,7 +95,7 @@ export async function deltaUpsertInstitutional(
   const BATCH = opts.batch ?? 500;
   let written = 0;
   for (let i = 0; i < changed.length; i += BATCH) {
-    const chunk = changed.slice(i, i + BATCH).map((r) => ({ ...r, raw: { source: opts.source } }));
+    const chunk = changed.slice(i, i + BATCH).map((r) => ({ ...r, source: opts.source }));
     const { error } = await supa
       .from('tw_institutional_daily')
       .upsert(chunk, { onConflict: 'stock_id,trade_date' });

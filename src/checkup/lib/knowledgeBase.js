@@ -141,7 +141,7 @@ const STRATEGY_KNOWLEDGE_MAP = {
   ETF指數: ['technical_analysis'],
 }
 
-export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfidence = 0.70 } = {}) {
+export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfidence = 0.70, stockCode = null } = {}) {
   const cache = getCacheSync()
   const { strategy } = stockMeta
   const categories = STRATEGY_KNOWLEDGE_MAP[strategy] ?? ['technical_analysis']
@@ -158,11 +158,11 @@ export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfiden
   })
 
   const result = unique.sort((a, b) => effectiveScore(b) - effectiveScore(a)).slice(0, maxItems)
-  rememberHits(result, 'knowledge')
+  rememberHits(result, 'knowledge', stockCode)
   return result
 }
 
-export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
+export function getRelevantCases(stockMeta = {}, { maxItems = 2, stockCode = null } = {}) {
   const cache = getCacheSync()
   const { strategy } = stockMeta
   const strategyTagMap = {
@@ -181,7 +181,7 @@ export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
   )
 
   const result = items.slice(0, maxItems)
-  rememberHits(result, 'strategy_cases')
+  rememberHits(result, 'strategy_cases', stockCode)
   return result
 }
 
@@ -200,9 +200,10 @@ export function formatCaseItem(item) {
   報酬：${(item.return * 100).toFixed(0)}%`
 }
 
-export function buildKnowledgeContext(stockMeta = {}) {
-  const knowledge = getRelevantKnowledge(stockMeta)
-  const cases = getRelevantCases(stockMeta)
+export function buildKnowledgeContext(stockMeta = {}, stockCode = null) {
+  // stockCode 必帶：knowledge-validate 只能驗證有股票代號的命中
+  const knowledge = getRelevantKnowledge(stockMeta, { stockCode })
+  const cases = getRelevantCases(stockMeta, { stockCode })
 
   if (knowledge.length === 0 && cases.length === 0) return ''
 
@@ -239,7 +240,7 @@ export function buildKnowledgeContext(stockMeta = {}) {
 
 let _hitBuffer = []
 
-function rememberHits(items, category) {
+function rememberHits(items, category, stockCode = null) {
   if (!Array.isArray(items)) return
   for (const it of items) {
     if (!it?.id) continue
@@ -248,6 +249,7 @@ function rememberHits(items, category) {
       dbId: it.__dbId ?? null,
       confidence: it.confidence ?? null,
       category: category ?? null,
+      stockCode: stockCode ? String(stockCode) : null,
     })
   }
 }
@@ -259,7 +261,7 @@ export async function flushKnowledgeHits({ stockCode = null, context = null } = 
 
   const seen = new Set()
   const unique = buffer.filter(h => {
-    const k = h.dbId ?? h.itemId
+    const k = `${h.dbId ?? h.itemId}|${h.stockCode ?? stockCode ?? ''}`
     if (seen.has(k)) return false
     seen.add(k)
     return !!h.dbId
@@ -269,11 +271,13 @@ export async function flushKnowledgeHits({ stockCode = null, context = null } = 
   try {
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id ?? null
+    // 訪客無法寫入（RLS 要求本人），直接略過避免必失敗的請求
+    if (!userId) return { inserted: 0 }
 
     const rows = unique.map(h => ({
       knowledge_item_id: h.dbId,
       user_id: userId,
-      stock_code: stockCode,
+      stock_code: h.stockCode ?? stockCode,
       context: context,
       confidence: h.confidence,
     }))

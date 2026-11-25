@@ -332,7 +332,7 @@ async function processInstitutional(supa: SupabaseClient, job: Job, log: RunLogg
       trust_net,
       dealer_net,
       total_net: foreign_net + trust_net + dealer_net,
-      raw: { source: "finmind_backfill_range", job_id: job.id },
+      source: "finmind_backfill_range",
     };
   });
 

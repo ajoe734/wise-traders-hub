@@ -540,6 +540,13 @@
       "when": 1795601534668,
       "tag": "0076_drop_redundant_unused_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1795602604557,
+      "tag": "0077_ops_log_retention_split",
+      "breakpoints": true
     }
   ]
 }

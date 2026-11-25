@@ -13,7 +13,7 @@ const POLICIES: Array<{ table: string; tsColumn: string; days: number }> = [
   { table: 'system_jobs_log',   tsColumn: 'ran_at',      days: 90 },
   { table: 'audit_logs',        tsColumn: 'created_at',  days: 365 }, // compliance retention
   { table: 'perf_metrics',      tsColumn: 'created_at',  days: 14 },
-  { table: 'traffic_events',    tsColumn: 'occurred_at', days: 30 },
+  // traffic_events 不在此清理：長期報表仍讀明細，需先完成每日彙總並逐月核對
   { table: 'edge_boot_events',  tsColumn: 'boot_at',     days: 7 },
 ];
 
