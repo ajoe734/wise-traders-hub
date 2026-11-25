@@ -51,6 +51,7 @@ vi.mock('@/components/admin/LazyRichTextEditor', () => ({
   LazyRichTextEditor: ({ value }: any) => <div data-testid="rte">{value || ''}</div>,
 }));
 vi.mock('@/components/SEO', () => ({ SEO: () => null }));
+vi.mock('@/pages/_signalEditor/BrokerageImportPanel', () => ({ BrokerageImportPanel: () => null }));
 vi.mock('@/pages/_signalEditor/JournalPreviewDialog', () => ({
   JournalPreviewDialog: () => null,
 }));

@@ -3,7 +3,7 @@ import { z } from 'npm:zod@3.23.8';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireExpertOwnerOrAdmin } from '../_shared/adminGuard.ts';
-import { AuthError } from '../_shared/authGuard.ts';
+import { AuthError, requireCaller } from '../_shared/authGuard.ts';
 import { responsesJson, editImagePng, GatewayError } from '../_shared/articleAiGateway.ts';
 import {
   ARTICLE_AI_LIMITS, quotaExceeded, routeImage, isOwnArticleUpload, LIEFLAT_RESTYLE_PROMPT, type ImageClassification,
@@ -41,6 +41,8 @@ function bytesToB64(u: Uint8Array) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
+    // Reject anonymous callers before parsing so the body shape never leaks to them.
+    await requireCaller(req);
     const parsed = Body.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return json({ error: 'invalid_input', details: parsed.error.flatten().fieldErrors }, 400);
     const { expert_id, image_url, force_frame } = parsed.data;

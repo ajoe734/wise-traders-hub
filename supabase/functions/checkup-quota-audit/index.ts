@@ -1,11 +1,11 @@
-// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+// AUTH: company_admin  (was auto-annotated cron 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // checkup-quota-audit — 公司管理員稽核健檢配額。
 // 兩種模式：
 //   1) 單筆 (mode=single 或省略，需 user_id/email)：回傳 quota 快照 + 該用戶 usage + subs。
 //   2) 批次 (mode=list)：依 tier / reason / 日期範圍篩選 checkup_usage，並合併 profile + 最新 sub。
 import { corsHeaders } from '../_shared/cors.ts';
 import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
-import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+
 import { validateInput, validationJsonResponse } from '../_shared/inputValidator.ts';
 
 import { withLogging } from '../_shared/edgeLogger.ts';
@@ -13,19 +13,6 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 Deno.serve(withLogging('checkup-quota-audit', async (req: Request) => {
-  // AUTH: cron (Phase M-2 runtime enforcement)
-  if (req.method !== 'OPTIONS') {
-    try { requireCronKey(req); }
-    catch (e) {
-      if (e instanceof AuthError) {
-        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
-          status: e.status,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        });
-      }
-      throw e;
-    }
-  }
 
   // OPTIONS preflight handled by withLogging.
   if (req.method !== 'GET' && req.method !== 'POST') {

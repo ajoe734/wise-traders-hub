@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -55,8 +55,8 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                 const open = expandedExpert === p.expert_id;
                 const detail = splitsByExpert[p.expert_id] || [];
                 return (
-                  <>
-                    <tr key={p.expert_id} className="border-b cursor-pointer hover:bg-muted/40"
+                  <Fragment key={p.expert_id}>
+                    <tr className="border-b cursor-pointer hover:bg-muted/40"
                         onClick={() => setExpandedExpert(open ? null : p.expert_id)}>
                       <td className="p-3">{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</td>
                       <td className="p-3">
@@ -108,7 +108,7 @@ export function PayoutsTab({ expertPayouts, splitsByExpert, planMap }: Props) {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

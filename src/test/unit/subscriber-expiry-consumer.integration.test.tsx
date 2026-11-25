@@ -28,6 +28,10 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: authUser, hasRole: () => false, loading: false }),
 }));
 
+vi.mock('@/contexts/ViewAsContext', () => ({
+  useViewAs: () => ({ session: null, isActive: false, setSession: () => {}, exit: () => {}, msRemaining: 0 }),
+  ViewAsProvider: ({ children }: { children: unknown }) => children,
+}));
 vi.mock('@/lib/analytics/events', () => ({ trackRaw: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 

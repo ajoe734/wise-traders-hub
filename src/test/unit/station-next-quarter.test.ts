@@ -11,17 +11,17 @@ const basis = {
 
 describe('近三季已公布＋下一季月營收推估', () => {
   it('7–9 月營收 1,200 ÷ 最新一季 1,000 → 推估 EPS 12，PE 分母 8+8+10+12 = 38', () => {
-    const r: any = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)]);
+    const r: any = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)], '2026-10-01');
     expect(r?.quarter).toBe('2026Q3');
     expect(r?.estEps).toBeCloseTo(12);
     expect(r?.pe).toBeCloseTo(38);
     expect(r?.ps).toBeCloseTo((3000 + 1200) / 10);
   });
   it('下一季營收 3 個月未齊 → null（退回近四季實際）', () => {
-    expect(nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400)])).toBeNull();
+    expect(nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400)], '2026-10-01')).toBeNull();
   });
   it('PB 不推估；沒有推估時用近四季實際', () => {
-    const nq = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)]);
+    const nq = nextQuarterBasis(basis, [mr(2026, 7, 400), mr(2026, 8, 400), mr(2026, 9, 400)], '2026-10-01');
     expect(stationBasis('pb', 50, nq)).toEqual({ value: 50, estimated: false });
     expect(stationBasis('pe', 34, null)).toEqual({ value: 34, estimated: false });
     expect(stationBasis('pe', 34, nq).estimated).toBe(true);

@@ -34,7 +34,7 @@ try {
     for (const patch of readdirSync('drizzle/migrations').filter(f => f.endsWith('_traffic_pages_named_evidence.sql')).sort()) {
       await db.exec(readFileSync(`drizzle/migrations/${patch}`, 'utf8'));
     }
-    for (const patch of readdirSync('drizzle/migrations').filter(f => /^00(5[1-9]|60)_/.test(f)).sort()) {
+    for (const patch of readdirSync('drizzle/migrations').filter(f => /^00(5[1-9]|60)_traffic_/.test(f)).sort()) {
       await db.exec(readFileSync(`drizzle/migrations/${patch}`, 'utf8'));
     }
   }

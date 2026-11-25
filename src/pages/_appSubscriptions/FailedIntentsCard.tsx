@@ -8,6 +8,7 @@
 //      被後端標 completed 的 abandoned 殘留），就剔除 — 避免「已成功還顯示失敗」誤導。
 //   3. PendingCheckoutCard 處理 status='pending'（還可繼續），與本卡片完全分工。
 import { useEffect, useState, useMemo } from 'react';
+import { PAYMENT_INTENT_COLUMNS, attachIntentPlans } from '@/lib/paymentIntentPlans';
 import { supabase } from '@/integrations/supabase/client';
 import { FeatureCard } from '@/components/ui/feature-card';
 import { Badge } from '@/components/ui/badge';
@@ -45,14 +46,14 @@ export function FailedIntentsCard() {
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data } = await supabase
         .from('payment_intents' as any)
-        .select('id, status, trade_no, product_kind, plan_id, checkup_plan_id, amount, billing_cycle, created_at, expert_plans:plan_id(name, experts(name, slug)), checkup_plans:checkup_plan_id(name)')
+        .select(PAYMENT_INTENT_COLUMNS)
         .eq('user_id', effectiveUserId)
         .eq('status', 'abandoned')
         .gte('created_at', since)
         .order('created_at', { ascending: false })
         .limit(10);
       if (!cancelled) {
-        setIntents((data as any) || []);
+        setIntents((await attachIntentPlans((data as any[]) || [])) as any);
         setLoading(false);
       }
     })();

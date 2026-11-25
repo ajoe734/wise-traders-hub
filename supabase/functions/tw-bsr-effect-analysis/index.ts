@@ -1,4 +1,4 @@
-// AUTH: cron  (auto-annotated 2026-07-27, see docs/security/edge-function-auth-matrix.md)
+// AUTH: company_admin  (was auto-annotated cron 2026-07-27, see docs/security/edge-function-auth-matrix.md)
 // deno-lint-ignore-file no-explicit-any
 // tw-bsr-effect-analysis
 // UA 池 / backoff / 連續失敗次數 對成功率影響的分析。
@@ -6,25 +6,12 @@
 // 僅 company_admin 可存取。
 import { corsHeaders } from "../_shared/cors.ts";
 import { requireCompanyAdmin, authErrorResponse } from '../_shared/adminGuard.ts';
-import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 Deno.serve(async (req) => {
-  // AUTH: cron (Phase M-2 runtime enforcement)
-  if (req.method !== 'OPTIONS') {
-    try { requireCronKey(req); }
-    catch (e) {
-      if (e instanceof AuthError) {
-        return new Response(JSON.stringify({ error: e.message, code: e.code }), {
-          status: e.status,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        });
-      }
-      throw e;
-    }
-  }
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "GET") return json({ error: "METHOD_NOT_ALLOWED" }, 405);

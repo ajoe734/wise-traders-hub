@@ -80,6 +80,10 @@ export function preloadKnowledgeBase({ force = false } = {}) {
 
   _loadingPromise = (async () => {
     try {
+      // Visitors have no read access (member-only table); skip the doomed request and
+      // leave the cache unset so the first signed-in call loads it.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return buildEmptyCache('signed_out')
       const { data, error } = await supabase
         .from('checkup_knowledge_items')
         .select('id,category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version,trigger_condition,expected_outcome,win_rate,sample_size,source_type,industry_tags,time_horizon,lifecycle_status')

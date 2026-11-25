@@ -15,6 +15,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { serviceClient } from '../_shared/supabaseClients.ts';
 import { requireCronKey, AuthError } from '../_shared/authGuard.ts';
+import { requireCompanyAdmin } from '../_shared/adminGuard.ts';
 import {
   checkRateLimit,
   fetchWithRateLimit,
@@ -1073,7 +1074,11 @@ async function runStats() {
 Deno.serve(async (req) => {
   // AUTH: cron (Phase M-2 runtime enforcement)
   if (req.method !== 'OPTIONS') {
-    try { requireCronKey(req); }
+    // Scheduled jobs use X-Cron-Key; the /company/bsr-rate-limit console calls with an admin session.
+    try {
+      try { requireCronKey(req); }
+      catch (cronErr) { if (req.headers.get('x-cron-key')) throw cronErr; await requireCompanyAdmin(req); }
+    }
     catch (e) {
       if (e instanceof AuthError) {
         return new Response(JSON.stringify({ error: e.message, code: e.code }), {

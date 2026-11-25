@@ -1,6 +1,7 @@
 // W4-2: 顯示用戶最近 7 天 pending 的 payment_intents（未完成訂單）
 // 提供「繼續付款」與「放棄」按鈕。
 import { useEffect, useState } from 'react';
+import { PAYMENT_INTENT_COLUMNS, attachIntentPlans } from '@/lib/paymentIntentPlans';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,12 +33,12 @@ export function PendingCheckoutCard() {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from('payment_intents' as any)
-      .select('id, trade_no, product_kind, plan_id, checkup_plan_id, expert_id, amount, billing_cycle, created_at, expert_plans:plan_id(name, experts(name, slug)), checkup_plans:checkup_plan_id(name)')
+      .select(PAYMENT_INTENT_COLUMNS)
       .eq('user_id', user.id)
       .eq('status', 'pending')
       .gte('created_at', since)
       .order('created_at', { ascending: false });
-    setIntents((data as any) || []);
+    setIntents((await attachIntentPlans((data as any[]) || [])) as any);
     setLoading(false);
   };
 

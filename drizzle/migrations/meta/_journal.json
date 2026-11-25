@@ -505,6 +505,34 @@
       "when": 1794908485530,
       "tag": "0071_plaid_brokerage_sandbox",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1795599286890,
+      "tag": "0072_security_revoke_anon_bsr_converge_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1795599334506,
+      "tag": "0073_fix_admin_holdings_consistency_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1795599579440,
+      "tag": "0074_converge_bsr_windows_single_pass",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1795599698700,
+      "tag": "0075_fix_get_publish_batch_status_columns",
+      "breakpoints": true
     }
   ]
 }

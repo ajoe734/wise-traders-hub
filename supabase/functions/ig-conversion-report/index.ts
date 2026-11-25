@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { serviceClient } from '../_shared/supabaseClients.ts';
 import { createRateLimiter, groupExpertDaily, projectRows, safeEqual, taipeiBounds, validateRange } from '../_shared/igReportCore.ts';
 
 const headers = {
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
   const range = validateRange(url.searchParams.get('since'), url.searchParams.get('until'));
   if (!range.ok) return json({ error: range.error }, 400);
 
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const admin = serviceClient();
   const { data, error } = await admin.rpc('get_ig_conversion_report', { _since: range.since, _until: range.until });
   if (error) {
     console.error('[ig-conversion-report] rpc failed', error.code);

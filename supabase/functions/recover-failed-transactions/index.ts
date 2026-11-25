@@ -112,7 +112,7 @@ Deno.serve(withLogging('recover-failed-transactions', async (req) => {
 
   const { data: intents, error: qErr } = await supabaseAdmin
     .from('payment_intents')
-    .select('id, trade_no, user_id, product_kind, plan_id, checkup_plan_id, expert_id, amount, billing_cycle, created_at, expert_plans:plan_id(name, experts(name, slug)), checkup_plans:checkup_plan_id(name)')
+    .select('id, trade_no, user_id, product_kind, plan_id, checkup_plan_id, expert_id, amount, billing_cycle, created_at')
     .eq('status', 'pending')
     .is('final_recovery_notified_at', null)
     .gte('created_at', lower.toISOString())
@@ -124,6 +124,20 @@ Deno.serve(withLogging('recover-failed-transactions', async (req) => {
     return new Response(JSON.stringify({ error: qErr.message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  // payment_intents has no foreign keys, so PostgREST embeds fail (PGRST200); look up plan names separately.
+  const planIds = [...new Set((intents || []).map((r: any) => r.plan_id).filter(Boolean))];
+  const checkupIds = [...new Set((intents || []).map((r: any) => r.checkup_plan_id).filter(Boolean))];
+  const [{ data: planRows }, { data: checkupRows }] = await Promise.all([
+    planIds.length ? supabaseAdmin.from('expert_plans').select('id, name, experts(name, slug)').in('id', planIds) : Promise.resolve({ data: [] as any[] }),
+    checkupIds.length ? supabaseAdmin.from('checkup_plans').select('id, name').in('id', checkupIds) : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const planById = new Map((planRows || []).map((p: any) => [p.id, p]));
+  const checkupById = new Map((checkupRows || []).map((p: any) => [p.id, p]));
+  for (const r of (intents || []) as any[]) {
+    r.expert_plans = r.plan_id ? planById.get(r.plan_id) ?? null : null;
+    r.checkup_plans = r.checkup_plan_id ? checkupById.get(r.checkup_plan_id) ?? null : null;
   }
 
   let lineCount = 0, emailCount = 0, skipCount = 0;
